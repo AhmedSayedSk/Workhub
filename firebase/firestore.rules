@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Organizations collection
+    match /organizations/{organizationId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Systems collection
+    match /systems/{systemId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Projects collection
+    match /projects/{projectId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Milestones collection
+    match /milestones/{milestoneId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Features collection
+    match /features/{featureId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Tasks collection
+    match /tasks/{taskId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Subtasks collection
+    match /subtasks/{subtaskId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Time Entries collection
+    match /timeEntries/{entryId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Monthly Payments collection
+    match /monthlyPayments/{paymentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // AI Suggestions collection
+    match /aiSuggestions/{suggestionId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

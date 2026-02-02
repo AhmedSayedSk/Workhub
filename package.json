@@ -6,13 +6,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "firebase:deploy": "firebase deploy",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules",
+    "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",
+    "migrate": "npx ts-node --project tsconfig.migration.json firebase/migrations/run-migrations.ts",
+    "migrate:001": "npx ts-node --project tsconfig.migration.json firebase/migrations/001_initial_setup.ts",
+    "migrate:002": "npx ts-node --project tsconfig.migration.json firebase/migrations/002_sample_data.ts"
   },
   "dependencies": {
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "firebase": "^11.1.0",
+    "firebase-admin": "^13.0.2",
     "@google/generative-ai": "^0.21.0",
     "zustand": "^5.0.2",
     "recharts": "^2.14.1",
@@ -47,6 +54,7 @@
     "postcss": "^8.4.49",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
-    "eslint-config-next": "^15.1.0"
+    "eslint-config-next": "^15.1.0",
+    "ts-node": "^10.9.2"
   }
 }
