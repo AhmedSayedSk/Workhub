@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3090",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -11,8 +11,7 @@
     "firebase:deploy:rules": "firebase deploy --only firestore:rules",
     "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",
     "migrate": "npx ts-node --project tsconfig.migration.json firebase/migrations/run-migrations.ts",
-    "migrate:001": "npx ts-node --project tsconfig.migration.json firebase/migrations/001_initial_setup.ts",
-    "migrate:002": "npx ts-node --project tsconfig.migration.json firebase/migrations/002_sample_data.ts"
+    "migrate:reset": "npx ts-node --project tsconfig.migration.json firebase/migrations/reset-database.ts"
   },
   "dependencies": {
     "next": "^15.1.0",
@@ -42,8 +41,7 @@
     "@radix-ui/react-tooltip": "^1.1.6",
     "@radix-ui/react-popover": "^1.1.4",
     "@radix-ui/react-alert-dialog": "^1.1.4",
-    "@radix-ui/react-switch": "^1.1.2",
-    "@hello-pangea/dnd": "^17.0.0"
+    "@radix-ui/react-switch": "^1.1.2"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

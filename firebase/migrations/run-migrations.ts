@@ -2,12 +2,13 @@
  * Migration Runner
  *
  * Runs all pending migrations in order.
- * Run with: npx ts-node firebase/migrations/run-migrations.ts
+ * Run with: npm run migrate
  */
 
 import * as admin from 'firebase-admin'
 import * as path from 'path'
 import * as fs from 'fs'
+import { execSync } from 'child_process'
 
 // Initialize Firebase Admin
 const serviceAccountPath = path.join(__dirname, '../../workhub-c288f-firebase-adminsdk-fbsvc-be5266eec0.json')
@@ -20,10 +21,6 @@ if (!admin.apps.length) {
 
 const db = admin.firestore()
 
-interface MigrationModule {
-  default?: () => Promise<void>
-}
-
 async function getExecutedMigrations(): Promise<Set<string>> {
   const snapshot = await db.collection('_migrations').get()
   const executed = new Set<string>()
@@ -35,11 +32,11 @@ async function getExecutedMigrations(): Promise<Set<string>> {
   return executed
 }
 
-async function getMigrationFiles(): Promise<string[]> {
+function getMigrationFiles(): string[] {
   const migrationsDir = __dirname
   const files = fs.readdirSync(migrationsDir)
   return files
-    .filter((f) => f.match(/^\d{3}_.*\.ts$/) && f !== 'run-migrations.ts')
+    .filter((f) => f.match(/^\d{3}_.*\.ts$/) && !f.includes('run-migrations') && !f.includes('reset-database'))
     .sort()
 }
 
@@ -50,60 +47,50 @@ async function runMigrations() {
 
   try {
     const executed = await getExecutedMigrations()
-    const migrationFiles = await getMigrationFiles()
+    const migrationFiles = getMigrationFiles()
 
     console.log(`Found ${migrationFiles.length} migration file(s)`)
     console.log(`Already executed: ${executed.size} migration(s)\n`)
 
-    let ranCount = 0
-
-    for (const file of migrationFiles) {
+    const pendingMigrations = migrationFiles.filter((file) => {
       const migrationName = file.replace('.ts', '')
+      return !executed.has(migrationName)
+    })
 
-      if (executed.has(migrationName)) {
-        console.log(`[SKIP] ${migrationName} (already executed)`)
-        continue
-      }
+    if (pendingMigrations.length === 0) {
+      console.log('No pending migrations to run.')
+      console.log('\n========================================')
+      return
+    }
 
-      console.log(`\n[RUN] ${migrationName}`)
-      console.log('-'.repeat(40))
+    console.log(`Pending migrations: ${pendingMigrations.length}`)
+    pendingMigrations.forEach((m) => console.log(`  - ${m}`))
+    console.log('')
+
+    for (const file of pendingMigrations) {
+      const migrationName = file.replace('.ts', '')
+      const migrationPath = path.join(__dirname, file)
+
+      console.log(`\n[RUNNING] ${migrationName}`)
+      console.log('─'.repeat(50))
 
       try {
-        // Import and run the migration
-        const migrationPath = path.join(__dirname, file)
-
-        // Mark as pending
-        await db.collection('_migrations').doc(migrationName).set({
-          name: migrationName,
-          startedAt: admin.firestore.FieldValue.serverTimestamp(),
-          status: 'pending',
+        // Run the migration as a separate process
+        const tsconfigPath = path.join(__dirname, '../../tsconfig.migration.json')
+        execSync(`npx ts-node --project "${tsconfigPath}" "${migrationPath}"`, {
+          stdio: 'inherit',
+          cwd: path.join(__dirname, '../..'),
         })
 
-        // Execute migration by requiring the file
-        // The migration file will run its own logic
-        require(migrationPath)
-
-        ranCount++
-        console.log(`[DONE] ${migrationName}`)
+        console.log(`[SUCCESS] ${migrationName}`)
       } catch (error) {
-        console.error(`[FAIL] ${migrationName}:`, error)
-
-        await db.collection('_migrations').doc(migrationName).update({
-          status: 'failed',
-          error: String(error),
-          failedAt: admin.firestore.FieldValue.serverTimestamp(),
-        })
-
+        console.error(`[FAILED] ${migrationName}`)
         throw error
       }
     }
 
     console.log('\n========================================')
-    if (ranCount === 0) {
-      console.log('No new migrations to run.')
-    } else {
-      console.log(`Successfully ran ${ranCount} migration(s).`)
-    }
+    console.log(`Successfully ran ${pendingMigrations.length} migration(s)`)
     console.log('========================================')
   } catch (error) {
     console.error('\nMigration runner failed:', error)
