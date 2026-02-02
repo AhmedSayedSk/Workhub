@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,14 +55,16 @@ export default function TimePage() {
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const now = new Date()
-  const ranges = {
-    today: { start: startOfDay(now), end: endOfDay(now) },
-    week: { start: startOfWeek(now), end: endOfWeek(now) },
-    month: { start: startOfMonth(now), end: endOfMonth(now) },
-  }
-
-  const { start, end } = ranges[dateRange]
+  // Memoize date ranges to prevent infinite re-fetching
+  const { start, end } = useMemo(() => {
+    const now = new Date()
+    const ranges = {
+      today: { start: startOfDay(now), end: endOfDay(now) },
+      week: { start: startOfWeek(now), end: endOfWeek(now) },
+      month: { start: startOfMonth(now), end: endOfMonth(now) },
+    }
+    return ranges[dateRange]
+  }, [dateRange])
 
   const {
     timeEntries,
@@ -78,7 +80,7 @@ export default function TimePage() {
   const [manualForm, setManualForm] = useState({
     projectId: '',
     taskId: '',
-    date: format(now, 'yyyy-MM-dd'),
+    date: format(new Date(), 'yyyy-MM-dd'),
     hours: '',
     minutes: '',
     notes: '',
@@ -144,7 +146,7 @@ export default function TimePage() {
       setManualForm({
         projectId: '',
         taskId: '',
-        date: format(now, 'yyyy-MM-dd'),
+        date: format(new Date(), 'yyyy-MM-dd'),
         hours: '',
         minutes: '',
         notes: '',

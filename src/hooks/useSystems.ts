@@ -43,6 +43,7 @@ export function useSystems(organizationId?: string) {
       toast({
         title: 'Success',
         description: 'System created successfully',
+        variant: 'success',
       })
       return id
     } catch (err) {
@@ -62,6 +63,7 @@ export function useSystems(organizationId?: string) {
       toast({
         title: 'Success',
         description: 'System updated successfully',
+        variant: 'success',
       })
     } catch (err) {
       toast({
@@ -80,6 +82,7 @@ export function useSystems(organizationId?: string) {
       toast({
         title: 'Success',
         description: 'System deleted successfully',
+        variant: 'success',
       })
     } catch (err) {
       toast({

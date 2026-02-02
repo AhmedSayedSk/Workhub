@@ -11,7 +11,8 @@
     "firebase:deploy:rules": "firebase deploy --only firestore:rules",
     "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",
     "migrate": "npx ts-node --project tsconfig.migration.json firebase/migrations/run-migrations.ts",
-    "migrate:reset": "npx ts-node --project tsconfig.migration.json firebase/migrations/reset-database.ts"
+    "migrate:reset": "npx ts-node --project tsconfig.migration.json firebase/migrations/reset-database.ts",
+    "db:clear": "npx ts-node --project tsconfig.migration.json firebase/migrations/clear-sample-data.ts"
   },
   "dependencies": {
     "next": "^15.1.0",

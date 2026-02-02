@@ -61,6 +61,7 @@ export function TimerWidget() {
         toast({
           title: 'Time logged',
           description: `${duration} minutes recorded`,
+          variant: 'success',
         })
       } catch {
         toast({
@@ -89,7 +90,7 @@ export function TimerWidget() {
           <div className="flex items-center gap-2">
             <div className={cn(
               'w-3 h-3 rounded-full',
-              isPaused ? 'bg-yellow-500' : 'bg-green-500 timer-pulse'
+              isPaused ? 'bg-amber-500 dark:bg-amber-400' : 'bg-green-600 dark:bg-green-400 timer-pulse'
             )} />
             <span className="text-2xl font-mono font-bold">
               {formatTimerDisplay(elapsed)}

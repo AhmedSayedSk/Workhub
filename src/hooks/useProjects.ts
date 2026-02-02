@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { projects, milestones, monthlyPayments } from '@/lib/firestore'
+import { projects, milestones, monthlyPayments, batch } from '@/lib/firestore'
 import { Project, ProjectInput, Milestone, MilestoneInput, MonthlyPayment, MonthlyPaymentInput } from '@/types'
 import { useToast } from './useToast'
 
@@ -40,6 +40,7 @@ export function useProjects(systemId?: string) {
       toast({
         title: 'Success',
         description: 'Project created successfully',
+        variant: 'success',
       })
       return id
     } catch (err) {
@@ -59,6 +60,7 @@ export function useProjects(systemId?: string) {
       toast({
         title: 'Success',
         description: 'Project updated successfully',
+        variant: 'success',
       })
     } catch (err) {
       toast({
@@ -77,6 +79,7 @@ export function useProjects(systemId?: string) {
       toast({
         title: 'Success',
         description: 'Project deleted successfully',
+        variant: 'success',
       })
     } catch (err) {
       toast({
@@ -141,6 +144,7 @@ export function useProject(projectId: string) {
       toast({
         title: 'Success',
         description: 'Project updated',
+        variant: 'success',
       })
     } catch (err) {
       toast({
@@ -160,6 +164,7 @@ export function useProject(projectId: string) {
       toast({
         title: 'Success',
         description: 'Milestone created',
+        variant: 'success',
       })
     } catch (err) {
       toast({
@@ -178,6 +183,7 @@ export function useProject(projectId: string) {
       toast({
         title: 'Success',
         description: 'Milestone updated',
+        variant: 'success',
       })
     } catch (err) {
       toast({
@@ -196,6 +202,7 @@ export function useProject(projectId: string) {
       toast({
         title: 'Success',
         description: 'Milestone deleted',
+        variant: 'success',
       })
     } catch (err) {
       toast({
@@ -215,6 +222,7 @@ export function useProject(projectId: string) {
       toast({
         title: 'Success',
         description: 'Payment record created',
+        variant: 'success',
       })
     } catch (err) {
       toast({
@@ -233,11 +241,31 @@ export function useProject(projectId: string) {
       toast({
         title: 'Success',
         description: 'Payment updated',
+        variant: 'success',
       })
     } catch (err) {
       toast({
         title: 'Error',
         description: 'Failed to update payment',
+        variant: 'destructive',
+      })
+      throw err
+    }
+  }
+
+  // Delete project with all related data
+  const deleteProject = async () => {
+    try {
+      await batch.deleteProjectCascade(projectId)
+      toast({
+        title: 'Success',
+        description: 'Project and all related data deleted',
+        variant: 'success',
+      })
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete project',
         variant: 'destructive',
       })
       throw err
@@ -251,6 +279,7 @@ export function useProject(projectId: string) {
     loading,
     refetch: fetchProject,
     updateProject,
+    deleteProject,
     createMilestone,
     updateMilestone,
     deleteMilestone,

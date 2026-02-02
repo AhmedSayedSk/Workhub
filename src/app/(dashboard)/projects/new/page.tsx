@@ -50,6 +50,7 @@ export default function NewProjectPage() {
 
   const [formData, setFormData] = useState({
     name: '',
+    clientName: '',
     description: '',
     systemId: '',
     paymentModel: 'milestone' as PaymentModel,
@@ -71,20 +72,12 @@ export default function NewProjectPage() {
       return
     }
 
-    if (!formData.systemId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a system',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setIsSubmitting(true)
 
     try {
       const projectId = await projects.create({
         name: formData.name,
+        clientName: formData.clientName,
         description: formData.description,
         systemId: formData.systemId,
         paymentModel: formData.paymentModel,
@@ -100,6 +93,7 @@ export default function NewProjectPage() {
       toast({
         title: 'Success',
         description: 'Project created successfully',
+        variant: 'success',
       })
 
       router.push(`/projects/${projectId}`)
@@ -149,6 +143,17 @@ export default function NewProjectPage() {
               />
             </div>
 
+            {/* Client Name */}
+            <div className="space-y-2">
+              <Label htmlFor="clientName">Client Name</Label>
+              <Input
+                id="clientName"
+                placeholder="e.g., Acme Corp"
+                value={formData.clientName}
+                onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+              />
+            </div>
+
             {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
@@ -162,15 +167,18 @@ export default function NewProjectPage() {
 
             {/* System */}
             <div className="space-y-2">
-              <Label>System *</Label>
+              <Label>System</Label>
               <Select
-                value={formData.systemId}
-                onValueChange={(value) => setFormData({ ...formData, systemId: value })}
+                value={formData.systemId || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, systemId: value === 'none' ? '' : value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a system" />
+                  <SelectValue placeholder="Select a system (optional)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No system</span>
+                  </SelectItem>
                   {systems.map((system) => (
                     <SelectItem key={system.id} value={system.id}>
                       <div className="flex items-center gap-2">
@@ -184,14 +192,6 @@ export default function NewProjectPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {systems.length === 0 && !systemsLoading && (
-                <p className="text-sm text-muted-foreground">
-                  No systems found.{' '}
-                  <Link href="/systems" className="text-primary hover:underline">
-                    Create one first
-                  </Link>
-                </p>
-              )}
             </div>
 
             {/* Payment Model */}

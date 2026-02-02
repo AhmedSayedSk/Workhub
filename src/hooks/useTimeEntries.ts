@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { timeEntries, projects, tasks } from '@/lib/firestore'
 import { TimeEntry, TimeEntryInput, Project, Task } from '@/types'
 import { useToast } from './useToast'
@@ -12,13 +12,21 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
+  // Convert dates to timestamps for stable dependency comparison
+  const startTimestamp = startDate?.getTime()
+  const endTimestamp = endDate?.getTime()
+
   const fetchTimeEntries = useCallback(async () => {
     try {
       setLoading(true)
 
       let entries: TimeEntry[]
-      if (startDate && endDate) {
-        entries = await timeEntries.getByDateRange(startDate, endDate, projectId)
+      if (startTimestamp && endTimestamp) {
+        entries = await timeEntries.getByDateRange(
+          new Date(startTimestamp),
+          new Date(endTimestamp),
+          projectId
+        )
       } else if (projectId) {
         entries = await timeEntries.getAll(projectId)
       } else {
@@ -49,7 +57,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
     } finally {
       setLoading(false)
     }
-  }, [projectId, startDate, endDate, toast])
+  }, [projectId, startTimestamp, endTimestamp, toast])
 
   useEffect(() => {
     fetchTimeEntries()
@@ -59,7 +67,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
     try {
       await timeEntries.create(input)
       await fetchTimeEntries()
-      toast({ title: 'Success', description: 'Time entry created' })
+      toast({ title: 'Success', description: 'Time entry created', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to create time entry', variant: 'destructive' })
       throw new Error('Failed to create time entry')
@@ -70,7 +78,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
     try {
       await timeEntries.update(id, input)
       await fetchTimeEntries()
-      toast({ title: 'Success', description: 'Time entry updated' })
+      toast({ title: 'Success', description: 'Time entry updated', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to update time entry', variant: 'destructive' })
       throw new Error('Failed to update time entry')
@@ -81,7 +89,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
     try {
       await timeEntries.delete(id)
       await fetchTimeEntries()
-      toast({ title: 'Success', description: 'Time entry deleted' })
+      toast({ title: 'Success', description: 'Time entry deleted', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to delete time entry', variant: 'destructive' })
       throw new Error('Failed to delete time entry')

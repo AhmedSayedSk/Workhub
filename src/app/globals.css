@@ -4,48 +4,68 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 224 71.4% 4.1%;
-    --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    /* Soft off-white background - easier on eyes than pure white */
+    --background: 220 20% 97%;
+    /* Softer dark gray - not pure black for reduced contrast */
+    --foreground: 220 15% 25%;
+    /* Cards slightly brighter for subtle depth */
+    --card: 220 20% 99%;
+    --card-foreground: 220 15% 25%;
+    /* Popovers pure white for focus */
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
-    --primary: 220.9 39.3% 11%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 220 14.3% 95.9%;
-    --secondary-foreground: 220.9 39.3% 11%;
-    --muted: 220 14.3% 95.9%;
-    --muted-foreground: 220 8.9% 46.1%;
-    --accent: 220 14.3% 95.9%;
-    --accent-foreground: 220.9 39.3% 11%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 224 71.4% 4.1%;
+    --popover-foreground: 220 15% 25%;
+    /* Primary - softer blue-gray for actions */
+    --primary: 220 40% 35%;
+    --primary-foreground: 220 20% 98%;
+    /* Secondary - subtle warm gray */
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 220 15% 30%;
+    /* Muted - for less important content */
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 10% 50%;
+    /* Accent - soft highlight */
+    --accent: 220 14% 92%;
+    --accent-foreground: 220 15% 28%;
+    /* Destructive - softer red */
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 100%;
+    /* Border - gentle separation */
+    --border: 220 13% 88%;
+    --input: 220 13% 90%;
+    --ring: 220 40% 45%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
-    --card: 224 71.4% 4.1%;
-    --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 210 20% 98%;
-    --primary-foreground: 220.9 39.3% 11%;
-    --secondary: 215 27.9% 16.9%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 217.9 10.6% 64.9%;
-    --accent: 215 27.9% 16.9%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 215 27.9% 16.9%;
-    --input: 215 27.9% 16.9%;
-    --ring: 216 12.2% 83.9%;
+    /* Soft dark background - warmer and easier on eyes */
+    --background: 222 16% 11%;
+    /* Reduced contrast foreground - soft gray instead of pure white */
+    --foreground: 220 13% 78%;
+    /* Cards slightly elevated from background for depth */
+    --card: 222 16% 14%;
+    --card-foreground: 220 13% 82%;
+    /* Popovers slightly lighter for visual hierarchy */
+    --popover: 222 14% 16%;
+    --popover-foreground: 220 13% 82%;
+    /* Primary - soft blue-gray for actions */
+    --primary: 217 33% 60%;
+    --primary-foreground: 222 16% 11%;
+    /* Secondary - subtle elevation */
+    --secondary: 220 14% 18%;
+    --secondary-foreground: 220 13% 75%;
+    /* Muted - for less important content */
+    --muted: 220 12% 16%;
+    --muted-foreground: 220 10% 55%;
+    /* Accent - softer highlight */
+    --accent: 220 14% 20%;
+    --accent-foreground: 220 13% 80%;
+    /* Destructive - muted red */
+    --destructive: 0 50% 45%;
+    --destructive-foreground: 220 13% 90%;
+    /* Border - subtle separation */
+    --border: 220 12% 20%;
+    --input: 220 12% 18%;
+    --ring: 217 25% 50%;
   }
 }
 
@@ -53,8 +73,23 @@
   * {
     @apply border-border;
   }
+  html {
+    /* Smoother font rendering for dark mode */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
   body {
     @apply bg-background text-foreground;
+    /* Smooth color transitions when switching themes */
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  /* Reduce eye strain with slightly muted heading weight */
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
+  }
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    font-weight: 600;
   }
 }
 

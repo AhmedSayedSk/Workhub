@@ -34,7 +34,7 @@ export function useFeatures(projectId?: string) {
     try {
       const id = await features.create(input)
       await fetchFeatures()
-      toast({ title: 'Success', description: 'Feature created' })
+      toast({ title: 'Success', description: 'Feature created', variant: 'success' })
       return id
     } catch {
       toast({ title: 'Error', description: 'Failed to create feature', variant: 'destructive' })
@@ -46,7 +46,7 @@ export function useFeatures(projectId?: string) {
     try {
       await features.update(id, input)
       await fetchFeatures()
-      toast({ title: 'Success', description: 'Feature updated' })
+      toast({ title: 'Success', description: 'Feature updated', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to update feature', variant: 'destructive' })
       throw new Error('Failed to update feature')
@@ -57,7 +57,7 @@ export function useFeatures(projectId?: string) {
     try {
       await features.delete(id)
       await fetchFeatures()
-      toast({ title: 'Success', description: 'Feature deleted' })
+      toast({ title: 'Success', description: 'Feature deleted', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to delete feature', variant: 'destructive' })
       throw new Error('Failed to delete feature')
@@ -103,7 +103,7 @@ export function useTasks(projectId?: string, featureId?: string) {
     try {
       const id = await tasks.create(input)
       await fetchTasks()
-      toast({ title: 'Success', description: 'Task created' })
+      toast({ title: 'Success', description: 'Task created', variant: 'success' })
       return id
     } catch {
       toast({ title: 'Error', description: 'Failed to create task', variant: 'destructive' })
@@ -125,7 +125,7 @@ export function useTasks(projectId?: string, featureId?: string) {
     try {
       await tasks.delete(id)
       await fetchTasks()
-      toast({ title: 'Success', description: 'Task deleted' })
+      toast({ title: 'Success', description: 'Task deleted', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' })
       throw new Error('Failed to delete task')
@@ -177,7 +177,7 @@ export function useSubtasks(taskId?: string) {
     try {
       const id = await subtasks.create(input)
       await fetchSubtasks()
-      toast({ title: 'Success', description: 'Subtask created' })
+      toast({ title: 'Success', description: 'Subtask created', variant: 'success' })
       return id
     } catch {
       toast({ title: 'Error', description: 'Failed to create subtask', variant: 'destructive' })
@@ -199,7 +199,7 @@ export function useSubtasks(taskId?: string) {
     try {
       await subtasks.delete(id)
       await fetchSubtasks()
-      toast({ title: 'Success', description: 'Subtask deleted' })
+      toast({ title: 'Success', description: 'Subtask deleted', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to delete subtask', variant: 'destructive' })
       throw new Error('Failed to delete subtask')

@@ -13,6 +13,7 @@ import {
   formatDate,
   statusColors,
   calculateProgress,
+  chartColors,
 } from '@/lib/utils'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import {
@@ -36,7 +37,7 @@ import {
   Cell,
 } from 'recharts'
 
-const COLORS = ['#3B82F6', '#22C55E', '#A855F7', '#F97316', '#EC4899', '#14B8A6']
+// Using soft chart colors from utils for dark mode comfort
 
 export default function FinancesPage() {
   const [allProjects, setProjects] = useState<Project[]>([])
@@ -171,10 +172,10 @@ export default function FinancesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Owed</CardTitle>
-            <Wallet className="h-4 w-4 text-orange-500" />
+            <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">
               {formatCurrency(totalOwed)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -186,10 +187,10 @@ export default function FinancesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Received</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-700 dark:text-green-400">
               {formatCurrency(totalPaid)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -201,10 +202,10 @@ export default function FinancesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Milestones</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
+            <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
               {formatCurrency(pendingMilestoneValue)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -216,10 +217,10 @@ export default function FinancesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Monthly</CardTitle>
-            <DollarSign className="h-4 w-4 text-purple-500" />
+            <DollarSign className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
+            <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">
               {formatCurrency(pendingPaymentValue)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -301,7 +302,7 @@ export default function FinancesPage() {
                       {systemDistribution.map((_, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
+                          fill={chartColors[index % chartColors.length]}
                         />
                       ))}
                     </Pie>
@@ -381,7 +382,7 @@ export default function FinancesPage() {
                           {formatCurrency(project.totalAmount)}
                         </p>
                         {owed > 0 && (
-                          <p className="text-sm text-orange-600">
+                          <p className="text-sm text-orange-700 dark:text-orange-400">
                             Owed: {formatCurrency(owed)}
                           </p>
                         )}

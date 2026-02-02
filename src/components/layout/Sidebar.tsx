@@ -105,10 +105,10 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="w-full bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 border-purple-500/20"
+                  className="w-full bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 border-purple-500/20 dark:from-purple-400/10 dark:to-blue-400/10 dark:hover:from-purple-400/15 dark:hover:to-blue-400/15 dark:border-purple-400/20"
                   onClick={onOpenAI}
                 >
-                  <Sparkles className="h-5 w-5 text-purple-500" />
+                  <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={10}>
@@ -118,11 +118,11 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
           ) : (
             <Button
               variant="outline"
-              className="w-full justify-start gap-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 border-purple-500/20"
+              className="w-full justify-start gap-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 border-purple-500/20 dark:from-purple-400/10 dark:to-blue-400/10 dark:hover:from-purple-400/15 dark:hover:to-blue-400/15 dark:border-purple-400/20"
               onClick={onOpenAI}
             >
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              <span className="text-purple-600 dark:text-purple-400">AI Assistant</span>
+              <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <span className="text-purple-700 dark:text-purple-400">AI Assistant</span>
               <kbd className="ml-auto text-xs bg-muted px-1.5 py-0.5 rounded">Ctrl+K</kbd>
             </Button>
           )}

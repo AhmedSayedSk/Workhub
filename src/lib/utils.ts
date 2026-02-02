@@ -120,18 +120,28 @@ export function getMinutesBetween(start: Date | Timestamp, end: Date | Timestamp
   return differenceInMinutes(endDate, startDate)
 }
 
-// Color utilities
+// Color utilities - Softer, muted colors for dark mode comfort
 export const systemColors = [
-  { name: 'Blue', value: '#3B82F6' },
-  { name: 'Green', value: '#22C55E' },
-  { name: 'Purple', value: '#A855F7' },
-  { name: 'Orange', value: '#F97316' },
-  { name: 'Pink', value: '#EC4899' },
-  { name: 'Teal', value: '#14B8A6' },
-  { name: 'Red', value: '#EF4444' },
-  { name: 'Yellow', value: '#EAB308' },
-  { name: 'Indigo', value: '#6366F1' },
-  { name: 'Cyan', value: '#06B6D4' },
+  { name: 'Blue', value: '#6B8DD6' },
+  { name: 'Green', value: '#5BA67C' },
+  { name: 'Purple', value: '#9B7DC9' },
+  { name: 'Orange', value: '#D49556' },
+  { name: 'Pink', value: '#C97BA3' },
+  { name: 'Teal', value: '#5BA6A0' },
+  { name: 'Red', value: '#C97575' },
+  { name: 'Yellow', value: '#C9B56B' },
+  { name: 'Indigo', value: '#8385C9' },
+  { name: 'Cyan', value: '#5BAAB5' },
+]
+
+// Chart colors - softer palette for dark mode
+export const chartColors = [
+  '#6B8DD6', // soft blue
+  '#5BA67C', // soft green
+  '#9B7DC9', // soft purple
+  '#D49556', // soft orange
+  '#C97BA3', // soft pink
+  '#5BA6A0', // soft teal
 ]
 
 export function getContrastColor(hexColor: string): string {
@@ -144,29 +154,29 @@ export function getContrastColor(hexColor: string): string {
   return luminance > 0.5 ? '#000000' : '#FFFFFF'
 }
 
-// Status color mapping
+// Status color mapping - softer tones for both light and dark modes
 export const statusColors = {
   project: {
-    active: 'bg-green-500/10 text-green-600 border-green-500/20',
-    paused: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-    completed: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    cancelled: 'bg-red-500/10 text-red-600 border-red-500/20',
+    active: 'bg-green-500/8 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/15 dark:border-green-500/20',
+    paused: 'bg-amber-500/8 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-500/15 dark:border-amber-500/20',
+    completed: 'bg-blue-500/8 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-500/15 dark:border-blue-500/20',
+    cancelled: 'bg-red-500/8 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-500/15 dark:border-red-500/20',
   },
   task: {
-    todo: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
-    in_progress: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    review: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-    done: 'bg-green-500/10 text-green-600 border-green-500/20',
+    todo: 'bg-slate-500/8 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400 border-slate-500/15 dark:border-slate-500/20',
+    in_progress: 'bg-blue-500/8 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-500/15 dark:border-blue-500/20',
+    review: 'bg-purple-500/8 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 border-purple-500/15 dark:border-purple-500/20',
+    done: 'bg-green-500/8 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/15 dark:border-green-500/20',
   },
   priority: {
-    low: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
-    medium: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-    high: 'bg-red-500/10 text-red-600 border-red-500/20',
+    low: 'bg-slate-500/8 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400 border-slate-500/15 dark:border-slate-500/20',
+    medium: 'bg-amber-500/8 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-500/15 dark:border-amber-500/20',
+    high: 'bg-red-500/8 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-500/15 dark:border-red-500/20',
   },
   milestone: {
-    pending: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
-    completed: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    paid: 'bg-green-500/10 text-green-600 border-green-500/20',
+    pending: 'bg-slate-500/8 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400 border-slate-500/15 dark:border-slate-500/20',
+    completed: 'bg-blue-500/8 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-500/15 dark:border-blue-500/20',
+    paid: 'bg-green-500/8 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/15 dark:border-green-500/20',
   },
 }
 

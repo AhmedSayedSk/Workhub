@@ -49,6 +49,7 @@ export default function RegisterPage() {
       toast({
         title: 'Success',
         description: 'Account created successfully!',
+        variant: 'success',
       })
       router.push('/')
     } catch (error: unknown) {

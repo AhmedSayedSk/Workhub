@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   ArrowRight,
   TrendingUp,
-  Calendar,
   Plus,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -280,41 +279,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common tasks and shortcuts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <Link href="/projects/new">
-              <Button variant="outline" className="w-full h-20 flex-col gap-2">
-                <FolderKanban className="h-6 w-6" />
-                <span>New Project</span>
-              </Button>
-            </Link>
-            <Link href="/time">
-              <Button variant="outline" className="w-full h-20 flex-col gap-2">
-                <Clock className="h-6 w-6" />
-                <span>Log Time</span>
-              </Button>
-            </Link>
-            <Link href="/finances">
-              <Button variant="outline" className="w-full h-20 flex-col gap-2">
-                <Wallet className="h-6 w-6" />
-                <span>View Finances</span>
-              </Button>
-            </Link>
-            <Link href="/systems">
-              <Button variant="outline" className="w-full h-20 flex-col gap-2">
-                <Calendar className="h-6 w-6" />
-                <span>Manage Systems</span>
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

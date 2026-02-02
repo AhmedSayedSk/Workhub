@@ -41,6 +41,7 @@ export interface Project {
   id: string
   systemId: string
   name: string
+  clientName: string
   description: string
   status: ProjectStatus
   paymentModel: PaymentModel
@@ -144,6 +145,7 @@ export interface SystemInput {
 export interface ProjectInput {
   systemId: string
   name: string
+  clientName: string
   description: string
   status: ProjectStatus
   paymentModel: PaymentModel

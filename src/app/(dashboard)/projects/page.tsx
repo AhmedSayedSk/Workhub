@@ -65,9 +65,11 @@ export default function ProjectsPage() {
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
       project.name.toLowerCase().includes(search.toLowerCase()) ||
-      project.description.toLowerCase().includes(search.toLowerCase())
+      project.description.toLowerCase().includes(search.toLowerCase()) ||
+      (project.clientName && project.clientName.toLowerCase().includes(search.toLowerCase()))
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter
-    const matchesSystem = selectedSystem === 'all' || project.systemId === selectedSystem
+    const matchesSystem = selectedSystem === 'all' ||
+      (selectedSystem === 'none' ? !project.systemId : project.systemId === selectedSystem)
 
     return matchesSearch && matchesStatus && matchesSystem
   })
@@ -117,6 +119,9 @@ export default function ProjectsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Systems</SelectItem>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">No System</span>
+                </SelectItem>
                 {systems.map((system) => (
                   <SelectItem key={system.id} value={system.id}>
                     <div className="flex items-center gap-2">
@@ -201,6 +206,11 @@ export default function ProjectsPage() {
                       </div>
                     </div>
                     <CardTitle className="text-lg mt-2">{project.name}</CardTitle>
+                    {project.clientName && (
+                      <p className="text-sm text-primary font-medium">
+                        {project.clientName}
+                      </p>
+                    )}
                     {project.description && (
                       <CardDescription className="line-clamp-2">
                         {project.description}
@@ -229,12 +239,12 @@ export default function ProjectsPage() {
                       {/* Dates */}
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-4 w-4 text-sky-600/70 dark:text-sky-400/80" />
                           <span>Started {formatDate(project.startDate)}</span>
                         </div>
                         {project.deadline && (
                           <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
+                            <Clock className="h-4 w-4 text-amber-600/70 dark:text-amber-400/80" />
                             <span>Due {formatDate(project.deadline)}</span>
                           </div>
                         )}

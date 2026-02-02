@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,15 +21,28 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { useProject } from '@/hooks/useProjects'
 import { useSystems } from '@/hooks/useSystems'
-import { MilestoneStatus } from '@/types'
+import { MilestoneStatus, PaymentModel } from '@/types'
+import { format } from 'date-fns'
 import {
   formatCurrency,
   formatDate,
@@ -52,6 +66,7 @@ import {
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const router = useRouter()
   const {
     project,
     milestones,
@@ -63,17 +78,32 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     createPayment,
     updatePayment,
     updateProject,
+    deleteProject,
   } = useProject(id)
   const { systems } = useSystems()
 
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const [milestoneForm, setMilestoneForm] = useState({
     name: '',
     amount: '',
     dueDate: new Date().toISOString().split('T')[0],
+  })
+
+  const [editForm, setEditForm] = useState({
+    name: '',
+    clientName: '',
+    description: '',
+    systemId: '',
+    paymentModel: 'milestone' as PaymentModel,
+    totalAmount: '',
+    startDate: '',
+    deadline: '',
+    notes: '',
   })
 
   const [paymentForm, setPaymentForm] = useState({
@@ -189,6 +219,57 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     })
   }
 
+  const handleDeleteProject = async () => {
+    setIsDeleting(true)
+    try {
+      await deleteProject()
+      router.push('/projects')
+    } catch {
+      // Error is handled by the hook
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const openEditDialog = () => {
+    if (project) {
+      setEditForm({
+        name: project.name,
+        clientName: project.clientName || '',
+        description: project.description,
+        systemId: project.systemId,
+        paymentModel: project.paymentModel,
+        totalAmount: project.totalAmount.toString(),
+        startDate: format(project.startDate.toDate(), 'yyyy-MM-dd'),
+        deadline: project.deadline ? format(project.deadline.toDate(), 'yyyy-MM-dd') : '',
+        notes: project.notes,
+      })
+      setIsEditDialogOpen(true)
+    }
+  }
+
+  const handleEditProject = async () => {
+    if (!editForm.name.trim()) return
+
+    setIsSubmitting(true)
+    try {
+      await updateProject({
+        name: editForm.name,
+        clientName: editForm.clientName,
+        description: editForm.description,
+        systemId: editForm.systemId,
+        paymentModel: editForm.paymentModel,
+        totalAmount: parseFloat(editForm.totalAmount) || 0,
+        startDate: new Date(editForm.startDate),
+        deadline: editForm.deadline ? new Date(editForm.deadline) : null,
+        notes: editForm.notes,
+      })
+      setIsEditDialogOpen(false)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -201,11 +282,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </Link>
           <div>
             <div className="flex items-center gap-3 mb-1">
-              {system && (
+              {system ? (
                 <div
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: system.color }}
                 />
+              ) : project.systemId ? null : (
+                <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
               )}
               <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
               <Badge
@@ -215,10 +298,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 {project.status}
               </Badge>
             </div>
+            {project.clientName && (
+              <p className="text-sm font-medium text-primary mb-1">Client: {project.clientName}</p>
+            )}
             <p className="text-muted-foreground">{project.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={openEditDialog}>
+            <Edit className="h-4 w-4" />
+          </Button>
+
           <Select
             value={project.status}
             onValueChange={(value) =>
@@ -235,6 +325,50 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="icon" className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Project</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="text-sm text-muted-foreground">
+                    <p>
+                      Are you sure you want to delete <span className="font-semibold">{project.name}</span>?
+                      This will permanently remove the project and all related data including:
+                    </p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>All milestones and payments</li>
+                      <li>All features, tasks, and subtasks</li>
+                      <li>All time entries</li>
+                    </ul>
+                    <p className="mt-2 text-destructive font-medium">This action cannot be undone.</p>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteProject}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete Project'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -255,10 +389,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Paid</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-700 dark:text-green-400">
               {formatCurrency(project.paidAmount)}
             </div>
           </CardContent>
@@ -267,10 +401,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Owed</CardTitle>
-            <Wallet className="h-4 w-4 text-orange-500" />
+            <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">
               {formatCurrency(owedAmount)}
             </div>
           </CardContent>
@@ -404,10 +538,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           <div
                             className={`w-10 h-10 rounded-full flex items-center justify-center ${
                               milestone.status === 'paid'
-                                ? 'bg-green-100 text-green-600'
+                                ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
                                 : milestone.status === 'completed'
-                                ? 'bg-blue-100 text-blue-600'
-                                : 'bg-gray-100 text-gray-600'
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400'
                             }`}
                           >
                             <Milestone className="h-5 w-5" />
@@ -562,8 +696,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           <div
                             className={`w-10 h-10 rounded-full flex items-center justify-center ${
                               payment.status === 'paid'
-                                ? 'bg-green-100 text-green-600'
-                                : 'bg-gray-100 text-gray-600'
+                                ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400'
                             }`}
                           >
                             <Calendar className="h-5 w-5" />
@@ -586,7 +720,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                               Mark Paid
                             </Button>
                           ) : (
-                            <Badge variant="outline" className="bg-green-50 text-green-600">
+                            <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400">
                               Paid
                             </Badge>
                           )}
@@ -631,7 +765,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     ) : (
                       <Badge
                         variant="outline"
-                        className="bg-green-50 text-green-600"
+                        className="bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
                       >
                         Fully Paid
                       </Badge>
@@ -651,12 +785,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
+                  <Label className="text-muted-foreground">Client</Label>
+                  <p className="font-medium">{project.clientName || 'Not specified'}</p>
+                </div>
+                <div>
                   <Label className="text-muted-foreground">System</Label>
-                  <p className="font-medium">{system?.name || 'Unknown'}</p>
+                  <p className="font-medium">{system?.name || (project.systemId ? 'Unknown' : 'Not assigned')}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Payment Model</Label>
                   <p className="font-medium capitalize">{project.paymentModel}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Total Amount</Label>
+                  <p className="font-medium">{formatCurrency(project.totalAmount)}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Start Date</Label>
@@ -685,6 +827,144 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>
+              Update the project details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Project Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-clientName">Client Name</Label>
+                <Input
+                  id="edit-clientName"
+                  value={editForm.clientName}
+                  onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editForm.description}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>System</Label>
+                <Select
+                  value={editForm.systemId || 'none'}
+                  onValueChange={(value) => setEditForm({ ...editForm, systemId: value === 'none' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground">No system</span>
+                    </SelectItem>
+                    {systems.map((sys) => (
+                      <SelectItem key={sys.id} value={sys.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: sys.color }}
+                          />
+                          {sys.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Model</Label>
+                <Select
+                  value={editForm.paymentModel}
+                  onValueChange={(value) => setEditForm({ ...editForm, paymentModel: value as PaymentModel })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="milestone">Milestone-based</SelectItem>
+                    <SelectItem value="monthly">Monthly Salary</SelectItem>
+                    <SelectItem value="fixed">Fixed Price</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-totalAmount">
+                {editForm.paymentModel === 'monthly' ? 'Monthly Amount' : 'Total Amount'} (EGP)
+              </Label>
+              <Input
+                id="edit-totalAmount"
+                type="number"
+                value={editForm.totalAmount}
+                onChange={(e) => setEditForm({ ...editForm, totalAmount: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-startDate">Start Date</Label>
+                <Input
+                  id="edit-startDate"
+                  type="date"
+                  value={editForm.startDate}
+                  onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-deadline">Deadline</Label>
+                <Input
+                  id="edit-deadline"
+                  type="date"
+                  value={editForm.deadline}
+                  onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditProject} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
