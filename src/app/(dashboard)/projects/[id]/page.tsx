@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { DatePicker } from '@/components/ui/date-picker'
+import { MonthPicker } from '@/components/ui/month-picker'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { Textarea } from '@/components/ui/textarea'
 import { useProject } from '@/hooks/useProjects'
@@ -64,8 +65,11 @@ import {
   Trash2,
   Wallet,
   ListTodo,
+  Paperclip,
 } from 'lucide-react'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
+import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
+import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -108,6 +112,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     startDate: null as Date | null,
     deadline: null as Date | null,
     notes: '',
+    coverImageUrl: null as string | null,
   })
 
   const [paymentForm, setPaymentForm] = useState({
@@ -248,6 +253,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         startDate: project.startDate.toDate(),
         deadline: project.deadline ? project.deadline.toDate() : null,
         notes: project.notes,
+        coverImageUrl: project.coverImageUrl || null,
       })
       setIsEditDialogOpen(true)
     }
@@ -269,6 +275,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         startDate: editForm.startDate,
         deadline: editForm.deadline,
         notes: editForm.notes,
+        coverImageUrl: editForm.coverImageUrl,
       })
       setIsEditDialogOpen(false)
     } finally {
@@ -286,6 +293,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
+          <ProjectIcon
+            src={project.coverImageUrl}
+            name={project.name}
+            size="lg"
+          />
           <div>
             <div className="flex items-center gap-3 mb-1">
               {system ? (
@@ -430,12 +442,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <ListTodo className="h-4 w-4" />
             Tasks
           </TabsTrigger>
+          <TabsTrigger value="attachments" className="gap-2">
+            <Paperclip className="h-4 w-4" />
+            Attachments
+          </TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tasks">
           <ProjectTasksTab projectId={id} projectName={project.name} />
+        </TabsContent>
+
+        <TabsContent value="attachments">
+          <ProjectAttachmentsTab projectId={id} />
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-4">
@@ -641,13 +661,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       <div className="space-y-4 py-4">
                         <div className="space-y-2">
                           <Label>Month</Label>
-                          <Input
-                            type="month"
+                          <MonthPicker
                             value={paymentForm.month}
-                            onChange={(e) =>
+                            onChange={(value) =>
                               setPaymentForm({
                                 ...paymentForm,
-                                month: e.target.value,
+                                month: value,
                               })
                             }
                           />
@@ -847,6 +866,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <ProjectImagePicker
+              value={editForm.coverImageUrl}
+              onChange={(url) => setEditForm({ ...editForm, coverImageUrl: url })}
+            />
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Project Name *</Label>

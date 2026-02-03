@@ -22,6 +22,7 @@ import { projects } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus } from '@/types'
 import { useToast } from '@/hooks/useToast'
 import { ArrowLeft, Loader2, Milestone, Calendar, DollarSign } from 'lucide-react'
+import { ProjectImagePicker } from '@/components/projects/ProjectImagePicker'
 
 const paymentModels: { value: PaymentModel; label: string; description: string; icon: typeof Milestone }[] = [
   {
@@ -61,6 +62,7 @@ export default function NewProjectPage() {
     startDate: new Date() as Date | null,
     deadline: null as Date | null,
     notes: '',
+    coverImageUrl: null as string | null,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,6 +94,7 @@ export default function NewProjectPage() {
         startDate: formData.startDate || new Date(),
         deadline: formData.deadline,
         notes: formData.notes,
+        coverImageUrl: formData.coverImageUrl,
       })
 
       toast({
@@ -136,6 +139,12 @@ export default function NewProjectPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Project Icon */}
+            <ProjectImagePicker
+              value={formData.coverImageUrl}
+              onChange={(url) => setFormData({ ...formData, coverImageUrl: url })}
+            />
+
             {/* Name */}
             <div className="space-y-2">
               <Label htmlFor="name">Project Name *</Label>

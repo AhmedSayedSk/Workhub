@@ -13,10 +13,27 @@ import {
   isSameMonth,
   isSameDay,
   isToday,
+  setMonth,
+  setYear,
 } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './select'
+
+const months = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+]
+
+// Generate years from 2020 to 2035
+const years = Array.from({ length: 16 }, (_, i) => 2020 + i)
 
 interface CalendarProps {
   selected?: Date | null
@@ -44,6 +61,14 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
   const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1))
   const handleNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
 
+  const handleMonthChange = (monthIndex: string) => {
+    setCurrentMonth(setMonth(currentMonth, parseInt(monthIndex)))
+  }
+
+  const handleYearChange = (year: string) => {
+    setCurrentMonth(setYear(currentMonth, parseInt(year)))
+  }
+
   const handleSelectDate = (date: Date) => {
     onSelect?.(date)
   }
@@ -60,9 +85,38 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-sm font-semibold">
-          {format(currentMonth, 'MMMM yyyy')}
-        </h2>
+        <div className="flex items-center gap-1">
+          <Select
+            value={currentMonth.getMonth().toString()}
+            onValueChange={handleMonthChange}
+          >
+            <SelectTrigger className="h-7 w-auto gap-1 border-none shadow-none font-semibold text-sm px-2 hover:bg-accent">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((month, index) => (
+                <SelectItem key={month} value={index.toString()}>
+                  {month}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={currentMonth.getFullYear().toString()}
+            onValueChange={handleYearChange}
+          >
+            <SelectTrigger className="h-7 w-auto gap-1 border-none shadow-none font-semibold text-sm px-2 hover:bg-accent">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map((year) => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Button
           variant="ghost"
           size="icon"

@@ -37,6 +37,10 @@ import {
   AISuggestion,
   AppSettings,
   AppSettingsInput,
+  MediaFile,
+  MediaFileInput,
+  MediaFolder,
+  MediaFolderInput,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -561,5 +565,233 @@ export const batch = {
 
     // Delete the system itself
     await systems.delete(systemId)
+  },
+}
+
+// Media Folders
+export const mediaFolders = {
+  async getAll(userId: string, parentId?: string | null): Promise<MediaFolder[]> {
+    // Simple query without composite index - just filter by user
+    const allFolders = await getAll<MediaFolder>(
+      'mediaFolders',
+      where('createdBy', '==', userId)
+    )
+
+    // Filter by parentId client-side and sort by name
+    let result = allFolders
+    if (parentId !== undefined) {
+      result = allFolders.filter(f => f.parentId === parentId)
+    }
+
+    return result.sort((a, b) => a.name.localeCompare(b.name))
+  },
+
+  async getById(id: string): Promise<MediaFolder | null> {
+    return getById<MediaFolder>('mediaFolders', id)
+  },
+
+  async create(data: MediaFolderInput): Promise<string> {
+    const docRef = await addDoc(collection(db, 'mediaFolders'), {
+      ...data,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    })
+    return docRef.id
+  },
+
+  async update(id: string, data: Partial<MediaFolderInput>): Promise<void> {
+    const docRef = doc(db, 'mediaFolders', id)
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: Timestamp.now(),
+    })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('mediaFolders', id)
+  },
+
+  async getPath(folderId: string | null): Promise<MediaFolder[]> {
+    const path: MediaFolder[] = []
+    let currentId = folderId
+
+    while (currentId) {
+      const folder = await this.getById(currentId)
+      if (!folder) break
+      path.unshift(folder)
+      currentId = folder.parentId
+    }
+
+    return path
+  },
+
+  async getChildren(userId: string, parentId: string | null): Promise<MediaFolder[]> {
+    return this.getAll(userId, parentId)
+  },
+}
+
+// Media Files
+export const mediaFiles = {
+  async getAll(userId: string, folderId?: string | null): Promise<MediaFile[]> {
+    // Simple query without composite index - just filter by user
+    const allFiles = await getAll<MediaFile>(
+      'mediaFiles',
+      where('uploadedBy', '==', userId)
+    )
+
+    // Filter by folderId client-side and sort by date
+    let result = allFiles
+    if (folderId !== undefined) {
+      result = allFiles.filter(f => f.folderId === folderId)
+    }
+
+    return result.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
+  async getById(id: string): Promise<MediaFile | null> {
+    return getById<MediaFile>('mediaFiles', id)
+  },
+
+  async create(data: MediaFileInput): Promise<string> {
+    const docRef = await addDoc(collection(db, 'mediaFiles'), {
+      ...data,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    })
+    return docRef.id
+  },
+
+  async update(id: string, data: Partial<MediaFileInput>): Promise<void> {
+    const docRef = doc(db, 'mediaFiles', id)
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: Timestamp.now(),
+    })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('mediaFiles', id)
+  },
+
+  async getByProject(projectId: string): Promise<MediaFile[]> {
+    const files = await getAll<MediaFile>(
+      'mediaFiles',
+      where('linkedProjects', 'array-contains', projectId)
+    )
+    return files.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
+  async getByTask(taskId: string): Promise<MediaFile[]> {
+    const files = await getAll<MediaFile>(
+      'mediaFiles',
+      where('linkedTasks', 'array-contains', taskId)
+    )
+    return files.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
+  async linkToProject(fileId: string, projectId: string): Promise<void> {
+    const file = await this.getById(fileId)
+    if (!file) throw new Error('File not found')
+
+    const linkedProjects = file.linkedProjects.includes(projectId)
+      ? file.linkedProjects
+      : [...file.linkedProjects, projectId]
+
+    await this.update(fileId, { linkedProjects })
+  },
+
+  async unlinkFromProject(fileId: string, projectId: string): Promise<void> {
+    const file = await this.getById(fileId)
+    if (!file) throw new Error('File not found')
+
+    const linkedProjects = file.linkedProjects.filter((id) => id !== projectId)
+    await this.update(fileId, { linkedProjects })
+  },
+
+  async linkToTask(fileId: string, taskId: string): Promise<void> {
+    const file = await this.getById(fileId)
+    if (!file) throw new Error('File not found')
+
+    const linkedTasks = file.linkedTasks.includes(taskId)
+      ? file.linkedTasks
+      : [...file.linkedTasks, taskId]
+
+    await this.update(fileId, { linkedTasks })
+  },
+
+  async unlinkFromTask(fileId: string, taskId: string): Promise<void> {
+    const file = await this.getById(fileId)
+    if (!file) throw new Error('File not found')
+
+    const linkedTasks = file.linkedTasks.filter((id) => id !== taskId)
+    await this.update(fileId, { linkedTasks })
+  },
+
+  async moveToFolder(fileId: string, folderId: string | null): Promise<void> {
+    await this.update(fileId, { folderId })
+  },
+
+  async search(userId: string, searchTerm: string): Promise<MediaFile[]> {
+    const allFiles = await this.getAll(userId)
+    const lowerSearch = searchTerm.toLowerCase()
+    return allFiles.filter(
+      (file) =>
+        file.name.toLowerCase().includes(lowerSearch) ||
+        file.displayName.toLowerCase().includes(lowerSearch)
+    )
+  },
+}
+
+// Media Batch operations
+export const mediaBatch = {
+  async deleteFolderCascade(folderId: string, userId: string): Promise<string[]> {
+    const deletedStoragePaths: string[] = []
+
+    // Get all files in this folder
+    const folderFiles = await mediaFiles.getAll(userId, folderId)
+    for (const file of folderFiles) {
+      deletedStoragePaths.push(file.storagePath)
+      await mediaFiles.delete(file.id)
+    }
+
+    // Get all subfolders
+    const subfolders = await mediaFolders.getChildren(userId, folderId)
+    for (const subfolder of subfolders) {
+      const subPaths = await this.deleteFolderCascade(subfolder.id, userId)
+      deletedStoragePaths.push(...subPaths)
+    }
+
+    // Delete the folder itself
+    await mediaFolders.delete(folderId)
+
+    return deletedStoragePaths
+  },
+
+  async moveFiles(fileIds: string[], targetFolderId: string | null): Promise<void> {
+    const batchOp = writeBatch(db)
+
+    for (const fileId of fileIds) {
+      const fileRef = doc(db, 'mediaFiles', fileId)
+      batchOp.update(fileRef, {
+        folderId: targetFolderId,
+        updatedAt: Timestamp.now(),
+      })
+    }
+
+    await batchOp.commit()
+  },
+
+  async deleteFiles(fileIds: string[]): Promise<string[]> {
+    const deletedStoragePaths: string[] = []
+
+    for (const fileId of fileIds) {
+      const file = await mediaFiles.getById(fileId)
+      if (file) {
+        deletedStoragePaths.push(file.storagePath)
+        await mediaFiles.delete(fileId)
+      }
+    }
+
+    return deletedStoragePaths
   },
 }

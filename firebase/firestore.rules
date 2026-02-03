@@ -65,5 +65,15 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Media Folders collection
+    match /mediaFolders/{folderId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Media Files collection
+    match /mediaFiles/{fileId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

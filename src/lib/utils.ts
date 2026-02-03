@@ -215,3 +215,50 @@ export function generateId(): string {
   return Math.random().toString(36).substring(2, 15) +
          Math.random().toString(36).substring(2, 15)
 }
+
+// File size formatting
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B'
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const k = 1024
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${units[i]}`
+}
+
+// Get file extension from filename
+export function getFileExtension(fileName: string): string {
+  const lastDot = fileName.lastIndexOf('.')
+  if (lastDot === -1) return ''
+  return fileName.slice(lastDot + 1).toLowerCase()
+}
+
+// Check if file type is previewable
+export function isPreviewable(mimeType: string): boolean {
+  // Images
+  if (mimeType.startsWith('image/')) return true
+
+  // Videos
+  if (mimeType.startsWith('video/')) return true
+
+  // Audio
+  if (mimeType.startsWith('audio/')) return true
+
+  // PDFs
+  if (mimeType === 'application/pdf') return true
+
+  return false
+}
+
+// Folder colors for media library
+export const folderColors = [
+  { name: 'Blue', value: '#6B8DD6' },
+  { name: 'Green', value: '#5BA67C' },
+  { name: 'Purple', value: '#9B7DC9' },
+  { name: 'Orange', value: '#D49556' },
+  { name: 'Pink', value: '#C97BA3' },
+  { name: 'Teal', value: '#5BA6A0' },
+  { name: 'Red', value: '#C97575' },
+  { name: 'Yellow', value: '#C9B56B' },
+]

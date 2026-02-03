@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Helper function to check file size (50MB max)
+    function isValidSize() {
+      return request.resource.size <= 50 * 1024 * 1024;
+    }
+
+    // Media files storage rules
+    match /media/{userId}/{allPaths=**} {
+      // Allow read if authenticated and is owner
+      allow read: if isAuthenticated() && isOwner(userId);
+
+      // Allow write if authenticated, is owner, and file size is valid
+      allow write: if isAuthenticated() && isOwner(userId) && isValidSize();
+
+      // Allow delete if authenticated and is owner
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+  }
+}

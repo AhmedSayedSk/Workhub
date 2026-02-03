@@ -52,6 +52,7 @@ export interface Project {
   startDate: Timestamp
   deadline: Timestamp | null
   notes: string
+  coverImageUrl: string | null
   createdAt: Timestamp
 }
 
@@ -158,6 +159,7 @@ export interface ProjectInput {
   startDate: Date
   deadline: Date | null
   notes: string
+  coverImageUrl: string | null
 }
 
 export interface MilestoneInput {
@@ -322,4 +324,81 @@ export interface AppSettings {
 export interface AppSettingsInput {
   aiModel: GeminiModel
   aiEnabled: boolean
+}
+
+// Media Library types
+export type FileCategory = 'image' | 'video' | 'audio' | 'document' | 'archive' | 'other'
+
+export type MediaViewMode = 'grid' | 'list'
+
+export type MediaSortBy = 'name' | 'date' | 'size' | 'type'
+
+export type MediaSortOrder = 'asc' | 'desc'
+
+export interface MediaFile {
+  id: string
+  name: string
+  displayName: string
+  mimeType: string
+  category: FileCategory
+  size: number
+  url: string
+  storagePath: string
+  thumbnailUrl: string | null
+  folderId: string | null
+  linkedProjects: string[]
+  linkedTasks: string[]
+  uploadedBy: string
+  metadata: Record<string, string>
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export interface MediaFolder {
+  id: string
+  name: string
+  parentId: string | null
+  color: string
+  createdBy: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export interface MediaFileInput {
+  name: string
+  displayName: string
+  mimeType: string
+  category: FileCategory
+  size: number
+  url: string
+  storagePath: string
+  thumbnailUrl: string | null
+  folderId: string | null
+  linkedProjects: string[]
+  linkedTasks: string[]
+  uploadedBy: string
+  metadata: Record<string, string>
+}
+
+export interface MediaFolderInput {
+  name: string
+  parentId: string | null
+  color: string
+  createdBy: string
+}
+
+export interface UploadProgress {
+  fileId: string
+  fileName: string
+  progress: number
+  status: 'pending' | 'uploading' | 'processing' | 'complete' | 'error'
+  error?: string
+}
+
+export interface MediaFilters {
+  search?: string
+  category?: FileCategory
+  folderId?: string | null
+  sortBy?: MediaSortBy
+  sortOrder?: MediaSortOrder
 }
