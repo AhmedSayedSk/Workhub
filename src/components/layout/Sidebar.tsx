@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
-  Briefcase,
   LayoutDashboard,
   FolderKanban,
   Clock,
@@ -55,12 +55,26 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
         )}>
           {!collapsed && (
             <Link href="/" className="flex items-center gap-2">
-              <Briefcase className="h-6 w-6 text-primary" />
+              <Image
+                src="/logo.png"
+                alt="WorkHub"
+                width={32}
+                height={32}
+                className="h-8 w-8"
+              />
               <span className="text-xl font-bold">WorkHub</span>
             </Link>
           )}
           {collapsed && (
-            <Briefcase className="h-6 w-6 text-primary" />
+            <Link href="/">
+              <Image
+                src="/logo.png"
+                alt="WorkHub"
+                width={28}
+                height={28}
+                className="h-7 w-7"
+              />
+            </Link>
           )}
         </div>
 

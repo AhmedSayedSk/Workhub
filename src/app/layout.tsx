@@ -11,6 +11,10 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'WorkHub - Work Management System',
   description: 'A comprehensive personal work management system for tracking multiple apps/projects, tasks, finances, and time with AI-powered insights.',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 }
 
 export default function RootLayout({

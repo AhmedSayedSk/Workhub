@@ -293,6 +293,7 @@ export function useProject(projectId: string) {
         amount: input.amount,
         status: input.status,
         paidAt: toTimestamp(input.paidAt),
+        notes: input.notes || '',
       }
       setPayments(prev => [...prev, newPayment])
       toast({

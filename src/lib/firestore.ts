@@ -41,6 +41,8 @@ import {
   MediaFileInput,
   MediaFolder,
   MediaFolderInput,
+  VaultEntry,
+  VaultEntryInput,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -265,13 +267,20 @@ export const features = {
 // Tasks
 export const tasks = {
   async getAll(featureId?: string, projectId?: string): Promise<Task[]> {
+    // Use createdAt DESC to match existing Firestore indexes
     const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')]
     if (featureId) {
       constraints.unshift(where('featureId', '==', featureId))
     } else if (projectId) {
       constraints.unshift(where('projectId', '==', projectId))
     }
-    return getAll<Task>('tasks', ...constraints)
+    const allTasks = await getAll<Task>('tasks', ...constraints)
+    // Sort by sortOrder with fallback to createdAt for legacy tasks
+    return allTasks.sort((a, b) => {
+      const orderA = a.sortOrder ?? a.createdAt?.toMillis() ?? 0
+      const orderB = b.sortOrder ?? b.createdAt?.toMillis() ?? 0
+      return orderA - orderB
+    })
   },
 
   async getById(id: string): Promise<Task | null> {
@@ -279,7 +288,10 @@ export const tasks = {
   },
 
   async create(data: TaskInput): Promise<string> {
-    return create('tasks', { ...data, actualHours: 0 })
+    // Calculate sortOrder for new task - add to end of column
+    const sortOrder = data.sortOrder ?? Date.now()
+    const taskType = data.taskType ?? 'task'
+    return create('tasks', { ...data, actualHours: 0, sortOrder, taskType })
   },
 
   async update(id: string, data: Partial<TaskInput>): Promise<void> {
@@ -291,6 +303,7 @@ export const tasks = {
   },
 
   async getByStatus(status: string, projectId?: string): Promise<Task[]> {
+    // Use createdAt DESC to match existing Firestore indexes
     const constraints: QueryConstraint[] = [
       where('status', '==', status),
       orderBy('createdAt', 'desc'),
@@ -298,7 +311,17 @@ export const tasks = {
     if (projectId) {
       constraints.unshift(where('projectId', '==', projectId))
     }
-    return getAll<Task>('tasks', ...constraints)
+    const allTasks = await getAll<Task>('tasks', ...constraints)
+    // Sort by sortOrder with fallback to createdAt for legacy tasks
+    return allTasks.sort((a, b) => {
+      const orderA = a.sortOrder ?? a.createdAt?.toMillis() ?? 0
+      const orderB = b.sortOrder ?? b.createdAt?.toMillis() ?? 0
+      return orderA - orderB
+    })
+  },
+
+  async reorder(taskId: string, newStatus: string, newSortOrder: number): Promise<void> {
+    return update('tasks', taskId, { status: newStatus, sortOrder: newSortOrder })
   },
 }
 
@@ -790,6 +813,54 @@ export const mediaBatch = {
         deletedStoragePaths.push(file.storagePath)
         await mediaFiles.delete(fileId)
       }
+    }
+
+    return deletedStoragePaths
+  },
+}
+
+// Vault entries - project-specific sensitive data storage
+export const vaultEntries = {
+  async getByProject(projectId: string): Promise<VaultEntry[]> {
+    const entries = await getAll<VaultEntry>(
+      'vaultEntries',
+      where('projectId', '==', projectId),
+      orderBy('createdAt', 'desc')
+    )
+    return entries
+  },
+
+  async getById(id: string): Promise<VaultEntry | null> {
+    return getById<VaultEntry>('vaultEntries', id)
+  },
+
+  async create(data: VaultEntryInput): Promise<string> {
+    return create('vaultEntries', {
+      ...data,
+      updatedAt: Timestamp.now(),
+    })
+  },
+
+  async update(id: string, data: Partial<VaultEntryInput>): Promise<void> {
+    return update('vaultEntries', id, {
+      ...data,
+      updatedAt: Timestamp.now(),
+    })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('vaultEntries', id)
+  },
+
+  async deleteByProject(projectId: string): Promise<string[]> {
+    const entries = await this.getByProject(projectId)
+    const deletedStoragePaths: string[] = []
+
+    for (const entry of entries) {
+      if (entry.storagePath) {
+        deletedStoragePaths.push(entry.storagePath)
+      }
+      await this.delete(entry.id)
     }
 
     return deletedStoragePaths

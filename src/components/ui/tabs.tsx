@@ -51,4 +51,60 @@ const TabsContent = React.forwardRef<
 ))
 TabsContent.displayName = TabsPrimitive.Content.displayName
 
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+// Paper/Folder tab variant - tabs with borders on top, left, right connecting to content
+const TabsListBoxed = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.List
+    ref={ref}
+    className={cn(
+      'inline-flex items-end gap-0 w-full border-b border-slate-300 dark:border-slate-600',
+      className
+    )}
+    {...props}
+  />
+))
+TabsListBoxed.displayName = 'TabsListBoxed'
+
+const TabsTriggerBoxed = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      'inline-flex items-center justify-center whitespace-nowrap px-5 py-2.5 text-sm font-medium transition-all',
+      'text-muted-foreground hover:text-foreground',
+      // Inactive state - subtle background, no borders
+      'bg-muted/40 rounded-t-lg border-x border-t border-transparent',
+      'mb-[-1px]', // Overlap with list border
+      // Active state - paper tab with bg covering the bottom border line
+      'data-[state=active]:bg-card data-[state=active]:text-foreground',
+      'data-[state=active]:border-slate-300 data-[state=active]:dark:border-slate-600',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+      'disabled:pointer-events-none disabled:opacity-50',
+      className
+    )}
+    {...props}
+  />
+))
+TabsTriggerBoxed.displayName = 'TabsTriggerBoxed'
+
+const TabsContentBoxed = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Content
+    ref={ref}
+    className={cn(
+      'bg-card rounded-b-lg border-x border-b border-slate-300 dark:border-slate-600 p-6',
+      'ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+      className
+    )}
+    {...props}
+  />
+))
+TabsContentBoxed.displayName = 'TabsContentBoxed'
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, TabsListBoxed, TabsTriggerBoxed, TabsContentBoxed }

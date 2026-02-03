@@ -75,5 +75,10 @@ service cloud.firestore {
     match /mediaFiles/{fileId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Vault Entries collection (project-specific sensitive data)
+    match /vaultEntries/{entryId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

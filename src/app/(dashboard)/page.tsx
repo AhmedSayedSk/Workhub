@@ -5,9 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { projects, tasks, timeEntries, systems, milestones } from '@/lib/firestore'
-import { Project, Task, TimeEntry, System, Milestone } from '@/types'
-import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress } from '@/lib/utils'
+import { projects, tasks, timeEntries, systems, milestones, monthlyPayments } from '@/lib/firestore'
+import { Project, Task, TimeEntry, System, Milestone, MonthlyPayment } from '@/types'
+import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, taskTypeLabels } from '@/lib/utils'
 import {
   FolderKanban,
   Clock,
@@ -16,9 +16,12 @@ import {
   ArrowRight,
   Plus,
   CircleDollarSign,
+  BarChart3,
 } from 'lucide-react'
 import Link from 'next/link'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
+import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
+import { ProjectIncomeChart } from '@/components/charts/ProjectIncomeChart'
 
 export default function DashboardPage() {
   const [activeProjects, setActiveProjects] = useState<Project[]>([])
@@ -29,6 +32,8 @@ export default function DashboardPage() {
   const [systemsMap, setSystemsMap] = useState<Record<string, System>>({})
   const [projectsMap, setProjectsMap] = useState<Record<string, Project>>({})
   const [allMilestones, setAllMilestones] = useState<Milestone[]>([])
+  const [allPayments, setAllPayments] = useState<MonthlyPayment[]>([])
+  const [showIncomeChart, setShowIncomeChart] = useState(true)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -37,13 +42,14 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const [projectsData, todoData, inProgressData, systemsData, allProjects, milestonesData] = await Promise.all([
+      const [projectsData, todoData, inProgressData, systemsData, allProjects, milestonesData, paymentsData] = await Promise.all([
         projects.getByStatus('active'),
         tasks.getByStatus('todo'),
         tasks.getByStatus('in_progress'),
         systems.getAll(),
         projects.getAll(),
         milestones.getAll(),
+        monthlyPayments.getAll(),
       ])
 
       const now = new Date()
@@ -75,6 +81,7 @@ export default function DashboardPage() {
       })
       setProjectsMap(projMap)
       setAllMilestones(milestonesData)
+      setAllPayments(paymentsData)
     } catch (error) {
       console.error('Error loading dashboard data:', error)
     } finally {
@@ -82,10 +89,21 @@ export default function DashboardPage() {
     }
   }
 
-  const totalOwed = activeProjects.reduce(
-    (sum, p) => sum + (p.totalAmount - p.paidAmount),
-    0
-  )
+  // For non-monthly: owed = totalAmount - paidAmount
+  // For monthly: owed = pending monthly payments
+  const activeProjectIds = new Set(activeProjects.map(p => p.id))
+
+  // Non-monthly active projects owed
+  const nonMonthlyOwed = activeProjects
+    .filter(p => p.paymentModel !== 'monthly')
+    .reduce((sum, p) => sum + Math.max(0, p.totalAmount - p.paidAmount), 0)
+
+  // Monthly projects owed = pending payments
+  const monthlyOwed = allPayments
+    .filter(p => activeProjectIds.has(p.projectId) && p.status === 'pending')
+    .reduce((sum, p) => sum + p.amount, 0)
+
+  const totalOwed = nonMonthlyOwed + monthlyOwed
 
   const totalReceived = activeProjects.reduce(
     (sum, p) => sum + p.paidAmount,
@@ -93,7 +111,6 @@ export default function DashboardPage() {
   )
 
   // Find nearest payment deadline from unpaid milestones of active projects
-  const activeProjectIds = new Set(activeProjects.map(p => p.id))
   const unpaidMilestones = allMilestones
     .filter(m =>
       activeProjectIds.has(m.projectId) &&
@@ -156,7 +173,7 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
             <FolderKanban className="h-5 w-5 text-muted-foreground" />
@@ -169,7 +186,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Time Tracked</CardTitle>
             <Clock className="h-5 w-5 text-sky-500" />
@@ -189,7 +206,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Owed</CardTitle>
             <Wallet className="h-5 w-5 text-amber-500" />
@@ -212,7 +229,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Received</CardTitle>
             <CircleDollarSign className="h-5 w-5 text-green-500" />
@@ -227,7 +244,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 items-start">
         {/* Active Projects */}
         <Card>
           <CardHeader>
@@ -236,11 +253,22 @@ export default function DashboardPage() {
                 <CardTitle>Active Projects</CardTitle>
                 <CardDescription>Your current work in progress</CardDescription>
               </div>
-              <Link href="/projects">
-                <Button variant="ghost" size="sm">
-                  View all <ArrowRight className="ml-2 h-4 w-4" />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={showIncomeChart ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setShowIncomeChart(!showIncomeChart)}
+                  className="gap-2"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Income
                 </Button>
-              </Link>
+                <Link href="/projects">
+                  <Button variant="ghost" size="sm">
+                    View all <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -253,44 +281,84 @@ export default function DashboardPage() {
                 </Link>
               </div>
             ) : (
-              <div className="space-y-4">
-                {activeProjects.map((project) => {
-                  const system = systemsMap[project.systemId]
-                  const progress = calculateProgress(project.paidAmount, project.totalAmount)
+              <>
+                {/* Income Chart */}
+                {showIncomeChart && (
+                  <div className="mb-4 pb-4 border-b">
+                    <ProjectIncomeChart
+                      projects={activeProjects}
+                      systemColors={Object.fromEntries(
+                        Object.entries(systemsMap).map(([id, sys]) => [id, sys.color])
+                      )}
+                      payments={allPayments}
+                    />
+                    <div className="flex items-center justify-center gap-6 mt-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded bg-primary" />
+                        <span>Received</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded bg-primary/25" />
+                        <span>Remaining</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                  return (
-                    <Link
-                      key={project.id}
-                      href={`/projects/${project.id}`}
-                      className="block"
-                    >
-                      <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <div
-                          className="w-2 h-10 rounded-full"
-                          style={{ backgroundColor: system?.color || '#6366F1' }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-medium truncate">{project.name}</p>
-                            <Badge
-                              variant="outline"
-                              className={statusColors.project[project.status]}
-                            >
-                              {project.status}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <Progress value={progress} className="flex-1 h-2" />
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                              {formatCurrency(project.paidAmount)} / {formatCurrency(project.totalAmount)}
-                            </span>
+                {/* Project List */}
+                <div className="space-y-4">
+                  {activeProjects.map((project) => {
+                    const system = systemsMap[project.systemId]
+                    const isMonthly = project.paymentModel === 'monthly'
+                    const progress = isMonthly ? 0 : calculateProgress(project.paidAmount, project.totalAmount)
+
+                    return (
+                      <Link
+                        key={project.id}
+                        href={`/projects/${project.id}`}
+                        className="block"
+                      >
+                        <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                          <div
+                            className="w-2 h-10 rounded-full"
+                            style={{ backgroundColor: system?.color || '#6366F1' }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium truncate">{project.name}</p>
+                              <Badge
+                                variant="outline"
+                                className={statusColors.project[project.status]}
+                              >
+                                {project.status}
+                              </Badge>
+                              {isMonthly && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Monthly
+                                </Badge>
+                              )}
+                            </div>
+                            {isMonthly ? (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{formatCurrency(project.totalAmount)}/mo</span>
+                                <span>•</span>
+                                <span>Received: {formatCurrency(project.paidAmount)}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-4">
+                                <Progress value={progress} className="flex-1 h-2" />
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {formatCurrency(project.paidAmount)} / {formatCurrency(project.totalAmount)}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -328,6 +396,7 @@ export default function DashboardPage() {
                     <div className="space-y-2">
                       {inProgressTasks.map((task) => {
                         const project = projectsMap[task.projectId]
+                        const taskType = task.taskType || 'task'
                         return (
                           <Link
                             key={task.id}
@@ -335,6 +404,13 @@ export default function DashboardPage() {
                             className="block"
                           >
                             <div className="flex items-center gap-3 p-3 rounded-lg border bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10 transition-colors">
+                              {project && (
+                                <ProjectIcon
+                                  src={project.coverImageUrl}
+                                  name={project.name}
+                                  size="sm"
+                                />
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{task.name}</p>
                                 <div className="flex items-center gap-2 mt-1">
@@ -352,9 +428,9 @@ export default function DashboardPage() {
                               </div>
                               <Badge
                                 variant="outline"
-                                className={statusColors.priority[task.priority]}
+                                className={statusColors.taskType[taskType]}
                               >
-                                {task.priority}
+                                {taskTypeLabels[taskType]}
                               </Badge>
                             </div>
                           </Link>
@@ -376,13 +452,21 @@ export default function DashboardPage() {
                     <div className="space-y-2">
                       {todoTasks.map((task) => {
                         const project = projectsMap[task.projectId]
+                        const taskType = task.taskType || 'task'
                         return (
                           <Link
                             key={task.id}
                             href={`/projects/${task.projectId}`}
                             className="block"
                           >
-                            <div className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                            <div className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors">
+                              {project && (
+                                <ProjectIcon
+                                  src={project.coverImageUrl}
+                                  name={project.name}
+                                  size="sm"
+                                />
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{task.name}</p>
                                 <div className="flex items-center gap-2 mt-1">
@@ -400,9 +484,9 @@ export default function DashboardPage() {
                               </div>
                               <Badge
                                 variant="outline"
-                                className={statusColors.priority[task.priority]}
+                                className={statusColors.taskType[taskType]}
                               >
-                                {task.priority}
+                                {taskTypeLabels[taskType]}
                               </Badge>
                             </div>
                           </Link>

@@ -112,10 +112,18 @@ export function useTasks(projectId?: string, featureId?: string) {
   }
 
   const updateTask = async (id: string, input: Partial<TaskInput>) => {
+    // Optimistic update - update local state immediately
+    setData((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, ...input } as Task : t
+      )
+    )
+
     try {
       await tasks.update(id, input)
-      await fetchTasks()
     } catch {
+      // Revert on error by refetching
+      await fetchTasks()
       toast({ title: 'Error', description: 'Failed to update task', variant: 'destructive' })
       throw new Error('Failed to update task')
     }
@@ -132,6 +140,24 @@ export function useTasks(projectId?: string, featureId?: string) {
     }
   }
 
+  const reorderTask = async (id: string, newStatus: string, newSortOrder: number) => {
+    // Optimistic update
+    setData((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, status: newStatus as Task['status'], sortOrder: newSortOrder } : t
+      )
+    )
+
+    try {
+      await tasks.reorder(id, newStatus, newSortOrder)
+    } catch {
+      // Revert on error
+      await fetchTasks()
+      toast({ title: 'Error', description: 'Failed to reorder task', variant: 'destructive' })
+      throw new Error('Failed to reorder task')
+    }
+  }
+
   return {
     tasks: data,
     loading,
@@ -139,6 +165,7 @@ export function useTasks(projectId?: string, featureId?: string) {
     createTask,
     updateTask,
     deleteTask,
+    reorderTask,
   }
 }
 

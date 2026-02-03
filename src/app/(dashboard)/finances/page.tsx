@@ -75,15 +75,25 @@ export default function FinancesPage() {
   }
 
   // Calculate totals
-  const totalValue = allProjects.reduce((sum, p) => sum + p.totalAmount, 0)
+  // For non-monthly projects: total value and owed from totalAmount - paidAmount
+  // For monthly projects: don't include in "owed" from project, use pending payments instead
+  const nonMonthlyProjects = allProjects.filter((p) => p.paymentModel !== 'monthly')
   const totalPaid = allProjects.reduce((sum, p) => sum + p.paidAmount, 0)
-  const totalOwed = totalValue - totalPaid
 
-  const activeProjects = allProjects.filter((p) => p.status === 'active')
-  const activeOwed = activeProjects.reduce(
-    (sum, p) => sum + (p.totalAmount - p.paidAmount),
+  // Owed from non-monthly projects (milestone/fixed)
+  const nonMonthlyOwed = nonMonthlyProjects.reduce(
+    (sum, p) => sum + Math.max(0, p.totalAmount - p.paidAmount),
     0
   )
+
+  // Owed from monthly projects = sum of pending monthly payments
+  const monthlyOwed = allPayments
+    .filter((p) => p.status === 'pending')
+    .reduce((sum, p) => sum + p.amount, 0)
+
+  const totalOwed = nonMonthlyOwed + monthlyOwed
+
+  const activeProjects = allProjects.filter((p) => p.status === 'active')
 
   // Pending milestones
   const pendingMilestones = allMilestones.filter(
@@ -169,7 +179,7 @@ export default function FinancesPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Owed</CardTitle>
             <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -184,7 +194,7 @@ export default function FinancesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Received</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -199,7 +209,7 @@ export default function FinancesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Milestones</CardTitle>
             <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -214,7 +224,7 @@ export default function FinancesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Monthly</CardTitle>
             <DollarSign className="h-4 w-4 text-purple-600 dark:text-purple-400" />
@@ -342,11 +352,19 @@ export default function FinancesPage() {
             ) : (
               allProjects.map((project) => {
                 const system = systemsMap[project.systemId]
-                const progress = calculateProgress(
+                const isMonthly = project.paymentModel === 'monthly'
+                const progress = isMonthly ? 0 : calculateProgress(
                   project.paidAmount,
                   project.totalAmount
                 )
-                const owed = project.totalAmount - project.paidAmount
+                // For monthly: show pending payments as owed
+                // For others: show totalAmount - paidAmount
+                const projectPendingPayments = allPayments
+                  .filter((p) => p.projectId === project.id && p.status === 'pending')
+                  .reduce((sum, p) => sum + p.amount, 0)
+                const owed = isMonthly
+                  ? projectPendingPayments
+                  : Math.max(0, project.totalAmount - project.paidAmount)
 
                 return (
                   <Link
@@ -354,7 +372,7 @@ export default function FinancesPage() {
                     href={`/projects/${project.id}`}
                     className="block"
                   >
-                    <div className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors">
                       <div
                         className="w-2 h-12 rounded-full"
                         style={{ backgroundColor: system?.color || '#6366F1' }}
@@ -368,22 +386,44 @@ export default function FinancesPage() {
                           >
                             {project.status}
                           </Badge>
+                          {isMonthly && (
+                            <Badge variant="secondary" className="text-xs">
+                              Monthly
+                            </Badge>
+                          )}
                         </div>
-                        <div className="flex items-center gap-4">
-                          <Progress value={progress} className="flex-1 h-2" />
-                          <span className="text-sm text-muted-foreground whitespace-nowrap">
-                            {progress}%
-                          </span>
-                        </div>
+                        {isMonthly ? (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{formatCurrency(project.totalAmount)}/mo</span>
+                            <span>•</span>
+                            <span>Received: {formatCurrency(project.paidAmount)}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4">
+                            <Progress value={progress} className="flex-1 h-2" />
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              {progress}%
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">
-                          {formatCurrency(project.paidAmount)} /{' '}
-                          {formatCurrency(project.totalAmount)}
-                        </p>
+                        {isMonthly ? (
+                          <>
+                            <p className="font-medium">
+                              {formatCurrency(project.paidAmount)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">total received</p>
+                          </>
+                        ) : (
+                          <p className="font-medium">
+                            {formatCurrency(project.paidAmount)} /{' '}
+                            {formatCurrency(project.totalAmount)}
+                          </p>
+                        )}
                         {owed > 0 && (
                           <p className="text-sm text-orange-700 dark:text-orange-400">
-                            Owed: {formatCurrency(owed)}
+                            {isMonthly ? 'Pending' : 'Owed'}: {formatCurrency(owed)}
                           </p>
                         )}
                       </div>
@@ -414,7 +454,7 @@ export default function FinancesPage() {
                 return (
                   <div
                     key={milestone.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
                   >
                     <div>
                       <p className="font-medium">{milestone.name}</p>

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContentBoxed, TabsListBoxed, TabsTriggerBoxed } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
@@ -44,7 +44,7 @@ import { PhoneInput } from '@/components/ui/phone-input'
 import { Textarea } from '@/components/ui/textarea'
 import { useProject } from '@/hooks/useProjects'
 import { useSystems } from '@/hooks/useSystems'
-import { MilestoneStatus, PaymentModel } from '@/types'
+import { MilestoneStatus, PaymentModel, MonthlyPayment } from '@/types'
 import { format } from 'date-fns'
 import {
   formatCurrency,
@@ -66,9 +66,11 @@ import {
   Wallet,
   ListTodo,
   Paperclip,
+  KeyRound,
 } from 'lucide-react'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
+import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -118,7 +120,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [paymentForm, setPaymentForm] = useState({
     month: new Date().toISOString().slice(0, 7),
     amount: '',
+    notes: '',
   })
+  const [editingPayment, setEditingPayment] = useState<MonthlyPayment | null>(null)
+  const [isEditPaymentDialogOpen, setIsEditPaymentDialogOpen] = useState(false)
 
   const system = systems.find((s) => s.id === project?.systemId)
 
@@ -144,8 +149,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     )
   }
 
-  const progress = calculateProgress(project.paidAmount, project.totalAmount)
-  const owedAmount = project.totalAmount - project.paidAmount
+  // For monthly projects, "owed" doesn't make sense the same way
+  // Monthly projects: totalAmount is monthly rate, paidAmount is total received
+  const isMonthly = project.paymentModel === 'monthly'
+  const progress = isMonthly ? 0 : calculateProgress(project.paidAmount, project.totalAmount)
+
+  // For non-monthly: owed = total - paid
+  // For monthly: owed = sum of pending monthly payments
+  const pendingPaymentsTotal = payments
+    .filter(p => p.status === 'pending')
+    .reduce((sum, p) => sum + p.amount, 0)
+  const owedAmount = isMonthly ? pendingPaymentsTotal : Math.max(0, project.totalAmount - project.paidAmount)
 
   const handleCreateMilestone = async () => {
     if (!milestoneForm.name || !milestoneForm.amount || !milestoneForm.dueDate) return
@@ -207,12 +221,58 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         amount: parseFloat(paymentForm.amount),
         status: 'pending',
         paidAt: null,
+        notes: paymentForm.notes,
       })
       setPaymentForm({
         month: new Date().toISOString().slice(0, 7),
         amount: project.totalAmount.toString(),
+        notes: '',
       })
       setIsPaymentDialogOpen(false)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleOpenEditPayment = (payment: MonthlyPayment) => {
+    setEditingPayment(payment)
+    setPaymentForm({
+      month: payment.month,
+      amount: payment.amount.toString(),
+      notes: payment.notes || '',
+    })
+    setIsEditPaymentDialogOpen(true)
+  }
+
+  const handleEditPayment = async () => {
+    if (!editingPayment || !paymentForm.month || !paymentForm.amount) return
+
+    setIsSubmitting(true)
+    try {
+      const oldAmount = editingPayment.amount
+      const newAmount = parseFloat(paymentForm.amount)
+
+      await updatePayment(editingPayment.id, {
+        month: paymentForm.month,
+        amount: newAmount,
+        notes: paymentForm.notes,
+      })
+
+      // Update project paid amount if payment was already paid and amount changed
+      if (editingPayment.status === 'paid' && oldAmount !== newAmount) {
+        const amountDifference = newAmount - oldAmount
+        await updateProject({
+          paidAmount: project.paidAmount + amountDifference,
+        }, false)
+      }
+
+      setPaymentForm({
+        month: new Date().toISOString().slice(0, 7),
+        amount: project.totalAmount.toString(),
+        notes: '',
+      })
+      setEditingPayment(null)
+      setIsEditPaymentDialogOpen(false)
     } finally {
       setIsSubmitting(false)
     }
@@ -300,13 +360,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           />
           <div>
             <div className="flex items-center gap-3 mb-1">
-              {system ? (
+              {system && (
                 <div
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: system.color }}
                 />
-              ) : project.systemId ? null : (
-                <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
               )}
               <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
               <Badge
@@ -394,19 +452,26 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="py-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {isMonthly ? 'Monthly Rate' : 'Total Value'}
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="pb-1">
             <div className="text-2xl font-bold">
               {formatCurrency(project.totalAmount)}
             </div>
+            {isMonthly && (
+              <p className="text-xs text-muted-foreground">per month</p>
+            )}
           </CardContent>
         </Card>
 
         <Card className="py-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-            <CardTitle className="text-sm font-medium">Paid</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {isMonthly ? 'Total Received' : 'Paid'}
+            </CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent className="pb-1">
@@ -414,51 +479,79 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <div className="text-2xl font-bold text-green-700 dark:text-green-400">
                 {formatCurrency(project.paidAmount)}
               </div>
-              <div className="flex items-center gap-2 flex-1">
-                <Progress value={progress} className="h-2 flex-1" />
-                <span className="text-sm font-medium text-muted-foreground">{progress}%</span>
-              </div>
+              {!isMonthly && (
+                <div className="flex items-center gap-2 flex-1">
+                  <Progress value={progress} className="h-2 flex-1" />
+                  <span className="text-sm font-medium text-muted-foreground">{progress}%</span>
+                </div>
+              )}
             </div>
+            {isMonthly && project.paidAmount > 0 && project.totalAmount > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {Math.floor(project.paidAmount / project.totalAmount)} month{Math.floor(project.paidAmount / project.totalAmount) !== 1 ? 's' : ''} paid
+              </p>
+            )}
           </CardContent>
         </Card>
 
         <Card className="py-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-            <CardTitle className="text-sm font-medium">Owed</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {isMonthly ? 'Pending Payments' : 'Owed'}
+            </CardTitle>
             <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
           <CardContent className="pb-1">
             <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">
               {formatCurrency(owedAmount)}
             </div>
+            {isMonthly && (
+              <p className="text-xs text-muted-foreground">
+                {payments.filter(p => p.status === 'pending').length} pending
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="tasks" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="tasks" className="gap-2">
+      <Tabs defaultValue="tasks">
+        <TabsListBoxed>
+          <TabsTriggerBoxed value="tasks" className="gap-2">
             <ListTodo className="h-4 w-4" />
             Tasks
-          </TabsTrigger>
-          <TabsTrigger value="attachments" className="gap-2">
+          </TabsTriggerBoxed>
+          <TabsTriggerBoxed value="attachments" className="gap-2">
             <Paperclip className="h-4 w-4" />
             Attachments
-          </TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
-        </TabsList>
+          </TabsTriggerBoxed>
+          <TabsTriggerBoxed value="vault" className="gap-2">
+            <KeyRound className="h-4 w-4" />
+            Vault
+          </TabsTriggerBoxed>
+          <TabsTriggerBoxed value="payments" className="gap-2">
+            <Wallet className="h-4 w-4" />
+            Payments
+          </TabsTriggerBoxed>
+          <TabsTriggerBoxed value="details" className="gap-2">
+            <Edit className="h-4 w-4" />
+            Details
+          </TabsTriggerBoxed>
+        </TabsListBoxed>
 
-        <TabsContent value="tasks">
+        <TabsContentBoxed value="tasks">
           <ProjectTasksTab projectId={id} projectName={project.name} />
-        </TabsContent>
+        </TabsContentBoxed>
 
-        <TabsContent value="attachments">
+        <TabsContentBoxed value="attachments">
           <ProjectAttachmentsTab projectId={id} />
-        </TabsContent>
+        </TabsContentBoxed>
 
-        <TabsContent value="payments" className="space-y-4">
+        <TabsContentBoxed value="vault">
+          <ProjectVaultTab projectId={id} />
+        </TabsContentBoxed>
+
+        <TabsContentBoxed value="payments" className="space-y-6">
           {/* Milestone-based payments */}
           {project.paymentModel === 'milestone' && (
             <Card>
@@ -633,96 +726,109 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           {/* Monthly payments */}
           {project.paymentModel === 'monthly' && (
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Monthly Payments</CardTitle>
-                    <CardDescription>
-                      Track monthly salary payments
-                    </CardDescription>
-                  </div>
-                  <Dialog
-                    open={isPaymentDialogOpen}
-                    onOpenChange={setIsPaymentDialogOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Payment
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Monthly Payment</DialogTitle>
-                        <DialogDescription>
-                          Record a monthly payment entry
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label>Month</Label>
-                          <MonthPicker
-                            value={paymentForm.month}
-                            onChange={(value) =>
-                              setPaymentForm({
-                                ...paymentForm,
-                                month: value,
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Amount (EGP)</Label>
-                          <Input
-                            type="number"
-                            placeholder={project.totalAmount.toString()}
-                            value={paymentForm.amount}
-                            onChange={(e) =>
-                              setPaymentForm({
-                                ...paymentForm,
-                                amount: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsPaymentDialogOpen(false)}
-                        >
-                          Cancel
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Payment History</CardTitle>
+                      <CardDescription>
+                        Track monthly salary payments
+                      </CardDescription>
+                    </div>
+                    <Dialog
+                      open={isPaymentDialogOpen}
+                      onOpenChange={setIsPaymentDialogOpen}
+                    >
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Payment
                         </Button>
-                        <Button
-                          onClick={handleCreatePayment}
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting && (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          )}
-                          Create
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {payments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No payment records yet</p>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Monthly Payment</DialogTitle>
+                          <DialogDescription>
+                            Record a monthly payment entry
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label>Month</Label>
+                            <MonthPicker
+                              value={paymentForm.month}
+                              onChange={(value) =>
+                                setPaymentForm({
+                                  ...paymentForm,
+                                  month: value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Amount (EGP)</Label>
+                            <Input
+                              type="number"
+                              placeholder={project.totalAmount.toString()}
+                              value={paymentForm.amount}
+                              onChange={(e) =>
+                                setPaymentForm({
+                                  ...paymentForm,
+                                  amount: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Notes (Optional)</Label>
+                            <Textarea
+                              placeholder="Add any notes about this payment..."
+                              value={paymentForm.notes}
+                              onChange={(e) =>
+                                setPaymentForm({
+                                  ...paymentForm,
+                                  notes: e.target.value,
+                                })
+                              }
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsPaymentDialogOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleCreatePayment}
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting && (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            Create
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {payments.map((payment) => (
-                      <div
-                        key={payment.id}
-                        className="flex items-center justify-between p-4 rounded-lg border"
-                      >
-                        <div className="flex items-center gap-4">
+                </CardHeader>
+                <CardContent>
+                  {payments.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No payment records yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {payments.map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="flex items-start gap-4 p-4 rounded-lg border"
+                        >
                           <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                               payment.status === 'paid'
                                 ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
                                 : 'bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400'
@@ -730,35 +836,49 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           >
                             <Calendar className="h-5 w-5" />
                           </div>
-                          <div>
-                            <p className="font-medium">{payment.month}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{payment.month}</p>
+                              {payment.status === 'paid' && (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                                  Paid
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-sm text-muted-foreground">
                               {formatCurrency(payment.amount)}
                             </p>
+                            {payment.notes && (
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                {payment.notes}
+                              </p>
+                            )}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {payment.status === 'pending' ? (
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <Button
                               size="sm"
-                              onClick={() =>
-                                handleMarkPaymentPaid(payment.id, payment.amount)
-                              }
+                              variant="ghost"
+                              onClick={() => handleOpenEditPayment(payment)}
                             >
-                              Mark Paid
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          ) : (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400">
-                              Paid
-                            </Badge>
-                          )}
+                            {payment.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  handleMarkPaymentPaid(payment.id, payment.amount)
+                                }
+                              >
+                                Mark Paid
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
           )}
 
           {/* Fixed price */}
@@ -803,58 +923,132 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </CardContent>
             </Card>
           )}
-        </TabsContent>
+        </TabsContentBoxed>
 
-        <TabsContent value="details">
-          <Card>
-            <CardHeader>
-              <CardTitle>Project Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label className="text-muted-foreground">Client</Label>
-                  <p className="font-medium">{project.clientName || 'Not specified'}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">System</Label>
-                  <p className="font-medium">{system?.name || (project.systemId ? 'Unknown' : 'Not assigned')}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Payment Model</Label>
-                  <p className="font-medium capitalize">{project.paymentModel}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Total Amount</Label>
-                  <p className="font-medium">{formatCurrency(project.totalAmount)}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Start Date</Label>
-                  <p className="font-medium">{formatDate(project.startDate)}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Deadline</Label>
-                  <p className="font-medium">
-                    {project.deadline
-                      ? formatDate(project.deadline)
-                      : 'Not set'}
-                  </p>
-                </div>
+        <TabsContentBoxed value="details">
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Project Details</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <Label className="text-muted-foreground">Client</Label>
+                <p className="font-medium">{project.clientName || 'Not specified'}</p>
               </div>
+              <div>
+                <Label className="text-muted-foreground">System</Label>
+                <p className="font-medium">{system?.name || (project.systemId ? 'Unknown' : 'Not assigned')}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Payment Model</Label>
+                <p className="font-medium capitalize">{project.paymentModel}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Total Amount</Label>
+                <p className="font-medium">{formatCurrency(project.totalAmount)}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Start Date</Label>
+                <p className="font-medium">{formatDate(project.startDate)}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Deadline</Label>
+                <p className="font-medium">
+                  {project.deadline
+                    ? formatDate(project.deadline)
+                    : 'Not set'}
+                </p>
+              </div>
+            </div>
 
-              {project.notes && (
-                <>
-                  <Separator />
-                  <div>
-                    <Label className="text-muted-foreground">Notes</Label>
-                    <p className="mt-1 whitespace-pre-wrap">{project.notes}</p>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            {project.notes && (
+              <>
+                <Separator />
+                <div>
+                  <Label className="text-muted-foreground">Notes</Label>
+                  <p className="mt-1 whitespace-pre-wrap">{project.notes}</p>
+                </div>
+              </>
+            )}
+          </div>
+        </TabsContentBoxed>
       </Tabs>
+
+      {/* Edit Payment Dialog */}
+      <Dialog open={isEditPaymentDialogOpen} onOpenChange={setIsEditPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Payment</DialogTitle>
+            <DialogDescription>
+              Update the payment details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Month</Label>
+              <MonthPicker
+                value={paymentForm.month}
+                onChange={(value) =>
+                  setPaymentForm({
+                    ...paymentForm,
+                    month: value,
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Amount (EGP)</Label>
+              <Input
+                type="number"
+                value={paymentForm.amount}
+                onChange={(e) =>
+                  setPaymentForm({
+                    ...paymentForm,
+                    amount: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (Optional)</Label>
+              <Textarea
+                placeholder="Add any notes about this payment..."
+                value={paymentForm.notes}
+                onChange={(e) =>
+                  setPaymentForm({
+                    ...paymentForm,
+                    notes: e.target.value,
+                  })
+                }
+                rows={3}
+              />
+            </div>
+            {editingPayment?.status === 'paid' && (
+              <p className="text-xs text-muted-foreground">
+                Note: Changing the amount will adjust the project&apos;s paid total.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditPaymentDialogOpen(false)
+                setEditingPayment(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditPayment}
+              disabled={isSubmitting}
+            >
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

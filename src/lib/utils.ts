@@ -50,6 +50,13 @@ export function formatRemainingTime(deadline: Date | Timestamp): { text: string;
   }
 }
 
+// Format time elapsed since a date (e.g., "since 4 days", "since 3 months")
+export function formatTimeSince(date: Date | Timestamp): string {
+  const d = date instanceof Timestamp ? date.toDate() : date
+  const distance = formatDistanceToNow(d)
+  return `since ${distance}`
+}
+
 // Duration formatting
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60)
@@ -195,6 +202,24 @@ export const statusColors = {
     completed: 'bg-blue-500/8 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-500/15 dark:border-blue-500/20',
     paid: 'bg-green-500/8 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/15 dark:border-green-500/20',
   },
+  taskType: {
+    task: 'bg-slate-500/8 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400 border-slate-500/15 dark:border-slate-500/20',
+    bug: 'bg-red-500/8 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-500/15 dark:border-red-500/20',
+    feature: 'bg-purple-500/8 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 border-purple-500/15 dark:border-purple-500/20',
+    improvement: 'bg-cyan-500/8 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400 border-cyan-500/15 dark:border-cyan-500/20',
+    documentation: 'bg-amber-500/8 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-500/15 dark:border-amber-500/20',
+    research: 'bg-indigo-500/8 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 border-indigo-500/15 dark:border-indigo-500/20',
+  },
+}
+
+// Task type labels for display
+export const taskTypeLabels: Record<string, string> = {
+  task: 'Task',
+  bug: 'Bug',
+  feature: 'Feature',
+  improvement: 'Improvement',
+  documentation: 'Documentation',
+  research: 'Research',
 }
 
 // Debounce utility

@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Feature, Task, FeatureInput } from '@/types'
-import { statusColors, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { FeatureDialog, getFeatureIcon } from './FeatureDialog'
 import {
   Plus,
@@ -29,7 +29,19 @@ import {
   Trash2,
   Layers,
   ListTodo,
+  AlertOctagon,
+  ChevronUp,
+  Minus,
+  ChevronDown,
 } from 'lucide-react'
+import { Priority } from '@/types'
+
+const priorityIcons: Record<Priority, { icon: typeof AlertOctagon; color: string }> = {
+  critical: { icon: AlertOctagon, color: 'text-red-500 opacity-100' },
+  high: { icon: ChevronUp, color: 'text-orange-500 opacity-80' },
+  medium: { icon: Minus, color: 'text-yellow-500 opacity-60' },
+  low: { icon: ChevronDown, color: 'text-blue-500 opacity-40' },
+}
 
 interface FeatureListProps {
   features: Feature[]
@@ -127,6 +139,8 @@ export function FeatureList({
           {/* Features */}
           {features.map((feature) => {
             const FeatureIcon = getFeatureIcon(feature.icon)
+            const PriorityIcon = feature.priority ? priorityIcons[feature.priority]?.icon : null
+            const priorityColor = feature.priority ? priorityIcons[feature.priority]?.color : ''
             return (
               <div
                 key={feature.id}
@@ -155,46 +169,46 @@ export function FeatureList({
                   >
                     {feature.name}
                   </p>
-                <div className="flex items-center gap-2 mt-1">
-                  {feature.priority && (
-                    <Badge
-                      variant="outline"
-                      className={cn('text-xs', statusColors.priority[feature.priority])}
-                    >
-                      {feature.priority}
-                    </Badge>
-                  )}
                   <span className="text-xs text-muted-foreground">
                     {getTaskCount(feature.id)} tasks
                   </span>
                 </div>
-              </div>
 
-              {/* Actions */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 flex-shrink-0"
-                    onClick={(e) => e.stopPropagation()}
+                {/* Priority icon */}
+                {PriorityIcon && (
+                  <div
+                    className={`h-6 w-6 flex items-center justify-center flex-shrink-0 -mr-4 ${priorityColor}`}
+                    title={feature.priority}
                   >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleEdit(feature)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setDeletingFeature(feature)}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+                    <PriorityIcon className="h-4 w-4" />
+                  </div>
+                )}
+
+                {/* Actions */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleEdit(feature)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setDeletingFeature(feature)}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             )

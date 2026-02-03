@@ -15,6 +15,7 @@ import {
   statusColors,
   calculateProgress,
   formatRemainingTime,
+  formatTimeSince,
 } from '@/lib/utils'
 import {
   Plus,
@@ -168,7 +169,7 @@ export default function ProjectsPage() {
 
                     return (
                       <Link key={project.id} href={`/projects/${project.id}`}>
-                        <Card className="h-full hover:shadow-md transition-shadow cursor-pointer overflow-hidden">
+                        <Card className="h-full hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all cursor-pointer overflow-hidden">
                           <CardHeader className="pb-3 relative">
                             <div className="absolute top-4 right-4 flex items-center gap-1 text-muted-foreground">
                               <PaymentIcon className="h-4 w-4" />
@@ -205,31 +206,38 @@ export default function ProjectsPage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-4">
-                              {/* Financial Progress */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-muted-foreground">Payment Progress</span>
-                                  <span className="font-medium">{progress}%</span>
+                              {/* Financial Progress - Only for non-monthly projects */}
+                              {project.paymentModel !== 'monthly' && (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Payment Progress</span>
+                                    <span className="font-medium">{progress}%</span>
+                                  </div>
+                                  <Progress value={progress} className="h-2" />
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                      {formatCurrency(project.paidAmount)}
+                                    </span>
+                                    <span className="font-medium">
+                                      {formatCurrency(project.totalAmount)}
+                                    </span>
+                                  </div>
                                 </div>
-                                <Progress value={progress} className="h-2" />
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-muted-foreground">
-                                    {formatCurrency(project.paidAmount)}
-                                  </span>
-                                  <span className="font-medium">
-                                    {formatCurrency(project.totalAmount)}
-                                  </span>
-                                </div>
-                              </div>
+                              )}
 
                               {/* Separator */}
                               <hr className="border-border" />
 
                               {/* Dates */}
                               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-4 w-4 text-sky-600/70 dark:text-sky-400/80" />
-                                  <span>Started {formatDate(project.startDate)}</span>
+                                <div>
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="h-4 w-4 text-sky-600/70 dark:text-sky-400/80" />
+                                    <span>Started {formatDate(project.startDate)}</span>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatTimeSince(project.startDate)}
+                                  </span>
                                 </div>
                                 {project.deadline && (
                                   <div className="text-right">

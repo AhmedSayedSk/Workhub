@@ -11,6 +11,8 @@ export type FeatureStatus = 'pending' | 'in_progress' | 'completed'
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done'
 
+export type TaskType = 'task' | 'bug' | 'feature' | 'improvement' | 'documentation' | 'research'
+
 export type SubtaskStatus = 'todo' | 'in_progress' | 'done'
 
 export type Priority = 'low' | 'medium' | 'high'
@@ -86,9 +88,11 @@ export interface Task {
   name: string
   description: string
   status: TaskStatus
+  taskType: TaskType
   priority: Priority
   estimatedHours: number
   actualHours: number
+  sortOrder: number
   createdAt: Timestamp
 }
 
@@ -121,6 +125,7 @@ export interface MonthlyPayment {
   amount: number
   status: PaymentStatus
   paidAt: Timestamp | null
+  notes: string
 }
 
 export interface AISuggestion {
@@ -188,8 +193,10 @@ export interface TaskInput {
   name: string
   description: string
   status: TaskStatus
+  taskType?: TaskType
   priority: Priority
   estimatedHours: number
+  sortOrder?: number
 }
 
 export interface SubtaskInput {
@@ -216,6 +223,7 @@ export interface MonthlyPaymentInput {
   amount: number
   status: PaymentStatus
   paidAt: Date | null
+  notes: string
 }
 
 // UI/State types
@@ -298,6 +306,7 @@ export interface TaskFilters {
   projectId?: string
   featureId?: string
   status?: TaskStatus
+  taskType?: TaskType
   priority?: Priority
 }
 
@@ -401,4 +410,30 @@ export interface MediaFilters {
   folderId?: string | null
   sortBy?: MediaSortBy
   sortOrder?: MediaSortOrder
+}
+
+// Project Vault types
+export type VaultEntryType = 'text' | 'password' | 'file'
+
+export interface VaultEntry {
+  id: string
+  projectId: string
+  type: VaultEntryType
+  label: string
+  value: string // For text/password: the content. For file: the file URL
+  fileName?: string // For file type: original file name
+  fileSize?: number // For file type: file size in bytes
+  storagePath?: string // For file type: storage path for deletion
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export interface VaultEntryInput {
+  projectId: string
+  type: VaultEntryType
+  label: string
+  value: string
+  fileName?: string
+  fileSize?: number
+  storagePath?: string
 }

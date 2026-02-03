@@ -193,7 +193,7 @@ export function FileCard({
   return (
     <div
       className={cn(
-        'group relative rounded-lg border bg-card hover:shadow-md transition-all cursor-pointer',
+        'group relative rounded-lg border bg-card hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all cursor-pointer',
         isSelected && 'ring-2 ring-primary'
       )}
       onClick={onClick}

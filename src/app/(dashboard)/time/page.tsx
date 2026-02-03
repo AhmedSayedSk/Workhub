@@ -283,7 +283,7 @@ export default function TimePage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Time</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -296,7 +296,7 @@ export default function TimePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Daily Average</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -311,7 +311,7 @@ export default function TimePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Top Project</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -429,7 +429,7 @@ export default function TimePage() {
               {timeEntries.slice(0, 20).map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between p-3 rounded-lg border"
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">

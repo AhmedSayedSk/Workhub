@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useFeatures, useTasks } from '@/hooks/useTasks'
-import { Task, TaskInput, FeatureInput } from '@/types'
+import { Task, TaskInput, FeatureInput, TaskStatus } from '@/types'
 import { FeatureList } from '@/components/features/FeatureList'
 import { TaskBoard } from '@/components/tasks/TaskBoard'
 import { TaskDetail } from '@/components/tasks/TaskDetail'
@@ -31,6 +31,7 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
     createTask,
     updateTask,
     deleteTask,
+    reorderTask,
   } = useTasks(projectId)
 
   // Filter tasks by selected feature
@@ -83,6 +84,10 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
     setSelectedTaskId(task.id)
   }
 
+  const handleReorderTask = async (taskId: string, newStatus: TaskStatus, newSortOrder: number) => {
+    await reorderTask(taskId, newStatus, newSortOrder)
+  }
+
   const handleCloseTaskDetail = (open: boolean) => {
     if (!open) {
       setSelectedTaskId(null)
@@ -100,7 +105,7 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
   }
 
   return (
-    <div className="flex flex-col lg:flex-row lg:items-start gap-6 min-h-[600px]">
+    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
       {/* Features Sidebar */}
       <aside className="w-full lg:w-80 lg:min-w-80 lg:max-w-80 flex-shrink-0 border rounded-lg bg-card overflow-hidden h-[540px]">
         <FeatureList
@@ -126,6 +131,7 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
           onSelectTask={handleSelectTask}
+          onReorderTask={handleReorderTask}
         />
       </div>
 

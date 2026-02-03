@@ -455,78 +455,93 @@ export function FeatureDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div className="flex gap-3">
+          {/* Icon & Name Row */}
+          <div className="flex gap-4 items-start">
             {/* Icon Picker */}
-            <div className="space-y-2">
-              <Label>Icon</Label>
-              <Popover open={iconPickerOpen} onOpenChange={(open) => {
-                  setIconPickerOpen(open)
-                  if (!open) setIconSearch('')
-                }}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10"
-                  >
-                    <SelectedIcon className="h-5 w-5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-72 p-3" align="start">
-                  <div className="space-y-3">
+            <Popover open={iconPickerOpen} onOpenChange={(open) => {
+                setIconPickerOpen(open)
+                if (!open) setIconSearch('')
+              }}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex-shrink-0 w-16 h-16 mt-5 rounded-xl border-2 border-dashed flex items-center justify-center transition-all hover:border-primary/50 hover:bg-muted/50 group',
+                    formData.icon
+                      ? 'border-primary/30 bg-primary/5'
+                      : 'border-muted-foreground/25'
+                  )}
+                >
+                  <div className={cn(
+                    'flex items-center justify-center w-10 h-10 rounded-lg transition-colors',
+                    formData.icon
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+                  )}>
+                    <SelectedIcon className="h-6 w-6" />
+                  </div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="start" sideOffset={8}>
+                <div className="p-3 border-b">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search icons..."
                       value={iconSearch}
                       onChange={(e) => setIconSearch(e.target.value)}
-                      className="h-8"
+                      className="pl-9 h-9"
                     />
-                    <ScrollArea className="h-48">
-                      <div className="grid grid-cols-6 gap-1">
-                        {featureIcons
-                          .filter(({ name }) =>
-                            name.toLowerCase().includes(iconSearch.toLowerCase())
-                          )
-                          .map(({ name, icon: Icon }) => (
-                            <Button
-                              key={name}
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                'h-9 w-9',
-                                formData.icon === name && 'bg-primary/10 text-primary'
-                              )}
-                              onClick={() => {
-                                setFormData({ ...formData, icon: name })
-                                setIconPickerOpen(false)
-                                setIconSearch('')
-                              }}
-                              title={name}
-                            >
-                              <Icon className="h-4 w-4" />
-                            </Button>
-                          ))}
-                      </div>
-                      {featureIcons.filter(({ name }) =>
-                        name.toLowerCase().includes(iconSearch.toLowerCase())
-                      ).length === 0 && (
-                        <p className="text-center text-sm text-muted-foreground py-4">
-                          No icons found
-                        </p>
-                      )}
-                    </ScrollArea>
                   </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-            {/* Name */}
-            <div className="space-y-2 flex-1">
-              <Label>Name *</Label>
+                </div>
+                <ScrollArea className="h-64">
+                  <div className="p-3">
+                    <div className="grid grid-cols-7 gap-1">
+                      {featureIcons
+                        .filter(({ name }) =>
+                          name.toLowerCase().includes(iconSearch.toLowerCase())
+                        )
+                        .map(({ name, icon: Icon }) => (
+                          <button
+                            key={name}
+                            type="button"
+                            className={cn(
+                              'h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-muted',
+                              formData.icon === name && 'bg-primary/15 text-primary ring-2 ring-primary/30'
+                            )}
+                            onClick={() => {
+                              setFormData({ ...formData, icon: name })
+                              setIconPickerOpen(false)
+                              setIconSearch('')
+                            }}
+                            title={name}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </button>
+                        ))}
+                    </div>
+                    {featureIcons.filter(({ name }) =>
+                      name.toLowerCase().includes(iconSearch.toLowerCase())
+                    ).length === 0 && (
+                      <p className="text-center text-sm text-muted-foreground py-8">
+                        No icons found
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+
+            {/* Name & Label */}
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Feature Name *</Label>
               <Input
-                placeholder="Feature name"
+                placeholder="e.g., User Authentication"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
+                className="h-11 text-base"
               />
             </div>
           </div>

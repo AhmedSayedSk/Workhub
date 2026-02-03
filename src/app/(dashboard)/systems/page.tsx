@@ -192,7 +192,7 @@ export default function SystemsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {systems.map((system) => (
-            <Card key={system.id} className="relative overflow-hidden">
+            <Card key={system.id} className="relative overflow-hidden hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all cursor-pointer">
               <div
                 className="absolute top-0 left-0 right-0 h-1"
                 style={{ backgroundColor: system.color }}

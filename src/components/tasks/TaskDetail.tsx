@@ -31,8 +31,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Task, Subtask, TaskStatus, Priority, Feature, TaskInput } from '@/types'
-import { statusColors, formatDuration } from '@/lib/utils'
+import { Task, Subtask, TaskStatus, TaskType, Priority, Feature, TaskInput } from '@/types'
+import { statusColors, taskTypeLabels, formatDuration } from '@/lib/utils'
 import { useSubtasks } from '@/hooks/useTasks'
 import { useTimerStore } from '@/store/timerStore'
 import {
@@ -81,6 +81,7 @@ export function TaskDetail({
     name: '',
     description: '',
     featureId: '',
+    taskType: 'task' as TaskType,
     priority: 'medium' as Priority,
     estimatedHours: '',
   })
@@ -92,6 +93,7 @@ export function TaskDetail({
         name: task.name,
         description: task.description,
         featureId: task.featureId,
+        taskType: task.taskType || 'task',
         priority: task.priority,
         estimatedHours: task.estimatedHours.toString(),
       })
@@ -147,6 +149,7 @@ export function TaskDetail({
       name: editForm.name,
       description: editForm.description,
       featureId: editForm.featureId,
+      taskType: editForm.taskType,
       priority: editForm.priority,
       estimatedHours: parseFloat(editForm.estimatedHours) || 0,
     } as Partial<TaskInput>)
@@ -239,42 +242,63 @@ export function TaskDetail({
           </div>
 
           <div className="space-y-6 py-4">
-            {/* Status and Priority */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Status, Type and Priority */}
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Status</Label>
+                <Select
+                  value={task.status}
+                  onValueChange={(value) =>
+                    onUpdateTask(task.id, { status: value as TaskStatus })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To Do</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Type</Label>
                 {isEditing ? (
                   <Select
-                    value={task.status}
+                    value={editForm.taskType}
                     onValueChange={(value) =>
-                      onUpdateTask(task.id, { status: value as TaskStatus })
+                      setEditForm({ ...editForm, taskType: value as TaskType })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="review">Review</SelectItem>
-                      <SelectItem value="done">Done</SelectItem>
+                      {Object.entries(taskTypeLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 ) : (
                   <Select
-                    value={task.status}
+                    value={task.taskType || 'task'}
                     onValueChange={(value) =>
-                      onUpdateTask(task.id, { status: value as TaskStatus })
+                      onUpdateTask(task.id, { taskType: value as TaskType })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="review">Review</SelectItem>
-                      <SelectItem value="done">Done</SelectItem>
+                      {Object.entries(taskTypeLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
@@ -445,7 +469,7 @@ export function TaskDetail({
                 {subtasks.map((subtask) => (
                   <div
                     key={subtask.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50"
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Checkbox

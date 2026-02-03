@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -21,16 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Task, TaskStatus, Priority, Feature, TaskInput } from '@/types'
+import { Task, TaskStatus, TaskType, Priority, Feature, TaskInput } from '@/types'
+import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Plus, Loader2 } from 'lucide-react'
 import { TaskCard } from './TaskCard'
 
-const columns: { id: TaskStatus; title: string; color: string }[] = [
-  { id: 'todo', title: 'To Do', color: 'border-slate-400' },
-  { id: 'in_progress', title: 'In Progress', color: 'border-blue-400' },
-  { id: 'review', title: 'Review', color: 'border-purple-400' },
-  { id: 'done', title: 'Done', color: 'border-green-400' },
+const columns: { id: TaskStatus; title: string; borderColor: string; headerText: string }[] = [
+  { id: 'todo', title: 'To Do', borderColor: 'border-slate-300', headerText: 'text-slate-600 dark:text-slate-400' },
+  { id: 'in_progress', title: 'In Progress', borderColor: 'border-blue-300', headerText: 'text-blue-600 dark:text-blue-400' },
+  { id: 'review', title: 'Review', borderColor: 'border-purple-300', headerText: 'text-purple-600 dark:text-purple-400' },
+  { id: 'done', title: 'Done', borderColor: 'border-green-300', headerText: 'text-green-600 dark:text-green-400' },
 ]
 
 interface TaskBoardProps {
@@ -42,6 +43,7 @@ interface TaskBoardProps {
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
   onDeleteTask: (id: string) => Promise<void>
   onSelectTask: (task: Task) => void
+  onReorderTask?: (taskId: string, newStatus: TaskStatus, newSortOrder: number) => Promise<void>
 }
 
 export function TaskBoard({
@@ -53,6 +55,7 @@ export function TaskBoard({
   onUpdateTask,
   onDeleteTask,
   onSelectTask,
+  onReorderTask,
 }: TaskBoardProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [createColumn, setCreateColumn] = useState<TaskStatus>('todo')
@@ -61,6 +64,7 @@ export function TaskBoard({
     name: '',
     description: '',
     featureId: '',
+    taskType: 'task' as TaskType,
     priority: 'medium' as Priority,
     estimatedHours: '',
   })
@@ -68,6 +72,8 @@ export function TaskBoard({
   // Drag and drop state
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null)
+  const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null)
+  const columnRefs = useRef<Record<TaskStatus, HTMLDivElement | null>>({} as Record<TaskStatus, HTMLDivElement | null>)
 
   // Pre-select feature when dialog opens if a feature is selected
   useEffect(() => {
@@ -77,7 +83,13 @@ export function TaskBoard({
   }, [isCreateOpen, selectedFeatureId])
 
   const tasksByStatus = columns.reduce((acc, col) => {
-    acc[col.id] = tasks.filter((t) => t.status === col.id)
+    acc[col.id] = tasks
+      .filter((t) => t.status === col.id)
+      .sort((a, b) => {
+        const orderA = a.sortOrder ?? a.createdAt?.toMillis?.() ?? 0
+        const orderB = b.sortOrder ?? b.createdAt?.toMillis?.() ?? 0
+        return orderA - orderB
+      })
     return acc
   }, {} as Record<TaskStatus, Task[]>)
 
@@ -92,6 +104,7 @@ export function TaskBoard({
         featureId: formData.featureId,
         projectId,
         status: createColumn,
+        taskType: formData.taskType,
         priority: formData.priority,
         estimatedHours: parseFloat(formData.estimatedHours) || 0,
       })
@@ -99,6 +112,7 @@ export function TaskBoard({
         name: '',
         description: '',
         featureId: selectedFeatureId || '',
+        taskType: 'task',
         priority: 'medium',
         estimatedHours: '',
       })
@@ -123,6 +137,7 @@ export function TaskBoard({
   const handleDragEnd = (e: React.DragEvent) => {
     setDraggedTaskId(null)
     setDragOverColumn(null)
+    setDropIndicatorIndex(null)
     const element = e.target as HTMLElement
     element.style.opacity = '1'
   }
@@ -134,6 +149,38 @@ export function TaskBoard({
     if (dragOverColumn !== status) {
       setDragOverColumn(status)
     }
+
+    // Calculate drop position based on mouse Y position
+    const columnTasks = tasksByStatus[status] || []
+    const columnRef = columnRefs.current[status]
+    if (!columnRef) return
+
+    const taskElements = columnRef.querySelectorAll('[data-task-id]')
+    const mouseY = e.clientY
+
+    let newIndex = columnTasks.length // Default to end
+
+    for (let i = 0; i < taskElements.length; i++) {
+      const rect = taskElements[i].getBoundingClientRect()
+      const midY = rect.top + rect.height / 2
+
+      if (mouseY < midY) {
+        newIndex = i
+        break
+      }
+    }
+
+    // Don't show indicator at same position as dragged task
+    const draggedTask = tasks.find(t => t.id === draggedTaskId)
+    if (draggedTask?.status === status) {
+      const draggedIndex = columnTasks.findIndex(t => t.id === draggedTaskId)
+      if (newIndex === draggedIndex || newIndex === draggedIndex + 1) {
+        setDropIndicatorIndex(null)
+        return
+      }
+    }
+
+    setDropIndicatorIndex(newIndex)
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -141,6 +188,41 @@ export function TaskBoard({
     const relatedTarget = e.relatedTarget as HTMLElement
     if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
       setDragOverColumn(null)
+      setDropIndicatorIndex(null)
+    }
+  }
+
+  const calculateNewSortOrder = (columnTasks: Task[], dropIndex: number, draggedTaskId: string): number => {
+    // Filter out the dragged task from calculations
+    const otherTasks = columnTasks.filter(t => t.id !== draggedTaskId)
+
+    if (otherTasks.length === 0) {
+      return Date.now()
+    }
+
+    // Adjust index if we filtered out the dragged task that was before this position
+    const draggedIndex = columnTasks.findIndex(t => t.id === draggedTaskId)
+    let adjustedIndex = dropIndex
+    if (draggedIndex >= 0 && draggedIndex < dropIndex) {
+      adjustedIndex = dropIndex - 1
+    }
+
+    if (adjustedIndex === 0) {
+      // Inserting at the beginning
+      const firstOrder = otherTasks[0]?.sortOrder ?? otherTasks[0]?.createdAt?.toMillis?.() ?? Date.now()
+      return firstOrder - 1000
+    } else if (adjustedIndex >= otherTasks.length) {
+      // Inserting at the end
+      const lastOrder = otherTasks[otherTasks.length - 1]?.sortOrder ??
+                        otherTasks[otherTasks.length - 1]?.createdAt?.toMillis?.() ?? Date.now()
+      return lastOrder + 1000
+    } else {
+      // Inserting between two tasks
+      const prevOrder = otherTasks[adjustedIndex - 1]?.sortOrder ??
+                        otherTasks[adjustedIndex - 1]?.createdAt?.toMillis?.() ?? Date.now()
+      const nextOrder = otherTasks[adjustedIndex]?.sortOrder ??
+                        otherTasks[adjustedIndex]?.createdAt?.toMillis?.() ?? Date.now()
+      return Math.floor((prevOrder + nextOrder) / 2)
     }
   }
 
@@ -148,12 +230,32 @@ export function TaskBoard({
     e.preventDefault()
     const taskId = e.dataTransfer.getData('taskId')
     const task = tasks.find((t) => t.id === taskId)
+    const targetIndex = dropIndicatorIndex
 
     setDraggedTaskId(null)
     setDragOverColumn(null)
+    setDropIndicatorIndex(null)
 
-    if (task && task.status !== status) {
-      await onUpdateTask(taskId, { status })
+    if (!task) return
+
+    const columnTasks = tasksByStatus[status] || []
+    const statusChanged = task.status !== status
+    const hasDropPosition = targetIndex !== null
+
+    // Calculate new sort order
+    const newSortOrder = hasDropPosition
+      ? calculateNewSortOrder(columnTasks, targetIndex, taskId)
+      : (columnTasks.length > 0
+          ? (columnTasks[columnTasks.length - 1]?.sortOrder ?? Date.now()) + 1000
+          : Date.now())
+
+    // Only update if something changed
+    if (statusChanged || hasDropPosition) {
+      if (onReorderTask) {
+        await onReorderTask(taskId, status, newSortOrder)
+      } else {
+        await onUpdateTask(taskId, { status, sortOrder: newSortOrder } as Partial<Task>)
+      }
     }
   }
 
@@ -163,6 +265,7 @@ export function TaskBoard({
       name: '',
       description: '',
       featureId: selectedFeatureId || '',
+      taskType: 'task',
       priority: 'medium',
       estimatedHours: '',
     })
@@ -174,26 +277,27 @@ export function TaskBoard({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-h-[500px]">
         {columns.map((column) => {
           const isOver = dragOverColumn === column.id
-          const isDraggingFromThis = draggedTaskId && tasksByStatus[column.id]?.some(t => t.id === draggedTaskId)
+          const columnTasks = tasksByStatus[column.id] || []
 
           return (
             <div
               key={column.id}
               className={cn(
-                'rounded-lg p-4 transition-all duration-200 border-2 border-dashed',
-                isOver && !isDraggingFromThis
-                  ? `bg-primary/5 ${column.color} scale-[1.02]`
+                'rounded-lg overflow-hidden transition-all duration-200 border-2 border-dashed',
+                isOver
+                  ? `bg-primary/5 ${column.borderColor} scale-[1.02]`
                   : 'bg-muted/50 border-transparent',
               )}
               onDragOver={(e) => handleDragOver(e, column.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, column.id)}
             >
-              <div className="flex items-center justify-between mb-4">
+              {/* Column Header */}
+              <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">{column.title}</h3>
+                  <h3 className={cn('font-semibold', column.headerText)}>{column.title}</h3>
                   <Badge variant="secondary" className="text-xs">
-                    {tasksByStatus[column.id]?.length || 0}
+                    {columnTasks.length}
                   </Badge>
                 </div>
                 <Button
@@ -206,44 +310,55 @@ export function TaskBoard({
                 </Button>
               </div>
 
-              <div className="space-y-3 min-h-[100px]">
-                {/* Drop indicator at top */}
-                {isOver && !isDraggingFromThis && (
-                  <div className="h-1 bg-primary/50 rounded-full animate-pulse" />
-                )}
-
-                {tasksByStatus[column.id]?.map((task) => {
+              {/* Column Content */}
+              <div
+                ref={(el) => { columnRefs.current[column.id] = el }}
+                className="space-y-3 min-h-[100px] p-4 pt-3"
+              >
+                {columnTasks.map((task, index) => {
                   const isDragging = draggedTaskId === task.id
+                  const showIndicatorBefore = isOver && dropIndicatorIndex === index
 
                   return (
-                    <div
-                      key={task.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, task.id)}
-                      onDragEnd={handleDragEnd}
-                      className={cn(
-                        'transition-all duration-200 cursor-grab active:cursor-grabbing',
-                        isDragging && 'opacity-50 scale-95 rotate-2',
+                    <div key={task.id}>
+                      {/* Drop indicator before this task */}
+                      {showIndicatorBefore && (
+                        <div className="h-1 bg-primary rounded-full mb-3 animate-pulse" />
                       )}
-                    >
-                      <TaskCard
-                        task={task}
-                        feature={features.find((f) => f.id === task.featureId)}
-                        onClick={() => onSelectTask(task)}
-                        onDelete={() => onDeleteTask(task.id)}
-                      />
+                      <div
+                        data-task-id={task.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, task.id)}
+                        onDragEnd={handleDragEnd}
+                        className={cn(
+                          'transition-all duration-200 cursor-grab active:cursor-grabbing',
+                          isDragging && 'opacity-50 scale-95 rotate-2',
+                        )}
+                      >
+                        <TaskCard
+                          task={task}
+                          feature={features.find((f) => f.id === task.featureId)}
+                          onClick={() => onSelectTask(task)}
+                          onDelete={() => onDeleteTask(task.id)}
+                        />
+                      </div>
                     </div>
                   )
                 })}
 
-                {tasksByStatus[column.id]?.length === 0 && !isOver && (
+                {/* Drop indicator at end */}
+                {isOver && dropIndicatorIndex !== null && dropIndicatorIndex >= columnTasks.length && (
+                  <div className="h-1 bg-primary rounded-full animate-pulse" />
+                )}
+
+                {columnTasks.length === 0 && !isOver && (
                   <div className="text-center py-8 text-muted-foreground text-sm">
                     No tasks
                   </div>
                 )}
 
                 {/* Empty state when dragging over empty column */}
-                {tasksByStatus[column.id]?.length === 0 && isOver && (
+                {columnTasks.length === 0 && isOver && (
                   <div className="text-center py-8 text-primary text-sm font-medium animate-pulse">
                     Drop here
                   </div>
@@ -284,21 +399,20 @@ export function TaskBoard({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Feature</Label>
+                <Label>Type</Label>
                 <Select
-                  value={formData.featureId || 'none'}
+                  value={formData.taskType}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, featureId: value === 'none' ? '' : value })
+                    setFormData({ ...formData, taskType: value as TaskType })
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select feature" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No feature</SelectItem>
-                    {features.map((feature) => (
-                      <SelectItem key={feature.id} value={feature.id}>
-                        {feature.name}
+                    {Object.entries(taskTypeLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -322,6 +436,27 @@ export function TaskBoard({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Feature</Label>
+              <Select
+                value={formData.featureId || 'none'}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, featureId: value === 'none' ? '' : value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select feature" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No feature</SelectItem>
+                  {features.map((feature) => (
+                    <SelectItem key={feature.id} value={feature.id}>
+                      {feature.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Estimated Time</Label>

@@ -5,7 +5,6 @@ import {
   User as FirebaseUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth'
@@ -16,7 +15,6 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, displayName?: string) => Promise<void>
   signOut: () => Promise<void>
   updateUserProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>
 }
@@ -50,13 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password)
   }
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
-    const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password)
-    if (displayName) {
-      await updateProfile(newUser, { displayName })
-    }
-  }
-
   const signOut = async () => {
     await firebaseSignOut(auth)
   }
@@ -69,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateUserProfile }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   )
