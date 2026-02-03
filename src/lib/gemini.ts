@@ -1,8 +1,55 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai'
+import { GeminiModel } from '@/types'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
-export const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+// Available models with descriptions
+export const GEMINI_MODELS: { value: GeminiModel; label: string; description: string; pricing: string; badge?: string; badgeColor?: string }[] = [
+  {
+    value: 'gemini-3-pro-preview',
+    label: 'Gemini 3 Pro',
+    description: 'State-of-the-art reasoning with powerful agentic and coding capabilities (1M context)',
+    pricing: '$2.00 / $12.00 per 1M tokens (input/output)',
+    badge: 'Most Capable',
+    badgeColor: 'purple',
+  },
+  {
+    value: 'gemini-3-flash-preview',
+    label: 'Gemini 3 Flash',
+    description: 'Fast frontier-class performance with upgraded visual and spatial reasoning',
+    pricing: '$0.50 / $3.00 per 1M tokens (input/output) • Free tier available',
+    badge: 'Recommended',
+    badgeColor: 'green',
+  },
+  {
+    value: 'gemini-2.5-pro-preview-05-06',
+    label: 'Gemini 2.5 Pro',
+    description: 'Advanced model with enhanced reasoning and coding capabilities',
+    pricing: '$1.25 / $10.00 per 1M tokens (input/output)',
+  },
+  {
+    value: 'gemini-2.5-flash-preview-05-20',
+    label: 'Gemini 2.5 Flash',
+    description: 'Fast and powerful with great performance',
+    pricing: '$0.30 / $2.50 per 1M tokens (input/output)',
+  },
+]
+
+// Default model (using latest Gemini 3)
+let currentModel: GeminiModel = 'gemini-3-flash-preview'
+
+// Function to get the current Gemini model instance
+export function getGeminiModel(modelName?: GeminiModel): GenerativeModel {
+  return genAI.getGenerativeModel({ model: modelName || currentModel })
+}
+
+// Function to set the default model
+export function setCurrentModel(model: GeminiModel) {
+  currentModel = model
+}
+
+// For backward compatibility
+export const geminiModel = getGeminiModel()
 
 export interface TaskBreakdownRequest {
   featureName: string
@@ -28,7 +75,10 @@ export interface InsightRequest {
   }
 }
 
-export async function generateTaskBreakdown(request: TaskBreakdownRequest): Promise<string[]> {
+export async function generateTaskBreakdown(
+  request: TaskBreakdownRequest,
+  model?: GeminiModel
+): Promise<string[]> {
   const prompt = `You are a project management assistant. Break down the following feature into specific, actionable tasks.
 
 Feature: ${request.featureName}
@@ -46,7 +96,8 @@ Example response format:
 Only return the JSON array, no other text.`
 
   try {
-    const result = await geminiModel.generateContent(prompt)
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
     const response = result.response.text()
 
     // Extract JSON array from response
@@ -62,7 +113,10 @@ Only return the JSON array, no other text.`
   }
 }
 
-export async function generateTimeEstimate(request: TimeEstimateRequest): Promise<number> {
+export async function generateTimeEstimate(
+  request: TimeEstimateRequest,
+  model?: GeminiModel
+): Promise<number> {
   const prompt = `You are a project estimation assistant. Estimate the time required for this task in hours.
 
 Task: ${request.taskName}
@@ -85,7 +139,8 @@ Return only a number representing estimated hours. Be realistic.
 Example response: 4.5`
 
   try {
-    const result = await geminiModel.generateContent(prompt)
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
     const response = result.response.text().trim()
 
     const hours = parseFloat(response)
@@ -100,7 +155,10 @@ Example response: 4.5`
   }
 }
 
-export async function generateInsight(request: InsightRequest): Promise<string> {
+export async function generateInsight(
+  request: InsightRequest,
+  model?: GeminiModel
+): Promise<string> {
   let prompt = ''
 
   switch (request.type) {
@@ -146,7 +204,8 @@ Keep the response under 150 words.`
   }
 
   try {
-    const result = await geminiModel.generateContent(prompt)
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
     return result.response.text()
   } catch (error) {
     console.error('Error generating insight:', error)
@@ -154,7 +213,11 @@ Keep the response under 150 words.`
   }
 }
 
-export async function askAI(question: string, context?: string): Promise<string> {
+export async function askAI(
+  question: string,
+  context?: string,
+  model?: GeminiModel
+): Promise<string> {
   const prompt = `You are WorkHub AI, an assistant for a work management system. Answer the user's question helpfully and concisely.
 
 ${context ? `Context: ${context}\n\n` : ''}User Question: ${question}
@@ -162,7 +225,8 @@ ${context ? `Context: ${context}\n\n` : ''}User Question: ${question}
 Keep your response concise and actionable.`
 
   try {
-    const result = await geminiModel.generateContent(prompt)
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
     return result.response.text()
   } catch (error) {
     console.error('Error in AI response:', error)

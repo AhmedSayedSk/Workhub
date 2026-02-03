@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { format, formatDistanceToNow, differenceInMinutes } from 'date-fns'
+import { format, formatDistanceToNow, differenceInMinutes, isPast } from 'date-fns'
 import { Timestamp } from 'firebase/firestore'
 
 export function cn(...inputs: ClassValue[]) {
@@ -36,6 +36,18 @@ export function formatMonth(date: Date | Timestamp): string {
 export function formatMonthShort(date: Date | Timestamp): string {
   const d = date instanceof Timestamp ? date.toDate() : date
   return format(d, 'MMM yyyy')
+}
+
+// Format remaining time until deadline
+export function formatRemainingTime(deadline: Date | Timestamp): { text: string; isOverdue: boolean } {
+  const d = deadline instanceof Timestamp ? deadline.toDate() : deadline
+  const isOverdue = isPast(d)
+  const distance = formatDistanceToNow(d)
+
+  return {
+    text: isOverdue ? `${distance} overdue` : `${distance} left`,
+    isOverdue,
+  }
 }
 
 // Duration formatting
@@ -161,6 +173,11 @@ export const statusColors = {
     paused: 'bg-amber-500/8 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-500/15 dark:border-amber-500/20',
     completed: 'bg-blue-500/8 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-500/15 dark:border-blue-500/20',
     cancelled: 'bg-red-500/8 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-500/15 dark:border-red-500/20',
+  },
+  feature: {
+    pending: 'bg-slate-500/8 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400 border-slate-500/15 dark:border-slate-500/20',
+    in_progress: 'bg-blue-500/8 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-500/15 dark:border-blue-500/20',
+    completed: 'bg-green-500/8 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-500/15 dark:border-green-500/20',
   },
   task: {
     todo: 'bg-slate-500/8 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400 border-slate-500/15 dark:border-slate-500/20',

@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -22,31 +21,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Task, TaskStatus, Priority, Feature } from '@/types'
-import { statusColors } from '@/lib/utils'
-import { Plus, Loader2, GripVertical } from 'lucide-react'
+import { Task, TaskStatus, Priority, Feature, TaskInput } from '@/types'
+import { cn } from '@/lib/utils'
+import { Plus, Loader2 } from 'lucide-react'
 import { TaskCard } from './TaskCard'
 
-const columns: { id: TaskStatus; title: string }[] = [
-  { id: 'todo', title: 'To Do' },
-  { id: 'in_progress', title: 'In Progress' },
-  { id: 'review', title: 'Review' },
-  { id: 'done', title: 'Done' },
+const columns: { id: TaskStatus; title: string; color: string }[] = [
+  { id: 'todo', title: 'To Do', color: 'border-slate-400' },
+  { id: 'in_progress', title: 'In Progress', color: 'border-blue-400' },
+  { id: 'review', title: 'Review', color: 'border-purple-400' },
+  { id: 'done', title: 'Done', color: 'border-green-400' },
 ]
 
 interface TaskBoardProps {
   tasks: Task[]
   features: Feature[]
   projectId: string
-  onCreateTask: (task: {
-    name: string
-    description: string
-    featureId: string
-    projectId: string
-    status: TaskStatus
-    priority: Priority
-    estimatedHours: number
-  }) => Promise<void>
+  selectedFeatureId?: string | null
+  onCreateTask: (task: TaskInput) => Promise<void>
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
   onDeleteTask: (id: string) => Promise<void>
   onSelectTask: (task: Task) => void
@@ -56,6 +48,7 @@ export function TaskBoard({
   tasks,
   features,
   projectId,
+  selectedFeatureId,
   onCreateTask,
   onUpdateTask,
   onDeleteTask,
@@ -71,6 +64,17 @@ export function TaskBoard({
     priority: 'medium' as Priority,
     estimatedHours: '',
   })
+
+  // Drag and drop state
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null)
+
+  // Pre-select feature when dialog opens if a feature is selected
+  useEffect(() => {
+    if (isCreateOpen && selectedFeatureId) {
+      setFormData((prev) => ({ ...prev, featureId: selectedFeatureId }))
+    }
+  }, [isCreateOpen, selectedFeatureId])
 
   const tasksByStatus = columns.reduce((acc, col) => {
     acc[col.id] = tasks.filter((t) => t.status === col.id)
@@ -94,7 +98,7 @@ export function TaskBoard({
       setFormData({
         name: '',
         description: '',
-        featureId: '',
+        featureId: selectedFeatureId || '',
         priority: 'medium',
         estimatedHours: '',
       })
@@ -105,17 +109,48 @@ export function TaskBoard({
   }
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId)
     e.dataTransfer.setData('taskId', taskId)
+    e.dataTransfer.effectAllowed = 'move'
+
+    // Add a slight delay to allow the drag image to be captured
+    requestAnimationFrame(() => {
+      const element = e.target as HTMLElement
+      element.style.opacity = '0.5'
+    })
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDraggedTaskId(null)
+    setDragOverColumn(null)
+    const element = e.target as HTMLElement
+    element.style.opacity = '1'
+  }
+
+  const handleDragOver = (e: React.DragEvent, status: TaskStatus) => {
     e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+
+    if (dragOverColumn !== status) {
+      setDragOverColumn(status)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only reset if leaving the column entirely
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      setDragOverColumn(null)
+    }
   }
 
   const handleDrop = async (e: React.DragEvent, status: TaskStatus) => {
     e.preventDefault()
     const taskId = e.dataTransfer.getData('taskId')
     const task = tasks.find((t) => t.id === taskId)
+
+    setDraggedTaskId(null)
+    setDragOverColumn(null)
 
     if (task && task.status !== status) {
       await onUpdateTask(taskId, { status })
@@ -124,55 +159,99 @@ export function TaskBoard({
 
   const openCreateDialog = (status: TaskStatus) => {
     setCreateColumn(status)
+    setFormData({
+      name: '',
+      description: '',
+      featureId: selectedFeatureId || '',
+      priority: 'medium',
+      estimatedHours: '',
+    })
     setIsCreateOpen(true)
   }
 
   return (
     <>
-      <div className="grid grid-cols-4 gap-4 min-h-[600px]">
-        {columns.map((column) => (
-          <div
-            key={column.id}
-            className="bg-muted/50 rounded-lg p-4"
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, column.id)}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold">{column.title}</h3>
-                <Badge variant="secondary" className="text-xs">
-                  {tasksByStatus[column.id]?.length || 0}
-                </Badge>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => openCreateDialog(column.id)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-h-[500px]">
+        {columns.map((column) => {
+          const isOver = dragOverColumn === column.id
+          const isDraggingFromThis = draggedTaskId && tasksByStatus[column.id]?.some(t => t.id === draggedTaskId)
 
-            <div className="space-y-3">
-              {tasksByStatus[column.id]?.map((task) => (
-                <div
-                  key={task.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, task.id)}
-                  className="cursor-move"
-                >
-                  <TaskCard
-                    task={task}
-                    feature={features.find((f) => f.id === task.featureId)}
-                    onClick={() => onSelectTask(task)}
-                    onDelete={() => onDeleteTask(task.id)}
-                  />
+          return (
+            <div
+              key={column.id}
+              className={cn(
+                'rounded-lg p-4 transition-all duration-200 border-2 border-dashed',
+                isOver && !isDraggingFromThis
+                  ? `bg-primary/5 ${column.color} scale-[1.02]`
+                  : 'bg-muted/50 border-transparent',
+              )}
+              onDragOver={(e) => handleDragOver(e, column.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, column.id)}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold">{column.title}</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {tasksByStatus[column.id]?.length || 0}
+                  </Badge>
                 </div>
-              ))}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => openCreateDialog(column.id)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-3 min-h-[100px]">
+                {/* Drop indicator at top */}
+                {isOver && !isDraggingFromThis && (
+                  <div className="h-1 bg-primary/50 rounded-full animate-pulse" />
+                )}
+
+                {tasksByStatus[column.id]?.map((task) => {
+                  const isDragging = draggedTaskId === task.id
+
+                  return (
+                    <div
+                      key={task.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, task.id)}
+                      onDragEnd={handleDragEnd}
+                      className={cn(
+                        'transition-all duration-200 cursor-grab active:cursor-grabbing',
+                        isDragging && 'opacity-50 scale-95 rotate-2',
+                      )}
+                    >
+                      <TaskCard
+                        task={task}
+                        feature={features.find((f) => f.id === task.featureId)}
+                        onClick={() => onSelectTask(task)}
+                        onDelete={() => onDeleteTask(task.id)}
+                      />
+                    </div>
+                  )
+                })}
+
+                {tasksByStatus[column.id]?.length === 0 && !isOver && (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No tasks
+                  </div>
+                )}
+
+                {/* Empty state when dragging over empty column */}
+                {tasksByStatus[column.id]?.length === 0 && isOver && (
+                  <div className="text-center py-8 text-primary text-sm font-medium animate-pulse">
+                    Drop here
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Create Task Dialog */}
@@ -184,7 +263,7 @@ export function TaskBoard({
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Name</Label>
+              <Label>Name *</Label>
               <Input
                 placeholder="Task name"
                 value={formData.name}
@@ -207,16 +286,16 @@ export function TaskBoard({
               <div className="space-y-2">
                 <Label>Feature</Label>
                 <Select
-                  value={formData.featureId}
+                  value={formData.featureId || 'none'}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, featureId: value })
+                    setFormData({ ...formData, featureId: value === 'none' ? '' : value })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select feature" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No feature</SelectItem>
+                    <SelectItem value="none">No feature</SelectItem>
                     {features.map((feature) => (
                       <SelectItem key={feature.id} value={feature.id}>
                         {feature.name}
@@ -245,15 +324,19 @@ export function TaskBoard({
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Estimated Hours</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={formData.estimatedHours}
-                onChange={(e) =>
-                  setFormData({ ...formData, estimatedHours: e.target.value })
-                }
-              />
+              <Label>Estimated Time</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={formData.estimatedHours}
+                  onChange={(e) =>
+                    setFormData({ ...formData, estimatedHours: e.target.value })
+                  }
+                  className="flex-1"
+                />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">hours</span>
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -35,6 +35,8 @@ import {
   MonthlyPayment,
   MonthlyPaymentInput,
   AISuggestion,
+  AppSettings,
+  AppSettingsInput,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -434,6 +436,75 @@ export const aiSuggestions = {
 
   async markAccepted(id: string): Promise<void> {
     return update('aiSuggestions', id, { accepted: true })
+  },
+}
+
+// App Settings (singleton document)
+const SETTINGS_DOC_ID = 'app_settings'
+
+export const appSettings = {
+  async get(): Promise<AppSettings | null> {
+    const docRef = doc(db, 'settings', SETTINGS_DOC_ID)
+    const docSnap = await getDoc(docRef)
+
+    if (!docSnap.exists()) {
+      // Return default settings if not exists
+      return null
+    }
+
+    return {
+      id: docSnap.id,
+      ...docSnap.data(),
+    } as AppSettings
+  },
+
+  async getOrCreate(): Promise<AppSettings> {
+    const existing = await this.get()
+    if (existing) return existing
+
+    // Create default settings
+    const defaultSettings: AppSettingsInput = {
+      aiModel: 'gemini-3-flash-preview',
+      aiEnabled: true,
+    }
+
+    const docRef = doc(db, 'settings', SETTINGS_DOC_ID)
+    await updateDoc(docRef, {
+      ...defaultSettings,
+      updatedAt: Timestamp.now(),
+    }).catch(async () => {
+      // Document doesn't exist, create it using setDoc
+      const { setDoc } = await import('firebase/firestore')
+      await setDoc(docRef, {
+        ...defaultSettings,
+        updatedAt: Timestamp.now(),
+      })
+    })
+
+    return {
+      id: SETTINGS_DOC_ID,
+      ...defaultSettings,
+      updatedAt: Timestamp.now(),
+    } as AppSettings
+  },
+
+  async update(data: Partial<AppSettingsInput>): Promise<void> {
+    const docRef = doc(db, 'settings', SETTINGS_DOC_ID)
+    try {
+      await updateDoc(docRef, {
+        ...data,
+        updatedAt: Timestamp.now(),
+      })
+    } catch {
+      // Document doesn't exist, create it
+      const { setDoc } = await import('firebase/firestore')
+      await setDoc(docRef, {
+        aiModel: 'gemini-3-flash-preview',
+        aiEnabled: true,
+        ...data,
+        updatedAt: Timestamp.now(),
+      })
+    }
   },
 }
 

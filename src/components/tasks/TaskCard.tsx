@@ -23,7 +23,7 @@ interface TaskCardProps {
 export function TaskCard({ task, feature, onClick, onDelete }: TaskCardProps) {
   return (
     <Card
-      className="hover:shadow-md transition-shadow cursor-pointer"
+      className="hover:shadow-md transition-all duration-200 cursor-pointer active:shadow-lg active:scale-[1.02] select-none"
       onClick={onClick}
     >
       <CardContent className="p-3">
@@ -49,12 +49,6 @@ export function TaskCard({ task, feature, onClick, onDelete }: TaskCardProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-        {feature && (
-          <p className="text-xs text-muted-foreground mb-2 truncate">
-            {feature.name}
-          </p>
-        )}
 
         <div className="flex items-center justify-between">
           <Badge

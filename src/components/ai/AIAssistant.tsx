@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,6 +21,96 @@ interface AIAssistantProps {
   context?: string
 }
 
+// Simple markdown renderer for AI responses
+function renderMarkdown(text: string): React.ReactNode {
+  const lines = text.split('\n')
+  const elements: React.ReactNode[] = []
+  let listItems: string[] = []
+
+  const processInlineMarkdown = (line: string): React.ReactNode => {
+    // Process bold (**text**) and italic (*text*)
+    const parts: React.ReactNode[] = []
+    let remaining = line
+    let key = 0
+
+    while (remaining.length > 0) {
+      // Check for bold **text**
+      const boldMatch = remaining.match(/\*\*([^*]+)\*\*/)
+      // Check for italic *text* (but not **)
+      const italicMatch = remaining.match(/(?<!\*)\*([^*]+)\*(?!\*)/)
+
+      if (boldMatch && (!italicMatch || boldMatch.index! <= italicMatch.index!)) {
+        const before = remaining.slice(0, boldMatch.index)
+        if (before) parts.push(before)
+        parts.push(<strong key={key++} className="font-semibold">{boldMatch[1]}</strong>)
+        remaining = remaining.slice(boldMatch.index! + boldMatch[0].length)
+      } else if (italicMatch) {
+        const before = remaining.slice(0, italicMatch.index)
+        if (before) parts.push(before)
+        parts.push(<em key={key++}>{italicMatch[1]}</em>)
+        remaining = remaining.slice(italicMatch.index! + italicMatch[0].length)
+      } else {
+        parts.push(remaining)
+        break
+      }
+    }
+
+    return parts.length === 1 ? parts[0] : <>{parts}</>
+  }
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={elements.length} className="list-disc list-inside space-y-1 my-2">
+          {listItems.map((item, i) => (
+            <li key={i}>{processInlineMarkdown(item)}</li>
+          ))}
+        </ul>
+      )
+      listItems = []
+    }
+  }
+
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim()
+
+    // Check for bullet points
+    if (trimmedLine.startsWith('* ') || trimmedLine.startsWith('- ')) {
+      listItems.push(trimmedLine.slice(2))
+    } else {
+      flushList()
+
+      if (trimmedLine === '') {
+        // Empty line - add spacing
+        if (index > 0 && index < lines.length - 1) {
+          elements.push(<div key={elements.length} className="h-2" />)
+        }
+      } else {
+        // Regular paragraph
+        elements.push(
+          <p key={elements.length} className="leading-relaxed">
+            {processInlineMarkdown(trimmedLine)}
+          </p>
+        )
+      }
+    }
+  })
+
+  flushList()
+
+  return <div className="space-y-1">{elements}</div>
+}
+
+// Memoized message content component
+function MessageContent({ content, isUser }: { content: string; isUser: boolean }) {
+  const rendered = useMemo(() => {
+    if (isUser) return content
+    return renderMarkdown(content)
+  }, [content, isUser])
+
+  return <>{rendered}</>
+}
+
 export function AIAssistant({ open, onClose, context }: AIAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -32,6 +122,12 @@ export function AIAssistant({ open, onClose, context }: AIAssistantProps) {
   ])
   const [input, setInput] = useState('')
   const { loading, askQuestion } = useAI()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom when messages change or loading state changes
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
@@ -60,7 +156,7 @@ export function AIAssistant({ open, onClose, context }: AIAssistantProps) {
   if (!open) return null
 
   return (
-    <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-2xl z-50 flex flex-col">
+    <Card className="fixed bottom-6 right-6 w-[450px] h-[600px] shadow-2xl z-50 flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between border-b py-3 px-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
@@ -105,7 +201,7 @@ export function AIAssistant({ open, onClose, context }: AIAssistantProps) {
                     : 'bg-muted'
                 )}
               >
-                {message.content}
+                <MessageContent content={message.content} isUser={message.role === 'user'} />
               </div>
             </div>
           ))}
@@ -119,6 +215,8 @@ export function AIAssistant({ open, onClose, context }: AIAssistantProps) {
               </div>
             </div>
           )}
+          {/* Scroll anchor */}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 

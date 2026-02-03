@@ -42,6 +42,7 @@ export interface Project {
   systemId: string
   name: string
   clientName: string
+  clientNumber: string
   description: string
   status: ProjectStatus
   paymentModel: PaymentModel
@@ -73,6 +74,7 @@ export interface Feature {
   status: FeatureStatus
   priority: Priority
   estimatedHours: number
+  icon: string | null
   createdAt: Timestamp
 }
 
@@ -146,6 +148,7 @@ export interface ProjectInput {
   systemId: string
   name: string
   clientName: string
+  clientNumber: string
   description: string
   status: ProjectStatus
   paymentModel: PaymentModel
@@ -174,6 +177,7 @@ export interface FeatureInput {
   status: FeatureStatus
   priority: Priority
   estimatedHours: number
+  icon: string | null
 }
 
 export interface TaskInput {
@@ -249,6 +253,7 @@ export interface User {
   uid: string
   email: string | null
   displayName: string | null
+  photoURL: string | null
 }
 
 // API Response types
@@ -298,4 +303,23 @@ export interface TimeFilters {
   projectId?: string
   startDate?: Date
   endDate?: Date
+}
+
+// AI Model types
+export type GeminiModel =
+  | 'gemini-3-pro-preview'
+  | 'gemini-3-flash-preview'
+  | 'gemini-2.5-pro-preview-05-06'
+  | 'gemini-2.5-flash-preview-05-20'
+
+export interface AppSettings {
+  id: string
+  aiModel: GeminiModel
+  aiEnabled: boolean
+  updatedAt: Timestamp
+}
+
+export interface AppSettingsInput {
+  aiModel: GeminiModel
+  aiEnabled: boolean
 }

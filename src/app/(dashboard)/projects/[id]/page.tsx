@@ -38,6 +38,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { DatePicker } from '@/components/ui/date-picker'
+import { PhoneInput } from '@/components/ui/phone-input'
 import { Textarea } from '@/components/ui/textarea'
 import { useProject } from '@/hooks/useProjects'
 import { useSystems } from '@/hooks/useSystems'
@@ -59,10 +61,11 @@ import {
   Loader2,
   Milestone,
   Plus,
-  Target,
   Trash2,
   Wallet,
+  ListTodo,
 } from 'lucide-react'
+import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -91,18 +94,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [milestoneForm, setMilestoneForm] = useState({
     name: '',
     amount: '',
-    dueDate: new Date().toISOString().split('T')[0],
+    dueDate: new Date() as Date | null,
   })
 
   const [editForm, setEditForm] = useState({
     name: '',
     clientName: '',
+    clientNumber: '',
     description: '',
     systemId: '',
     paymentModel: 'milestone' as PaymentModel,
     totalAmount: '',
-    startDate: '',
-    deadline: '',
+    startDate: null as Date | null,
+    deadline: null as Date | null,
     notes: '',
   })
 
@@ -139,14 +143,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const owedAmount = project.totalAmount - project.paidAmount
 
   const handleCreateMilestone = async () => {
-    if (!milestoneForm.name || !milestoneForm.amount) return
+    if (!milestoneForm.name || !milestoneForm.amount || !milestoneForm.dueDate) return
 
     setIsSubmitting(true)
     try {
       await createMilestone({
         name: milestoneForm.name,
         amount: parseFloat(milestoneForm.amount),
-        dueDate: new Date(milestoneForm.dueDate),
+        dueDate: milestoneForm.dueDate,
         status: 'pending',
         completedAt: null,
         paidAt: null,
@@ -154,7 +158,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setMilestoneForm({
         name: '',
         amount: '',
-        dueDate: new Date().toISOString().split('T')[0],
+        dueDate: new Date(),
       })
       setIsMilestoneDialogOpen(false)
     } finally {
@@ -176,12 +180,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       updates.completedAt = updates.completedAt || new Date()
       updates.paidAt = new Date()
 
-      // Update project paid amount
+      // Update project paid amount (suppress toast, milestone update will show one)
       const milestone = milestones.find((m) => m.id === milestoneId)
       if (milestone) {
         await updateProject({
           paidAmount: project.paidAmount + milestone.amount,
-        })
+        }, false)
       }
     }
 
@@ -236,12 +240,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setEditForm({
         name: project.name,
         clientName: project.clientName || '',
+        clientNumber: project.clientNumber || '',
         description: project.description,
         systemId: project.systemId,
         paymentModel: project.paymentModel,
         totalAmount: project.totalAmount.toString(),
-        startDate: format(project.startDate.toDate(), 'yyyy-MM-dd'),
-        deadline: project.deadline ? format(project.deadline.toDate(), 'yyyy-MM-dd') : '',
+        startDate: project.startDate.toDate(),
+        deadline: project.deadline ? project.deadline.toDate() : null,
         notes: project.notes,
       })
       setIsEditDialogOpen(true)
@@ -249,19 +254,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const handleEditProject = async () => {
-    if (!editForm.name.trim()) return
+    if (!editForm.name.trim() || !editForm.startDate) return
 
     setIsSubmitting(true)
     try {
       await updateProject({
         name: editForm.name,
         clientName: editForm.clientName,
+        clientNumber: editForm.clientNumber,
         description: editForm.description,
         systemId: editForm.systemId,
         paymentModel: editForm.paymentModel,
         totalAmount: parseFloat(editForm.totalAmount) || 0,
-        startDate: new Date(editForm.startDate),
-        deadline: editForm.deadline ? new Date(editForm.deadline) : null,
+        startDate: editForm.startDate,
+        deadline: editForm.deadline,
         notes: editForm.notes,
       })
       setIsEditDialogOpen(false)
@@ -373,61 +379,64 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="py-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
             <CardTitle className="text-sm font-medium">Total Value</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-1">
             <div className="text-2xl font-bold">
               {formatCurrency(project.totalAmount)}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="py-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
             <CardTitle className="text-sm font-medium">Paid</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-              {formatCurrency(project.paidAmount)}
+          <CardContent className="pb-1">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                {formatCurrency(project.paidAmount)}
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <Progress value={progress} className="h-2 flex-1" />
+                <span className="text-sm font-medium text-muted-foreground">{progress}%</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="py-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
             <CardTitle className="text-sm font-medium">Owed</CardTitle>
             <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-1">
             <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">
               {formatCurrency(owedAmount)}
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Progress</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{progress}%</div>
-            <Progress value={progress} className="h-2 mt-2" />
-          </CardContent>
-        </Card>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="payments" className="space-y-4">
+      <Tabs defaultValue="tasks" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="tasks" className="gap-2">
+            <ListTodo className="h-4 w-4" />
+            Tasks
+          </TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="tasks">
+          <ProjectTasksTab projectId={id} projectName={project.name} />
+        </TabsContent>
 
         <TabsContent value="payments" className="space-y-4">
           {/* Milestone-based payments */}
@@ -488,15 +497,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         </div>
                         <div className="space-y-2">
                           <Label>Due Date</Label>
-                          <Input
-                            type="date"
+                          <DatePicker
                             value={milestoneForm.dueDate}
-                            onChange={(e) =>
+                            onChange={(date) =>
                               setMilestoneForm({
                                 ...milestoneForm,
-                                dueDate: e.target.value,
+                                dueDate: date,
                               })
                             }
+                            placeholder="Select due date"
                           />
                         </div>
                       </div>
@@ -858,6 +867,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="edit-clientNumber">Client Number</Label>
+              <PhoneInput
+                id="edit-clientNumber"
+                placeholder="Enter phone number"
+                value={editForm.clientNumber}
+                onChange={(value) => setEditForm({ ...editForm, clientNumber: value })}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="edit-description">Description</Label>
               <Textarea
                 id="edit-description"
@@ -926,21 +945,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="edit-startDate">Start Date</Label>
-                <Input
-                  id="edit-startDate"
-                  type="date"
+                <Label>Start Date</Label>
+                <DatePicker
                   value={editForm.startDate}
-                  onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                  onChange={(date) => setEditForm({ ...editForm, startDate: date })}
+                  placeholder="Select start date"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-deadline">Deadline</Label>
-                <Input
-                  id="edit-deadline"
-                  type="date"
+                <Label>Deadline</Label>
+                <DatePicker
                   value={editForm.deadline}
-                  onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })}
+                  onChange={(date) => setEditForm({ ...editForm, deadline: date })}
+                  placeholder="Select deadline"
                 />
               </div>
             </div>

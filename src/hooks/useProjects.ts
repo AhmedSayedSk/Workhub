@@ -1,9 +1,16 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Timestamp } from 'firebase/firestore'
 import { projects, milestones, monthlyPayments, batch } from '@/lib/firestore'
 import { Project, ProjectInput, Milestone, MilestoneInput, MonthlyPayment, MonthlyPaymentInput } from '@/types'
 import { useToast } from './useToast'
+
+// Helper to create a mock Timestamp from Date for optimistic updates
+const toTimestamp = (date: Date | null): Timestamp | null => {
+  if (!date) return null
+  return Timestamp.fromDate(date)
+}
 
 export function useProjects(systemId?: string) {
   const [data, setData] = useState<Project[]>([])
@@ -137,16 +144,35 @@ export function useProject(projectId: string) {
     }
   }, [projectId, fetchProject])
 
-  const updateProject = async (input: Partial<ProjectInput>) => {
+  const updateProject = async (input: Partial<ProjectInput>, showToast = true) => {
+    // Store previous state for rollback
+    const previousProject = project
+
+    // Optimistically update the project in state
+    if (project) {
+      // Extract non-date fields for safe spreading
+      const { startDate, deadline, ...nonDateFields } = input
+      setProject({
+        ...project,
+        ...nonDateFields,
+        // Handle date fields - convert Date to Timestamp
+        ...(startDate !== undefined && { startDate: toTimestamp(startDate)! }),
+        ...(deadline !== undefined && { deadline: toTimestamp(deadline) }),
+      })
+    }
+
     try {
       await projects.update(projectId, input)
-      await fetchProject()
-      toast({
-        title: 'Success',
-        description: 'Project updated',
-        variant: 'success',
-      })
+      if (showToast) {
+        toast({
+          title: 'Success',
+          description: 'Project updated',
+          variant: 'success',
+        })
+      }
     } catch (err) {
+      // Rollback on error
+      setProject(previousProject)
       toast({
         title: 'Error',
         description: 'Failed to update project',
@@ -156,16 +182,28 @@ export function useProject(projectId: string) {
     }
   }
 
-  // Milestone operations
+  // Milestone operations with optimistic updates
   const createMilestone = async (input: Omit<MilestoneInput, 'projectId'>) => {
     try {
-      await milestones.create({ ...input, projectId })
-      await fetchProject()
+      const id = await milestones.create({ ...input, projectId })
+      // Optimistically add the new milestone to state
+      const newMilestone: Milestone = {
+        id,
+        projectId,
+        name: input.name,
+        amount: input.amount,
+        dueDate: toTimestamp(input.dueDate)!,
+        status: input.status,
+        completedAt: toTimestamp(input.completedAt),
+        paidAt: toTimestamp(input.paidAt),
+      }
+      setMilestones(prev => [...prev, newMilestone])
       toast({
         title: 'Success',
         description: 'Milestone created',
         variant: 'success',
       })
+      return id
     } catch (err) {
       toast({
         title: 'Error',
@@ -177,15 +215,37 @@ export function useProject(projectId: string) {
   }
 
   const updateMilestone = async (id: string, input: Partial<MilestoneInput>) => {
+    // Store previous state for rollback
+    const previousMilestones = projectMilestones
+
+    // Extract non-date fields for safe spreading
+    const { dueDate, completedAt, paidAt, ...nonDateFields } = input
+
+    // Optimistically update the milestone in state
+    setMilestones(prev => prev.map(m => {
+      if (m.id === id) {
+        return {
+          ...m,
+          ...nonDateFields,
+          // Handle date fields - convert Date to Timestamp
+          ...(dueDate !== undefined && { dueDate: toTimestamp(dueDate)! }),
+          ...(completedAt !== undefined && { completedAt: toTimestamp(completedAt) }),
+          ...(paidAt !== undefined && { paidAt: toTimestamp(paidAt) }),
+        }
+      }
+      return m
+    }))
+
     try {
       await milestones.update(id, input)
-      await fetchProject()
       toast({
         title: 'Success',
         description: 'Milestone updated',
         variant: 'success',
       })
     } catch (err) {
+      // Rollback on error
+      setMilestones(previousMilestones)
       toast({
         title: 'Error',
         description: 'Failed to update milestone',
@@ -196,15 +256,22 @@ export function useProject(projectId: string) {
   }
 
   const deleteMilestone = async (id: string) => {
+    // Store previous state for rollback
+    const previousMilestones = projectMilestones
+
+    // Optimistically remove the milestone from state
+    setMilestones(prev => prev.filter(m => m.id !== id))
+
     try {
       await milestones.delete(id)
-      await fetchProject()
       toast({
         title: 'Success',
         description: 'Milestone deleted',
         variant: 'success',
       })
     } catch (err) {
+      // Rollback on error
+      setMilestones(previousMilestones)
       toast({
         title: 'Error',
         description: 'Failed to delete milestone',
@@ -214,16 +281,26 @@ export function useProject(projectId: string) {
     }
   }
 
-  // Monthly payment operations
+  // Monthly payment operations with optimistic updates
   const createPayment = async (input: Omit<MonthlyPaymentInput, 'projectId'>) => {
     try {
-      await monthlyPayments.create({ ...input, projectId })
-      await fetchProject()
+      const id = await monthlyPayments.create({ ...input, projectId })
+      // Optimistically add the new payment to state
+      const newPayment: MonthlyPayment = {
+        id,
+        projectId,
+        month: input.month,
+        amount: input.amount,
+        status: input.status,
+        paidAt: toTimestamp(input.paidAt),
+      }
+      setPayments(prev => [...prev, newPayment])
       toast({
         title: 'Success',
         description: 'Payment record created',
         variant: 'success',
       })
+      return id
     } catch (err) {
       toast({
         title: 'Error',
@@ -235,15 +312,34 @@ export function useProject(projectId: string) {
   }
 
   const updatePayment = async (id: string, input: Partial<MonthlyPaymentInput>) => {
+    // Store previous state for rollback
+    const previousPayments = payments
+
+    // Extract non-date fields for safe spreading
+    const { paidAt, ...nonDateFields } = input
+
+    // Optimistically update the payment in state
+    setPayments(prev => prev.map(p => {
+      if (p.id === id) {
+        return {
+          ...p,
+          ...nonDateFields,
+          ...(paidAt !== undefined && { paidAt: toTimestamp(paidAt) }),
+        }
+      }
+      return p
+    }))
+
     try {
       await monthlyPayments.update(id, input)
-      await fetchProject()
       toast({
         title: 'Success',
         description: 'Payment updated',
         variant: 'success',
       })
     } catch (err) {
+      // Rollback on error
+      setPayments(previousPayments)
       toast({
         title: 'Error',
         description: 'Failed to update payment',

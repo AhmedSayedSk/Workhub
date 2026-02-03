@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { DatePicker } from '@/components/ui/date-picker'
 import { useTimeEntries } from '@/hooks/useTimeEntries'
 import { useProjects } from '@/hooks/useProjects'
 import {
@@ -80,7 +81,7 @@ export default function TimePage() {
   const [manualForm, setManualForm] = useState({
     projectId: '',
     taskId: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: new Date() as Date | null,
     hours: '',
     minutes: '',
     notes: '',
@@ -128,11 +129,11 @@ export default function TimePage() {
       (parseInt(manualForm.hours) || 0) * 60 +
       (parseInt(manualForm.minutes) || 0)
 
-    if (!manualForm.projectId || duration <= 0) return
+    if (!manualForm.projectId || duration <= 0 || !manualForm.date) return
 
     setIsSubmitting(true)
     try {
-      const entryDate = new Date(manualForm.date)
+      const entryDate = manualForm.date
       await createTimeEntry({
         projectId: manualForm.projectId,
         taskId: manualForm.taskId || '',
@@ -146,7 +147,7 @@ export default function TimePage() {
       setManualForm({
         projectId: '',
         taskId: '',
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: new Date(),
         hours: '',
         minutes: '',
         notes: '',
@@ -204,12 +205,12 @@ export default function TimePage() {
               </div>
               <div className="space-y-2">
                 <Label>Date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={manualForm.date}
-                  onChange={(e) =>
-                    setManualForm({ ...manualForm, date: e.target.value })
+                  onChange={(date) =>
+                    setManualForm({ ...manualForm, date })
                   }
+                  placeholder="Select date"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">

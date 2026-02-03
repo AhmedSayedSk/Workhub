@@ -60,5 +60,10 @@ service cloud.firestore {
     match /aiSuggestions/{suggestionId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Settings collection (app-wide settings)
+    match /settings/{settingId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

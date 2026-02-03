@@ -18,6 +18,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, displayName?: string) => Promise<void>
   signOut: () => Promise<void>
+  updateUserProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,6 +29,7 @@ function mapFirebaseUser(firebaseUser: FirebaseUser | null): User | null {
     uid: firebaseUser.uid,
     email: firebaseUser.email,
     displayName: firebaseUser.displayName,
+    photoURL: firebaseUser.photoURL,
   }
 }
 
@@ -59,8 +61,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await firebaseSignOut(auth)
   }
 
+  const updateUserProfile = async (data: { displayName?: string; photoURL?: string }) => {
+    if (!auth.currentUser) throw new Error('No user logged in')
+    await updateProfile(auth.currentUser, data)
+    // Update local state
+    setUser(mapFirebaseUser(auth.currentUser))
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   )

@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { DatePicker } from '@/components/ui/date-picker'
+import { PhoneInput } from '@/components/ui/phone-input'
 import { useSystems } from '@/hooks/useSystems'
 import { projects } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus } from '@/types'
@@ -51,12 +53,13 @@ export default function NewProjectPage() {
   const [formData, setFormData] = useState({
     name: '',
     clientName: '',
+    clientNumber: '',
     description: '',
     systemId: '',
     paymentModel: 'milestone' as PaymentModel,
     totalAmount: '',
-    startDate: new Date().toISOString().split('T')[0],
-    deadline: '',
+    startDate: new Date() as Date | null,
+    deadline: null as Date | null,
     notes: '',
   })
 
@@ -78,6 +81,7 @@ export default function NewProjectPage() {
       const projectId = await projects.create({
         name: formData.name,
         clientName: formData.clientName,
+        clientNumber: formData.clientNumber,
         description: formData.description,
         systemId: formData.systemId,
         paymentModel: formData.paymentModel,
@@ -85,8 +89,8 @@ export default function NewProjectPage() {
         paidAmount: 0,
         currency: 'EGP',
         status: 'active' as ProjectStatus,
-        startDate: new Date(formData.startDate),
-        deadline: formData.deadline ? new Date(formData.deadline) : null,
+        startDate: formData.startDate || new Date(),
+        deadline: formData.deadline,
         notes: formData.notes,
       })
 
@@ -143,15 +147,26 @@ export default function NewProjectPage() {
               />
             </div>
 
-            {/* Client Name */}
-            <div className="space-y-2">
-              <Label htmlFor="clientName">Client Name</Label>
-              <Input
-                id="clientName"
-                placeholder="e.g., Acme Corp"
-                value={formData.clientName}
-                onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-              />
+            {/* Client Name & Number */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="clientName">Client Name</Label>
+                <Input
+                  id="clientName"
+                  placeholder="e.g., Acme Corp"
+                  value={formData.clientName}
+                  onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientNumber">Client Number</Label>
+                <PhoneInput
+                  id="clientNumber"
+                  placeholder="Enter phone number"
+                  value={formData.clientNumber}
+                  onChange={(value) => setFormData({ ...formData, clientNumber: value })}
+                />
+              </div>
             </div>
 
             {/* Description */}
@@ -254,21 +269,19 @@ export default function NewProjectPage() {
             {/* Dates */}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
+                <Label>Start Date</Label>
+                <DatePicker
                   value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  onChange={(date) => setFormData({ ...formData, startDate: date })}
+                  placeholder="Select start date"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="deadline">Deadline (Optional)</Label>
-                <Input
-                  id="deadline"
-                  type="date"
+                <Label>Deadline (Optional)</Label>
+                <DatePicker
                   value={formData.deadline}
-                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                  onChange={(date) => setFormData({ ...formData, deadline: date })}
+                  placeholder="Select deadline"
                 />
               </div>
             </div>
