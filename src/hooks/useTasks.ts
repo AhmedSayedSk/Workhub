@@ -130,11 +130,15 @@ export function useTasks(projectId?: string, featureId?: string) {
   }
 
   const deleteTask = async (id: string) => {
+    // Optimistic delete - remove from local state immediately
+    const previousData = data
+    setData((prev) => prev.filter((t) => t.id !== id))
+
     try {
       await tasks.delete(id)
-      await fetchTasks()
-      toast({ title: 'Success', description: 'Task deleted', variant: 'success' })
     } catch {
+      // Revert on error
+      setData(previousData)
       toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' })
       throw new Error('Failed to delete task')
     }
@@ -213,21 +217,32 @@ export function useSubtasks(taskId?: string) {
   }
 
   const updateSubtask = async (id: string, input: Partial<SubtaskInput>) => {
+    // Optimistic update - update local state immediately
+    const previousData = data
+    setData((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...input } as Subtask : s))
+    )
+
     try {
       await subtasks.update(id, input)
-      await fetchSubtasks()
     } catch {
+      // Revert on error
+      setData(previousData)
       toast({ title: 'Error', description: 'Failed to update subtask', variant: 'destructive' })
       throw new Error('Failed to update subtask')
     }
   }
 
   const deleteSubtask = async (id: string) => {
+    // Optimistic delete - remove from local state immediately
+    const previousData = data
+    setData((prev) => prev.filter((s) => s.id !== id))
+
     try {
       await subtasks.delete(id)
-      await fetchSubtasks()
-      toast({ title: 'Success', description: 'Subtask deleted', variant: 'success' })
     } catch {
+      // Revert on error
+      setData(previousData)
       toast({ title: 'Error', description: 'Failed to delete subtask', variant: 'destructive' })
       throw new Error('Failed to delete subtask')
     }
@@ -241,4 +256,47 @@ export function useSubtasks(taskId?: string) {
     updateSubtask,
     deleteSubtask,
   }
+}
+
+// Hook to fetch subtask counts for multiple tasks at once
+export function useSubtaskCounts(taskIds: string[]) {
+  const [counts, setCounts] = useState<Record<string, { total: number; completed: number }>>({})
+  const [loading, setLoading] = useState(true)
+
+  const fetchCounts = useCallback(async () => {
+    if (taskIds.length === 0) {
+      setCounts({})
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      const allSubtasks = await subtasks.getByTaskIds(taskIds)
+
+      // Group by taskId and count
+      const newCounts: Record<string, { total: number; completed: number }> = {}
+      allSubtasks.forEach((subtask) => {
+        if (!newCounts[subtask.taskId]) {
+          newCounts[subtask.taskId] = { total: 0, completed: 0 }
+        }
+        newCounts[subtask.taskId].total++
+        if (subtask.status === 'done') {
+          newCounts[subtask.taskId].completed++
+        }
+      })
+
+      setCounts(newCounts)
+    } catch (error) {
+      console.error('Failed to fetch subtask counts:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [taskIds.join(',')])
+
+  useEffect(() => {
+    fetchCounts()
+  }, [fetchCounts])
+
+  return { counts, loading, refetch: fetchCounts }
 }

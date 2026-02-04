@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useToast } from './useToast'
+import { tasks, projects } from '@/lib/firestore'
+import { TaskStatus, TaskPriority, TaskType } from '@/types'
 
 interface AIResponse {
   success: boolean
@@ -12,6 +14,15 @@ interface AIResponse {
     response?: string
   }
   error?: string
+}
+
+export interface CreateTaskData {
+  projectId: string
+  name: string
+  description?: string
+  priority?: 'low' | 'medium' | 'high' | 'critical'
+  taskType?: 'task' | 'bug' | 'feature' | 'improvement' | 'documentation' | 'research'
+  estimatedHours?: number
 }
 
 export function useAI() {
@@ -101,11 +112,59 @@ export function useAI() {
     return result?.data?.response || null
   }
 
+  const createTask = async (taskData: CreateTaskData): Promise<{ id: string; name: string; projectName: string } | null> => {
+    try {
+      // Verify project exists and get its name
+      const project = await projects.getById(taskData.projectId)
+      if (!project) {
+        toast({
+          title: 'Error',
+          description: 'Project not found',
+          variant: 'destructive',
+        })
+        return null
+      }
+
+      // Create the task directly via client-side Firestore
+      const taskId = await tasks.create({
+        featureId: '',
+        projectId: taskData.projectId,
+        name: taskData.name,
+        description: taskData.description || '',
+        status: 'todo' as TaskStatus,
+        priority: (taskData.priority || 'medium') as TaskPriority,
+        taskType: (taskData.taskType || 'task') as TaskType,
+        estimatedHours: taskData.estimatedHours || 0,
+      })
+
+      toast({
+        title: 'Task Created',
+        description: `"${taskData.name}" added to ${project.name}`,
+        variant: 'success',
+      })
+
+      return {
+        id: taskId,
+        name: taskData.name,
+        projectName: project.name,
+      }
+    } catch (error) {
+      console.error('Failed to create task:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to create task',
+        variant: 'destructive',
+      })
+      return null
+    }
+  }
+
   return {
     loading,
     getTaskBreakdown,
     getTimeEstimate,
     getInsight,
     askQuestion,
+    createTask,
   }
 }

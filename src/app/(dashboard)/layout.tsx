@@ -1,13 +1,12 @@
 'use client'
 
-import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { TimerWidget } from '@/components/time/TimerWidget'
-import { AIAssistant } from '@/components/ai/AIAssistant'
+import { cn } from '@/lib/utils'
 
 export default function DashboardLayout({
   children,
@@ -16,26 +15,13 @@ export default function DashboardLayout({
 }) {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [aiOpen, setAiOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login')
     }
   }, [user, loading, router])
-
-  // Keyboard shortcut for AI assistant
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setAiOpen((prev) => !prev)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
 
   if (loading) {
     return (
@@ -51,15 +37,17 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar onOpenAI={() => setAiOpen(true)} />
-      <div className="pl-64">
+      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <div
+        className="transition-[margin] duration-300 ease-in-out min-w-0"
+        style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}
+      >
         <Header />
-        <main className="p-6">
+        <main className="p-6 min-w-0">
           {children}
         </main>
       </div>
       <TimerWidget />
-      <AIAssistant open={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
   )
 }

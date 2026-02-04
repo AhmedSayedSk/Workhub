@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Minus,
   ChevronDown,
+  CheckSquare,
 } from 'lucide-react'
 
 const taskTypeBorderColors: Record<TaskType, string> = {
@@ -38,15 +39,18 @@ const priorityIcons: Record<Priority, { icon: typeof AlertOctagon; color: string
 interface TaskCardProps {
   task: Task
   feature?: Feature
+  subtaskCount?: { total: number; completed: number }
   onClick: () => void
   onDelete: () => void
 }
 
-export function TaskCard({ task, feature, onClick, onDelete }: TaskCardProps) {
+export function TaskCard({ task, feature, subtaskCount, onClick, onDelete }: TaskCardProps) {
   const taskType = task.taskType || 'task'
   const borderColor = taskTypeBorderColors[taskType]
   const PriorityIcon = priorityIcons[task.priority]?.icon || Minus
   const priorityColor = priorityIcons[task.priority]?.color || 'text-muted-foreground'
+
+  const hasSubtasks = subtaskCount && subtaskCount.total > 0
 
   return (
     <Card
@@ -80,10 +84,23 @@ export function TaskCard({ task, feature, onClick, onDelete }: TaskCardProps) {
           </DropdownMenu>
         </div>
 
-        {task.estimatedHours > 0 && (
-          <div className="flex items-center text-xs text-muted-foreground">
-            <Clock className="h-3 w-3 mr-1" />
-            {task.estimatedHours}h
+        {(task.estimatedHours > 0 || hasSubtasks) && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {task.estimatedHours > 0 && (
+              <div className="flex items-center">
+                <Clock className="h-3 w-3 mr-1" />
+                {task.estimatedHours}h
+              </div>
+            )}
+
+            {hasSubtasks && (
+              <div className="flex items-center" title={`${subtaskCount.completed}/${subtaskCount.total} subtasks completed`}>
+                <CheckSquare className="h-3 w-3 mr-1" />
+                <span className={subtaskCount.completed === subtaskCount.total ? 'text-green-600 dark:text-green-400' : ''}>
+                  {subtaskCount.completed}/{subtaskCount.total}
+                </span>
+              </div>
+            )}
           </div>
         )}
 

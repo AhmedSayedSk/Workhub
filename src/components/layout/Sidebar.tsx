@@ -17,7 +17,6 @@ import {
   FolderOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 const mainNavItems = [
@@ -30,56 +29,48 @@ const mainNavItems = [
 
 const secondaryNavItems = [
   { href: '/media', label: 'Media Library', icon: FolderOpen },
+  { href: '/assistant', label: 'AI Assistant', icon: Sparkles },
 ]
 
 interface SidebarProps {
-  onOpenAI?: () => void
+  collapsed: boolean
+  onToggle: () => void
 }
 
-export function Sidebar({ onOpenAI }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
 
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-card border-r transition-all duration-300',
+        'fixed left-0 top-0 z-40 h-screen bg-card border-r transition-[width] duration-300 ease-in-out overflow-hidden',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col w-64">
         {/* Logo */}
-        <div className={cn(
-          'flex h-16 items-center border-b px-4',
-          collapsed ? 'justify-center' : 'justify-between'
-        )}>
-          {!collapsed && (
-            <Link href="/" className="flex items-center gap-2">
-              <Image
-                src="/logo.png"
-                alt="WorkHub"
-                width={32}
-                height={32}
-                className="h-8 w-8"
-              />
-              <span className="text-xl font-bold">WorkHub</span>
-            </Link>
-          )}
-          {collapsed && (
-            <Link href="/">
-              <Image
-                src="/logo.png"
-                alt="WorkHub"
-                width={28}
-                height={28}
-                className="h-7 w-7"
-              />
-            </Link>
-          )}
+        <div className="flex h-16 items-center border-b px-4">
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="WorkHub"
+              width={32}
+              height={32}
+              className="h-8 w-8 flex-shrink-0"
+            />
+            <span
+              className={cn(
+                'text-xl font-bold whitespace-nowrap transition-opacity duration-200',
+                collapsed ? 'opacity-0' : 'opacity-100 delay-100'
+              )}
+            >
+              WorkHub
+            </span>
+          </Link>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-2">
+        <nav className="flex-1 p-2 overflow-hidden">
           <div className="space-y-1">
             {mainNavItems.map((item) => {
               const isActive = pathname === item.href ||
@@ -93,12 +84,18 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
                     'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    collapsed && 'justify-center px-2'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
+                  <span
+                    className={cn(
+                      'whitespace-nowrap transition-opacity duration-200',
+                      collapsed ? 'opacity-0' : 'opacity-100 delay-100'
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </Link>
               )
 
@@ -118,7 +115,7 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
           </div>
 
           {/* Separator */}
-          <div className={cn('my-3', collapsed ? 'px-2' : 'px-3')}>
+          <div className="my-3 px-3">
             <div className="h-px bg-border" />
           </div>
 
@@ -127,6 +124,7 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
             {secondaryNavItems.map((item) => {
               const isActive = pathname === item.href ||
                 (item.href !== '/' && pathname.startsWith(item.href))
+              const isAI = item.href === '/assistant'
 
               const navLink = (
                 <Link
@@ -134,14 +132,24 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
                   href={item.href}
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    collapsed && 'justify-center px-2'
+                    isAI
+                      ? isActive
+                        ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
+                        : 'text-purple-600 dark:text-purple-400 hover:bg-gradient-to-r hover:from-purple-500/10 hover:to-blue-500/10'
+                      : isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
+                  <span
+                    className={cn(
+                      'whitespace-nowrap transition-opacity duration-200',
+                      collapsed ? 'opacity-0' : 'opacity-100 delay-100'
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </Link>
               )
 
@@ -161,37 +169,6 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
           </div>
         </nav>
 
-        {/* AI Assistant Quick Access */}
-        <div className="p-2">
-          {collapsed ? (
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="w-full bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 border-purple-500/20 dark:from-purple-400/10 dark:to-blue-400/10 dark:hover:from-purple-400/15 dark:hover:to-blue-400/15 dark:border-purple-400/20"
-                  onClick={onOpenAI}
-                >
-                  <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={10}>
-                AI Assistant (Ctrl+K)
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 border-purple-500/20 dark:from-purple-400/10 dark:to-blue-400/10 dark:hover:from-purple-400/15 dark:hover:to-blue-400/15 dark:border-purple-400/20"
-              onClick={onOpenAI}
-            >
-              <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              <span className="text-purple-700 dark:text-purple-400">AI Assistant</span>
-              <kbd className="ml-auto text-xs bg-muted px-1.5 py-0.5 rounded">Ctrl+K</kbd>
-            </Button>
-          )}
-        </div>
-
         {/* Settings & Collapse */}
         <div className="border-t p-2 space-y-1">
           {collapsed ? (
@@ -199,9 +176,10 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
               <TooltipTrigger asChild>
                 <Link
                   href="/settings"
-                  className="flex items-center justify-center rounded-lg px-2 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <Settings className="h-5 w-5" />
+                  <Settings className="h-5 w-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap opacity-0">Settings</span>
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={10}>
@@ -213,25 +191,38 @@ export function Sidebar({ onOpenAI }: SidebarProps) {
               href="/settings"
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <Settings className="h-5 w-5" />
-              <span>Settings</span>
+              <Settings className="h-5 w-5 flex-shrink-0" />
+              <span
+                className={cn(
+                  'whitespace-nowrap transition-opacity duration-200',
+                  collapsed ? 'opacity-0' : 'opacity-100 delay-100'
+                )}
+              >
+                Settings
+              </span>
             </Link>
           )}
 
           <Button
             variant="ghost"
-            size={collapsed ? 'icon' : 'default'}
-            onClick={() => setCollapsed(!collapsed)}
-            className={cn('w-full', !collapsed && 'justify-start gap-3')}
+            onClick={onToggle}
+            className="w-full justify-start gap-3"
           >
-            {collapsed ? (
-              <ChevronRight className="h-5 w-5" />
-            ) : (
-              <>
+            <span className="flex-shrink-0">
+              {collapsed ? (
+                <ChevronRight className="h-5 w-5" />
+              ) : (
                 <ChevronLeft className="h-5 w-5" />
-                <span>Collapse</span>
-              </>
-            )}
+              )}
+            </span>
+            <span
+              className={cn(
+                'whitespace-nowrap transition-opacity duration-200',
+                collapsed ? 'opacity-0' : 'opacity-100 delay-100'
+              )}
+            >
+              Collapse
+            </span>
           </Button>
         </div>
       </div>

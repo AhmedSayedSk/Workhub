@@ -335,6 +335,26 @@ export const subtasks = {
     return getAll<Subtask>('subtasks', ...constraints)
   },
 
+  async getByTaskIds(taskIds: string[]): Promise<Subtask[]> {
+    if (taskIds.length === 0) return []
+
+    // Firestore 'in' query is limited to 30 items, so we batch the queries
+    const results: Subtask[] = []
+    const batchSize = 30
+
+    for (let i = 0; i < taskIds.length; i += batchSize) {
+      const batch = taskIds.slice(i, i + batchSize)
+      const batchResults = await getAll<Subtask>(
+        'subtasks',
+        where('taskId', 'in', batch),
+        orderBy('createdAt', 'asc')
+      )
+      results.push(...batchResults)
+    }
+
+    return results
+  },
+
   async getById(id: string): Promise<Subtask | null> {
     return getById<Subtask>('subtasks', id)
   },

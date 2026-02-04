@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Task, Subtask, TaskStatus, TaskType, Priority, Feature, TaskInput } from '@/types'
+import { useMemo } from 'react'
 import { statusColors, taskTypeLabels, formatDuration } from '@/lib/utils'
 import { useSubtasks } from '@/hooks/useTasks'
 import { useTimerStore } from '@/store/timerStore'
@@ -44,7 +45,119 @@ import {
   Edit,
   Save,
   X,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+
+// Simple markdown renderer for task descriptions
+function renderDescription(text: string): React.ReactNode {
+  if (!text) return null
+
+  const lines = text.split('\n')
+  const elements: React.ReactNode[] = []
+  let listItems: { content: string; ordered: boolean; number?: number }[] = []
+  let key = 0
+
+  const processInline = (line: string): React.ReactNode => {
+    // Process bold **text**
+    const parts: React.ReactNode[] = []
+    let remaining = line
+    let partKey = 0
+
+    while (remaining.length > 0) {
+      const boldMatch = remaining.match(/\*\*([^*]+)\*\*/)
+      const codeMatch = remaining.match(/`([^`]+)`/)
+
+      const matches = [
+        { match: boldMatch, type: 'bold' },
+        { match: codeMatch, type: 'code' },
+      ].filter(m => m.match !== null)
+        .sort((a, b) => (a.match!.index || 0) - (b.match!.index || 0))
+
+      if (matches.length === 0) {
+        parts.push(remaining)
+        break
+      }
+
+      const earliest = matches[0]
+      const match = earliest.match!
+      const before = remaining.slice(0, match.index)
+
+      if (before) parts.push(before)
+
+      if (earliest.type === 'bold') {
+        parts.push(<strong key={partKey++} className="font-semibold">{match[1]}</strong>)
+      } else if (earliest.type === 'code') {
+        parts.push(<code key={partKey++} className="px-1 py-0.5 rounded bg-muted font-mono text-xs">{match[1]}</code>)
+      }
+
+      remaining = remaining.slice(match.index! + match[0].length)
+    }
+
+    return parts.length === 1 ? parts[0] : <>{parts}</>
+  }
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      const isOrdered = listItems[0].ordered
+      if (isOrdered) {
+        elements.push(
+          <ol key={key++} className="list-decimal list-inside space-y-1 my-2 text-sm">
+            {listItems.map((item, i) => (
+              <li key={i}>{processInline(item.content)}</li>
+            ))}
+          </ol>
+        )
+      } else {
+        elements.push(
+          <ul key={key++} className="list-disc list-inside space-y-1 my-2 text-sm">
+            {listItems.map((item, i) => (
+              <li key={i}>{processInline(item.content)}</li>
+            ))}
+          </ul>
+        )
+      }
+      listItems = []
+    }
+  }
+
+  lines.forEach((line) => {
+    const trimmedLine = line.trim()
+
+    // Numbered lists
+    const numberedMatch = trimmedLine.match(/^(\d+)\.\s+(.+)$/)
+    if (numberedMatch) {
+      if (listItems.length > 0 && !listItems[0].ordered) flushList()
+      listItems.push({ content: numberedMatch[2], ordered: true, number: parseInt(numberedMatch[1]) })
+      return
+    }
+
+    // Bullet points
+    if (trimmedLine.startsWith('* ') || trimmedLine.startsWith('- ') || trimmedLine.startsWith('• ')) {
+      if (listItems.length > 0 && listItems[0].ordered) flushList()
+      const content = trimmedLine.startsWith('• ') ? trimmedLine.slice(2) : trimmedLine.slice(2)
+      listItems.push({ content, ordered: false })
+      return
+    }
+
+    flushList()
+
+    if (trimmedLine === '') {
+      elements.push(<div key={key++} className="h-2" />)
+    } else {
+      elements.push(
+        <p key={key++} className="text-sm leading-relaxed">
+          {processInline(trimmedLine)}
+        </p>
+      )
+    }
+  })
+
+  flushList()
+
+  return <div className="space-y-1">{elements}</div>
+}
 
 interface TaskDetailProps {
   task: Task | null
@@ -74,6 +187,7 @@ export function TaskDetail({
 
   const [isEditing, setIsEditing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [subtasksExpanded, setSubtasksExpanded] = useState(false)
   const [newSubtaskName, setNewSubtaskName] = useState('')
   const [newSubtaskMinutes, setNewSubtaskMinutes] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -194,10 +308,12 @@ export function TaskDetail({
                 placeholder="Add a description..."
                 className="mt-2"
               />
+            ) : task.description ? (
+              <div className="text-muted-foreground mt-2">
+                {renderDescription(task.description)}
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground mt-1">
-                {task.description || 'No description'}
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">No description</p>
             )}
           </DialogHeader>
 
@@ -417,120 +533,131 @@ export function TaskDetail({
             <Separator />
 
             {/* Subtasks */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Subtasks</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {completedSubtasks} of {totalSubtasks} completed
-                  </p>
-                </div>
-              </div>
-
-              {/* Add Subtask */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add a subtask..."
-                  value={newSubtaskName}
-                  onChange={(e) => setNewSubtaskName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleCreateSubtask()
-                    }
-                  }}
-                  className="flex-1"
-                />
-                <Input
-                  type="number"
-                  placeholder="mins"
-                  value={newSubtaskMinutes}
-                  onChange={(e) => setNewSubtaskMinutes(e.target.value)}
-                  className="w-20"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleCreateSubtask()
-                    }
-                  }}
-                />
-                <Button
-                  onClick={handleCreateSubtask}
-                  disabled={isCreating || !newSubtaskName.trim()}
-                >
-                  {isCreating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-
-              {/* Subtask List */}
-              <div className="space-y-2">
-                {subtasks.map((subtask) => (
-                  <div
-                    key={subtask.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <Checkbox
-                        checked={subtask.status === 'done'}
-                        onCheckedChange={(checked) =>
-                          handleSubtaskStatusChange(subtask, checked as boolean)
-                        }
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span
-                          className={
-                            subtask.status === 'done'
-                              ? 'line-through text-muted-foreground'
-                              : ''
-                          }
-                        >
-                          {subtask.name}
-                        </span>
-                        {subtask.estimatedMinutes > 0 && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            ({formatDuration(subtask.estimatedMinutes)})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {subtask.status !== 'done' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleStartTimer(subtask)}
-                          disabled={isRunning}
-                          className={
-                            currentSubtaskId === subtask.id
-                              ? 'text-green-600'
-                              : ''
-                          }
-                        >
-                          <Play className="h-4 w-4 mr-1" />
-                          {currentSubtaskId === subtask.id ? 'Running' : 'Start'}
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => deleteSubtask(subtask.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+            <Collapsible open={subtasksExpanded} onOpenChange={setSubtasksExpanded}>
+              <CollapsibleTrigger asChild>
+                <button className="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-lg px-2 -mx-2 transition-colors">
+                  <div className="flex items-center gap-2">
+                    {subtasksExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <div className="text-left">
+                      <h4 className="font-medium">Subtasks</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {completedSubtasks} of {totalSubtasks} completed
+                      </p>
                     </div>
                   </div>
-                ))}
+                </button>
+              </CollapsibleTrigger>
 
-                {subtasks.length === 0 && (
-                  <p className="text-center text-muted-foreground py-4">
-                    No subtasks yet. Add one above.
-                  </p>
-                )}
-              </div>
-            </div>
+              <CollapsibleContent className="space-y-4 pt-4">
+                {/* Add Subtask */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add a subtask..."
+                    value={newSubtaskName}
+                    onChange={(e) => setNewSubtaskName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleCreateSubtask()
+                      }
+                    }}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="mins"
+                    value={newSubtaskMinutes}
+                    onChange={(e) => setNewSubtaskMinutes(e.target.value)}
+                    className="w-20"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleCreateSubtask()
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={handleCreateSubtask}
+                    disabled={isCreating || !newSubtaskName.trim()}
+                  >
+                    {isCreating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {/* Subtask List */}
+                <div className="space-y-2">
+                  {subtasks.map((subtask) => (
+                    <div
+                      key={subtask.id}
+                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Checkbox
+                          checked={subtask.status === 'done'}
+                          onCheckedChange={(checked) =>
+                            handleSubtaskStatusChange(subtask, checked as boolean)
+                          }
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span
+                            className={
+                              subtask.status === 'done'
+                                ? 'line-through text-muted-foreground'
+                                : ''
+                            }
+                          >
+                            {subtask.name}
+                          </span>
+                          {subtask.estimatedMinutes > 0 && (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({formatDuration(subtask.estimatedMinutes)})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {subtask.status !== 'done' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleStartTimer(subtask)}
+                            disabled={isRunning}
+                            className={
+                              currentSubtaskId === subtask.id
+                                ? 'text-green-600'
+                                : ''
+                            }
+                          >
+                            <Play className="h-4 w-4 mr-1" />
+                            {currentSubtaskId === subtask.id ? 'Running' : 'Start'}
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => deleteSubtask(subtask.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {subtasks.length === 0 && (
+                    <p className="text-center text-muted-foreground py-4">
+                      No subtasks yet. Add one above.
+                    </p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </DialogContent>
       </Dialog>

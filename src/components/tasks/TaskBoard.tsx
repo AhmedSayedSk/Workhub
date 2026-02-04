@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,7 @@ import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Plus, Loader2 } from 'lucide-react'
 import { TaskCard } from './TaskCard'
+import { useSubtaskCounts } from '@/hooks/useTasks'
 
 const columns: { id: TaskStatus; title: string; borderColor: string; headerText: string }[] = [
   { id: 'todo', title: 'To Do', borderColor: 'border-slate-300', headerText: 'text-slate-600 dark:text-slate-400' },
@@ -74,6 +75,10 @@ export function TaskBoard({
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null)
   const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null)
   const columnRefs = useRef<Record<TaskStatus, HTMLDivElement | null>>({} as Record<TaskStatus, HTMLDivElement | null>)
+
+  // Fetch subtask counts for all tasks
+  const taskIds = useMemo(() => tasks.map(t => t.id), [tasks])
+  const { counts: subtaskCounts } = useSubtaskCounts(taskIds)
 
   // Pre-select feature when dialog opens if a feature is selected
   useEffect(() => {
@@ -338,6 +343,7 @@ export function TaskBoard({
                         <TaskCard
                           task={task}
                           feature={features.find((f) => f.id === task.featureId)}
+                          subtaskCount={subtaskCounts[task.id]}
                           onClick={() => onSelectTask(task)}
                           onDelete={() => onDeleteTask(task.id)}
                         />

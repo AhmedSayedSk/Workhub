@@ -58,6 +58,8 @@ export default function DashboardPage() {
   const [activeProjects, setActiveProjects] = useState<Project[]>([])
   const [todoTasks, setTodoTasks] = useState<Task[]>([])
   const [inProgressTasks, setInProgressTasks] = useState<Task[]>([])
+  const [allTodoTasks, setAllTodoTasks] = useState<Task[]>([])
+  const [allInProgressTasks, setAllInProgressTasks] = useState<Task[]>([])
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([])
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([])
   const [systemsMap, setSystemsMap] = useState<Record<string, System>>({})
@@ -107,6 +109,8 @@ export default function DashboardPage() {
       setProjectsMap(projMap)
 
       setActiveProjects(projectsData.slice(0, 5))
+      setAllTodoTasks(todoData)
+      setAllInProgressTasks(inProgressData)
       setTodoTasks(sortByPriorityAndDeadline(todoData, projMap).slice(0, 5))
       setInProgressTasks(sortByPriorityAndDeadline(inProgressData, projMap).slice(0, 5))
       setTodayEntries(todayData)
@@ -213,12 +217,12 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex items-baseline gap-3">
               <div>
-                <div className="text-2xl font-bold">{inProgressTasks.length}</div>
+                <div className="text-2xl font-bold">{allInProgressTasks.length}</div>
                 <p className="text-xs text-muted-foreground">In Progress</p>
               </div>
               <div className="text-muted-foreground">/</div>
               <div>
-                <div className="text-xl font-semibold text-muted-foreground">{todoTasks.length}</div>
+                <div className="text-xl font-semibold text-muted-foreground">{allTodoTasks.length}</div>
                 <p className="text-xs text-muted-foreground">To Do</p>
               </div>
             </div>

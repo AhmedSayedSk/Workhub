@@ -90,6 +90,18 @@ export default function SettingsPage() {
       .slice(0, 2)
   }
 
+  // Generate Gravatar URL from email using MD5 hash
+  const generateGravatarUrl = async () => {
+    if (!user?.email) return
+    const email = user.email.trim().toLowerCase()
+    // Use SubtleCrypto to generate MD5-like hash (actually SHA-256, but Gravatar accepts it)
+    const msgBuffer = new TextEncoder().encode(email)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    setProfilePhoto(`https://www.gravatar.com/avatar/${hashHex}?d=identicon&s=200`)
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Page Header */}
@@ -151,13 +163,26 @@ export default function SettingsPage() {
                     </Avatar>
                     <div className="flex-1 space-y-2">
                       <Label>Avatar URL</Label>
-                      <Input
-                        placeholder="https://example.com/avatar.jpg"
-                        value={profilePhoto}
-                        onChange={(e) => setProfilePhoto(e.target.value)}
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="https://example.com/avatar.jpg"
+                          value={profilePhoto}
+                          onChange={(e) => setProfilePhoto(e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={generateGravatarUrl}
+                          className="whitespace-nowrap"
+                        >
+                          <Camera className="h-4 w-4 mr-1" />
+                          Gravatar
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        Enter a URL for your profile picture
+                        Enter a URL or click Gravatar to use your email avatar
                       </p>
                     </div>
                   </div>
