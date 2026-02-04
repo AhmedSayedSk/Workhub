@@ -2,12 +2,11 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAI } from '@/hooks/useAI'
 import { useProjects } from '@/hooks/useProjects'
 import { useTasks } from '@/hooks/useTasks'
-import { Sparkles, Send, Loader2, Bot, Trash2, CheckCircle2, XCircle, AlertCircle, Plus, MessageSquare, MoreHorizontal, Check, X, ListTodo, Clock, Search, Globe, GitBranch, Pencil } from 'lucide-react'
+import { Sparkles, Loader2, Bot, Trash2, CheckCircle2, XCircle, AlertCircle, Plus, MessageSquare, MoreHorizontal, Check, X, ListTodo, Clock, Search, Globe, GitBranch, Pencil, Copy, Eye, Code2, FileCode, Maximize2, Minimize2 } from 'lucide-react'
 import { subtasks as subtasksApi } from '@/lib/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -19,6 +18,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface Message {
   id: string
@@ -70,11 +79,181 @@ const StatusIcon = ({ type }: { type: 'success' | 'error' | 'warning' }) => {
   return <AlertCircle className="inline-block h-4 w-4 text-amber-600 dark:text-amber-400 mr-1" />
 }
 
+// Language display names and colors
+const languageConfig: Record<string, { name: string; color: string }> = {
+  html: { name: 'HTML', color: 'text-orange-500' },
+  css: { name: 'CSS', color: 'text-blue-500' },
+  javascript: { name: 'JavaScript', color: 'text-yellow-500' },
+  js: { name: 'JavaScript', color: 'text-yellow-500' },
+  typescript: { name: 'TypeScript', color: 'text-blue-600' },
+  ts: { name: 'TypeScript', color: 'text-blue-600' },
+  jsx: { name: 'JSX', color: 'text-cyan-500' },
+  tsx: { name: 'TSX', color: 'text-cyan-600' },
+  python: { name: 'Python', color: 'text-green-500' },
+  py: { name: 'Python', color: 'text-green-500' },
+  json: { name: 'JSON', color: 'text-gray-500' },
+  bash: { name: 'Bash', color: 'text-green-600' },
+  sh: { name: 'Shell', color: 'text-green-600' },
+  sql: { name: 'SQL', color: 'text-purple-500' },
+  yaml: { name: 'YAML', color: 'text-red-500' },
+  yml: { name: 'YAML', color: 'text-red-500' },
+  markdown: { name: 'Markdown', color: 'text-gray-600' },
+  md: { name: 'Markdown', color: 'text-gray-600' },
+  xml: { name: 'XML', color: 'text-orange-600' },
+  graphql: { name: 'GraphQL', color: 'text-pink-500' },
+  php: { name: 'PHP', color: 'text-indigo-500' },
+  ruby: { name: 'Ruby', color: 'text-red-600' },
+  go: { name: 'Go', color: 'text-cyan-600' },
+  rust: { name: 'Rust', color: 'text-orange-700' },
+  java: { name: 'Java', color: 'text-red-500' },
+  csharp: { name: 'C#', color: 'text-purple-600' },
+  cs: { name: 'C#', color: 'text-purple-600' },
+  cpp: { name: 'C++', color: 'text-blue-700' },
+  c: { name: 'C', color: 'text-blue-800' },
+  swift: { name: 'Swift', color: 'text-orange-500' },
+  kotlin: { name: 'Kotlin', color: 'text-purple-500' },
+}
+
+// Code block component with copy and preview
+function CodeBlock({ code, language, onPreview }: { code: string; language: string; onPreview?: (code: string) => void }) {
+  const [copied, setCopied] = useState(false)
+  const langConfig = languageConfig[language.toLowerCase()] || { name: language || 'Code', color: 'text-gray-500' }
+  const isPreviewable = ['html', 'htm'].includes(language.toLowerCase())
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  return (
+    <div className="my-3 rounded-lg border border-border overflow-hidden bg-slate-950 dark:bg-slate-900">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 dark:bg-slate-800 border-b border-slate-700">
+        <div className="flex items-center gap-2">
+          <FileCode className={cn("h-4 w-4", langConfig.color)} />
+          <span className={cn("text-xs font-medium", langConfig.color)}>{langConfig.name}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {isPreviewable && onPreview && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-slate-400 hover:text-white hover:bg-slate-700"
+              onClick={() => onPreview(code)}
+            >
+              <Eye className="h-3.5 w-3.5 mr-1" />
+              <span className="text-xs">Preview</span>
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-slate-400 hover:text-white hover:bg-slate-700"
+            onClick={handleCopy}
+          >
+            {copied ? (
+              <>
+                <Check className="h-3.5 w-3.5 mr-1 text-green-400" />
+                <span className="text-xs text-green-400">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5 mr-1" />
+                <span className="text-xs">Copy</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+      {/* Code content */}
+      <div className="p-4 overflow-auto max-h-80">
+        <pre className="text-sm font-mono text-slate-100 leading-relaxed whitespace-pre-wrap break-words">
+          <code>{code}</code>
+        </pre>
+      </div>
+    </div>
+  )
+}
+
+// HTML Preview Modal
+function HTMLPreviewModal({ code, isOpen, onClose }: { code: string; isOpen: boolean; onClose: () => void }) {
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className={cn(
+        "bg-background rounded-lg shadow-2xl border flex flex-col transition-all duration-300",
+        isFullscreen ? "w-full h-full rounded-none" : "w-[90vw] max-w-5xl h-[80vh]"
+      )}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/50">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-primary" />
+            <span className="font-medium">HTML Preview</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="h-8 w-8 p-0"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        {/* Preview content */}
+        <div className="flex-1 overflow-hidden bg-white">
+          <iframe
+            srcDoc={code}
+            className="w-full h-full border-0"
+            title="HTML Preview"
+            sandbox="allow-scripts allow-same-origin"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Enhanced markdown renderer for AI responses
-function renderMarkdown(text: string): React.ReactNode {
-  const lines = text.split('\n')
+function renderMarkdown(text: string, onPreviewHTML?: (code: string) => void): React.ReactNode {
   const elements: React.ReactNode[] = []
   let listItems: { content: string; ordered: boolean; number?: number }[] = []
+
+  // First, extract code blocks and replace with placeholders
+  const codeBlocks: { language: string; code: string }[] = []
+  const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g
+  let processedText = text
+  let match
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    const language = match[1] || ''
+    const code = match[2].trim()
+    // Skip task/subtask creation blocks - they're handled separately
+    if (language === 'json:create_task' || language === 'json:create_subtask') {
+      continue
+    }
+    codeBlocks.push({ language, code })
+    processedText = processedText.replace(match[0], `__CODE_BLOCK_${codeBlocks.length - 1}__`)
+  }
+
+  const lines = processedText.split('\n')
 
   const processInlineMarkdown = (line: string): React.ReactNode => {
     const parts: React.ReactNode[] = []
@@ -313,6 +492,24 @@ function renderMarkdown(text: string): React.ReactNode {
 
     flushList()
 
+    // Check for code block placeholder
+    const codeBlockMatch = trimmedLine.match(/^__CODE_BLOCK_(\d+)__$/)
+    if (codeBlockMatch) {
+      const blockIndex = parseInt(codeBlockMatch[1])
+      const block = codeBlocks[blockIndex]
+      if (block) {
+        elements.push(
+          <CodeBlock
+            key={elements.length}
+            code={block.code}
+            language={block.language}
+            onPreview={onPreviewHTML}
+          />
+        )
+      }
+      return
+    }
+
     if (trimmedLine === '') {
       // Empty line - add spacing
       if (index > 0 && index < lines.length - 1) {
@@ -345,11 +542,11 @@ function renderMarkdown(text: string): React.ReactNode {
 }
 
 // Memoized message content component
-function MessageContent({ content, isUser }: { content: string; isUser: boolean }) {
+function MessageContent({ content, isUser, onPreviewHTML }: { content: string; isUser: boolean; onPreviewHTML?: (code: string) => void }) {
   const rendered = useMemo(() => {
     if (isUser) return content
-    return renderMarkdown(content)
-  }, [content, isUser])
+    return renderMarkdown(content, onPreviewHTML)
+  }, [content, isUser, onPreviewHTML])
 
   return <>{rendered}</>
 }
@@ -390,12 +587,26 @@ export default function AssistantPage() {
   const [tempInput, setTempInput] = useState('')
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingSessionTitle, setEditingSessionTitle] = useState('')
+  const [previewHTML, setPreviewHTML] = useState<string | null>(null)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const { loading, askQuestion, createTask } = useAI()
   const { user } = useAuth()
   const { projects } = useProjects()
   const { tasks, refetch: refetchTasks } = useTasks()
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-resize textarea when input changes
+  useEffect(() => {
+    const textarea = inputRef.current
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = '0px'
+      // Set to scrollHeight to show all content
+      const scrollHeight = textarea.scrollHeight
+      textarea.style.height = `${Math.max(48, scrollHeight)}px`
+    }
+  }, [input])
 
   // Timer for counting up during searching/thinking
   useEffect(() => {
@@ -624,8 +835,22 @@ export default function AssistantPage() {
   }, [])
 
   // Handle keyboard navigation through history
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowUp') {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter to submit, Shift+Enter for new line
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      // Submit the form programmatically
+      const form = e.currentTarget.closest('form')
+      if (form) {
+        form.requestSubmit()
+      }
+      return
+    }
+
+    // Arrow up/down for history navigation (only when input is empty or single line)
+    const isMultiLine = input.includes('\n')
+
+    if (e.key === 'ArrowUp' && !isMultiLine) {
       e.preventDefault()
       if (promptHistory.length === 0) return
 
@@ -639,7 +864,7 @@ export default function AssistantPage() {
         setHistoryIndex(newIndex)
         setInput(promptHistory[newIndex])
       }
-    } else if (e.key === 'ArrowDown') {
+    } else if (e.key === 'ArrowDown' && !isMultiLine) {
       e.preventDefault()
       if (historyIndex === -1) return
 
@@ -703,7 +928,7 @@ WEB ACCESS CAPABILITY:
 You have access to live web search and can fetch content from URLs. When the user asks you to search, look up information, check websites, or verify DNS/domain availability, the system will automatically search the web and provide you with the results. Use this information to give accurate, up-to-date answers.
 
 TASK CREATION CAPABILITY:
-You can suggest creating tasks. When you think a task should be created (either because the user asked or it would be helpful), respond with a JSON block in this exact format:
+You can suggest creating tasks ONLY when the user explicitly asks you to create a task, add a task, or break down work into tasks. Use this JSON format:
 \`\`\`json:create_task
 {
   "projectId": "the-project-id-from-above",
@@ -715,10 +940,16 @@ You can suggest creating tasks. When you think a task should be created (either 
 }
 \`\`\`
 
-IMPORTANT: The task will NOT be created automatically. The user will see a confirmation card and must click "Create" to approve the task. Only suggest tasks when it's clearly relevant to the conversation. Do not create tasks unless the user explicitly asks for task creation OR it's highly relevant to what they're working on.
+CRITICAL: Do NOT suggest task creation unless the user explicitly asks with phrases like:
+- "create a task"
+- "add a task"
+- "make a task"
+- "break this down into tasks"
+- "can you create tasks for..."
+If the user is just asking questions, providing guidance, or discussing projects/tasks, do NOT include any task creation JSON.
 
 SUBTASK CREATION CAPABILITY:
-When you identify that the user's request relates to an EXISTING task (check the TASKS list above), you can suggest creating a subtask instead of a new task. Use this JSON format:
+You can suggest creating subtasks ONLY when the user explicitly asks you to create subtasks or break down a task. Use this JSON format:
 \`\`\`json:create_subtask
 {
   "taskId": "the-task-id-from-above",
@@ -727,12 +958,12 @@ When you identify that the user's request relates to an EXISTING task (check the
 }
 \`\`\`
 
-IMPORTANT: Prefer creating SUBTASKS when:
-- The work is directly related to an existing task
-- It's a smaller piece of work that fits under a parent task
-- The user is discussing or working on a specific existing task
-
-The subtask will NOT be created automatically - the user will see a confirmation card.
+CRITICAL: Do NOT suggest subtask creation unless the user explicitly asks with phrases like:
+- "create subtasks"
+- "add subtasks"
+- "break down this task"
+- "break this into subtasks"
+If the user is just asking about a task, discussing it, or asking for guidance, do NOT include any subtask creation JSON.
 `
   }, [projects, tasks])
 
@@ -842,6 +1073,10 @@ The subtask will NOT be created automatically - the user will see a confirmation
     const userInput = input
     addToHistory(userInput)
     setInput('')
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+    }
 
     // Build conversation history for context
     const conversationHistory = updatedMessages
@@ -983,6 +1218,11 @@ ${webContext ? '\nYou have access to web search results above. Use this informat
         }
         return session
       }))
+
+      // Auto-focus input after response
+      setTimeout(() => {
+        inputRef.current?.focus()
+      }, 100)
     }
   }
 
@@ -1145,7 +1385,13 @@ ${webContext ? '\nYou have access to web search results above. Use this informat
 
   const handleClearChat = () => {
     if (!currentSessionId) return
+    setShowClearConfirm(true)
+  }
+
+  const confirmClearChat = () => {
+    if (!currentSessionId) return
     updateSessionMessages(currentSessionId, [defaultMessage], 'New Chat')
+    setShowClearConfirm(false)
   }
 
   // Sort sessions by updatedAt (most recent first)
@@ -1309,7 +1555,7 @@ ${webContext ? '\nYou have access to web search results above. Use this informat
                             </span>
                           </div>
                         )}
-                        <MessageContent content={message.content} isUser={false} />
+                        <MessageContent content={message.content} isUser={false} onPreviewHTML={setPreviewHTML} />
                         {/* Pending Tasks Confirmation */}
                         {message.pendingTasks && message.pendingTasks.length > 0 && (
                           <div className="mt-4 space-y-3">
@@ -1541,30 +1787,60 @@ ${webContext ? '\nYou have access to web search results above. Use this informat
                 e.preventDefault()
                 handleSend()
               }}
-              className="flex gap-3"
             >
-              <Input
-                ref={inputRef}
-                placeholder="Ask me anything about your projects, tasks, or productivity..."
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value)
-                  // Reset history navigation when typing
-                  if (historyIndex !== -1) {
-                    setHistoryIndex(-1)
-                  }
-                }}
-                onKeyDown={handleKeyDown}
-                disabled={aiState !== 'idle'}
-                className="text-base py-5"
-              />
-              <Button type="submit" size="lg" disabled={aiState !== 'idle' || !input.trim()}>
-                <Send className="h-5 w-5" />
-              </Button>
+              <div className="relative">
+                <textarea
+                  ref={inputRef}
+                  placeholder="Ask me anything about your projects, tasks, or productivity..."
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value)
+                    // Reset history navigation when typing
+                    if (historyIndex !== -1) {
+                      setHistoryIndex(-1)
+                    }
+                  }}
+                  onKeyDown={handleKeyDown}
+                  disabled={aiState !== 'idle'}
+                  className="flex w-full rounded-md border border-input bg-background px-4 py-3 pr-36 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-hidden leading-relaxed"
+                  rows={1}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60 pointer-events-none">
+                  Enter to send · Shift+Enter for new line
+                </span>
+              </div>
             </form>
           </div>
         </div>
       </div>
+
+      {/* HTML Preview Modal */}
+      <HTMLPreviewModal
+        code={previewHTML || ''}
+        isOpen={previewHTML !== null}
+        onClose={() => setPreviewHTML(null)}
+      />
+
+      {/* Clear Chat Confirmation Dialog */}
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Chat</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to clear this chat? This action cannot be undone and all messages will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmClearChat}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear Chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
