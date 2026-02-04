@@ -145,7 +145,7 @@ export function FileLinkSelector({
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{project.name}</p>
                           <p className="text-sm text-muted-foreground truncate">
-                            {project.clientName || 'No client'}
+                            {project.paymentModel === 'internal' ? 'Internal Project' : (project.clientName || 'No client')}
                           </p>
                         </div>
                       </div>

@@ -3,7 +3,7 @@ import { Timestamp } from 'firebase/firestore'
 // Base types
 export type Currency = 'EGP'
 
-export type PaymentModel = 'milestone' | 'monthly' | 'fixed'
+export type PaymentModel = 'milestone' | 'monthly' | 'fixed' | 'internal'
 
 export type ProjectStatus = 'active' | 'paused' | 'completed' | 'cancelled'
 
@@ -55,6 +55,7 @@ export interface Project {
   deadline: Timestamp | null
   notes: string
   coverImageUrl: string | null
+  estimatedValue?: number // For internal projects - estimated market value for hourly rate calculation
   createdAt: Timestamp
 }
 
@@ -165,6 +166,7 @@ export interface ProjectInput {
   deadline: Date | null
   notes: string
   coverImageUrl: string | null
+  estimatedValue?: number // For internal projects - estimated market value
 }
 
 export interface MilestoneInput {

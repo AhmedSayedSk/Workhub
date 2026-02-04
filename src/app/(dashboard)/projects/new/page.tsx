@@ -21,7 +21,7 @@ import { useSystems } from '@/hooks/useSystems'
 import { projects } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus } from '@/types'
 import { useToast } from '@/hooks/useToast'
-import { ArrowLeft, Loader2, Milestone, Calendar, DollarSign } from 'lucide-react'
+import { ArrowLeft, Loader2, Milestone, Calendar, DollarSign, Building2 } from 'lucide-react'
 import { ProjectImagePicker } from '@/components/projects/ProjectImagePicker'
 
 const paymentModels: { value: PaymentModel; label: string; description: string; icon: typeof Milestone }[] = [
@@ -43,6 +43,12 @@ const paymentModels: { value: PaymentModel; label: string; description: string; 
     description: 'Single payment for entire project',
     icon: DollarSign,
   },
+  {
+    value: 'internal',
+    label: 'Internal Project',
+    description: 'Brand or internal project with no client payment',
+    icon: Building2,
+  },
 ]
 
 export default function NewProjectPage() {
@@ -59,6 +65,7 @@ export default function NewProjectPage() {
     systemId: '',
     paymentModel: 'milestone' as PaymentModel,
     totalAmount: '',
+    estimatedValue: '',
     startDate: new Date() as Date | null,
     deadline: null as Date | null,
     notes: '',
@@ -80,6 +87,7 @@ export default function NewProjectPage() {
     setIsSubmitting(true)
 
     try {
+      const isInternal = formData.paymentModel === 'internal'
       const projectId = await projects.create({
         name: formData.name,
         clientName: formData.clientName,
@@ -87,7 +95,7 @@ export default function NewProjectPage() {
         description: formData.description,
         systemId: formData.systemId,
         paymentModel: formData.paymentModel,
-        totalAmount: parseFloat(formData.totalAmount) || 0,
+        totalAmount: isInternal ? 0 : (parseFloat(formData.totalAmount) || 0),
         paidAmount: 0,
         currency: 'EGP',
         status: 'active' as ProjectStatus,
@@ -95,6 +103,7 @@ export default function NewProjectPage() {
         deadline: formData.deadline,
         notes: formData.notes,
         coverImageUrl: formData.coverImageUrl,
+        ...(isInternal && formData.estimatedValue ? { estimatedValue: parseFloat(formData.estimatedValue) } : {}),
       })
 
       toast({
@@ -156,27 +165,29 @@ export default function NewProjectPage() {
               />
             </div>
 
-            {/* Client Name & Number */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="clientName">Client Name</Label>
-                <Input
-                  id="clientName"
-                  placeholder="e.g., Acme Corp"
-                  value={formData.clientName}
-                  onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                />
+            {/* Client Name & Number - Hidden for internal projects */}
+            {formData.paymentModel !== 'internal' && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="clientName">Client Name</Label>
+                  <Input
+                    id="clientName"
+                    placeholder="e.g., Acme Corp"
+                    value={formData.clientName}
+                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientNumber">Client Number</Label>
+                  <PhoneInput
+                    id="clientNumber"
+                    placeholder="Enter phone number"
+                    value={formData.clientNumber}
+                    onChange={(value) => setFormData({ ...formData, clientNumber: value })}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="clientNumber">Client Number</Label>
-                <PhoneInput
-                  id="clientNumber"
-                  placeholder="Enter phone number"
-                  value={formData.clientNumber}
-                  onChange={(value) => setFormData({ ...formData, clientNumber: value })}
-                />
-              </div>
-            </div>
+            )}
 
             {/* Description */}
             <div className="space-y-2">
@@ -261,19 +272,40 @@ export default function NewProjectPage() {
               </div>
             </div>
 
-            {/* Total Amount */}
-            <div className="space-y-2">
-              <Label htmlFor="totalAmount">
-                {formData.paymentModel === 'monthly' ? 'Monthly Amount' : 'Total Amount'} (EGP)
-              </Label>
-              <Input
-                id="totalAmount"
-                type="number"
-                placeholder="0"
-                value={formData.totalAmount}
-                onChange={(e) => setFormData({ ...formData, totalAmount: e.target.value })}
-              />
-            </div>
+            {/* Total Amount - Hidden for internal projects */}
+            {formData.paymentModel !== 'internal' && (
+              <div className="space-y-2">
+                <Label htmlFor="totalAmount">
+                  {formData.paymentModel === 'monthly' ? 'Monthly Amount' : 'Total Amount'} (EGP)
+                </Label>
+                <Input
+                  id="totalAmount"
+                  type="number"
+                  placeholder="0"
+                  value={formData.totalAmount}
+                  onChange={(e) => setFormData({ ...formData, totalAmount: e.target.value })}
+                />
+              </div>
+            )}
+
+            {/* Estimated Value - Only for internal projects */}
+            {formData.paymentModel === 'internal' && (
+              <div className="space-y-2">
+                <Label htmlFor="estimatedValue">
+                  Estimated Value (EGP) - Optional
+                </Label>
+                <Input
+                  id="estimatedValue"
+                  type="number"
+                  placeholder="0"
+                  value={formData.estimatedValue}
+                  onChange={(e) => setFormData({ ...formData, estimatedValue: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used for hourly rate calculation in income charts
+                </p>
+              </div>
+            )}
 
             {/* Dates */}
             <div className="grid gap-4 md:grid-cols-2">

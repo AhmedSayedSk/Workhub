@@ -17,6 +17,7 @@ import {
 } from '@/lib/utils'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import {
+  Building2,
   Wallet,
   TrendingUp,
   Clock,
@@ -75,12 +76,14 @@ export default function FinancesPage() {
   }
 
   // Calculate totals
+  // Exclude internal projects from all financial calculations
   // For non-monthly projects: total value and owed from totalAmount - paidAmount
   // For monthly projects: don't include in "owed" from project, use pending payments instead
-  const nonMonthlyProjects = allProjects.filter((p) => p.paymentModel !== 'monthly')
-  const totalPaid = allProjects.reduce((sum, p) => sum + p.paidAmount, 0)
+  const projectsWithPayments = allProjects.filter((p) => p.paymentModel !== 'internal')
+  const nonMonthlyProjects = projectsWithPayments.filter((p) => p.paymentModel !== 'monthly')
+  const totalPaid = projectsWithPayments.reduce((sum, p) => sum + p.paidAmount, 0)
 
-  // Owed from non-monthly projects (milestone/fixed)
+  // Owed from non-monthly projects (milestone/fixed) - excludes internal
   const nonMonthlyOwed = nonMonthlyProjects.reduce(
     (sum, p) => sum + Math.max(0, p.totalAmount - p.paidAmount),
     0
@@ -94,6 +97,7 @@ export default function FinancesPage() {
   const totalOwed = nonMonthlyOwed + monthlyOwed
 
   const activeProjects = allProjects.filter((p) => p.status === 'active')
+  const internalProjects = allProjects.filter((p) => p.paymentModel === 'internal')
 
   // Pending milestones
   const pendingMilestones = allMilestones.filter(
@@ -139,9 +143,9 @@ export default function FinancesPage() {
     }
   })
 
-  // Project distribution by system
+  // Project distribution by system (excludes internal projects)
   const systemDistribution = Object.entries(
-    allProjects.reduce((acc, project) => {
+    projectsWithPayments.reduce((acc, project) => {
       const systemId = project.systemId
       const systemName = systemsMap[systemId]?.name || 'Unknown'
       if (!acc[systemName]) {
@@ -353,16 +357,20 @@ export default function FinancesPage() {
               allProjects.map((project) => {
                 const system = systemsMap[project.systemId]
                 const isMonthly = project.paymentModel === 'monthly'
-                const progress = isMonthly ? 0 : calculateProgress(
+                const isInternal = project.paymentModel === 'internal'
+                const progress = (isMonthly || isInternal) ? 0 : calculateProgress(
                   project.paidAmount,
                   project.totalAmount
                 )
                 // For monthly: show pending payments as owed
+                // For internal: no owed
                 // For others: show totalAmount - paidAmount
                 const projectPendingPayments = allPayments
                   .filter((p) => p.projectId === project.id && p.status === 'pending')
                   .reduce((sum, p) => sum + p.amount, 0)
-                const owed = isMonthly
+                const owed = isInternal
+                  ? 0
+                  : isMonthly
                   ? projectPendingPayments
                   : Math.max(0, project.totalAmount - project.paidAmount)
 
@@ -391,8 +399,24 @@ export default function FinancesPage() {
                               Monthly
                             </Badge>
                           )}
+                          {isInternal && (
+                            <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400">
+                              Internal
+                            </Badge>
+                          )}
                         </div>
-                        {isMonthly ? (
+                        {isInternal ? (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Building2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                            <span>Internal Project</span>
+                            {project.estimatedValue && project.estimatedValue > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>Est. {formatCurrency(project.estimatedValue)}</span>
+                              </>
+                            )}
+                          </div>
+                        ) : isMonthly ? (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <span>{formatCurrency(project.totalAmount)}/mo</span>
                             <span>•</span>
@@ -408,7 +432,11 @@ export default function FinancesPage() {
                         )}
                       </div>
                       <div className="text-right">
-                        {isMonthly ? (
+                        {isInternal ? (
+                          <p className="text-sm text-purple-600 dark:text-purple-400">
+                            No payment tracking
+                          </p>
+                        ) : isMonthly ? (
                           <>
                             <p className="font-medium">
                               {formatCurrency(project.paidAmount)}

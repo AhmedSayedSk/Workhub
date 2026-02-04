@@ -54,6 +54,7 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft,
+  Building2,
   Calendar,
   CheckCircle2,
   Clock,
@@ -111,6 +112,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     systemId: '',
     paymentModel: 'milestone' as PaymentModel,
     totalAmount: '',
+    estimatedValue: '',
     startDate: null as Date | null,
     deadline: null as Date | null,
     notes: '',
@@ -151,15 +153,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   // For monthly projects, "owed" doesn't make sense the same way
   // Monthly projects: totalAmount is monthly rate, paidAmount is total received
+  // Internal projects have no payment tracking
   const isMonthly = project.paymentModel === 'monthly'
-  const progress = isMonthly ? 0 : calculateProgress(project.paidAmount, project.totalAmount)
+  const isInternal = project.paymentModel === 'internal'
+  const progress = (isMonthly || isInternal) ? 0 : calculateProgress(project.paidAmount, project.totalAmount)
 
   // For non-monthly: owed = total - paid
   // For monthly: owed = sum of pending monthly payments
+  // For internal: no owed amount
   const pendingPaymentsTotal = payments
     .filter(p => p.status === 'pending')
     .reduce((sum, p) => sum + p.amount, 0)
-  const owedAmount = isMonthly ? pendingPaymentsTotal : Math.max(0, project.totalAmount - project.paidAmount)
+  const owedAmount = isInternal ? 0 : (isMonthly ? pendingPaymentsTotal : Math.max(0, project.totalAmount - project.paidAmount))
 
   const handleCreateMilestone = async () => {
     if (!milestoneForm.name || !milestoneForm.amount || !milestoneForm.dueDate) return
@@ -310,6 +315,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         systemId: project.systemId,
         paymentModel: project.paymentModel,
         totalAmount: project.totalAmount.toString(),
+        estimatedValue: project.estimatedValue?.toString() || '',
         startDate: project.startDate.toDate(),
         deadline: project.deadline ? project.deadline.toDate() : null,
         notes: project.notes,
@@ -324,6 +330,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     setIsSubmitting(true)
     try {
+      const isEditInternal = editForm.paymentModel === 'internal'
       await updateProject({
         name: editForm.name,
         clientName: editForm.clientName,
@@ -331,11 +338,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         description: editForm.description,
         systemId: editForm.systemId,
         paymentModel: editForm.paymentModel,
-        totalAmount: parseFloat(editForm.totalAmount) || 0,
+        totalAmount: isEditInternal ? 0 : (parseFloat(editForm.totalAmount) || 0),
         startDate: editForm.startDate,
         deadline: editForm.deadline,
         notes: editForm.notes,
         coverImageUrl: editForm.coverImageUrl,
+        estimatedValue: isEditInternal && editForm.estimatedValue ? parseFloat(editForm.estimatedValue) : undefined,
       })
       setIsEditDialogOpen(false)
     } finally {
@@ -373,8 +381,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               >
                 {project.status}
               </Badge>
+              {isInternal && (
+                <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 border-0">
+                  <Building2 className="h-3 w-3 mr-1" />
+                  Internal
+                </Badge>
+              )}
             </div>
-            {project.clientName && (
+            {!isInternal && project.clientName && (
               <p className="text-sm font-medium text-primary mb-1">Client: {project.clientName}</p>
             )}
             <p className="text-muted-foreground">{project.description}</p>
@@ -448,71 +462,73 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="py-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-            <CardTitle className="text-sm font-medium">
-              {isMonthly ? 'Monthly Rate' : 'Total Value'}
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="pb-1">
-            <div className="text-2xl font-bold">
-              {formatCurrency(project.totalAmount)}
-            </div>
-            {isMonthly && (
-              <p className="text-xs text-muted-foreground">per month</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="py-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-            <CardTitle className="text-sm font-medium">
-              {isMonthly ? 'Total Received' : 'Paid'}
-            </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-          </CardHeader>
-          <CardContent className="pb-1">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-                {formatCurrency(project.paidAmount)}
+      {/* Stats Overview - Only for non-internal projects */}
+      {!isInternal && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="py-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
+              <CardTitle className="text-sm font-medium">
+                {isMonthly ? 'Monthly Rate' : 'Total Value'}
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="pb-1">
+              <div className="text-2xl font-bold">
+                {formatCurrency(project.totalAmount)}
               </div>
-              {!isMonthly && (
-                <div className="flex items-center gap-2 flex-1">
-                  <Progress value={progress} className="h-2 flex-1" />
-                  <span className="text-sm font-medium text-muted-foreground">{progress}%</span>
-                </div>
+              {isMonthly && (
+                <p className="text-xs text-muted-foreground">per month</p>
               )}
-            </div>
-            {isMonthly && project.paidAmount > 0 && project.totalAmount > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {Math.floor(project.paidAmount / project.totalAmount)} month{Math.floor(project.paidAmount / project.totalAmount) !== 1 ? 's' : ''} paid
-              </p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="py-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-            <CardTitle className="text-sm font-medium">
-              {isMonthly ? 'Pending Payments' : 'Owed'}
-            </CardTitle>
-            <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          </CardHeader>
-          <CardContent className="pb-1">
-            <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">
-              {formatCurrency(owedAmount)}
-            </div>
-            {isMonthly && (
-              <p className="text-xs text-muted-foreground">
-                {payments.filter(p => p.status === 'pending').length} pending
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="py-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
+              <CardTitle className="text-sm font-medium">
+                {isMonthly ? 'Total Received' : 'Paid'}
+              </CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </CardHeader>
+            <CardContent className="pb-1">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                  {formatCurrency(project.paidAmount)}
+                </div>
+                {!isMonthly && (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Progress value={progress} className="h-2 flex-1" />
+                    <span className="text-sm font-medium text-muted-foreground">{progress}%</span>
+                  </div>
+                )}
+              </div>
+              {isMonthly && project.paidAmount > 0 && project.totalAmount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {Math.floor(project.paidAmount / project.totalAmount)} month{Math.floor(project.paidAmount / project.totalAmount) !== 1 ? 's' : ''} paid
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="py-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
+              <CardTitle className="text-sm font-medium">
+                {isMonthly ? 'Pending Payments' : 'Owed'}
+              </CardTitle>
+              <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            </CardHeader>
+            <CardContent className="pb-1">
+              <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">
+                {formatCurrency(owedAmount)}
+              </div>
+              {isMonthly && (
+                <p className="text-xs text-muted-foreground">
+                  {payments.filter(p => p.status === 'pending').length} pending
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="tasks">
@@ -529,10 +545,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <KeyRound className="h-4 w-4" />
             Vault
           </TabsTriggerBoxed>
-          <TabsTriggerBoxed value="payments" className="gap-2">
-            <Wallet className="h-4 w-4" />
-            Payments
-          </TabsTriggerBoxed>
+          {!isInternal && (
+            <TabsTriggerBoxed value="payments" className="gap-2">
+              <Wallet className="h-4 w-4" />
+              Payments
+            </TabsTriggerBoxed>
+          )}
           <TabsTriggerBoxed value="details" className="gap-2">
             <Edit className="h-4 w-4" />
             Details
@@ -929,10 +947,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Project Details</h3>
             <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Label className="text-muted-foreground">Client</Label>
-                <p className="font-medium">{project.clientName || 'Not specified'}</p>
-              </div>
+              {!isInternal && (
+                <div>
+                  <Label className="text-muted-foreground">Client</Label>
+                  <p className="font-medium">{project.clientName || 'Not specified'}</p>
+                </div>
+              )}
               <div>
                 <Label className="text-muted-foreground">System</Label>
                 <p className="font-medium">{system?.name || (project.systemId ? 'Unknown' : 'Not assigned')}</p>
@@ -941,10 +961,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <Label className="text-muted-foreground">Payment Model</Label>
                 <p className="font-medium capitalize">{project.paymentModel}</p>
               </div>
-              <div>
-                <Label className="text-muted-foreground">Total Amount</Label>
-                <p className="font-medium">{formatCurrency(project.totalAmount)}</p>
-              </div>
+              {!isInternal ? (
+                <div>
+                  <Label className="text-muted-foreground">Total Amount</Label>
+                  <p className="font-medium">{formatCurrency(project.totalAmount)}</p>
+                </div>
+              ) : project.estimatedValue && project.estimatedValue > 0 ? (
+                <div>
+                  <Label className="text-muted-foreground">Estimated Value</Label>
+                  <p className="font-medium">{formatCurrency(project.estimatedValue)}</p>
+                </div>
+              ) : null}
               <div>
                 <Label className="text-muted-foreground">Start Date</Label>
                 <p className="font-medium">{formatDate(project.startDate)}</p>
@@ -1065,7 +1092,38 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               onChange={(url) => setEditForm({ ...editForm, coverImageUrl: url })}
             />
 
-            <div className="grid gap-4 md:grid-cols-2">
+            {editForm.paymentModel !== 'internal' ? (
+              <>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-name">Project Name *</Label>
+                    <Input
+                      id="edit-name"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-clientName">Client Name</Label>
+                    <Input
+                      id="edit-clientName"
+                      value={editForm.clientName}
+                      onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-clientNumber">Client Number</Label>
+                  <PhoneInput
+                    id="edit-clientNumber"
+                    placeholder="Enter phone number"
+                    value={editForm.clientNumber}
+                    onChange={(value) => setEditForm({ ...editForm, clientNumber: value })}
+                  />
+                </div>
+              </>
+            ) : (
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Project Name *</Label>
                 <Input
@@ -1074,25 +1132,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-clientName">Client Name</Label>
-                <Input
-                  id="edit-clientName"
-                  value={editForm.clientName}
-                  onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-clientNumber">Client Number</Label>
-              <PhoneInput
-                id="edit-clientNumber"
-                placeholder="Enter phone number"
-                value={editForm.clientNumber}
-                onChange={(value) => setEditForm({ ...editForm, clientNumber: value })}
-              />
-            </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="edit-description">Description</Label>
@@ -1144,22 +1184,40 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <SelectItem value="milestone">Milestone-based</SelectItem>
                     <SelectItem value="monthly">Monthly Salary</SelectItem>
                     <SelectItem value="fixed">Fixed Price</SelectItem>
+                    <SelectItem value="internal">Internal Project</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-totalAmount">
-                {editForm.paymentModel === 'monthly' ? 'Monthly Amount' : 'Total Amount'} (EGP)
-              </Label>
-              <Input
-                id="edit-totalAmount"
-                type="number"
-                value={editForm.totalAmount}
-                onChange={(e) => setEditForm({ ...editForm, totalAmount: e.target.value })}
-              />
-            </div>
+            {editForm.paymentModel !== 'internal' ? (
+              <div className="space-y-2">
+                <Label htmlFor="edit-totalAmount">
+                  {editForm.paymentModel === 'monthly' ? 'Monthly Amount' : 'Total Amount'} (EGP)
+                </Label>
+                <Input
+                  id="edit-totalAmount"
+                  type="number"
+                  value={editForm.totalAmount}
+                  onChange={(e) => setEditForm({ ...editForm, totalAmount: e.target.value })}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="edit-estimatedValue">
+                  Estimated Value (EGP) - Optional
+                </Label>
+                <Input
+                  id="edit-estimatedValue"
+                  type="number"
+                  value={editForm.estimatedValue}
+                  onChange={(e) => setEditForm({ ...editForm, estimatedValue: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used for hourly rate calculation in income charts
+                </p>
+              </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">

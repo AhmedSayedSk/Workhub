@@ -82,6 +82,7 @@ export function ProjectIncomeChart({ projects, systemColors, payments }: Project
       let paidMonths = 0
       let projectDays = 0
       let isShortProject = false
+      const isInternal = project.paymentModel === 'internal'
 
       if (project.paymentModel === 'monthly') {
         // For monthly (salary) projects: count paid monthly payments
@@ -91,7 +92,7 @@ export function ProjectIncomeChart({ projects, systemColors, payments }: Project
         paidMonths = projectPayments.length
         workingHours = paidMonths * WORKING_HOURS_PER_MONTH
       } else {
-        // For fixed/milestone projects: calculate from start to end date
+        // For fixed/milestone/internal projects: calculate from start to end date
         const startDate = project.startDate.toDate()
         const endDate = project.deadline?.toDate() || now
         const actualEndDate = endDate > now ? now : endDate
@@ -102,8 +103,12 @@ export function ProjectIncomeChart({ projects, systemColors, payments }: Project
       }
 
       // Calculate hourly rate
+      // For internal projects: use estimatedValue instead of paidAmount
+      const valueForRate = isInternal
+        ? (project.estimatedValue || 0)
+        : project.paidAmount
       const hourlyRate = workingHours > 0
-        ? project.paidAmount / workingHours
+        ? valueForRate / workingHours
         : 0
 
       return {
@@ -113,6 +118,8 @@ export function ProjectIncomeChart({ projects, systemColors, payments }: Project
         remaining: Math.max(0, project.totalAmount - project.paidAmount),
         total: project.totalAmount,
         isMonthly: project.paymentModel === 'monthly',
+        isInternal,
+        estimatedValue: project.estimatedValue || 0,
         color: systemColors[project.systemId] || '#6366F1',
         paidMonths,
         projectDays,
@@ -185,7 +192,19 @@ export function ProjectIncomeChart({ projects, systemColors, payments }: Project
                 <div className="bg-popover text-popover-foreground rounded-lg border p-3 shadow-lg min-w-[180px]">
                   <p className="font-semibold mb-2">{data.fullName}</p>
 
-                  {data.isMonthly ? (
+                  {data.isInternal ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Internal Project</span>
+                      </div>
+                      {data.estimatedValue > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-purple-600 dark:text-purple-400">Estimated Value:</span>
+                          <span className="text-purple-600 dark:text-purple-400">{formatCurrency(data.estimatedValue)}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : data.isMonthly ? (
                     <>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Monthly:</span>
@@ -225,7 +244,9 @@ export function ProjectIncomeChart({ projects, systemColors, payments }: Project
                         )}
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-blue-600 dark:text-blue-400">Hour Rate:</span>
+                        <span className="text-blue-600 dark:text-blue-400">
+                          {data.isInternal ? 'Est. Rate:' : 'Hour Rate:'}
+                        </span>
                         <span className="text-blue-600 dark:text-blue-400 font-medium">
                           {formatCurrency(data.hourlyRate)}/h
                         </span>

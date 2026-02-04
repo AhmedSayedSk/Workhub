@@ -20,6 +20,7 @@ import {
 import {
   Plus,
   FolderKanban,
+  Building2,
   Calendar,
   DollarSign,
   Milestone,
@@ -35,12 +36,14 @@ const paymentModelLabels: Record<PaymentModel, string> = {
   milestone: 'Milestones',
   monthly: 'Monthly',
   fixed: 'Fixed Price',
+  internal: 'Internal',
 }
 
 const paymentModelIcons: Record<PaymentModel, typeof Milestone> = {
   milestone: Milestone,
   monthly: Calendar,
   fixed: DollarSign,
+  internal: Building2,
 }
 
 const statusConfig: Record<ProjectStatus, {
@@ -76,7 +79,7 @@ export default function ProjectsPage() {
     return acc
   }, {} as Record<string, System>)
 
-  // Group projects by status
+  // Group projects by status and sort by start date (oldest first)
   const groupedProjects = useMemo(() => {
     const groups: Record<ProjectStatus, Project[]> = {
       active: [],
@@ -87,6 +90,15 @@ export default function ProjectsPage() {
 
     projects.forEach((project) => {
       groups[project.status].push(project)
+    })
+
+    // Sort each group by start date (oldest first)
+    Object.keys(groups).forEach((status) => {
+      groups[status as ProjectStatus].sort((a, b) => {
+        const dateA = a.startDate?.toDate()?.getTime() ?? 0
+        const dateB = b.startDate?.toDate()?.getTime() ?? 0
+        return dateA - dateB
+      })
     })
 
     return groups
@@ -191,11 +203,15 @@ export default function ProjectsPage() {
                                   />
                                 )}
                                 <CardTitle className="text-xl pr-16 !mt-0 truncate">{project.name}</CardTitle>
-                                {project.clientName && (
+                                {project.paymentModel === 'internal' ? (
+                                  <p className="text-sm text-muted-foreground">
+                                    Internal Project
+                                  </p>
+                                ) : project.clientName ? (
                                   <p className="text-sm text-primary font-medium">
                                     {project.clientName}
                                   </p>
-                                )}
+                                ) : null}
                               </div>
                             </div>
                             {project.description && (
@@ -206,8 +222,8 @@ export default function ProjectsPage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-4">
-                              {/* Financial Progress - Only for non-monthly projects */}
-                              {project.paymentModel !== 'monthly' && (
+                              {/* Financial Progress - Only for milestone/fixed projects */}
+                              {project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && (
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between text-sm">
                                     <span className="text-muted-foreground">Payment Progress</span>
@@ -222,6 +238,13 @@ export default function ProjectsPage() {
                                       {formatCurrency(project.totalAmount)}
                                     </span>
                                   </div>
+                                </div>
+                              )}
+
+                              {/* Internal project estimated value */}
+                              {project.paymentModel === 'internal' && project.estimatedValue && project.estimatedValue > 0 && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <span>Estimated Value: {formatCurrency(project.estimatedValue)}</span>
                                 </div>
                               )}
 
