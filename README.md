@@ -395,4 +395,4 @@ AI features are optional and gracefully disabled when no `GEMINI_API_KEY` is con
 
 ## License
 
-This project is proprietary. All rights reserved.
+This project is licensed under the [MIT License](LICENSE).
