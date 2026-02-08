@@ -17,6 +17,8 @@ export type SubtaskStatus = 'todo' | 'in_progress' | 'done'
 
 export type Priority = 'low' | 'medium' | 'high'
 
+export type CommentParentType = 'task' | 'subtask'
+
 export type MilestoneStatus = 'pending' | 'completed' | 'paid'
 
 export type PaymentStatus = 'pending' | 'paid'
@@ -94,6 +96,11 @@ export interface Task {
   estimatedHours: number
   actualHours: number
   sortOrder: number
+  archived?: boolean
+  archivedAt?: Timestamp
+  waiting?: boolean
+  waitingAt?: Timestamp
+  waitingReason?: string
   createdAt: Timestamp
 }
 
@@ -103,6 +110,16 @@ export interface Subtask {
   name: string
   status: SubtaskStatus
   estimatedMinutes: number
+  createdAt: Timestamp
+}
+
+export interface TaskComment {
+  id: string
+  parentId: string
+  parentType: CommentParentType
+  text: string
+  authorId: string
+  authorName: string
   createdAt: Timestamp
 }
 
@@ -199,6 +216,11 @@ export interface TaskInput {
   priority: Priority
   estimatedHours: number
   sortOrder?: number
+  archived?: boolean
+  archivedAt?: Timestamp | null
+  waiting?: boolean
+  waitingAt?: Timestamp | null
+  waitingReason?: string
 }
 
 export interface SubtaskInput {
@@ -206,6 +228,14 @@ export interface SubtaskInput {
   name: string
   status: SubtaskStatus
   estimatedMinutes: number
+}
+
+export interface TaskCommentInput {
+  parentId: string
+  parentType: CommentParentType
+  text: string
+  authorId: string
+  authorName: string
 }
 
 export interface TimeEntryInput {

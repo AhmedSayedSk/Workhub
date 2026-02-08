@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 import { Plus, Loader2 } from 'lucide-react'
 import { TaskCard } from './TaskCard'
 import { useSubtaskCounts } from '@/hooks/useTasks'
+import { useCommentCounts } from '@/hooks/useComments'
 
 const columns: { id: TaskStatus; title: string; borderColor: string; headerText: string }[] = [
   { id: 'todo', title: 'To Do', borderColor: 'border-slate-300', headerText: 'text-slate-600 dark:text-slate-400' },
@@ -42,9 +43,13 @@ interface TaskBoardProps {
   selectedFeatureId?: string | null
   onCreateTask: (task: TaskInput) => Promise<void>
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
-  onDeleteTask: (id: string) => Promise<void>
+  onArchiveTask: (id: string) => Promise<void>
+  onSetTaskWaiting?: (id: string) => Promise<void>
+  onRemoveTaskWaiting?: (id: string) => Promise<void>
   onSelectTask: (task: Task) => void
   onReorderTask?: (taskId: string, newStatus: TaskStatus, newSortOrder: number) => Promise<void>
+  onTaskMovedToDone?: (x: number, y: number) => void
+  refreshKey?: number
 }
 
 export function TaskBoard({
@@ -54,9 +59,13 @@ export function TaskBoard({
   selectedFeatureId,
   onCreateTask,
   onUpdateTask,
-  onDeleteTask,
+  onArchiveTask,
+  onSetTaskWaiting,
+  onRemoveTaskWaiting,
   onSelectTask,
   onReorderTask,
+  onTaskMovedToDone,
+  refreshKey,
 }: TaskBoardProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [createColumn, setCreateColumn] = useState<TaskStatus>('todo')
@@ -76,9 +85,10 @@ export function TaskBoard({
   const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null)
   const columnRefs = useRef<Record<TaskStatus, HTMLDivElement | null>>({} as Record<TaskStatus, HTMLDivElement | null>)
 
-  // Fetch subtask counts for all tasks
+  // Fetch subtask counts and comment counts for all tasks
   const taskIds = useMemo(() => tasks.map(t => t.id), [tasks])
-  const { counts: subtaskCounts } = useSubtaskCounts(taskIds)
+  const { counts: subtaskCounts } = useSubtaskCounts(taskIds, refreshKey)
+  const { counts: commentCounts } = useCommentCounts(taskIds, 'task', refreshKey)
 
   // Pre-select feature when dialog opens if a feature is selected
   useEffect(() => {
@@ -256,6 +266,10 @@ export function TaskBoard({
 
     // Only update if something changed
     if (statusChanged || hasDropPosition) {
+      if (status === 'done' && task.status !== 'done') {
+        onTaskMovedToDone?.(e.clientX, e.clientY)
+      }
+
       if (onReorderTask) {
         await onReorderTask(taskId, status, newSortOrder)
       } else {
@@ -344,8 +358,11 @@ export function TaskBoard({
                           task={task}
                           feature={features.find((f) => f.id === task.featureId)}
                           subtaskCount={subtaskCounts[task.id]}
+                          commentCount={commentCounts[task.id] || 0}
                           onClick={() => onSelectTask(task)}
-                          onDelete={() => onDeleteTask(task.id)}
+                          onArchive={() => onArchiveTask(task.id)}
+                          onSetWaiting={onSetTaskWaiting ? () => onSetTaskWaiting(task.id) : undefined}
+                          onRemoveWaiting={onRemoveTaskWaiting ? () => onRemoveTaskWaiting(task.id) : undefined}
                         />
                       </div>
                     </div>

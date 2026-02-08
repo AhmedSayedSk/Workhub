@@ -80,5 +80,10 @@ service cloud.firestore {
     match /vaultEntries/{entryId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Task Comments collection
+    match /taskComments/{commentId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

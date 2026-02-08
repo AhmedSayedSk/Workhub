@@ -43,6 +43,9 @@ import {
   MediaFolderInput,
   VaultEntry,
   VaultEntryInput,
+  TaskComment,
+  TaskCommentInput,
+  CommentParentType,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -95,7 +98,11 @@ async function update<T extends DocumentData>(
   data: Partial<T>
 ): Promise<void> {
   const docRef = doc(db, collectionName, id)
-  await updateDoc(docRef, data as DocumentData)
+  // Strip undefined values - Firebase doesn't accept them
+  const cleanData = Object.fromEntries(
+    Object.entries(data as DocumentData).filter(([, v]) => v !== undefined)
+  )
+  await updateDoc(docRef, cleanData)
 }
 
 async function remove(collectionName: string, id: string): Promise<void> {
@@ -372,6 +379,52 @@ export const subtasks = {
   },
 }
 
+// Task Comments
+export const taskComments = {
+  async getByParent(parentId: string, parentType: CommentParentType): Promise<TaskComment[]> {
+    return getAll<TaskComment>(
+      'taskComments',
+      where('parentId', '==', parentId),
+      where('parentType', '==', parentType),
+      orderBy('createdAt', 'asc')
+    )
+  },
+
+  async create(data: TaskCommentInput): Promise<string> {
+    return create('taskComments', data)
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('taskComments', id)
+  },
+
+  async getByParentIds(parentIds: string[], parentType: CommentParentType): Promise<TaskComment[]> {
+    if (parentIds.length === 0) return []
+
+    const results: TaskComment[] = []
+    const batchSize = 30
+
+    for (let i = 0; i < parentIds.length; i += batchSize) {
+      const batch = parentIds.slice(i, i + batchSize)
+      const batchResults = await getAll<TaskComment>(
+        'taskComments',
+        where('parentId', 'in', batch),
+        where('parentType', '==', parentType)
+      )
+      results.push(...batchResults)
+    }
+
+    return results
+  },
+
+  async deleteByParent(parentId: string, parentType: CommentParentType): Promise<void> {
+    const comments = await this.getByParent(parentId, parentType)
+    for (const comment of comments) {
+      await remove('taskComments', comment.id)
+    }
+  },
+}
+
 // Time Entries
 export const timeEntries = {
   async getAll(projectId?: string, taskId?: string): Promise<TimeEntry[]> {
@@ -581,6 +634,14 @@ export const batch = {
     for (const taskId of taskIds) {
       const taskSubtasks = await subtasks.getAll(taskId)
       allSubtasks.push(...taskSubtasks)
+    }
+
+    // Delete comments for all tasks and subtasks
+    for (const t of projectTasks) {
+      await taskComments.deleteByParent(t.id, 'task')
+    }
+    for (const s of allSubtasks) {
+      await taskComments.deleteByParent(s.id, 'subtask')
     }
 
     // Delete all related documents

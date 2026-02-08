@@ -29,18 +29,14 @@ import {
   Trash2,
   Layers,
   ListTodo,
-  AlertOctagon,
-  ChevronUp,
-  Minus,
-  ChevronDown,
 } from 'lucide-react'
 import { Priority } from '@/types'
 
-const priorityIcons: Record<Priority, { icon: typeof AlertOctagon; color: string }> = {
-  critical: { icon: AlertOctagon, color: 'text-red-500 opacity-100' },
-  high: { icon: ChevronUp, color: 'text-orange-500 opacity-80' },
-  medium: { icon: Minus, color: 'text-yellow-500 opacity-60' },
-  low: { icon: ChevronDown, color: 'text-blue-500 opacity-40' },
+const priorityBorderColors: Record<Priority, string | null> = {
+  critical: 'rgba(239, 68, 68, 0.7)',    // red-500 at 70%
+  high: 'rgba(249, 115, 22, 0.6)',       // orange-500 at 60%
+  medium: 'rgba(234, 179, 8, 0.5)',      // yellow-500 at 50%
+  low: null,                              // no color
 }
 
 interface FeatureListProps {
@@ -139,18 +135,19 @@ export function FeatureList({
           {/* Features */}
           {features.map((feature) => {
             const FeatureIcon = getFeatureIcon(feature.icon)
-            const PriorityIcon = feature.priority ? priorityIcons[feature.priority]?.icon : null
-            const priorityColor = feature.priority ? priorityIcons[feature.priority]?.color : ''
+            const borderColor = feature.priority ? priorityBorderColors[feature.priority] : null
             return (
               <div
                 key={feature.id}
                 onClick={() => onSelectFeature(feature.id)}
                 className={cn(
-                  'w-full flex items-center gap-2 p-3 rounded-lg transition-colors cursor-pointer',
+                  'w-full flex items-center gap-2 p-3 transition-colors cursor-pointer',
                   selectedFeatureId === feature.id
                     ? 'bg-primary/10'
-                    : 'hover:bg-muted'
+                    : 'hover:bg-muted',
+                  borderColor && 'border-l-[3px]'
                 )}
+                style={borderColor ? { borderLeftColor: borderColor } : undefined}
               >
                 {/* Icon */}
                 <div className={cn(
@@ -173,16 +170,6 @@ export function FeatureList({
                     {getTaskCount(feature.id)} tasks
                   </span>
                 </div>
-
-                {/* Priority icon */}
-                {PriorityIcon && (
-                  <div
-                    className={`h-6 w-6 flex items-center justify-center flex-shrink-0 -mr-4 ${priorityColor}`}
-                    title={feature.priority}
-                  >
-                    <PriorityIcon className="h-4 w-4" />
-                  </div>
-                )}
 
                 {/* Actions */}
                 <DropdownMenu>

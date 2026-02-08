@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Timestamp } from 'firebase/firestore'
 import { tasks, subtasks, features } from '@/lib/firestore'
 import { Task, TaskInput, Subtask, SubtaskInput, Feature, FeatureInput } from '@/types'
 import { useToast } from './useToast'
@@ -100,12 +101,30 @@ export function useTasks(projectId?: string, featureId?: string) {
   }, [fetchTasks])
 
   const createTask = async (input: TaskInput) => {
+    // Optimistic update - add task to local state immediately
+    const sortOrder = input.sortOrder ?? Date.now()
+    const optimisticTask: Task = {
+      id: `temp-${Date.now()}`,
+      ...input,
+      taskType: input.taskType ?? 'task',
+      actualHours: 0,
+      sortOrder,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    }
+    setData((prev) => [...prev, optimisticTask])
+
     try {
       const id = await tasks.create(input)
-      await fetchTasks()
+      // Replace temp task with real id
+      setData((prev) =>
+        prev.map((t) => (t.id === optimisticTask.id ? { ...t, id } : t))
+      )
       toast({ title: 'Success', description: 'Task created', variant: 'success' })
       return id
     } catch {
+      // Rollback on error
+      setData((prev) => prev.filter((t) => t.id !== optimisticTask.id))
       toast({ title: 'Error', description: 'Failed to create task', variant: 'destructive' })
       throw new Error('Failed to create task')
     }
@@ -144,6 +163,93 @@ export function useTasks(projectId?: string, featureId?: string) {
     }
   }
 
+  const archiveTask = async (id: string) => {
+    // Optimistic update - mark as archived
+    setData((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, archived: true, archivedAt: Timestamp.now() } : t
+      )
+    )
+
+    try {
+      await tasks.update(id, { archived: true, archivedAt: Timestamp.now() } as Partial<TaskInput>)
+      toast({ title: 'Success', description: 'Task archived', variant: 'success' })
+    } catch {
+      await fetchTasks()
+      toast({ title: 'Error', description: 'Failed to archive task', variant: 'destructive' })
+      throw new Error('Failed to archive task')
+    }
+  }
+
+  const unarchiveTask = async (id: string) => {
+    // Optimistic update - unarchive
+    setData((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, archived: false, archivedAt: undefined } : t
+      )
+    )
+
+    try {
+      await tasks.update(id, { archived: false, archivedAt: null } as Partial<TaskInput>)
+      toast({ title: 'Success', description: 'Task restored', variant: 'success' })
+    } catch {
+      await fetchTasks()
+      toast({ title: 'Error', description: 'Failed to restore task', variant: 'destructive' })
+      throw new Error('Failed to restore task')
+    }
+  }
+
+  const permanentDeleteTask = async (id: string) => {
+    // Optimistic delete
+    const previousData = data
+    setData((prev) => prev.filter((t) => t.id !== id))
+
+    try {
+      await tasks.delete(id)
+      toast({ title: 'Success', description: 'Task permanently deleted', variant: 'success' })
+    } catch {
+      setData(previousData)
+      toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' })
+      throw new Error('Failed to delete task')
+    }
+  }
+
+  const setTaskWaiting = async (id: string, reason?: string) => {
+    // Optimistic update - mark as waiting
+    setData((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, waiting: true, waitingAt: Timestamp.now(), waitingReason: reason || '' } : t
+      )
+    )
+
+    try {
+      await tasks.update(id, { waiting: true, waitingAt: Timestamp.now(), waitingReason: reason || '' } as Partial<TaskInput>)
+      toast({ title: 'Success', description: 'Task set to waiting', variant: 'success' })
+    } catch {
+      await fetchTasks()
+      toast({ title: 'Error', description: 'Failed to set task waiting', variant: 'destructive' })
+      throw new Error('Failed to set task waiting')
+    }
+  }
+
+  const removeTaskWaiting = async (id: string) => {
+    // Optimistic update - remove waiting
+    setData((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, waiting: false, waitingAt: undefined, waitingReason: undefined } : t
+      )
+    )
+
+    try {
+      await tasks.update(id, { waiting: false, waitingAt: null, waitingReason: '' } as Partial<TaskInput>)
+      toast({ title: 'Success', description: 'Task resumed', variant: 'success' })
+    } catch {
+      await fetchTasks()
+      toast({ title: 'Error', description: 'Failed to resume task', variant: 'destructive' })
+      throw new Error('Failed to resume task')
+    }
+  }
+
   const reorderTask = async (id: string, newStatus: string, newSortOrder: number) => {
     // Optimistic update
     setData((prev) =>
@@ -169,6 +275,11 @@ export function useTasks(projectId?: string, featureId?: string) {
     createTask,
     updateTask,
     deleteTask,
+    archiveTask,
+    unarchiveTask,
+    permanentDeleteTask,
+    setTaskWaiting,
+    removeTaskWaiting,
     reorderTask,
   }
 }
@@ -259,7 +370,7 @@ export function useSubtasks(taskId?: string) {
 }
 
 // Hook to fetch subtask counts for multiple tasks at once
-export function useSubtaskCounts(taskIds: string[]) {
+export function useSubtaskCounts(taskIds: string[], refreshTrigger?: number) {
   const [counts, setCounts] = useState<Record<string, { total: number; completed: number }>>({})
   const [loading, setLoading] = useState(true)
 
@@ -292,7 +403,8 @@ export function useSubtaskCounts(taskIds: string[]) {
     } finally {
       setLoading(false)
     }
-  }, [taskIds.join(',')])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskIds.join(','), refreshTrigger])
 
   useEffect(() => {
     fetchCounts()

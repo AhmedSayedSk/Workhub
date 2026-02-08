@@ -331,7 +331,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     setIsSubmitting(true)
     try {
       const isEditInternal = editForm.paymentModel === 'internal'
-      await updateProject({
+      const updateData: Partial<ProjectInput> = {
         name: editForm.name,
         clientName: editForm.clientName,
         clientNumber: editForm.clientNumber,
@@ -343,8 +343,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         deadline: editForm.deadline,
         notes: editForm.notes,
         coverImageUrl: editForm.coverImageUrl,
-        estimatedValue: isEditInternal && editForm.estimatedValue ? parseFloat(editForm.estimatedValue) : undefined,
-      })
+      }
+      if (isEditInternal && editForm.estimatedValue) {
+        updateData.estimatedValue = parseFloat(editForm.estimatedValue)
+      }
+      await updateProject(updateData)
       setIsEditDialogOpen(false)
     } finally {
       setIsSubmitting(false)
