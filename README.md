@@ -1,35 +1,33 @@
+<div align="center">
+
 # WorkHub
 
-A full-stack project management platform built for freelancers and small teams. Manage projects, tasks, time tracking, finances, media assets, and more — with AI-powered assistance.
+**A full-stack project management platform for freelancers and small teams.**
 
-Built with **Next.js 15**, **Firebase**, and **Google Gemini AI**.
+Manage projects, tasks, time tracking, finances, media assets, and more — with AI-powered assistance.
+
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Firebase](https://img.shields.io/badge/Firebase-11-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+[Getting Started](#getting-started) &bull; [Features](#features) &bull; [Contributing](#contributing) &bull; [License](#license)
+
+</div>
 
 ---
 
-## Table of Contents
+## Why WorkHub?
 
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Variables](#environment-variables)
-  - [Firebase Setup](#firebase-setup)
-  - [Running the App](#running-the-app)
-- [Available Scripts](#available-scripts)
-- [Architecture](#architecture)
-  - [Data Model](#data-model)
-  - [Authentication](#authentication)
-  - [State Management](#state-management)
-  - [API Routes](#api-routes)
-- [Firebase Configuration](#firebase-configuration)
-  - [Firestore Rules](#firestore-rules)
-  - [Storage Rules](#storage-rules)
-  - [Indexes](#indexes)
-  - [Migrations](#migrations)
-- [AI Integration](#ai-integration)
-- [License](#license)
+Most project management tools are either too simple or too bloated. WorkHub is built for **solo developers, freelancers, and small teams** who need:
+
+- A **Kanban board** that actually feels fast (optimistic updates, drag-and-drop)
+- **Time tracking** built in, not bolted on
+- **Financial tracking** per project — know what you're owed at a glance
+- **AI assistance** for task planning and time estimates
+- **Self-hosted** with Firebase — your data stays yours
 
 ---
 
@@ -117,14 +115,12 @@ Built with **Next.js 15**, **Firebase**, and **Google Gemini AI**.
 
 ```
 workhub/
+├── .github/                     # Issue templates, PR template
 ├── firebase/
 │   ├── firestore.rules          # Firestore security rules
 │   ├── firestore.indexes.json   # Composite index definitions
 │   ├── storage.rules            # Storage security rules
 │   └── migrations/              # Database migration scripts
-│       ├── run-migrations.ts
-│       ├── reset-database.ts
-│       └── clear-sample-data.ts
 ├── public/                      # Static assets
 ├── src/
 │   ├── app/
@@ -147,27 +143,19 @@ workhub/
 │   │   ├── features/            # Feature list management
 │   │   ├── finances/            # Milestone & payment UI
 │   │   ├── layout/              # Navbar, Sidebar, ThemeProvider
-│   │   ├── media/               # Media library UI (8 components)
+│   │   ├── media/               # Media library UI
 │   │   ├── projects/            # Project tabs & image picker
 │   │   ├── systems/             # System CRUD dialogs
 │   │   ├── tasks/               # Kanban board, cards, detail modal
 │   │   ├── time/                # Timer widget
-│   │   └── ui/                  # 30+ shared UI components
-│   ├── hooks/                   # Custom React hooks (13 hooks)
-│   ├── lib/
-│   │   ├── firebase.ts          # Firebase initialization
-│   │   ├── firestore.ts         # Firestore data access layer
-│   │   ├── gemini.ts            # Gemini AI client
-│   │   ├── storage.ts           # File upload + image optimization
-│   │   └── utils.ts             # Formatting & utility functions
-│   ├── store/
-│   │   └── timerStore.ts        # Zustand timer state
-│   └── types/
-│       └── index.ts             # All TypeScript interfaces & types
-├── firebase.json                # Firebase project config
-├── tailwind.config.ts
-├── tsconfig.json
-└── package.json
+│   │   └── ui/                  # 30+ shared UI primitives
+│   ├── hooks/                   # 13 custom React hooks
+│   ├── lib/                     # Firebase, Firestore, Gemini, Storage, utils
+│   ├── store/                   # Zustand timer store
+│   └── types/                   # TypeScript interfaces & types
+├── CONTRIBUTING.md
+├── LICENSE
+└── README.md
 ```
 
 ---
@@ -185,7 +173,7 @@ workhub/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/workhub.git
+git clone https://github.com/AhmedSayedSk/workhub.git
 cd workhub
 
 # Install dependencies
@@ -211,8 +199,6 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
 # Gemini AI (optional — AI features will be disabled without this)
 GEMINI_API_KEY=your_gemini_api_key_here
-
-# Web Search: Uses DuckDuckGo (free, no API key required)
 ```
 
 **Where to get these values:**
@@ -225,14 +211,17 @@ GEMINI_API_KEY=your_gemini_api_key_here
 2. Enable **Firestore Database** (start in production mode)
 3. Enable **Authentication** > Sign-in method > **Email/Password**
 4. Enable **Storage**
-5. Deploy security rules and indexes:
+5. Update `.firebaserc` with your project ID
+6. Deploy security rules and indexes:
 
 ```bash
-# Deploy Firestore rules and indexes
 npm run firebase:deploy:rules
 npm run firebase:deploy:indexes
+```
 
-# (Optional) Run migrations for initial schema setup
+7. **(Optional)** For database migrations, download a service account key from Firebase Console > Project Settings > Service Accounts > Generate New Private Key, save it as `firebase-service-account.json` in the project root, then run:
+
+```bash
 npm run migrate
 ```
 
@@ -262,7 +251,7 @@ Open [http://localhost:3090](http://localhost:3090) in your browser.
 | `npm run migrate` | Run Firestore database migrations |
 | `npm run migrate:reset` | Reset the database (destructive) |
 | `npm run db:clear` | Clear sample/seed data |
-| `npm run firebase:deploy` | Deploy all Firebase configs (rules, indexes, hosting) |
+| `npm run firebase:deploy` | Deploy all Firebase configs |
 | `npm run firebase:deploy:rules` | Deploy Firestore security rules only |
 | `npm run firebase:deploy:indexes` | Deploy Firestore indexes only |
 
@@ -271,8 +260,6 @@ Open [http://localhost:3090](http://localhost:3090) in your browser.
 ## Architecture
 
 ### Data Model
-
-The application uses a hierarchical data model across 15 Firestore collections:
 
 ```
 Organization
@@ -289,85 +276,23 @@ Organization
 
 MediaFolder / MediaFile  (global media library, linkable to projects/tasks)
 AppSettings              (singleton for AI model configuration)
-AISuggestion             (stored AI-generated suggestions)
 ```
 
-**Key design decisions:**
+### Key Design Decisions
+
 - **Optional boolean flags** (`archived`, `waiting`) are orthogonal to task status — tasks keep their kanban column position
-- **Optimistic updates** on all CRUD operations for instant UI feedback with rollback on error
+- **Optimistic updates** on all CRUD operations for instant UI feedback with automatic rollback on error
 - **Soft-delete via archive** — tasks can be archived and restored, or permanently deleted
 - **All timestamps** use Firestore `Timestamp` for consistency
-
-### Authentication
-
-- Firebase Email/Password authentication
-- Global `useAuth()` context hook wraps the entire app
-- Protected routes at the layout level — unauthenticated users are redirected to `/login`
-- All Firestore operations require authentication via security rules
-
-### State Management
-
-| Scope | Solution |
-|---|---|
-| Server data | Custom hooks with `useState` + optimistic updates |
-| Timer state | Zustand store with `localStorage` persistence |
-| Auth state | React Context (`useAuth`) |
-| UI state | Local component `useState` |
 
 ### API Routes
 
 | Endpoint | Method | Description |
 |---|---|---|
 | `/api/ai` | `POST` | AI operations: task breakdown, time estimates, insights, Q&A |
-| `/api/ai` | `GET` | Fetch current AI settings (model, enabled status) |
+| `/api/ai` | `GET` | Fetch current AI settings |
 | `/api/web/search` | `POST` | DuckDuckGo web search (no API key needed) |
 | `/api/web/fetch` | `POST` | Fetch and extract content from URLs |
-
----
-
-## Firebase Configuration
-
-### Firestore Rules
-
-All collections use authentication-based access control:
-
-```javascript
-match /tasks/{taskId} {
-  allow read, write: if request.auth != null;
-}
-```
-
-Rules are defined in `firebase/firestore.rules`.
-
-### Storage Rules
-
-Files stored under `media/{userId}/` are restricted to their owner:
-
-```javascript
-match /media/{userId}/{allPaths=**} {
-  allow read: if request.auth != null && request.auth.uid == userId;
-  allow write: if request.auth != null && request.auth.uid == userId
-               && request.resource.size < 50 * 1024 * 1024;
-}
-```
-
-### Indexes
-
-21 composite indexes are defined in `firebase/firestore.indexes.json` to support efficient queries across collections. These are deployed with:
-
-```bash
-npm run firebase:deploy:indexes
-```
-
-### Migrations
-
-Database migrations are located in `firebase/migrations/` and executed via `ts-node`:
-
-```bash
-npm run migrate           # Run pending migrations
-npm run migrate:reset     # Reset entire database (destructive!)
-npm run db:clear          # Remove sample data only
-```
 
 ---
 
@@ -383,16 +308,55 @@ WorkHub integrates with **Google Gemini** for intelligent assistance:
 | **Chat Assistant** | General-purpose Q&A with optional web search |
 
 **Available models** (configurable in Settings):
-
 - Gemini 3 Pro — Most capable, 1M token context
 - Gemini 3 Flash — Recommended balance of speed and quality
 - Gemini 2.5 Pro — Advanced reasoning
 - Gemini 2.5 Flash — Fastest performance
 
-AI features are optional and gracefully disabled when no `GEMINI_API_KEY` is configured.
+AI features are **optional** and gracefully disabled when no `GEMINI_API_KEY` is configured.
+
+---
+
+## Contributing
+
+Contributions are welcome! Whether it's a bug fix, new feature, or documentation improvement — we appreciate the help.
+
+Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
+
+### Quick Start for Contributors
+
+```bash
+# Fork the repo, then:
+git clone https://github.com/YOUR_USERNAME/workhub.git
+cd workhub
+npm install
+cp .env.local.example .env.local
+# Add your Firebase config to .env.local
+npm run dev
+```
+
+### Areas Where Help is Needed
+
+- **Testing** — Unit and integration tests (currently none)
+- **Accessibility** — Keyboard navigation, screen reader support, ARIA labels
+- **Internationalization** — Multi-language support (currently English only)
+- **Mobile experience** — Responsive improvements for small screens
+- **Documentation** — Tutorials, guides, and API documentation
+- **Performance** — Firestore query optimization, bundle size reduction
+- **New features** — Check the [open issues](https://github.com/AhmedSayedSk/workhub/issues) for ideas
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE) — free for personal and commercial use.
+
+---
+
+<div align="center">
+
+Built by [Ahmed Sayed](https://github.com/AhmedSayedSk)
+
+If you find WorkHub useful, consider giving it a star!
+
+</div>

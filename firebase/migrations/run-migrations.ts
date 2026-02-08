@@ -11,7 +11,7 @@ import * as fs from 'fs'
 import { execSync } from 'child_process'
 
 // Initialize Firebase Admin
-const serviceAccountPath = path.join(__dirname, '../../workhub-c288f-firebase-adminsdk-fbsvc-be5266eec0.json')
+const serviceAccountPath = path.join(__dirname, '../../firebase-service-account.json')
 
 if (!admin.apps.length) {
   admin.initializeApp({

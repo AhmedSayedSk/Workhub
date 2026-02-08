@@ -36,5 +36,6 @@ next-env.d.ts
 
 # Firebase
 *-firebase-adminsdk*.json
+firebase-service-account.json
 .firebase/
 firebase-debug.log

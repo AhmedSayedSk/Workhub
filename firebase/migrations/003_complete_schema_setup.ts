@@ -23,7 +23,7 @@ import * as admin from 'firebase-admin'
 import * as path from 'path'
 
 // Initialize Firebase Admin
-const serviceAccountPath = path.join(__dirname, '../../workhub-c288f-firebase-adminsdk-fbsvc-be5266eec0.json')
+const serviceAccountPath = path.join(__dirname, '../../firebase-service-account.json')
 
 if (!admin.apps.length) {
   admin.initializeApp({
