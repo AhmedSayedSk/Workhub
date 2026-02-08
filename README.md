@@ -7,13 +7,13 @@
 Manage projects, tasks, time tracking, finances, media assets, and more — with AI-powered assistance.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Firebase](https://img.shields.io/badge/Firebase-11-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Getting Started](#getting-started) &bull; [Features](#features) &bull; [Contributing](#contributing) &bull; [License](#license)
+[Getting Started](#getting-started) &bull; [Features](#features) &bull; [Screenshots](#screenshots) &bull; [Contributing](#contributing) &bull; [License](#license)
 
 </div>
 
@@ -28,6 +28,61 @@ Most project management tools are either too simple or too bloated. WorkHub is b
 - **Financial tracking** per project — know what you're owed at a glance
 - **AI assistance** for task planning and time estimates
 - **Self-hosted** with Firebase — your data stays yours
+
+---
+
+## Screenshots
+
+> All screenshots show the built-in **dark mode**. Light mode is also fully supported.
+
+### Dashboard
+Your central command center — active projects, pending tasks, time tracked, and financial summary all in one view.
+
+<p align="center">
+  <img src="public/screenshots/dashboard.png" alt="WorkHub Dashboard" width="100%" />
+</p>
+
+### Projects
+Manage all your projects with rich cards showing progress, payment models, deadlines, and client info.
+
+<p align="center">
+  <img src="public/screenshots/projects.png" alt="Projects Overview" width="100%" />
+</p>
+
+### Kanban Board
+Drag-and-drop task management with color-coded priorities, task types, time estimates, and feature grouping.
+
+<p align="center">
+  <img src="public/screenshots/kanban-board.png" alt="Kanban Board" width="100%" />
+</p>
+
+### Financial Management
+Track payments, milestones, and monthly earnings with interactive charts and per-project financial status.
+
+<p align="center">
+  <img src="public/screenshots/finances.png" alt="Financial Management" width="100%" />
+</p>
+
+### Time Tracking
+Analyze your work hours with daily breakdowns, project distribution, and detailed time entry logs.
+
+<p align="center">
+  <img src="public/screenshots/time-tracking.png" alt="Time Tracking" width="100%" />
+</p>
+
+### Media Library
+Upload, organize, and link files to projects with grid/list views, filters, and automatic image optimization.
+
+<p align="center">
+  <img src="public/screenshots/media-library.png" alt="Media Library" width="100%" />
+</p>
+
+### AI Assistant
+Chat-based AI assistant powered by Google Gemini for task breakdowns, time estimates, and productivity insights.
+
+<p align="center">
+  <img src="public/screenshots/ai-assistant.png" alt="AI Assistant" width="100%" />
+</p>
 
 ---
 
@@ -95,9 +150,9 @@ Most project management tools are either too simple or too bloated. WorkHub is b
 
 | Category | Technology |
 |---|---|
-| **Framework** | [Next.js 15](https://nextjs.org/) (App Router) |
+| **Framework** | [Next.js 16](https://nextjs.org/) (App Router, Turbopack) |
 | **Language** | [TypeScript 5.7](https://www.typescriptlang.org/) (strict mode) |
-| **UI** | [React 19](https://react.dev/) |
+| **UI** | [React 19.2](https://react.dev/) |
 | **Styling** | [Tailwind CSS 3.4](https://tailwindcss.com/) |
 | **Components** | [Radix UI](https://www.radix-ui.com/) + [shadcn/ui](https://ui.shadcn.com/) pattern |
 | **Icons** | [Lucide React](https://lucide.dev/) |
