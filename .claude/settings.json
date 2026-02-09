@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "workhub": {
+      "command": "npx",
+      "args": ["tsx", "mcp-server/src/index.ts"],
+      "cwd": "/mnt/d/programming/Upsmart/workhub"
+    }
+  }
+}
