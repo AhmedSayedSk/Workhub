@@ -293,7 +293,7 @@ export function TaskBoard({
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-h-[500px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full">
         {columns.map((column) => {
           const isOver = dragOverColumn === column.id
           const columnTasks = tasksByStatus[column.id] || []
@@ -302,7 +302,7 @@ export function TaskBoard({
             <div
               key={column.id}
               className={cn(
-                'rounded-lg overflow-hidden transition-all duration-200 border-2 border-dashed',
+                'rounded-lg overflow-hidden transition-all duration-200 border-2 border-dashed flex flex-col',
                 isOver
                   ? `bg-primary/5 ${column.borderColor} scale-[1.02]`
                   : 'bg-muted/50 border-transparent',
@@ -312,7 +312,7 @@ export function TaskBoard({
               onDrop={(e) => handleDrop(e, column.id)}
             >
               {/* Column Header */}
-              <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center justify-between px-4 py-3 shrink-0">
                 <div className="flex items-center gap-2">
                   <h3 className={cn('font-semibold', column.headerText)}>{column.title}</h3>
                   <Badge variant="secondary" className="text-xs">
@@ -332,7 +332,7 @@ export function TaskBoard({
               {/* Column Content */}
               <div
                 ref={(el) => { columnRefs.current[column.id] = el }}
-                className="space-y-3 min-h-[100px] p-4 pt-3"
+                className="space-y-3 flex-1 min-h-0 overflow-y-auto p-4 pt-3"
               >
                 {columnTasks.map((task, index) => {
                   const isDragging = draggedTaskId === task.id

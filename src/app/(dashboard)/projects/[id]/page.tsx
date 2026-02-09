@@ -355,9 +355,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5 lg:h-[calc(100vh-7rem)] lg:overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between shrink-0">
         <div className="flex items-center gap-4">
           <Link href="/projects">
             <Button variant="ghost" size="icon">
@@ -378,26 +378,26 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 />
               )}
               <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
-              <Badge
-                variant="outline"
-                className={statusColors.project[project.status]}
-              >
-                {project.status}
-              </Badge>
-              {isInternal && (
-                <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 border-0">
-                  <Building2 className="h-3 w-3 mr-1" />
-                  Internal
-                </Badge>
+              {!isInternal && project.clientName && (
+                <span className="text-sm font-medium text-primary">· {project.clientName}</span>
               )}
             </div>
-            {!isInternal && project.clientName && (
-              <p className="text-sm font-medium text-primary mb-1">Client: {project.clientName}</p>
-            )}
-            <p className="text-muted-foreground">{project.description}</p>
+            <p className="text-muted-foreground truncate max-w-2xl" title={project.description}>{project.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className={statusColors.project[project.status]}
+          >
+            {project.status}
+          </Badge>
+          {isInternal && (
+            <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 border-0">
+              <Building2 className="h-3 w-3 mr-1" />
+              Internal
+            </Badge>
+          )}
           <Button variant="outline" size="icon" onClick={openEditDialog}>
             <Edit className="h-4 w-4" />
           </Button>
@@ -467,7 +467,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Stats Overview - Only for non-internal projects */}
       {!isInternal && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3 shrink-0">
           <Card className="py-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
               <CardTitle className="text-sm font-medium">
@@ -534,7 +534,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="tasks">
+      <Tabs defaultValue="tasks" className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
         <TabsListBoxed>
           <TabsTriggerBoxed value="tasks" className="gap-2">
             <ListTodo className="h-4 w-4" />
@@ -560,19 +560,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </TabsTriggerBoxed>
         </TabsListBoxed>
 
-        <TabsContentBoxed value="tasks">
+        <TabsContentBoxed value="tasks" className="lg:flex-1 lg:min-h-0">
           <ProjectTasksTab projectId={id} projectName={project.name} />
         </TabsContentBoxed>
 
-        <TabsContentBoxed value="attachments">
+        <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           <ProjectAttachmentsTab projectId={id} />
         </TabsContentBoxed>
 
-        <TabsContentBoxed value="vault">
+        <TabsContentBoxed value="vault" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           <ProjectVaultTab projectId={id} />
         </TabsContentBoxed>
 
-        <TabsContentBoxed value="payments" className="space-y-6">
+        <TabsContentBoxed value="payments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto space-y-6">
           {/* Milestone-based payments */}
           {project.paymentModel === 'milestone' && (
             <Card>
@@ -946,7 +946,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </TabsContentBoxed>
 
-        <TabsContentBoxed value="details">
+        <TabsContentBoxed value="details" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Project Details</h3>
             <div className="grid gap-4 md:grid-cols-2">

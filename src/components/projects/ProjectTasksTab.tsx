@@ -158,10 +158,10 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
   }
 
   return (
-    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+    <div className="flex flex-col lg:flex-row gap-6 h-full">
       <Confetti active={confetti.active} originX={confetti.x} originY={confetti.y} onComplete={() => setConfetti({ active: false })} />
       {/* Features Sidebar */}
-      <aside className="w-full lg:w-80 lg:min-w-80 lg:max-w-80 flex-shrink-0 border rounded-lg bg-card overflow-hidden h-[540px]">
+      <aside className="w-full lg:w-80 lg:min-w-80 lg:max-w-80 flex-shrink-0 border rounded-lg bg-card overflow-y-auto h-[540px] lg:h-auto">
         <FeatureList
           features={features}
           tasks={tasks}

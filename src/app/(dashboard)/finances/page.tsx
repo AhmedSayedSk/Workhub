@@ -143,23 +143,13 @@ export default function FinancesPage() {
     }
   })
 
-  // Project distribution by system (excludes internal projects)
-  const systemDistribution = Object.entries(
-    projectsWithPayments.reduce((acc, project) => {
-      const systemId = project.systemId
-      const systemName = systemsMap[systemId]?.name || 'Unknown'
-      if (!acc[systemName]) {
-        acc[systemName] = { value: 0, paid: 0 }
-      }
-      acc[systemName].value += project.totalAmount
-      acc[systemName].paid += project.paidAmount
-      return acc
-    }, {} as Record<string, { value: number; paid: number }>)
-  )
-    .map(([name, data]) => ({
-      name,
-      value: data.value,
-      paid: data.paid,
+  // Revenue distribution by project (excludes internal projects)
+  const projectDistribution = projectsWithPayments
+    .filter((p) => p.totalAmount > 0 || p.paidAmount > 0)
+    .map((p) => ({
+      name: p.name,
+      value: p.totalAmount || p.paidAmount,
+      paid: p.paidAmount,
     }))
     .sort((a, b) => b.value - a.value)
 
@@ -292,51 +282,75 @@ export default function FinancesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>By System</CardTitle>
-            <CardDescription>Revenue distribution across systems</CardDescription>
+            <CardTitle>By Project</CardTitle>
+            <CardDescription>Revenue distribution across projects</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center">
-              {systemDistribution.length === 0 ? (
+            {projectDistribution.length === 0 ? (
+              <div className="h-64 flex items-center justify-center">
                 <p className="text-muted-foreground">No data available</p>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={systemDistribution}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, percent }) =>
-                        `${name} ${(percent * 100).toFixed(0)}%`
-                      }
-                    >
-                      {systemDistribution.map((_, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={chartColors[index % chartColors.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null
-                        return (
-                          <div className="bg-popover text-popover-foreground rounded-lg border p-2 shadow-md">
-                            <p className="font-medium">{payload[0].name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {formatCurrency(payload[0].value as number)}
-                            </p>
-                          </div>
-                        )
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 h-64">
+                <div className="w-1/2 h-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={projectDistribution}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        label={false}
+                      >
+                        {projectDistribution.map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={chartColors[index % chartColors.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null
+                          const total = projectDistribution.reduce((s, d) => s + d.value, 0)
+                          const percent = total > 0 ? ((payload[0].value as number) / total * 100).toFixed(0) : '0'
+                          return (
+                            <div className="bg-popover text-popover-foreground rounded-lg border p-2 shadow-md">
+                              <p className="font-medium">{payload[0].name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatCurrency(payload[0].value as number)} ({percent}%)
+                              </p>
+                            </div>
+                          )
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="w-1/2 space-y-2 overflow-y-auto max-h-64 pr-1">
+                  {(() => {
+                    const total = projectDistribution.reduce((s, d) => s + d.value, 0)
+                    return projectDistribution.map((item, index) => {
+                      const percent = total > 0 ? (item.value / total * 100).toFixed(0) : '0'
+                      return (
+                        <div key={item.name} className="flex items-center gap-2 text-sm">
+                          <div
+                            className="w-3 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                          />
+                          <span className="truncate flex-1 text-foreground">{item.name}</span>
+                          <span className="text-muted-foreground whitespace-nowrap">{percent}%</span>
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
