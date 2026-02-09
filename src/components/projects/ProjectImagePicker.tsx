@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ImagePlus, X } from 'lucide-react'
+import { CachedImage } from '@/components/media/CachedImage'
 import { ImageSelector } from '@/components/media/ImageSelector'
 
 interface ProjectImagePickerProps {
@@ -37,7 +38,7 @@ export function ProjectImagePicker({ value, onChange, className }: ProjectImageP
         >
           {value ? (
             <>
-              <img
+              <CachedImage
                 src={value}
                 alt="Project icon"
                 className="w-full h-full object-cover"
@@ -93,7 +94,7 @@ export function ProjectIcon({ src, name, size = 'md', className }: ProjectIconPr
 
   if (src) {
     return (
-      <img
+      <CachedImage
         src={src}
         alt={name}
         className={cn(

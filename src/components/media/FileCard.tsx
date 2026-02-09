@@ -22,6 +22,7 @@ import {
   FolderInput,
   Eye,
 } from 'lucide-react'
+import { CachedImage } from './CachedImage'
 
 interface FileCardProps {
   file: MediaFile
@@ -99,7 +100,7 @@ export function FileCard({
 
         <div className="flex-shrink-0">
           {file.category === 'image' && file.thumbnailUrl ? (
-            <img
+            <CachedImage
               src={file.thumbnailUrl || file.url}
               alt={file.displayName}
               className="w-10 h-10 object-cover rounded"
@@ -270,7 +271,7 @@ export function FileCard({
       {/* Thumbnail/Icon */}
       <div className="aspect-square relative overflow-hidden rounded-t-lg bg-muted">
         {file.category === 'image' ? (
-          <img
+          <CachedImage
             src={file.thumbnailUrl || file.url}
             alt={file.displayName}
             className="w-full h-full object-cover"

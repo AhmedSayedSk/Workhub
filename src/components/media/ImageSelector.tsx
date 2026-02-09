@@ -26,6 +26,7 @@ import {
   Check,
   X,
 } from 'lucide-react'
+import { CachedImage } from './CachedImage'
 import { useToast } from '@/hooks/useToast'
 
 interface ImageSelectorProps {
@@ -238,7 +239,7 @@ export function ImageSelector({
                       : 'border-transparent hover:border-muted-foreground/25'
                   )}
                 >
-                  <img
+                  <CachedImage
                     src={image.thumbnailUrl || image.url}
                     alt={image.displayName}
                     className="w-full h-full object-cover"

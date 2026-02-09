@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, CachedAvatarImage } from '@/components/ui/avatar'
 import {
   Select,
   SelectContent,
@@ -34,7 +34,10 @@ import {
   Loader2,
   CheckCircle2,
   Camera,
+  Image as ImageIcon,
+  Trash2,
 } from 'lucide-react'
+import { clearImageCache, getImageCacheInfo } from '@/lib/image-cache'
 
 export default function SettingsPage() {
   const { theme, setTheme } = useThemeContext()
@@ -45,6 +48,13 @@ export default function SettingsPage() {
   const [profileName, setProfileName] = useState('')
   const [profilePhoto, setProfilePhoto] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
+  const [cacheCount, setCacheCount] = useState(0)
+  const [clearingCache, setClearingCache] = useState(false)
+
+  const refreshCacheInfo = useCallback(async () => {
+    const info = await getImageCacheInfo()
+    setCacheCount(info.count)
+  }, [])
 
   useEffect(() => {
     if (user) {
@@ -52,6 +62,10 @@ export default function SettingsPage() {
       setProfilePhoto(user.photoURL || '')
     }
   }, [user])
+
+  useEffect(() => {
+    refreshCacheInfo()
+  }, [refreshCacheInfo])
 
   const handleEditProfile = () => {
     setProfileName(user?.displayName || '')
@@ -100,6 +114,16 @@ export default function SettingsPage() {
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
     setProfilePhoto(`https://www.gravatar.com/avatar/${hashHex}?d=identicon&s=200`)
+  }
+
+  const handleClearCache = async () => {
+    setClearingCache(true)
+    try {
+      await clearImageCache()
+      setCacheCount(0)
+    } finally {
+      setClearingCache(false)
+    }
   }
 
   return (
@@ -156,7 +180,7 @@ export default function SettingsPage() {
                   {/* Avatar */}
                   <div className="flex items-center gap-6">
                     <Avatar className="h-20 w-20">
-                      <AvatarImage src={profilePhoto} alt={profileName} />
+                      <CachedAvatarImage src={profilePhoto} alt={profileName} />
                       <AvatarFallback className="text-lg bg-primary/10">
                         {getInitials(profileName || user?.displayName || null)}
                       </AvatarFallback>
@@ -228,7 +252,7 @@ export default function SettingsPage() {
                   {/* View Mode */}
                   <div className="flex items-center gap-4">
                     <Avatar className="h-16 w-16">
-                      <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} />
+                      <CachedAvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} />
                       <AvatarFallback className="text-lg bg-primary/10">
                         {getInitials(user?.displayName || null)}
                       </AvatarFallback>
@@ -278,6 +302,30 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <Button variant="outline">Export</Button>
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Image Cache
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {cacheCount} cached {cacheCount === 1 ? 'image' : 'images'}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleClearCache}
+                  disabled={clearingCache || cacheCount === 0}
+                >
+                  {clearingCache ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Clear Cache
+                </Button>
               </div>
             </CardContent>
           </Card>

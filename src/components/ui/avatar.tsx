@@ -3,6 +3,7 @@
 import * as React from 'react'
 import * as AvatarPrimitive from '@radix-ui/react-avatar'
 import { cn } from '@/lib/utils'
+import { getCachedImageBlobUrl, cacheImage } from '@/lib/image-cache'
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
@@ -46,4 +47,66 @@ const AvatarFallback = React.forwardRef<
 ))
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 
-export { Avatar, AvatarImage, AvatarFallback }
+const CachedAvatarImage = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Image>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
+>(({ className, src, ...props }, ref) => {
+  const [displaySrc, setDisplaySrc] = React.useState<string | undefined>(undefined)
+  const blobUrlRef = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    if (!src) {
+      setDisplaySrc(undefined)
+      return
+    }
+
+    let cancelled = false
+
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = null
+    }
+
+    async function load() {
+      const blobUrl = await getCachedImageBlobUrl(src!)
+      if (cancelled) {
+        if (blobUrl) URL.revokeObjectURL(blobUrl)
+        return
+      }
+      if (blobUrl) {
+        blobUrlRef.current = blobUrl
+        setDisplaySrc(blobUrl)
+      } else {
+        setDisplaySrc(src)
+        cacheImage(src!)
+      }
+    }
+
+    load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [src])
+
+  React.useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
+      }
+    }
+  }, [])
+
+  return (
+    <AvatarPrimitive.Image
+      ref={ref}
+      className={cn('aspect-square h-full w-full', className)}
+      src={displaySrc}
+      {...props}
+    />
+  )
+})
+CachedAvatarImage.displayName = 'CachedAvatarImage'
+
+export { Avatar, AvatarImage, AvatarFallback, CachedAvatarImage }

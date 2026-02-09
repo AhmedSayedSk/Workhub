@@ -12,6 +12,7 @@ import { formatFileSize, formatDate } from '@/lib/utils'
 import { isPreviewable } from '@/lib/storage'
 import { FileTypeIcon } from './FileTypeIcon'
 import { Download, X, ExternalLink } from 'lucide-react'
+import { CachedImage } from './CachedImage'
 
 interface FilePreviewProps {
   file: MediaFile | null
@@ -51,7 +52,7 @@ export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
     if (file.category === 'image') {
       return (
         <div className="relative bg-black/5 dark:bg-white/5 rounded-lg overflow-hidden">
-          <img
+          <CachedImage
             src={file.url}
             alt={file.displayName}
             className="max-w-full max-h-[60vh] mx-auto object-contain"

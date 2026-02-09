@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { FileTypeIcon } from '@/components/media/FileTypeIcon'
+import { CachedImage } from '@/components/media/CachedImage'
 import { FilePreview } from '@/components/media/FilePreview'
 import { FileUploadDialog } from '@/components/media/FileUploadDialog'
 import { formatFileSize, formatRelativeTime } from '@/lib/utils'
@@ -162,7 +163,7 @@ export function ProjectAttachmentsTab({ projectId }: ProjectAttachmentsTabProps)
               >
                 <div className="flex-shrink-0">
                   {file.category === 'image' ? (
-                    <img
+                    <CachedImage
                       src={file.thumbnailUrl || file.url}
                       alt={file.displayName}
                       className="w-10 h-10 object-cover rounded"

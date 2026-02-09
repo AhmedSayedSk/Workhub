@@ -9,7 +9,7 @@ import { useTasks } from '@/hooks/useTasks'
 import { Sparkles, Loader2, Bot, Trash2, CheckCircle2, XCircle, AlertCircle, Plus, MessageSquare, MoreHorizontal, Check, X, ListTodo, Clock, Search, Globe, GitBranch, Pencil, Copy, Eye, Code2, FileCode, Maximize2, Minimize2 } from 'lucide-react'
 import { subtasks as subtasksApi } from '@/lib/firestore'
 import { useAuth } from '@/hooks/useAuth'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, CachedAvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 import {
@@ -1527,7 +1527,7 @@ ${webContext ? '\nYou have access to web search results above. Use this informat
                 <div key={message.id} className="flex gap-3">
                   {message.role === 'user' ? (
                     <Avatar className="w-7 h-7 flex-shrink-0 mt-0.5">
-                      <AvatarImage src={user?.photoURL || undefined} alt={user?.displayName || 'User'} />
+                      <CachedAvatarImage src={user?.photoURL || undefined} alt={user?.displayName || 'User'} />
                       <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                         {userInitials}
                       </AvatarFallback>
