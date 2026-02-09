@@ -909,7 +909,6 @@ export default function AssistantPage() {
         type: t.taskType || 'task',
         projectId: t.projectId,
         projectName: project?.name || 'Unknown',
-        deadline: t.deadline ? formatDate(t.deadline) : 'No deadline',
         estimatedHours: t.estimatedHours || 0,
         actualHours: t.actualHours || 0,
       }

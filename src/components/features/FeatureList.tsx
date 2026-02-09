@@ -33,7 +33,6 @@ import {
 import { Priority } from '@/types'
 
 const priorityBorderColors: Record<Priority, string | null> = {
-  critical: 'rgba(239, 68, 68, 0.7)',    // red-500 at 70%
   high: 'rgba(249, 115, 22, 0.6)',       // orange-500 at 60%
   medium: 'rgba(234, 179, 8, 0.5)',      // yellow-500 at 50%
   low: null,                              // no color

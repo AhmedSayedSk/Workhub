@@ -103,14 +103,16 @@ export function useTasks(projectId?: string, featureId?: string) {
   const createTask = async (input: TaskInput) => {
     // Optimistic update - add task to local state immediately
     const sortOrder = input.sortOrder ?? Date.now()
+    const { archivedAt, waitingAt, ...rest } = input
     const optimisticTask: Task = {
       id: `temp-${Date.now()}`,
-      ...input,
+      ...rest,
       taskType: input.taskType ?? 'task',
       actualHours: 0,
       sortOrder,
       createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
+      ...(archivedAt ? { archivedAt } : {}),
+      ...(waitingAt ? { waitingAt } : {}),
     }
     setData((prev) => [...prev, optimisticTask])
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useToast } from './useToast'
 import { tasks, projects } from '@/lib/firestore'
-import { TaskStatus, TaskPriority, TaskType } from '@/types'
+import { TaskStatus, Priority, TaskType } from '@/types'
 
 interface AIResponse {
   success: boolean
@@ -132,7 +132,7 @@ export function useAI() {
         name: taskData.name,
         description: taskData.description || '',
         status: 'todo' as TaskStatus,
-        priority: (taskData.priority || 'medium') as TaskPriority,
+        priority: (taskData.priority || 'medium') as Priority,
         taskType: (taskData.taskType || 'task') as TaskType,
         estimatedHours: taskData.estimatedHours || 0,
       })

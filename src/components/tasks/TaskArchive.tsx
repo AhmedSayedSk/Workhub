@@ -33,7 +33,6 @@ const taskTypeBorderColors: Record<TaskType, string> = {
 }
 
 const priorityIcons: Record<Priority, { icon: typeof AlertOctagon; color: string }> = {
-  critical: { icon: AlertOctagon, color: 'text-red-500' },
   high: { icon: ChevronUp, color: 'text-orange-500' },
   medium: { icon: Minus, color: 'text-yellow-500' },
   low: { icon: ChevronDown, color: 'text-blue-500' },

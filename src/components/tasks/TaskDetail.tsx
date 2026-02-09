@@ -488,7 +488,7 @@ export function TaskDetail({
       taskType: editForm.taskType,
       priority: editForm.priority,
       estimatedHours: parseFloat(editForm.estimatedHours) || 0,
-    } as Partial<TaskInput>)
+    })
     setIsEditing(false)
   }
 

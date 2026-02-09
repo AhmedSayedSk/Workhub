@@ -44,7 +44,7 @@ import { PhoneInput } from '@/components/ui/phone-input'
 import { Textarea } from '@/components/ui/textarea'
 import { useProject } from '@/hooks/useProjects'
 import { useSystems } from '@/hooks/useSystems'
-import { MilestoneStatus, PaymentModel, MonthlyPayment } from '@/types'
+import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput } from '@/types'
 import { format } from 'date-fns'
 import {
   formatCurrency,
