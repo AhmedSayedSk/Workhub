@@ -9,6 +9,9 @@ import { stopTimerSchema, stopTimer } from './tools/stop-timer.js';
 import { logTimeSchema, logTime } from './tools/log-time.js';
 import { getTimerStatus } from './tools/get-timer-status.js';
 import { getTimeSummarySchema, getTimeSummary } from './tools/get-time-summary.js';
+import { listTimeEntriesSchema, listTimeEntries } from './tools/list-time-entries.js';
+import { updateTimeEntrySchema, updateTimeEntry } from './tools/update-time-entry.js';
+import { deleteTimeEntrySchema, deleteTimeEntry } from './tools/delete-time-entry.js';
 
 const server = new McpServer({
   name: 'workhub',
@@ -63,6 +66,27 @@ server.tool(
   'Get a summary of tracked time for today, this week, or this month.',
   getTimeSummarySchema,
   async (args) => getTimeSummary(args)
+);
+
+server.tool(
+  'list_time_entries',
+  'List individual time entries for a date (defaults to today). Shows entry IDs for updating/deleting.',
+  listTimeEntriesSchema,
+  async (args) => listTimeEntries(args)
+);
+
+server.tool(
+  'update_time_entry',
+  'Update a time entry (duration, notes, project, or task).',
+  updateTimeEntrySchema,
+  async (args) => updateTimeEntry(args)
+);
+
+server.tool(
+  'delete_time_entry',
+  'Delete a time entry by its ID.',
+  deleteTimeEntrySchema,
+  async (args) => deleteTimeEntry(args)
 );
 
 // Connect via stdio
