@@ -101,6 +101,7 @@ export interface Task {
   waiting?: boolean
   waitingAt?: Timestamp
   waitingReason?: string
+  doneAt?: Timestamp
   createdAt: Timestamp
 }
 
@@ -221,6 +222,7 @@ export interface TaskInput {
   waiting?: boolean
   waitingAt?: Timestamp | null
   waitingReason?: string
+  doneAt?: Timestamp | null
 }
 
 export interface SubtaskInput {

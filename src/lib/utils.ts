@@ -20,7 +20,7 @@ export function formatDateTime(date: Date | Timestamp): string {
 
 export function formatTime(date: Date | Timestamp): string {
   const d = date instanceof Timestamp ? date.toDate() : date
-  return format(d, 'HH:mm')
+  return format(d, 'h:mm a')
 }
 
 export function formatRelativeTime(date: Date | Timestamp): string {

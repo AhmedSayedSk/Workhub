@@ -355,6 +355,48 @@ export default function FinancesPage() {
         </Card>
       </div>
 
+      {/* Pending Milestones */}
+      {pendingMilestones.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Milestones</CardTitle>
+            <CardDescription>Milestones awaiting payment</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pendingMilestones.slice(0, 5).map((milestone) => {
+                const project = allProjects.find(
+                  (p) => p.id === milestone.projectId
+                )
+
+                return (
+                  <div
+                    key={milestone.id}
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
+                  >
+                    <div>
+                      <p className="font-medium">{milestone.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {project?.name} - Due {formatDate(milestone.dueDate)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{formatCurrency(milestone.amount)}</p>
+                      <Badge
+                        variant="outline"
+                        className={statusColors.milestone[milestone.status]}
+                      >
+                        {milestone.status}
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Projects Overview */}
       <Card>
         <CardHeader>
@@ -478,48 +520,6 @@ export default function FinancesPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Pending Milestones */}
-      {pendingMilestones.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming Milestones</CardTitle>
-            <CardDescription>Milestones awaiting payment</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {pendingMilestones.slice(0, 5).map((milestone) => {
-                const project = allProjects.find(
-                  (p) => p.id === milestone.projectId
-                )
-
-                return (
-                  <div
-                    key={milestone.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
-                  >
-                    <div>
-                      <p className="font-medium">{milestone.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {project?.name} - Due {formatDate(milestone.dueDate)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(milestone.amount)}</p>
-                      <Badge
-                        variant="outline"
-                        className={statusColors.milestone[milestone.status]}
-                      >
-                        {milestone.status}
-                      </Badge>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

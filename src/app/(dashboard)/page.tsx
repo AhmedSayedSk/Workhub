@@ -109,8 +109,9 @@ export default function DashboardPage() {
       setProjectsMap(projMap)
 
       setActiveProjects(projectsData.slice(0, 5))
-      const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived)
-      const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived)
+      const activeProjectIdSet = new Set(projectsData.map((p: Project) => p.id))
+      const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIdSet.has(t.projectId))
+      const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIdSet.has(t.projectId))
       setAllTodoTasks(filteredTodo)
       setAllInProgressTasks(filteredInProgress)
       setTodoTasks(sortByPriorityAndDeadline(filteredTodo, projMap).slice(0, 5))

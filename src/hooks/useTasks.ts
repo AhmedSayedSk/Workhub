@@ -256,7 +256,12 @@ export function useTasks(projectId?: string, featureId?: string) {
     // Optimistic update
     setData((prev) =>
       prev.map((t) =>
-        t.id === id ? { ...t, status: newStatus as Task['status'], sortOrder: newSortOrder } : t
+        t.id === id ? {
+          ...t,
+          status: newStatus as Task['status'],
+          sortOrder: newSortOrder,
+          doneAt: newStatus === 'done' ? Timestamp.now() : undefined,
+        } : t
       )
     )
 

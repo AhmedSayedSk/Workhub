@@ -40,7 +40,8 @@ import {
   format,
   eachDayOfInterval,
 } from 'date-fns'
-import { Clock, Plus, Loader2, Trash2, Calendar } from 'lucide-react'
+import { Clock, Plus, Loader2, Trash2, Calendar, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 import {
   BarChart,
   Bar,
@@ -410,9 +411,19 @@ export default function TimePage() {
 
       {/* Recent Entries */}
       <Card>
-        <CardHeader>
-          <CardTitle>Recent Entries</CardTitle>
-          <CardDescription>Your time log for this period</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Recent Entries</CardTitle>
+            <CardDescription>Your time log for this period</CardDescription>
+          </div>
+          {timeEntries.length > 5 && (
+            <Link href="/time/entries">
+              <Button variant="outline" size="sm">
+                View All
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </Link>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -426,36 +437,37 @@ export default function TimePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {timeEntries.slice(0, 20).map((entry) => (
+              {timeEntries.slice(0, 5).map((entry) => (
                 <div
                   key={entry.id}
                   className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Clock className="h-5 w-5 text-primary" />
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Clock className="h-4 w-4 text-primary" />
                     </div>
-                    <div>
-                      <p className="font-medium">
-                        {projectsMap[entry.projectId]?.name || 'Unknown Project'}
-                      </p>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>{formatDate(entry.startTime)}</span>
-                        <span>at {formatTime(entry.startTime)}</span>
-                        {entry.notes && (
-                          <>
-                            <span>-</span>
-                            <span className="truncate max-w-xs">{entry.notes}</span>
-                          </>
-                        )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">
+                          {projectsMap[entry.projectId]?.name || 'Unknown Project'}
+                        </p>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                          {formatDate(entry.startTime)} at {formatTime(entry.startTime)}
+                        </span>
                       </div>
+                      {entry.notes && (
+                        <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                          {entry.notes}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="font-medium">{formatDuration(entry.duration)}</span>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="font-medium text-sm">{formatDuration(entry.duration)}</span>
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8"
                       onClick={() => deleteTimeEntry(entry.id)}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />

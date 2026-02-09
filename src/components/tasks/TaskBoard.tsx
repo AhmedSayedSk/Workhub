@@ -101,6 +101,12 @@ export function TaskBoard({
     acc[col.id] = tasks
       .filter((t) => t.status === col.id)
       .sort((a, b) => {
+        if (col.id === 'done') {
+          // Done column: sort by doneAt descending (last finished first)
+          const doneA = a.doneAt?.toMillis?.() ?? a.sortOrder ?? a.createdAt?.toMillis?.() ?? 0
+          const doneB = b.doneAt?.toMillis?.() ?? b.sortOrder ?? b.createdAt?.toMillis?.() ?? 0
+          return doneB - doneA
+        }
         const orderA = a.sortOrder ?? a.createdAt?.toMillis?.() ?? 0
         const orderB = b.sortOrder ?? b.createdAt?.toMillis?.() ?? 0
         return orderA - orderB

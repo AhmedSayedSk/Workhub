@@ -302,7 +302,13 @@ export const tasks = {
   },
 
   async update(id: string, data: Partial<TaskInput>): Promise<void> {
-    return update('tasks', id, data)
+    const updates: Record<string, unknown> = { ...data }
+    if (data.status === 'done') {
+      updates.doneAt = updates.doneAt ?? Timestamp.now()
+    } else if (data.status && data.status !== 'done') {
+      updates.doneAt = null
+    }
+    return update('tasks', id, updates)
   },
 
   async delete(id: string): Promise<void> {
@@ -328,7 +334,13 @@ export const tasks = {
   },
 
   async reorder(taskId: string, newStatus: string, newSortOrder: number): Promise<void> {
-    return update('tasks', taskId, { status: newStatus, sortOrder: newSortOrder })
+    const updates: Record<string, unknown> = { status: newStatus, sortOrder: newSortOrder }
+    if (newStatus === 'done') {
+      updates.doneAt = Timestamp.now()
+    } else {
+      updates.doneAt = null
+    }
+    return update('tasks', taskId, updates)
   },
 }
 
