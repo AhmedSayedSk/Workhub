@@ -17,7 +17,6 @@ import { isWeekend, eachDayOfInterval } from 'date-fns'
 
 interface ProjectIncomeChartProps {
   projects: Project[]
-  systemColors: Record<string, string>
   payments: MonthlyPayment[]
 }
 
@@ -73,7 +72,7 @@ function CustomYAxisTick({ x, y, payload }: CustomTickProps) {
   )
 }
 
-export function ProjectIncomeChart({ projects, systemColors, payments }: ProjectIncomeChartProps) {
+export function ProjectIncomeChart({ projects, payments }: ProjectIncomeChartProps) {
   const chartData = useMemo(() => {
     const now = new Date()
 
@@ -120,7 +119,7 @@ export function ProjectIncomeChart({ projects, systemColors, payments }: Project
         isMonthly: project.paymentModel === 'monthly',
         isInternal,
         estimatedValue: project.estimatedValue || 0,
-        color: systemColors[project.systemId] || '#6366F1',
+        color: project.color || '#6366F1',
         paidMonths,
         projectDays,
         isShortProject,
@@ -129,7 +128,7 @@ export function ProjectIncomeChart({ projects, systemColors, payments }: Project
         hourlyRateLabel: workingHours > 0 ? `${formatCurrency(Math.round(hourlyRate))}/h` : '',
       }
     })
-  }, [projects, systemColors, payments])
+  }, [projects, payments])
 
   // Calculate the max name length to determine Y-axis width
   const maxNameLength = useMemo(() => {

@@ -21,7 +21,8 @@ import { useSystems } from '@/hooks/useSystems'
 import { projects } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus } from '@/types'
 import { useToast } from '@/hooks/useToast'
-import { ArrowLeft, Loader2, Milestone, Calendar, DollarSign, Building2 } from 'lucide-react'
+import { systemColors } from '@/lib/utils'
+import { ArrowLeft, Loader2, Milestone, Calendar, DollarSign, Building2, Check, Plus } from 'lucide-react'
 import { ProjectImagePicker } from '@/components/projects/ProjectImagePicker'
 
 const paymentModels: { value: PaymentModel; label: string; description: string; icon: typeof Milestone }[] = [
@@ -70,6 +71,7 @@ export default function NewProjectPage() {
     deadline: null as Date | null,
     notes: '',
     coverImageUrl: null as string | null,
+    color: systemColors[0].value,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,6 +105,7 @@ export default function NewProjectPage() {
         deadline: formData.deadline,
         notes: formData.notes,
         coverImageUrl: formData.coverImageUrl,
+        color: formData.color,
         ...(isInternal && formData.estimatedValue ? { estimatedValue: parseFloat(formData.estimatedValue) } : {}),
       })
 
@@ -153,6 +156,53 @@ export default function NewProjectPage() {
               value={formData.coverImageUrl}
               onChange={(url) => setFormData({ ...formData, coverImageUrl: url })}
             />
+
+            {/* Brand Color */}
+            <div className="space-y-2">
+              <Label>Brand Color</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                {systemColors.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                    style={{
+                      backgroundColor: c.value,
+                      boxShadow: formData.color === c.value ? `0 0 0 2px var(--background), 0 0 0 4px ${c.value}` : 'none',
+                    }}
+                    onClick={() => setFormData({ ...formData, color: c.value })}
+                    title={c.name}
+                  >
+                    {formData.color === c.value && (
+                      <Check className="h-4 w-4 text-white" />
+                    )}
+                  </button>
+                ))}
+                {/* Custom color picker */}
+                <label
+                  className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center cursor-pointer hover:border-muted-foreground/70 transition-all relative overflow-hidden"
+                  style={{
+                    backgroundColor: !systemColors.some((c) => c.value === formData.color) ? formData.color : undefined,
+                    boxShadow: !systemColors.some((c) => c.value === formData.color) ? `0 0 0 2px var(--background), 0 0 0 4px ${formData.color}` : 'none',
+                    borderStyle: !systemColors.some((c) => c.value === formData.color) ? 'solid' : 'dashed',
+                    borderColor: !systemColors.some((c) => c.value === formData.color) ? 'transparent' : undefined,
+                  }}
+                  title="Custom color"
+                >
+                  {!systemColors.some((c) => c.value === formData.color) ? (
+                    <Check className="h-4 w-4 text-white" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-muted-foreground/60" />
+                  )}
+                  <input
+                    type="color"
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    value={formData.color}
+                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                  />
+                </label>
+              </div>
+            </div>
 
             {/* Name */}
             <div className="space-y-2">

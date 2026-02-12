@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +32,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -115,32 +116,53 @@ export default function FinancesPage() {
     0
   )
 
-  // Monthly earnings data (last 6 months)
+  // Build a map of projectId -> project for quick lookups
+  const projectsMap = useMemo(() => {
+    const map: Record<string, Project> = {}
+    allProjects.forEach((p) => (map[p.id] = p))
+    return map
+  }, [allProjects])
+
+  // Collect unique project IDs that have earnings (milestones or monthly payments)
+  const earningProjectIds = useMemo(() => {
+    const ids = new Set<string>()
+    allMilestones.filter((m) => m.status === 'paid').forEach((m) => ids.add(m.projectId))
+    allPayments.filter((p) => p.status === 'paid').forEach((p) => ids.add(p.projectId))
+    // Exclude internal projects
+    return Array.from(ids).filter((id) => projectsMap[id]?.paymentModel !== 'internal')
+  }, [allMilestones, allPayments, projectsMap])
+
+  // Monthly earnings data (last 6 months) — per-project breakdown
   const monthlyData = Array.from({ length: 6 }, (_, i) => {
     const date = subMonths(new Date(), 5 - i)
     const month = format(date, 'yyyy-MM')
     const monthStart = startOfMonth(date)
     const monthEnd = endOfMonth(date)
 
-    // Sum paid milestones in this month
-    const milestoneEarnings = allMilestones
-      .filter((m) => {
-        if (m.status !== 'paid' || !m.paidAt) return false
-        const paidDate = m.paidAt.toDate()
-        return paidDate >= monthStart && paidDate <= monthEnd
-      })
-      .reduce((sum, m) => sum + m.amount, 0)
-
-    // Sum paid monthly payments
-    const monthlyEarnings = allPayments
-      .filter((p) => p.status === 'paid' && p.month === month)
-      .reduce((sum, p) => sum + p.amount, 0)
-
-    return {
+    const row: Record<string, string | number> = {
       month: format(date, 'MMM'),
       fullMonth: format(date, 'MMMM yyyy'),
-      earnings: milestoneEarnings + monthlyEarnings,
     }
+
+    earningProjectIds.forEach((pid) => {
+      // Milestones paid this month for this project
+      const milestoneEarnings = allMilestones
+        .filter((m) => {
+          if (m.projectId !== pid || m.status !== 'paid' || !m.paidAt) return false
+          const paidDate = m.paidAt.toDate()
+          return paidDate >= monthStart && paidDate <= monthEnd
+        })
+        .reduce((sum, m) => sum + m.amount, 0)
+
+      // Monthly payments for this project
+      const monthlyEarnings = allPayments
+        .filter((p) => p.projectId === pid && p.status === 'paid' && p.month === month)
+        .reduce((sum, p) => sum + p.amount, 0)
+
+      row[pid] = milestoneEarnings + monthlyEarnings
+    })
+
+    return row
   })
 
   // Revenue distribution by project (excludes internal projects)
@@ -150,6 +172,7 @@ export default function FinancesPage() {
       name: p.name,
       value: p.totalAmount || p.paidAmount,
       paid: p.paidAmount,
+      color: p.color,
     }))
     .sort((a, b) => b.value - a.value)
 
@@ -259,21 +282,48 @@ export default function FinancesPage() {
                   <Tooltip
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
+                      const items = payload.filter((p) => (p.value as number) > 0)
+                      const total = items.reduce((sum, p) => sum + (p.value as number), 0)
                       return (
-                        <div className="bg-popover text-popover-foreground rounded-lg border p-2 shadow-md">
-                          <p className="font-medium">{payload[0].payload.fullMonth}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency(payload[0].value as number)}
-                          </p>
+                        <div className="bg-popover text-popover-foreground rounded-lg border p-2.5 shadow-md min-w-[160px]">
+                          <p className="font-medium mb-1.5">{payload[0].payload.fullMonth}</p>
+                          {items.map((p) => (
+                            <div key={p.dataKey as string} className="flex items-center justify-between gap-4 text-sm">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0"
+                                  style={{ backgroundColor: p.color }}
+                                />
+                                <span className="text-muted-foreground truncate max-w-[120px]">{p.name}</span>
+                              </div>
+                              <span className="font-medium">{formatCurrency(p.value as number)}</span>
+                            </div>
+                          ))}
+                          {items.length > 1 && (
+                            <div className="flex justify-between text-sm font-medium border-t mt-1.5 pt-1.5">
+                              <span>Total</span>
+                              <span>{formatCurrency(total)}</span>
+                            </div>
+                          )}
                         </div>
                       )
                     }}
                   />
-                  <Bar
-                    dataKey="earnings"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
+                  <Legend
+                    wrapperStyle={{ fontSize: '12px' }}
+                    iconType="square"
+                    iconSize={10}
                   />
+                  {earningProjectIds.map((pid, i) => (
+                    <Bar
+                      key={pid}
+                      dataKey={pid}
+                      name={projectsMap[pid]?.name || 'Unknown'}
+                      stackId="projects"
+                      fill={projectsMap[pid]?.color || chartColors[i % chartColors.length]}
+                      radius={i === earningProjectIds.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -306,10 +356,10 @@ export default function FinancesPage() {
                         paddingAngle={2}
                         label={false}
                       >
-                        {projectDistribution.map((_, index) => (
+                        {projectDistribution.map((item, index) => (
                           <Cell
                             key={`cell-${index}`}
-                            fill={chartColors[index % chartColors.length]}
+                            fill={item.color || chartColors[index % chartColors.length]}
                           />
                         ))}
                       </Pie>
@@ -340,7 +390,7 @@ export default function FinancesPage() {
                         <div key={item.name} className="flex items-center gap-2 text-sm">
                           <div
                             className="w-3 h-3 rounded-full shrink-0"
-                            style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                            style={{ backgroundColor: item.color || chartColors[index % chartColors.length] }}
                           />
                           <span className="truncate flex-1 text-foreground">{item.name}</span>
                           <span className="text-muted-foreground whitespace-nowrap">{percent}%</span>
@@ -439,7 +489,7 @@ export default function FinancesPage() {
                     <div className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors">
                       <div
                         className="w-2 h-12 rounded-full"
-                        style={{ backgroundColor: system?.color || '#6366F1' }}
+                        style={{ backgroundColor: project.color || system?.color || '#6366F1' }}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">

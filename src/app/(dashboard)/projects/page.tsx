@@ -181,7 +181,12 @@ export default function ProjectsPage() {
 
                     return (
                       <Link key={project.id} href={`/projects/${project.id}`}>
-                        <Card className="h-full hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all cursor-pointer overflow-hidden">
+                        <Card
+                          className="h-full hover:shadow-md transition-all cursor-pointer overflow-hidden border"
+                          style={{
+                            backgroundColor: `color-mix(in srgb, ${project.color || system?.color || '#6B8DD6'} 6%, transparent)`,
+                          }}
+                        >
                           <CardHeader className="pb-3 relative">
                             <div className="absolute top-4 right-4 flex items-center gap-1 text-muted-foreground">
                               <PaymentIcon className="h-4 w-4" />
@@ -196,12 +201,6 @@ export default function ProjectsPage() {
                                 size="lg"
                               />
                               <div className="flex-1 min-w-0">
-                                {system && (
-                                  <div
-                                    className="w-2 h-2 rounded-full mb-1"
-                                    style={{ backgroundColor: system.color }}
-                                  />
-                                )}
                                 <CardTitle className="text-xl pr-16 !mt-0 truncate">{project.name}</CardTitle>
                                 {project.paymentModel === 'internal' ? (
                                   <p className="text-sm text-muted-foreground">

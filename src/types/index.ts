@@ -58,6 +58,7 @@ export interface Project {
   notes: string
   coverImageUrl: string | null
   estimatedValue?: number // For internal projects - estimated market value for hourly rate calculation
+  color: string
   createdAt: Timestamp
 }
 
@@ -185,6 +186,7 @@ export interface ProjectInput {
   notes: string
   coverImageUrl: string | null
   estimatedValue?: number // For internal projects - estimated market value
+  color: string
 }
 
 export interface MilestoneInput {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,8 @@ import {
 import { DatePicker } from '@/components/ui/date-picker'
 import { useTimeEntries } from '@/hooks/useTimeEntries'
 import { useProjects } from '@/hooks/useProjects'
+import { timeEntries as timeEntriesApi } from '@/lib/firestore'
+import { TimeEntry } from '@/types'
 import {
   formatDuration,
   formatDate,
@@ -49,6 +51,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from 'recharts'
 
@@ -79,6 +82,42 @@ export default function TimePage() {
 
   const { projects } = useProjects()
 
+  // "By Project" distribution mode: today, week, or all time
+  const [distributionMode, setDistributionMode] = useState<'today' | 'week' | 'all'>('today')
+  const [allTimeEntries, setAllTimeEntries] = useState<TimeEntry[]>([])
+  const [allTimeLoading, setAllTimeLoading] = useState(false)
+
+  const todayStart = useMemo(() => startOfDay(new Date()), [])
+  const todayEnd = useMemo(() => endOfDay(new Date()), [])
+  const weekStart = useMemo(() => startOfWeek(new Date()), [])
+  const weekEnd = useMemo(() => endOfWeek(new Date()), [])
+
+  // Filter entries by distribution mode
+  const todayEntries = useMemo(() => {
+    const source = allTimeEntries.length > 0 ? allTimeEntries : timeEntries
+    return source.filter((e) => {
+      const d = e.startTime.toDate()
+      return d >= todayStart && d <= todayEnd
+    })
+  }, [timeEntries, allTimeEntries, todayStart, todayEnd])
+
+  const weekEntries = useMemo(() => {
+    const source = allTimeEntries.length > 0 ? allTimeEntries : timeEntries
+    return source.filter((e) => {
+      const d = e.startTime.toDate()
+      return d >= weekStart && d <= weekEnd
+    })
+  }, [timeEntries, allTimeEntries, weekStart, weekEnd])
+
+  useEffect(() => {
+    if (distributionMode === 'all' && allTimeEntries.length === 0) {
+      setAllTimeLoading(true)
+      timeEntriesApi.getAll().then((entries) => {
+        setAllTimeEntries(entries)
+      }).finally(() => setAllTimeLoading(false))
+    }
+  }, [distributionMode, allTimeEntries.length])
+
   const [manualForm, setManualForm] = useState({
     projectId: '',
     taskId: '',
@@ -91,7 +130,25 @@ export default function TimePage() {
   // Calculate totals
   const totalMinutes = timeEntries.reduce((sum, e) => sum + e.duration, 0)
 
-  // Group by day for chart
+  const CHART_COLORS_FALLBACK = [
+    'hsl(var(--primary))',
+    'hsl(var(--chart-2, 160 60% 45%))',
+    'hsl(var(--chart-3, 30 80% 55%))',
+    'hsl(var(--chart-4, 280 65% 60%))',
+    'hsl(var(--chart-5, 340 75% 55%))',
+    'hsl(200 70% 50%)',
+    'hsl(45 90% 50%)',
+    'hsl(120 50% 45%)',
+  ]
+
+  // Get unique project IDs from entries
+  const uniqueProjectIds = useMemo(() => {
+    const ids = new Set<string>()
+    timeEntries.forEach((e) => ids.add(e.projectId))
+    return Array.from(ids)
+  }, [timeEntries])
+
+  // Group by day for chart — each day has per-project hours
   const dayTotals = eachDayOfInterval({ start, end }).map((date) => {
     const dayEntries = timeEntries.filter((e) => {
       const entryDate = e.startTime.toDate()
@@ -99,17 +156,25 @@ export default function TimePage() {
         entryDate >= startOfDay(date) && entryDate <= endOfDay(date)
       )
     })
-    const minutes = dayEntries.reduce((sum, e) => sum + e.duration, 0)
-    return {
-      date: format(date, 'EEE'),
-      fullDate: format(date, 'MMM d'),
-      hours: Math.round((minutes / 60) * 10) / 10,
+    const row: Record<string, string | number> = {
+      date: `${format(date, 'EEE')} ${format(date, 'M/d')}`,
+      fullDate: format(date, 'EEEE, MMM d'),
     }
+    uniqueProjectIds.forEach((pid) => {
+      const mins = dayEntries
+        .filter((e) => e.projectId === pid)
+        .reduce((sum, e) => sum + e.duration, 0)
+      row[pid] = Math.round((mins / 60) * 10) / 10
+    })
+    return row
   })
 
-  // Group by project
+  // Group by project — uses today's, week's, or all-time entries based on mode
+  const distributionEntries = distributionMode === 'all' ? allTimeEntries : distributionMode === 'week' ? weekEntries : todayEntries
+  const distributionTotalMinutes = distributionEntries.reduce((sum, e) => sum + e.duration, 0)
+
   const projectTotals = Object.entries(
-    timeEntries.reduce((acc, entry) => {
+    distributionEntries.reduce((acc, entry) => {
       const projectId = entry.projectId
       if (!acc[projectId]) {
         acc[projectId] = 0
@@ -119,7 +184,9 @@ export default function TimePage() {
     }, {} as Record<string, number>)
   )
     .map(([projectId, minutes]) => ({
+      projectId,
       project: projectsMap[projectId]?.name || 'Unknown',
+      color: projectsMap[projectId]?.color,
       minutes,
       hours: Math.round((minutes / 60) * 10) / 10,
     }))
@@ -305,7 +372,7 @@ export default function TimePage() {
           <CardContent>
             <div className="text-2xl font-bold">
               {formatDuration(
-                Math.round(totalMinutes / Math.max(1, dayTotals.filter((d) => d.hours > 0).length))
+                Math.round(totalMinutes / Math.max(1, dayTotals.filter((d) => uniqueProjectIds.some((pid) => (d[pid] as number) > 0)).length))
               )}
             </div>
             <p className="text-xs text-muted-foreground">Per working day</p>
@@ -333,10 +400,10 @@ export default function TimePage() {
         <Card>
           <CardHeader>
             <CardTitle>Daily Breakdown</CardTitle>
-            <CardDescription>Hours worked each day</CardDescription>
+            <CardDescription>Hours worked each day by project</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dayTotals}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -352,21 +419,48 @@ export default function TimePage() {
                   <Tooltip
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
+                      const items = payload.filter((p) => (p.value as number) > 0)
+                      const total = items.reduce((sum, p) => sum + (p.value as number), 0)
                       return (
-                        <div className="bg-popover text-popover-foreground rounded-lg border p-2 shadow-md">
-                          <p className="font-medium">{payload[0].payload.fullDate}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {payload[0].value} hours
-                          </p>
+                        <div className="bg-popover text-popover-foreground rounded-lg border p-2.5 shadow-md min-w-[140px]">
+                          <p className="font-medium mb-1.5">{payload[0].payload.fullDate}</p>
+                          {items.map((p) => (
+                            <div key={p.dataKey as string} className="flex items-center justify-between gap-4 text-sm">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0"
+                                  style={{ backgroundColor: p.color }}
+                                />
+                                <span className="text-muted-foreground truncate max-w-[120px]">{p.name}</span>
+                              </div>
+                              <span className="font-medium">{p.value}h</span>
+                            </div>
+                          ))}
+                          {items.length > 1 && (
+                            <div className="flex justify-between text-sm font-medium border-t mt-1.5 pt-1.5">
+                              <span>Total</span>
+                              <span>{Math.round(total * 10) / 10}h</span>
+                            </div>
+                          )}
                         </div>
                       )
                     }}
                   />
-                  <Bar
-                    dataKey="hours"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
+                  <Legend
+                    wrapperStyle={{ fontSize: '12px' }}
+                    iconType="square"
+                    iconSize={10}
                   />
+                  {uniqueProjectIds.map((pid, i) => (
+                    <Bar
+                      key={pid}
+                      dataKey={pid}
+                      name={projectsMap[pid]?.name || 'Unknown'}
+                      stackId="projects"
+                      fill={projectsMap[pid]?.color || CHART_COLORS_FALLBACK[i % CHART_COLORS_FALLBACK.length]}
+                      radius={i === uniqueProjectIds.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -375,36 +469,85 @@ export default function TimePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>By Project</CardTitle>
-            <CardDescription>Time distribution across projects</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>By Project</CardTitle>
+                <CardDescription>Time distribution across projects</CardDescription>
+              </div>
+              <div className="flex items-center rounded-lg border p-0.5">
+                <button
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    distributionMode === 'today'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setDistributionMode('today')}
+                >
+                  Today
+                </button>
+                <button
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    distributionMode === 'week'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setDistributionMode('week')}
+                >
+                  Week
+                </button>
+                <button
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    distributionMode === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setDistributionMode('all')}
+                >
+                  All Time
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {projectTotals.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No time tracked in this period
-                </p>
-              ) : (
-                projectTotals.slice(0, 5).map((item, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">{item.project}</span>
-                      <span className="text-muted-foreground">
-                        {formatDuration(item.minutes)}
-                      </span>
+            {distributionMode === 'all' && allTimeLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {projectTotals.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    No time tracked {distributionMode === 'all' ? 'yet' : distributionMode === 'week' ? 'this week' : 'today'}
+                  </p>
+                ) : (
+                  projectTotals.map((item) => (
+                    <div key={item.projectId} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: item.color || 'hsl(var(--primary))' }}
+                          />
+                          <span className="font-medium">{item.project}</span>
+                        </div>
+                        <span className="text-muted-foreground">
+                          {formatDuration(item.minutes)}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${distributionTotalMinutes > 0 ? (item.minutes / distributionTotalMinutes) * 100 : 0}%`,
+                            backgroundColor: item.color || 'hsl(var(--primary))',
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full"
-                        style={{
-                          width: `${(item.minutes / totalMinutes) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

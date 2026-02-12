@@ -51,6 +51,7 @@ import {
   formatDate,
   statusColors,
   calculateProgress,
+  systemColors,
 } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -68,6 +69,7 @@ import {
   ListTodo,
   Paperclip,
   KeyRound,
+  Check,
 } from 'lucide-react'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
@@ -117,6 +119,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     deadline: null as Date | null,
     notes: '',
     coverImageUrl: null as string | null,
+    color: systemColors[0].value,
   })
 
   const [paymentForm, setPaymentForm] = useState({
@@ -320,6 +323,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         deadline: project.deadline ? project.deadline.toDate() : null,
         notes: project.notes,
         coverImageUrl: project.coverImageUrl || null,
+        color: project.color || systemColors[0].value,
       })
       setIsEditDialogOpen(true)
     }
@@ -343,6 +347,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         deadline: editForm.deadline,
         notes: editForm.notes,
         coverImageUrl: editForm.coverImageUrl,
+        color: editForm.color,
       }
       if (isEditInternal && editForm.estimatedValue) {
         updateData.estimatedValue = parseFloat(editForm.estimatedValue)
@@ -371,12 +376,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           />
           <div>
             <div className="flex items-center gap-3 mb-1">
-              {system && (
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: system.color }}
-                />
-              )}
               <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
               {!isInternal && project.clientName && (
                 <span className="text-sm font-medium text-primary">· {project.clientName}</span>
@@ -1094,6 +1093,53 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               value={editForm.coverImageUrl}
               onChange={(url) => setEditForm({ ...editForm, coverImageUrl: url })}
             />
+
+            {/* Brand Color */}
+            <div className="space-y-2">
+              <Label>Brand Color</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                {systemColors.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                    style={{
+                      backgroundColor: c.value,
+                      boxShadow: editForm.color === c.value ? `0 0 0 2px var(--background), 0 0 0 4px ${c.value}` : 'none',
+                    }}
+                    onClick={() => setEditForm({ ...editForm, color: c.value })}
+                    title={c.name}
+                  >
+                    {editForm.color === c.value && (
+                      <Check className="h-4 w-4 text-white" />
+                    )}
+                  </button>
+                ))}
+                {/* Custom color picker */}
+                <label
+                  className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center cursor-pointer hover:border-muted-foreground/70 transition-all relative overflow-hidden"
+                  style={{
+                    backgroundColor: !systemColors.some((c) => c.value === editForm.color) ? editForm.color : undefined,
+                    boxShadow: !systemColors.some((c) => c.value === editForm.color) ? `0 0 0 2px var(--background), 0 0 0 4px ${editForm.color}` : 'none',
+                    borderStyle: !systemColors.some((c) => c.value === editForm.color) ? 'solid' : 'dashed',
+                    borderColor: !systemColors.some((c) => c.value === editForm.color) ? 'transparent' : undefined,
+                  }}
+                  title="Custom color"
+                >
+                  {!systemColors.some((c) => c.value === editForm.color) ? (
+                    <Check className="h-4 w-4 text-white" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-muted-foreground/60" />
+                  )}
+                  <input
+                    type="color"
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    value={editForm.color}
+                    onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                  />
+                </label>
+              </div>
+            </div>
 
             {editForm.paymentModel !== 'internal' ? (
               <>

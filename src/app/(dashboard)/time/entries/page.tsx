@@ -306,9 +306,15 @@ export default function TimeEntriesPage() {
                         className="border-b last:border-0 hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors group"
                       >
                         <td className="px-6 py-3">
-                          <span className="font-medium text-sm truncate block">
-                            {projectsMap[entry.projectId]?.name || 'Unknown Project'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: projectsMap[entry.projectId]?.color || '#6B8DD6' }}
+                            />
+                            <span className="font-medium text-sm truncate block">
+                              {projectsMap[entry.projectId]?.name || 'Unknown Project'}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-muted-foreground whitespace-nowrap">

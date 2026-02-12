@@ -86,11 +86,16 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
   }
 
   const deleteTimeEntry = async (id: string) => {
+    const previousData = data
+
+    // Optimistically remove from UI
+    setData((prev) => prev.filter((e) => e.id !== id))
+
     try {
       await timeEntries.delete(id)
-      await fetchTimeEntries()
-      toast({ title: 'Success', description: 'Time entry deleted', variant: 'success' })
     } catch {
+      // Rollback on error
+      setData(previousData)
       toast({ title: 'Error', description: 'Failed to delete time entry', variant: 'destructive' })
       throw new Error('Failed to delete time entry')
     }

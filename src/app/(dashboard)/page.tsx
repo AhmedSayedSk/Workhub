@@ -333,9 +333,6 @@ export default function DashboardPage() {
                   <div className="mb-4 pb-4 border-b">
                     <ProjectIncomeChart
                       projects={activeProjects}
-                      systemColors={Object.fromEntries(
-                        Object.entries(systemsMap).map(([id, sys]) => [id, sys.color])
-                      )}
                       payments={allPayments}
                     />
                     <div className="flex items-center justify-center gap-6 mt-3 text-xs text-muted-foreground">
@@ -368,7 +365,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                           <div
                             className="w-2 h-10 rounded-full"
-                            style={{ backgroundColor: system?.color || '#6366F1' }}
+                            style={{ backgroundColor: project.color || system?.color || '#6366F1' }}
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
