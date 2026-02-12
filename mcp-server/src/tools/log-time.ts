@@ -44,6 +44,8 @@ export async function logTime(args: {
     };
   }
 
+  minutes += 2;
+
   // Determine start/end times
   let startDate: Date;
   if (args.date) {

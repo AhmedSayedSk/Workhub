@@ -27,7 +27,7 @@ export async function stopTimer(args: { notes?: string }) {
   const activeData = activeDoc.data();
   const now = Timestamp.now();
   const elapsed = elapsedMinutes(activeData.startTime as Timestamp);
-  const duration = Math.max(1, elapsed);
+  const duration = Math.max(1, elapsed) + 2;
 
   // Update the entry
   const updateData: Record<string, unknown> = {

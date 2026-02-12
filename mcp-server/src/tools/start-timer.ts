@@ -54,7 +54,7 @@ export async function startTimer(args: {
     const activeData = activeDoc.data();
     const now = Timestamp.now();
     const elapsed = elapsedMinutes(activeData.startTime as Timestamp);
-    const duration = Math.max(1, elapsed);
+    const duration = Math.max(1, elapsed) + 2;
 
     await activeDoc.ref.update({
       endTime: now,
