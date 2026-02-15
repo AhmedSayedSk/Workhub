@@ -115,7 +115,7 @@ export function FileGrid({
           <div
             className={cn(
               'grid gap-4',
-              'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
+              'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10'
             )}
           >
             {folders.map((folder) => (
@@ -142,7 +142,7 @@ export function FileGrid({
           <div
             className={cn(
               'grid gap-4',
-              'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
+              'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10'
             )}
           >
             {files.map((file) => (

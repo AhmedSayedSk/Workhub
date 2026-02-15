@@ -166,7 +166,7 @@ export function ProjectAttachmentsTab({ projectId }: ProjectAttachmentsTabProps)
                     <CachedImage
                       src={file.thumbnailUrl || file.url}
                       alt={file.displayName}
-                      className="w-10 h-10 object-cover rounded"
+                      className="w-10 h-10 object-contain rounded"
                     />
                   ) : (
                     <div className="w-10 h-10 flex items-center justify-center bg-muted rounded">

@@ -157,7 +157,7 @@ export default function TimePage() {
       )
     })
     const row: Record<string, string | number> = {
-      date: `${format(date, 'EEE')} ${format(date, 'M/d')}`,
+      date: dateRange === 'month' ? format(date, 'd') : `${format(date, 'EEE')} ${format(date, 'M/d')}`,
       fullDate: format(date, 'EEEE, MMM d'),
     }
     uniqueProjectIds.forEach((pid) => {
@@ -410,17 +410,21 @@ export default function TimePage() {
                   <XAxis
                     dataKey="date"
                     className="text-xs"
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', dy: 6 }}
                   />
                   <YAxis
                     className="text-xs"
                     tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    domain={[0, 6]}
                   />
                   <Tooltip
+                    cursor={false}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
                       const items = payload.filter((p) => (p.value as number) > 0)
                       const total = items.reduce((sum, p) => sum + (p.value as number), 0)
+                      const fmtVal = (v: number) =>
+                        v < 1 ? `${Math.round(v * 60)}m` : `${v}h`
                       return (
                         <div className="bg-popover text-popover-foreground rounded-lg border p-2.5 shadow-md min-w-[140px]">
                           <p className="font-medium mb-1.5">{payload[0].payload.fullDate}</p>
@@ -433,13 +437,13 @@ export default function TimePage() {
                                 />
                                 <span className="text-muted-foreground truncate max-w-[120px]">{p.name}</span>
                               </div>
-                              <span className="font-medium">{p.value}h</span>
+                              <span className="font-medium">{fmtVal(p.value as number)}</span>
                             </div>
                           ))}
                           {items.length > 1 && (
                             <div className="flex justify-between text-sm font-medium border-t mt-1.5 pt-1.5">
                               <span>Total</span>
-                              <span>{Math.round(total * 10) / 10}h</span>
+                              <span>{fmtVal(Math.round(total * 10) / 10)}</span>
                             </div>
                           )}
                         </div>
@@ -447,7 +451,7 @@ export default function TimePage() {
                     }}
                   />
                   <Legend
-                    wrapperStyle={{ fontSize: '12px' }}
+                    wrapperStyle={{ fontSize: '12px', textShadow: '1px 1px 0 rgba(255,255,255,0.3)' }}
                     iconType="square"
                     iconSize={10}
                   />
@@ -458,6 +462,8 @@ export default function TimePage() {
                       name={projectsMap[pid]?.name || 'Unknown'}
                       stackId="projects"
                       fill={projectsMap[pid]?.color || CHART_COLORS_FALLBACK[i % CHART_COLORS_FALLBACK.length]}
+                      fillOpacity={0.8}
+                      activeBar={{ fillOpacity: 1 }}
                       radius={i === uniqueProjectIds.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
                     />
                   ))}

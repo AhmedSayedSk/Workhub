@@ -286,6 +286,7 @@ export default function MediaPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <MediaBreadcrumb path={breadcrumb} onNavigate={navigateToFolder} />
           <Button
             variant="outline"
             onClick={() => {
@@ -302,9 +303,6 @@ export default function MediaPage() {
           </Button>
         </div>
       </div>
-
-      {/* Breadcrumb */}
-      <MediaBreadcrumb path={breadcrumb} onNavigate={navigateToFolder} />
 
       {/* Toolbar */}
       <div className="flex items-center gap-4 flex-wrap">

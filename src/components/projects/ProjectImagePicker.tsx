@@ -41,7 +41,7 @@ export function ProjectImagePicker({ value, onChange, className }: ProjectImageP
               <CachedImage
                 src={value}
                 alt="Project icon"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <span className="text-white text-xs font-medium">Change</span>
@@ -98,7 +98,7 @@ export function ProjectIcon({ src, name, size = 'md', className }: ProjectIconPr
         src={src}
         alt={name}
         className={cn(
-          'rounded-lg object-cover flex-shrink-0',
+          'rounded-lg object-contain flex-shrink-0',
           sizeClasses[size],
           className
         )}

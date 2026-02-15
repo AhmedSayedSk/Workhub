@@ -227,7 +227,7 @@ export function ImageSelector({
               <p className="text-sm">Upload an image to get started</p>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-3 pb-4">
+            <div className="grid grid-cols-5 sm:grid-cols-6 gap-3 pb-4">
               {filteredImages.map((image) => (
                 <div
                   key={image.id}
@@ -242,7 +242,7 @@ export function ImageSelector({
                   <CachedImage
                     src={image.thumbnailUrl || image.url}
                     alt={image.displayName}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                   {selectedUrl === image.url && (
                     <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">

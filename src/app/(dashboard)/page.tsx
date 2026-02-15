@@ -50,7 +50,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import Link from 'next/link'
-import { startOfDay, endOfDay, startOfWeek, endOfWeek } from 'date-fns'
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { ProjectIncomeChart } from '@/components/charts/ProjectIncomeChart'
 
@@ -62,6 +62,7 @@ export default function DashboardPage() {
   const [allInProgressTasks, setAllInProgressTasks] = useState<Task[]>([])
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([])
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([])
+  const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([])
   const [systemsMap, setSystemsMap] = useState<Record<string, System>>({})
   const [projectsMap, setProjectsMap] = useState<Record<string, Project>>({})
   const [allMilestones, setAllMilestones] = useState<Milestone[]>([])
@@ -90,10 +91,13 @@ export default function DashboardPage() {
       const todayEnd = endOfDay(now)
       const weekStart = startOfWeek(now)
       const weekEnd = endOfWeek(now)
+      const monthStart = startOfMonth(now)
+      const monthEnd = endOfMonth(now)
 
-      const [todayData, weekData] = await Promise.all([
+      const [todayData, weekData, monthData] = await Promise.all([
         timeEntries.getByDateRange(todayStart, todayEnd),
         timeEntries.getByDateRange(weekStart, weekEnd),
+        timeEntries.getByDateRange(monthStart, monthEnd),
       ])
 
       const sysMap: Record<string, System> = {}
@@ -118,6 +122,7 @@ export default function DashboardPage() {
       setInProgressTasks(sortByPriorityAndDeadline(filteredInProgress, projMap).slice(0, 5))
       setTodayEntries(todayData)
       setWeekEntries(weekData)
+      setMonthEntries(monthData)
       setAllMilestones(milestonesData)
       setAllPayments(paymentsData)
     } catch (error) {
@@ -156,10 +161,12 @@ export default function DashboardPage() {
       m.status !== 'paid' &&
       m.dueDate
     )
-    .map(m => m.dueDate.toDate())
-    .sort((a, b) => a.getTime() - b.getTime())
+    .map(m => ({ date: m.dueDate.toDate(), projectId: m.projectId }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
 
-  const nearestPaymentDeadline = unpaidMilestones[0] || null
+  const nearestMilestone = unpaidMilestones[0] || null
+  const nearestPaymentDeadline = nearestMilestone?.date || null
+  const nearestPaymentProject = nearestMilestone ? projectsMap[nearestMilestone.projectId]?.name : null
 
   // Calculate days until payment deadline using UTC date comparison to avoid timezone issues
   const daysUntilDeadline = nearestPaymentDeadline
@@ -183,6 +190,7 @@ export default function DashboardPage() {
 
   const todayMinutes = todayEntries.reduce((sum, e) => sum + e.duration, 0)
   const weekMinutes = weekEntries.reduce((sum, e) => sum + e.duration, 0)
+  const monthMinutes = monthEntries.reduce((sum, e) => sum + e.duration, 0)
 
   if (loading) {
     return (
@@ -248,6 +256,11 @@ export default function DashboardPage() {
                 <div className="text-xl font-semibold text-muted-foreground">{formatDuration(weekMinutes)}</div>
                 <p className="text-xs text-muted-foreground">This week</p>
               </div>
+              <div className="text-muted-foreground">/</div>
+              <div>
+                <div className="text-lg font-semibold text-muted-foreground/70">{formatDuration(monthMinutes)}</div>
+                <p className="text-xs text-muted-foreground">This month</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -262,11 +275,11 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">
               {daysUntilDeadline !== null ? (
                 daysUntilDeadline < 0 ? (
-                  <span className="text-red-500">{Math.abs(daysUntilDeadline)} days overdue</span>
+                  <span className="text-red-500">{Math.abs(daysUntilDeadline)} days overdue {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
                 ) : daysUntilDeadline === 0 ? (
-                  <span className="text-orange-500">Due today</span>
+                  <span className="text-orange-500">Due today {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
                 ) : (
-                  <span>{daysUntilDeadline} days until next payment</span>
+                  <span>{daysUntilDeadline} days until next payment {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
                 )
               ) : (
                 'Pending from active projects'
