@@ -212,6 +212,25 @@ export const statusColors = {
   },
 }
 
+// Project field labels for activity log
+export const projectFieldLabels: Record<string, string> = {
+  name: 'Name',
+  clientName: 'Client Name',
+  clientNumber: 'Client Number',
+  description: 'Description',
+  status: 'Status',
+  paymentModel: 'Payment Model',
+  totalAmount: 'Total Amount',
+  paidAmount: 'Paid Amount',
+  startDate: 'Start Date',
+  deadline: 'Deadline',
+  notes: 'Notes',
+  coverImageUrl: 'Cover Image',
+  color: 'Brand Color',
+  systemId: 'System',
+  estimatedValue: 'Estimated Value',
+}
+
 // Task type labels for display
 export const taskTypeLabels: Record<string, string> = {
   task: 'Task',
@@ -220,6 +239,11 @@ export const taskTypeLabels: Record<string, string> = {
   improvement: 'Improvement',
   documentation: 'Documentation',
   research: 'Research',
+}
+
+// Thinking time multiplier
+export function applyThinkingTime(minutes: number, percent: number): number {
+  return Math.round(minutes * (1 + percent / 100))
 }
 
 // Debounce utility

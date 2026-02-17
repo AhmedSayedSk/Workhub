@@ -363,12 +363,14 @@ export interface AppSettings {
   id: string
   aiModel: GeminiModel
   aiEnabled: boolean
+  thinkingTimePercent: number
   updatedAt: Timestamp
 }
 
 export interface AppSettingsInput {
   aiModel: GeminiModel
   aiEnabled: boolean
+  thinkingTimePercent?: number
 }
 
 // Media Library types
@@ -472,4 +474,21 @@ export interface VaultEntryInput {
   fileName?: string
   fileSize?: number
   storagePath?: string
+}
+
+// Project Activity Log types
+export type ProjectLogAction = 'created' | 'updated' | 'status_changed'
+
+export interface ProjectLogChange {
+  field: string
+  oldValue: string | null
+  newValue: string | null
+}
+
+export interface ProjectLog {
+  id: string
+  projectId: string
+  action: ProjectLogAction
+  changes: ProjectLogChange[]
+  createdAt: Timestamp
 }

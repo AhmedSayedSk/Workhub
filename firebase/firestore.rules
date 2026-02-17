@@ -85,5 +85,10 @@ service cloud.firestore {
     match /taskComments/{commentId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Project Activity Logs collection
+    match /projectLogs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

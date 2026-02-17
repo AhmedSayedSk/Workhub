@@ -46,6 +46,9 @@ import {
   TaskComment,
   TaskCommentInput,
   CommentParentType,
+  ProjectLog,
+  ProjectLogAction,
+  ProjectLogChange,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -305,7 +308,7 @@ export const tasks = {
     const updates: Record<string, unknown> = { ...data }
     if (data.status === 'done') {
       updates.doneAt = updates.doneAt ?? Timestamp.now()
-    } else if (data.status && data.status !== 'done') {
+    } else if (data.status) {
       updates.doneAt = null
     }
     return update('tasks', id, updates)
@@ -578,6 +581,7 @@ export const appSettings = {
     const defaultSettings: AppSettingsInput = {
       aiModel: 'gemini-3-flash-preview',
       aiEnabled: true,
+      thinkingTimePercent: 0,
     }
 
     const docRef = doc(db, 'settings', SETTINGS_DOC_ID)
@@ -613,6 +617,7 @@ export const appSettings = {
       await setDoc(docRef, {
         aiModel: 'gemini-3-flash-preview',
         aiEnabled: true,
+        thinkingTimePercent: 0,
         ...data,
         updatedAt: Timestamp.now(),
       })
@@ -639,6 +644,9 @@ export const batch = {
       timeEntries.getAll(projectId),
       monthlyPayments.getAll(projectId),
     ])
+
+    // Delete project logs
+    await projectLogs.deleteByProject(projectId)
 
     // Get subtasks for all tasks
     const taskIds = projectTasks.map((t) => t.id)
@@ -909,6 +917,40 @@ export const mediaBatch = {
     }
 
     return deletedStoragePaths
+  },
+}
+
+// Project Activity Logs
+export const projectLogs = {
+  async getByProject(projectId: string): Promise<ProjectLog[]> {
+    // Query by projectId only, sort client-side to avoid needing a composite index
+    const logs = await getAll<ProjectLog>(
+      'projectLogs',
+      where('projectId', '==', projectId)
+    )
+    return logs.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
+  async create(data: {
+    projectId: string
+    action: ProjectLogAction
+    changes: ProjectLogChange[]
+  }): Promise<string> {
+    return create('projectLogs', data)
+  },
+
+  async delete(id: string): Promise<void> {
+    await remove('projectLogs', id)
+  },
+
+  async deleteByProject(projectId: string): Promise<void> {
+    const logs = await getAll<ProjectLog>(
+      'projectLogs',
+      where('projectId', '==', projectId)
+    )
+    for (const log of logs) {
+      await remove('projectLogs', log.id)
+    }
   },
 }
 

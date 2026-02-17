@@ -27,7 +27,7 @@ import {
 import { DatePicker } from '@/components/ui/date-picker'
 import { useTimeEntries } from '@/hooks/useTimeEntries'
 import { useProjects } from '@/hooks/useProjects'
-import { formatDuration, formatTime } from '@/lib/utils'
+import { formatDuration, formatTime, applyThinkingTime } from '@/lib/utils'
 import {
   startOfDay,
   endOfDay,
@@ -39,6 +39,7 @@ import {
 } from 'date-fns'
 import { Clock, Plus, Loader2, Trash2, ArrowLeft } from 'lucide-react'
 import { TimeEntry } from '@/types'
+import { useSettings } from '@/hooks/useSettings'
 
 export default function TimeEntriesPage() {
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('week')
@@ -64,6 +65,8 @@ export default function TimeEntriesPage() {
   } = useTimeEntries(undefined, start, end)
 
   const { projects } = useProjects()
+  const { settings } = useSettings()
+  const thinkingPercent = settings?.thinkingTimePercent ?? 0
 
   const [manualForm, setManualForm] = useState({
     projectId: '',
@@ -74,7 +77,7 @@ export default function TimeEntriesPage() {
     notes: '',
   })
 
-  const totalMinutes = timeEntries.reduce((sum, e) => sum + e.duration, 0)
+  const totalMinutes = applyThinkingTime(timeEntries.reduce((sum, e) => sum + e.duration, 0), thinkingPercent)
 
   // Group entries by date
   const groupedEntries = useMemo(() => {
@@ -86,7 +89,7 @@ export default function TimeEntriesPage() {
         groups[dateKey] = { label: dateLabel, entries: [], totalMinutes: 0 }
       }
       groups[dateKey].entries.push(entry)
-      groups[dateKey].totalMinutes += entry.duration
+      groups[dateKey].totalMinutes += applyThinkingTime(entry.duration, thinkingPercent)
     })
     return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a))
   }, [timeEntries])
@@ -326,7 +329,7 @@ export default function TimeEntriesPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-semibold text-base font-mono">
-                            {formatDuration(entry.duration)}
+                            {formatDuration(applyThinkingTime(entry.duration, thinkingPercent))}
                           </span>
                         </td>
                         <td className="px-4 py-3">

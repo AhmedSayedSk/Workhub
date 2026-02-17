@@ -64,6 +64,13 @@ export function useSettings() {
     [updateSettings]
   )
 
+  const setThinkingTimePercent = useCallback(
+    async (percent: number) => {
+      await updateSettings({ thinkingTimePercent: percent })
+    },
+    [updateSettings]
+  )
+
   return {
     settings,
     loading,
@@ -72,6 +79,7 @@ export function useSettings() {
     updateSettings,
     setAIModel,
     setAIEnabled,
+    setThinkingTimePercent,
     refreshSettings: loadSettings,
   }
 }

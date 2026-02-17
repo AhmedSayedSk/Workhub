@@ -31,6 +31,7 @@ import {
   formatDuration,
   formatDate,
   formatTime,
+  applyThinkingTime,
 } from '@/lib/utils'
 import {
   startOfDay,
@@ -43,6 +44,7 @@ import {
   eachDayOfInterval,
 } from 'date-fns'
 import { Clock, Plus, Loader2, Trash2, Calendar, ArrowRight } from 'lucide-react'
+import { useSettings } from '@/hooks/useSettings'
 import Link from 'next/link'
 import {
   BarChart,
@@ -81,6 +83,8 @@ export default function TimePage() {
   } = useTimeEntries(undefined, start, end)
 
   const { projects } = useProjects()
+  const { settings } = useSettings()
+  const thinkingPercent = settings?.thinkingTimePercent ?? 0
 
   // "By Project" distribution mode: today, week, or all time
   const [distributionMode, setDistributionMode] = useState<'today' | 'week' | 'all'>('today')
@@ -127,8 +131,8 @@ export default function TimePage() {
     notes: '',
   })
 
-  // Calculate totals
-  const totalMinutes = timeEntries.reduce((sum, e) => sum + e.duration, 0)
+  // Calculate totals (with thinking time applied)
+  const totalMinutes = applyThinkingTime(timeEntries.reduce((sum, e) => sum + e.duration, 0), thinkingPercent)
 
   const CHART_COLORS_FALLBACK = [
     'hsl(var(--primary))',
@@ -161,9 +165,12 @@ export default function TimePage() {
       fullDate: format(date, 'EEEE, MMM d'),
     }
     uniqueProjectIds.forEach((pid) => {
-      const mins = dayEntries
-        .filter((e) => e.projectId === pid)
-        .reduce((sum, e) => sum + e.duration, 0)
+      const mins = applyThinkingTime(
+        dayEntries
+          .filter((e) => e.projectId === pid)
+          .reduce((sum, e) => sum + e.duration, 0),
+        thinkingPercent
+      )
       row[pid] = Math.round((mins / 60) * 10) / 10
     })
     return row
@@ -171,7 +178,6 @@ export default function TimePage() {
 
   // Group by project — uses today's, week's, or all-time entries based on mode
   const distributionEntries = distributionMode === 'all' ? allTimeEntries : distributionMode === 'week' ? weekEntries : todayEntries
-  const distributionTotalMinutes = distributionEntries.reduce((sum, e) => sum + e.duration, 0)
 
   const projectTotals = Object.entries(
     distributionEntries.reduce((acc, entry) => {
@@ -183,14 +189,19 @@ export default function TimePage() {
       return acc
     }, {} as Record<string, number>)
   )
-    .map(([projectId, minutes]) => ({
-      projectId,
-      project: projectsMap[projectId]?.name || 'Unknown',
-      color: projectsMap[projectId]?.color,
-      minutes,
-      hours: Math.round((minutes / 60) * 10) / 10,
-    }))
+    .map(([projectId, minutes]) => {
+      const adjusted = applyThinkingTime(minutes, thinkingPercent)
+      return {
+        projectId,
+        project: projectsMap[projectId]?.name || 'Unknown',
+        color: projectsMap[projectId]?.color,
+        minutes: adjusted,
+        hours: Math.round((adjusted / 60) * 10) / 10,
+      }
+    })
     .sort((a, b) => b.minutes - a.minutes)
+
+  const distributionTotalMinutes = projectTotals.reduce((sum, p) => sum + p.minutes, 0)
 
   const handleManualEntry = async () => {
     const duration =
@@ -612,7 +623,7 @@ export default function TimePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="font-medium text-sm">{formatDuration(entry.duration)}</span>
+                    <span className="font-medium text-sm">{formatDuration(applyThinkingTime(entry.duration, thinkingPercent))}</span>
                     <Button
                       variant="ghost"
                       size="icon"

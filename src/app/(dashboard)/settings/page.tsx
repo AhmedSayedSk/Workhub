@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,13 +36,14 @@ import {
   Camera,
   Image as ImageIcon,
   Trash2,
+  Clock,
 } from 'lucide-react'
 import { clearImageCache, getImageCacheInfo } from '@/lib/image-cache'
 
 export default function SettingsPage() {
   const { theme, setTheme } = useThemeContext()
   const { user, signOut, updateUserProfile } = useAuth()
-  const { settings, loading, saving, setAIModel, setAIEnabled } = useSettings()
+  const { settings, loading, saving, setAIModel, setAIEnabled, setThinkingTimePercent } = useSettings()
 
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [profileName, setProfileName] = useState('')
@@ -50,6 +51,8 @@ export default function SettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [cacheCount, setCacheCount] = useState(0)
   const [clearingCache, setClearingCache] = useState(false)
+  const [thinkingTimeLocal, setThinkingTimeLocal] = useState(0)
+  const thinkingTimeTimer = useRef<NodeJS.Timeout | null>(null)
 
   const refreshCacheInfo = useCallback(async () => {
     const info = await getImageCacheInfo()
@@ -66,6 +69,12 @@ export default function SettingsPage() {
   useEffect(() => {
     refreshCacheInfo()
   }, [refreshCacheInfo])
+
+  useEffect(() => {
+    if (settings) {
+      setThinkingTimeLocal(settings.thinkingTimePercent ?? 0)
+    }
+  }, [settings])
 
   const handleEditProfile = () => {
     setProfileName(user?.displayName || '')
@@ -135,7 +144,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="account" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="account" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Account</span>
@@ -143,6 +152,10 @@ export default function SettingsPage() {
           <TabsTrigger value="appearance" className="flex items-center gap-2">
             <Sun className="h-4 w-4" />
             <span className="hidden sm:inline">Appearance</span>
+          </TabsTrigger>
+          <TabsTrigger value="time" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            <span className="hidden sm:inline">Time</span>
           </TabsTrigger>
           <TabsTrigger value="ai" className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
@@ -411,6 +424,76 @@ export default function SettingsPage() {
                   </kbd>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Time Tracking Tab */}
+        <TabsContent value="time" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Time Tracking
+                {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                {!saving && settings && (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
+              </CardTitle>
+              <CardDescription>
+                Configure how tracked time is displayed
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Thinking Time Bonus</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Add extra time to account for thinking, planning, and context switching.
+                      This only affects displayed values — stored durations are unchanged.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="200"
+                      className="w-24"
+                      value={thinkingTimeLocal}
+                      onChange={(e) => {
+                        const val = Math.max(0, Math.min(200, parseInt(e.target.value) || 0))
+                        setThinkingTimeLocal(val)
+                        if (thinkingTimeTimer.current) clearTimeout(thinkingTimeTimer.current)
+                        thinkingTimeTimer.current = setTimeout(() => {
+                          setThinkingTimePercent(val)
+                        }, 800)
+                      }}
+                      disabled={saving}
+                    />
+                    <span className="text-sm font-medium">%</span>
+                  </div>
+                  {thinkingTimeLocal > 0 && (
+                    <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                      <p className="text-muted-foreground">
+                        Currently adds{' '}
+                        <span className="font-medium text-foreground">
+                          {thinkingTimeLocal}%
+                        </span>{' '}
+                        to all displayed time entries.
+                        A 1h entry will show as{' '}
+                        <span className="font-medium text-foreground">
+                          {Math.round(60 * (1 + thinkingTimeLocal / 100))}m
+                        </span>.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

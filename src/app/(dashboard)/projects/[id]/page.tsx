@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/dialog'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -43,15 +42,20 @@ import { MonthPicker } from '@/components/ui/month-picker'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { Textarea } from '@/components/ui/textarea'
 import { useProject } from '@/hooks/useProjects'
+import { useProjectLogs } from '@/hooks/useProjectLogs'
 import { useSystems } from '@/hooks/useSystems'
-import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput } from '@/types'
+import { useAuth } from '@/hooks/useAuth'
+import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput, ProjectStatus } from '@/types'
 import { format } from 'date-fns'
 import {
   formatCurrency,
   formatDate,
+  formatRelativeTime,
+  formatDateTime,
   statusColors,
   calculateProgress,
   systemColors,
+  projectFieldLabels,
 } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -61,6 +65,7 @@ import {
   Clock,
   DollarSign,
   Edit,
+  History,
   Loader2,
   Milestone,
   Plus,
@@ -93,12 +98,66 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     deleteProject,
   } = useProject(id)
   const { systems } = useSystems()
+  const { logs: activityLogs, loading: logsLoading, refetch: refetchLogs, deleteLog } = useProjectLogs(id)
+  const { reauthenticate } = useAuth()
 
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deletePasswordError, setDeletePasswordError] = useState('')
+  const [deleteAttempts, setDeleteAttempts] = useState(0)
+  const [deleteCooldown, setDeleteCooldown] = useState(0)
+  const cooldownRef = useRef<NodeJS.Timeout | null>(null)
+  const maxDeleteAttempts = 3
+  const cooldownSeconds = 15 * 60 // 15 minutes
+  const cooldownKey = `delete-cooldown-${id}`
+
+  const startCooldownTimer = useCallback((remaining: number) => {
+    setDeleteCooldown(remaining)
+    if (cooldownRef.current) clearInterval(cooldownRef.current)
+    cooldownRef.current = setInterval(() => {
+      setDeleteCooldown(prev => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current)
+          cooldownRef.current = null
+          localStorage.removeItem(cooldownKey)
+          setDeleteAttempts(0)
+          setDeletePassword('')
+          setDeletePasswordError('')
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [cooldownKey])
+
+  const startCooldown = useCallback(() => {
+    const expiresAt = Date.now() + cooldownSeconds * 1000
+    localStorage.setItem(cooldownKey, expiresAt.toString())
+    startCooldownTimer(cooldownSeconds)
+  }, [cooldownKey, startCooldownTimer])
+
+  // Restore cooldown from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(cooldownKey)
+    if (stored) {
+      const remaining = Math.ceil((parseInt(stored) - Date.now()) / 1000)
+      if (remaining > 0) {
+        setDeleteAttempts(maxDeleteAttempts)
+        setDeletePasswordError(`Too many failed attempts. Try again in ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}.`)
+        startCooldownTimer(remaining)
+      } else {
+        localStorage.removeItem(cooldownKey)
+      }
+    }
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current)
+    }
+  }, [cooldownKey, startCooldownTimer])
 
   const [milestoneForm, setMilestoneForm] = useState({
     name: '',
@@ -112,6 +171,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     clientNumber: '',
     description: '',
     systemId: '',
+    status: 'active' as ProjectStatus,
     paymentModel: 'milestone' as PaymentModel,
     totalAmount: '',
     estimatedValue: '',
@@ -213,6 +273,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         await updateProject({
           paidAmount: project.paidAmount + milestone.amount,
         }, false)
+        refetchLogs()
       }
     }
 
@@ -294,15 +355,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     await updateProject({
       paidAmount: project.paidAmount + amount,
     })
+    refetchLogs()
   }
 
   const handleDeleteProject = async () => {
+    setDeletePasswordError('')
     setIsDeleting(true)
     try {
+      await reauthenticate(deletePassword)
       await deleteProject()
       router.push('/projects')
-    } catch {
-      // Error is handled by the hook
+    } catch (err: unknown) {
+      const error = err as { code?: string | number; message?: string }
+      const isAuthError = String(error.code ?? '').startsWith('auth/') ||
+        error.code === 400 ||
+        error.message?.includes('INVALID_LOGIN_CREDENTIALS')
+      if (isAuthError) {
+        const newAttempts = deleteAttempts + 1
+        setDeleteAttempts(newAttempts)
+        if (newAttempts >= maxDeleteAttempts) {
+          setDeletePasswordError(`Too many failed attempts.`)
+          startCooldown()
+        } else {
+          setDeletePasswordError(`Incorrect password (${maxDeleteAttempts - newAttempts} attempt${maxDeleteAttempts - newAttempts === 1 ? '' : 's'} remaining)`)
+        }
+      }
     } finally {
       setIsDeleting(false)
     }
@@ -316,6 +393,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         clientNumber: project.clientNumber || '',
         description: project.description,
         systemId: project.systemId,
+        status: project.status,
         paymentModel: project.paymentModel,
         totalAmount: project.totalAmount.toString(),
         estimatedValue: project.estimatedValue?.toString() || '',
@@ -341,6 +419,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         clientNumber: editForm.clientNumber,
         description: editForm.description,
         systemId: editForm.systemId,
+        status: editForm.status,
         paymentModel: editForm.paymentModel,
         totalAmount: isEditInternal ? 0 : (parseFloat(editForm.totalAmount) || 0),
         startDate: editForm.startDate,
@@ -353,6 +432,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         updateData.estimatedValue = parseFloat(editForm.estimatedValue)
       }
       await updateProject(updateData)
+      await refetchLogs()
       setIsEditDialogOpen(false)
     } finally {
       setIsSubmitting(false)
@@ -397,28 +477,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Internal
             </Badge>
           )}
-          <Button variant="outline" size="icon" onClick={openEditDialog}>
-            <Edit className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={openEditDialog}>
+            <Edit className="h-4 w-4 mr-1.5" />
+            Edit
           </Button>
 
-          <Select
-            value={project.status}
-            onValueChange={(value) =>
-              updateProject({ status: value as typeof project.status })
-            }
-          >
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="paused">Paused</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <AlertDialog>
+          <AlertDialog onOpenChange={(open) => { if (!open) { setDeleteConfirmation(''); setDeletePassword(''); if (!deleteCooldown) { setDeletePasswordError(''); setDeleteAttempts(0) } } }}>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="icon" className="text-destructive hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
@@ -439,25 +503,53 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       <li>All time entries</li>
                     </ul>
                     <p className="mt-2 text-destructive font-medium">This action cannot be undone.</p>
+                    <div className="mt-4 space-y-2">
+                      <p>Type <span className="font-semibold text-foreground">{project.name}</span> to confirm:</p>
+                      <Input
+                        value={deleteConfirmation}
+                        onChange={(e) => setDeleteConfirmation(e.target.value)}
+                        placeholder={project.name}
+                        className="mt-1"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <p>Enter your password:</p>
+                      <Input
+                        type="password"
+                        value={deletePassword}
+                        onChange={(e) => { setDeletePassword(e.target.value); if (!deleteCooldown) setDeletePasswordError('') }}
+                        placeholder="Password"
+                        className="mt-1"
+                        autoComplete="current-password"
+                      />
+                      {deletePasswordError && (
+                        <p className="text-xs text-destructive">
+                          {deleteCooldown > 0
+                            ? `Too many failed attempts. Try again in ${Math.floor(deleteCooldown / 60)}:${String(deleteCooldown % 60).padStart(2, '0')}.`
+                            : deletePasswordError}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
+                <Button
                   onClick={handleDeleteProject}
-                  disabled={isDeleting}
+                  disabled={isDeleting || deleteConfirmation !== project.name || !deletePassword || deleteCooldown > 0}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   {isDeleting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deleting...
+                      Verifying...
                     </>
                   ) : (
                     'Delete Project'
                   )}
-                </AlertDialogAction>
+                </Button>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -556,6 +648,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <TabsTriggerBoxed value="details" className="gap-2">
             <Edit className="h-4 w-4" />
             Details
+          </TabsTriggerBoxed>
+          <TabsTriggerBoxed value="activity" className="gap-2 ml-auto mr-[9rem]">
+            <History className="h-4 w-4" />
+            Activity
           </TabsTriggerBoxed>
         </TabsListBoxed>
 
@@ -924,9 +1020,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     </p>
                     {project.paidAmount < project.totalAmount ? (
                       <Button
-                        onClick={() =>
-                          updateProject({ paidAmount: project.totalAmount })
-                        }
+                        onClick={async () => {
+                          await updateProject({ paidAmount: project.totalAmount })
+                          refetchLogs()
+                        }}
                       >
                         Mark as Paid
                       </Button>
@@ -942,6 +1039,91 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </CardContent>
             </Card>
+          )}
+        </TabsContentBoxed>
+
+        <TabsContentBoxed value="activity" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          {logsLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          ) : activityLogs.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No activity recorded yet</p>
+            </div>
+          ) : (
+            <div className="relative pl-6">
+              {/* Timeline line */}
+              <div className="absolute left-[9px] top-2 bottom-2 w-px bg-border" />
+
+              <div className="space-y-6">
+                {activityLogs.map((log) => {
+                  const dotColor =
+                    log.action === 'created'
+                      ? 'bg-green-500'
+                      : log.action === 'status_changed'
+                        ? 'bg-orange-500'
+                        : 'bg-blue-500'
+
+                  const actionLabel =
+                    log.action === 'created'
+                      ? 'Project created'
+                      : log.action === 'status_changed'
+                        ? 'Status changed'
+                        : 'Project updated'
+
+                  return (
+                    <div key={log.id} className="relative group">
+                      {/* Timeline dot */}
+                      <div
+                        className={`absolute -left-6 top-1 w-[14px] h-[14px] rounded-full border-2 border-background ${dotColor}`}
+                      />
+
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium">{actionLabel}</span>
+                          <span className="text-xs text-muted-foreground">·</span>
+                          <span
+                            className="text-xs text-muted-foreground cursor-default"
+                            title={formatDateTime(log.createdAt)}
+                          >
+                            {formatRelativeTime(log.createdAt)}
+                          </span>
+                          <button
+                            onClick={() => deleteLog(log.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                            title="Delete log"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        {log.changes.length > 0 && (
+                          <div className="space-y-1 ml-0.5">
+                            {log.changes.map((change, idx) => (
+                              <div key={idx} className="text-sm text-muted-foreground">
+                                <span className="font-medium text-foreground/80">
+                                  {projectFieldLabels[change.field] || change.field}
+                                </span>
+                                {': '}
+                                <span className="text-muted-foreground">
+                                  {change.oldValue || '(empty)'}
+                                </span>
+                                <span className="mx-1.5 text-muted-foreground/60">&rarr;</span>
+                                <span className="text-foreground/80">
+                                  {change.newValue || '(empty)'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
         </TabsContentBoxed>
 
@@ -1192,7 +1374,24 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={editForm.status}
+                  onValueChange={(value) => setEditForm({ ...editForm, status: value as ProjectStatus })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label>System</Label>
                 <Select

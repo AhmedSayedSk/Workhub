@@ -2,14 +2,82 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Timestamp } from 'firebase/firestore'
-import { projects, milestones, monthlyPayments, batch } from '@/lib/firestore'
-import { Project, ProjectInput, Milestone, MilestoneInput, MonthlyPayment, MonthlyPaymentInput } from '@/types'
+import { projects, milestones, monthlyPayments, batch, projectLogs } from '@/lib/firestore'
+import { Project, ProjectInput, Milestone, MilestoneInput, MonthlyPayment, MonthlyPaymentInput, ProjectLogChange } from '@/types'
 import { useToast } from './useToast'
+import { formatCurrency, formatDate, projectFieldLabels } from '@/lib/utils'
 
 // Helper to create a mock Timestamp from Date for optimistic updates
 const toTimestamp = (date: Date | null): Timestamp | null => {
   if (!date) return null
   return Timestamp.fromDate(date)
+}
+
+// Serialize a project field value to a display string for the activity log
+function serializeFieldValue(field: string, value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null
+
+  if (field === 'startDate' || field === 'deadline') {
+    if (value instanceof Timestamp) return formatDate(value)
+    if (value instanceof Date) return formatDate(value)
+    return null
+  }
+  if (field === 'totalAmount' || field === 'paidAmount' || field === 'estimatedValue') {
+    return formatCurrency(value as number)
+  }
+  if (field === 'coverImageUrl') {
+    return value ? 'Set' : null
+  }
+  return String(value)
+}
+
+// Compare project fields and return changes
+function computeProjectChanges(
+  current: Project,
+  input: Partial<ProjectInput>
+): ProjectLogChange[] {
+  const changes: ProjectLogChange[] = []
+  const trackedFields = Object.keys(projectFieldLabels)
+
+  for (const field of trackedFields) {
+    if (!(field in input)) continue
+
+    const inputValue = (input as unknown as Record<string, unknown>)[field]
+    const currentValue = (current as unknown as Record<string, unknown>)[field]
+
+    // Normalize for comparison
+    let currentCompare: unknown = currentValue
+    let inputCompare: unknown = inputValue
+
+    // Dates: compare as date strings
+    if (field === 'startDate' || field === 'deadline') {
+      currentCompare = currentValue instanceof Timestamp
+        ? currentValue.toDate().toDateString()
+        : currentValue instanceof Date
+          ? currentValue.toDateString()
+          : null
+      inputCompare = inputValue instanceof Date
+        ? inputValue.toDateString()
+        : null
+    }
+
+    // Treat empty strings and null/undefined as equivalent
+    if ((currentCompare === '' || currentCompare === null || currentCompare === undefined) &&
+        (inputCompare === '' || inputCompare === null || inputCompare === undefined)) {
+      continue
+    }
+
+    // eslint-disable-next-line eqeqeq
+    if (currentCompare != inputCompare) {
+      changes.push({
+        field,
+        oldValue: serializeFieldValue(field, currentValue),
+        newValue: serializeFieldValue(field, inputValue),
+      })
+    }
+  }
+
+  return changes
 }
 
 export function useProjects(systemId?: string) {
@@ -43,6 +111,14 @@ export function useProjects(systemId?: string) {
   const createProject = async (input: ProjectInput) => {
     try {
       const id = await projects.create(input)
+
+      // Log project creation
+      projectLogs.create({
+        projectId: id,
+        action: 'created',
+        changes: [],
+      }).catch(() => {}) // Non-blocking
+
       await fetchProjects()
       toast({
         title: 'Success',
@@ -148,6 +224,12 @@ export function useProject(projectId: string) {
     // Store previous state for rollback
     const previousProject = project
 
+    // Compute changes for activity log before optimistic update
+    let changes: ProjectLogChange[] = []
+    if (project) {
+      changes = computeProjectChanges(project, input)
+    }
+
     // Optimistically update the project in state
     if (project) {
       // Extract non-date fields for safe spreading
@@ -163,6 +245,17 @@ export function useProject(projectId: string) {
 
     try {
       await projects.update(projectId, input)
+
+      // Log changes if any fields actually changed
+      if (changes.length > 0) {
+        const hasStatusChange = changes.some(c => c.field === 'status')
+        projectLogs.create({
+          projectId,
+          action: hasStatusChange ? 'status_changed' : 'updated',
+          changes,
+        }).catch(() => {}) // Non-blocking
+      }
+
       if (showToast) {
         toast({
           title: 'Success',

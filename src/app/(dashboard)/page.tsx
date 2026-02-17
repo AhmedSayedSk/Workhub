@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { projects, tasks, timeEntries, systems, milestones, monthlyPayments } from '@/lib/firestore'
 import { Project, Task, TimeEntry, System, Milestone, MonthlyPayment, TaskType } from '@/types'
-import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress } from '@/lib/utils'
+import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime } from '@/lib/utils'
 
 const taskTypeBorderColors: Record<TaskType, string> = {
   task: '#64748b',       // slate-500
@@ -53,6 +53,7 @@ import Link from 'next/link'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { ProjectIncomeChart } from '@/components/charts/ProjectIncomeChart'
+import { useSettings } from '@/hooks/useSettings'
 
 export default function DashboardPage() {
   const [activeProjects, setActiveProjects] = useState<Project[]>([])
@@ -69,6 +70,8 @@ export default function DashboardPage() {
   const [allPayments, setAllPayments] = useState<MonthlyPayment[]>([])
   const [showIncomeChart, setShowIncomeChart] = useState(false)
   const [loading, setLoading] = useState(true)
+  const { settings } = useSettings()
+  const thinkingPercent = settings?.thinkingTimePercent ?? 0
 
   useEffect(() => {
     loadDashboardData()
@@ -188,9 +191,9 @@ export default function DashboardPage() {
       })()
     : null
 
-  const todayMinutes = todayEntries.reduce((sum, e) => sum + e.duration, 0)
-  const weekMinutes = weekEntries.reduce((sum, e) => sum + e.duration, 0)
-  const monthMinutes = monthEntries.reduce((sum, e) => sum + e.duration, 0)
+  const todayMinutes = applyThinkingTime(todayEntries.reduce((sum, e) => sum + e.duration, 0), thinkingPercent)
+  const weekMinutes = applyThinkingTime(weekEntries.reduce((sum, e) => sum + e.duration, 0), thinkingPercent)
+  const monthMinutes = applyThinkingTime(monthEntries.reduce((sum, e) => sum + e.duration, 0), thinkingPercent)
 
   if (loading) {
     return (

@@ -7,6 +7,8 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { User } from '@/types'
@@ -17,6 +19,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   updateUserProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>
+  reauthenticate: (password: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -52,6 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await firebaseSignOut(auth)
   }
 
+  const reauthenticate = async (password: string) => {
+    if (!auth.currentUser || !auth.currentUser.email) throw new Error('No user logged in')
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, password)
+    await reauthenticateWithCredential(auth.currentUser, credential)
+  }
+
   const updateUserProfile = async (data: { displayName?: string; photoURL?: string }) => {
     if (!auth.currentUser) throw new Error('No user logged in')
     await updateProfile(auth.currentUser, data)
@@ -60,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, updateUserProfile }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, updateUserProfile, reauthenticate }}>
       {children}
     </AuthContext.Provider>
   )

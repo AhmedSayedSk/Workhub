@@ -68,7 +68,8 @@ const CachedAvatarImage = React.forwardRef<
     }
 
     async function load() {
-      const blobUrl = await getCachedImageBlobUrl(src!)
+      const srcStr = src as string
+      const blobUrl = await getCachedImageBlobUrl(srcStr)
       if (cancelled) {
         if (blobUrl) URL.revokeObjectURL(blobUrl)
         return
@@ -77,8 +78,8 @@ const CachedAvatarImage = React.forwardRef<
         blobUrlRef.current = blobUrl
         setDisplaySrc(blobUrl)
       } else {
-        setDisplaySrc(src)
-        cacheImage(src!)
+        setDisplaySrc(srcStr)
+        cacheImage(srcStr)
       }
     }
 
