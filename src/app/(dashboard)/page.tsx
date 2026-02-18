@@ -115,7 +115,9 @@ export default function DashboardPage() {
       })
       setProjectsMap(projMap)
 
-      setActiveProjects(projectsData.slice(0, 5))
+      // Filter out sub-projects from dashboard display
+      const topLevelActive = projectsData.filter((p: Project) => !p.parentProjectId)
+      setActiveProjects(topLevelActive.slice(0, 5))
       const activeProjectIdSet = new Set(projectsData.map((p: Project) => p.id))
       const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIdSet.has(t.projectId))
       const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIdSet.has(t.projectId))

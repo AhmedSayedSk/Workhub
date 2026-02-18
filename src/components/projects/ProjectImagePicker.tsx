@@ -81,16 +81,20 @@ export function ProjectImagePicker({ value, onChange, className }: ProjectImageP
 interface ProjectIconProps {
   src: string | null | undefined
   name: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'md-lg' | 'lg'
   className?: string
 }
 
 export function ProjectIcon({ src, name, size = 'md', className }: ProjectIconProps) {
   const sizeClasses = {
+    xs: 'w-5 h-5 text-[10px]',
     sm: 'w-8 h-8 text-sm',
     md: 'w-10 h-10 text-base',
+    'md-lg': 'w-12 h-12 text-base',
     lg: 'w-14 h-14 text-lg',
   }
+
+  const radiusClass = size === 'xs' ? 'rounded' : 'rounded-lg'
 
   if (src) {
     return (
@@ -98,7 +102,7 @@ export function ProjectIcon({ src, name, size = 'md', className }: ProjectIconPr
         src={src}
         alt={name}
         className={cn(
-          'rounded-lg object-contain flex-shrink-0',
+          radiusClass, 'object-contain flex-shrink-0',
           sizeClasses[size],
           className
         )}
@@ -110,7 +114,7 @@ export function ProjectIcon({ src, name, size = 'md', className }: ProjectIconPr
   return (
     <div
       className={cn(
-        'rounded-lg bg-primary/10 text-primary font-semibold flex items-center justify-center flex-shrink-0',
+        radiusClass, 'bg-primary/10 text-primary font-semibold flex items-center justify-center flex-shrink-0',
         sizeClasses[size],
         className
       )}

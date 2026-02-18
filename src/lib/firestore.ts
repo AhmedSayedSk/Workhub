@@ -177,9 +177,20 @@ export const projects = {
     return getById<Project>('projects', id)
   },
 
+  async getSubProjects(parentProjectId: string): Promise<Project[]> {
+    // Query by parentProjectId only, sort client-side to avoid needing a composite index
+    const results = await getAll<Project>(
+      'projects',
+      where('parentProjectId', '==', parentProjectId)
+    )
+    return results.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
   async create(data: ProjectInput): Promise<string> {
     return create('projects', {
       ...data,
+      parentProjectId: data.parentProjectId ?? null,
+      hasOwnFinances: data.hasOwnFinances ?? true,
       startDate: Timestamp.fromDate(data.startDate),
       deadline: toTimestamp(data.deadline),
     })
@@ -628,6 +639,12 @@ export const appSettings = {
 // Batch operations
 export const batch = {
   async deleteProjectCascade(projectId: string): Promise<void> {
+    // Recursively delete sub-projects first
+    const subProjects = await projects.getSubProjects(projectId)
+    for (const sub of subProjects) {
+      await this.deleteProjectCascade(sub.id)
+    }
+
     const batchOp = writeBatch(db)
 
     // Get all related documents

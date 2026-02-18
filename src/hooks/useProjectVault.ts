@@ -46,7 +46,6 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
         })
         await fetchEntries()
         toast({
-          title: 'Success',
           description: 'Entry added to vault',
           variant: 'success',
         })
@@ -69,7 +68,6 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
         await vaultEntries.update(id, data)
         await fetchEntries()
         toast({
-          title: 'Success',
           description: 'Entry updated',
           variant: 'success',
         })
@@ -96,7 +94,6 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
         await vaultEntries.delete(id)
         await fetchEntries()
         toast({
-          title: 'Success',
           description: 'Entry deleted',
           variant: 'success',
         })

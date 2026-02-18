@@ -67,7 +67,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
     try {
       await timeEntries.create(input)
       await fetchTimeEntries()
-      toast({ title: 'Success', description: 'Time entry created', variant: 'success' })
+      toast({ description: 'Time entry created', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to create time entry', variant: 'destructive' })
       throw new Error('Failed to create time entry')
@@ -78,7 +78,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
     try {
       await timeEntries.update(id, input)
       await fetchTimeEntries()
-      toast({ title: 'Success', description: 'Time entry updated', variant: 'success' })
+      toast({ description: 'Time entry updated', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to update time entry', variant: 'destructive' })
       throw new Error('Failed to update time entry')

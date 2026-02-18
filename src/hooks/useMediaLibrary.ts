@@ -115,7 +115,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
         createdBy: userId,
       })
       await fetchData()
-      toast({ title: 'Success', description: 'Folder created', variant: 'success' })
+      toast({ description: 'Folder created', variant: 'success' })
       return id
     } catch {
       toast({ title: 'Error', description: 'Failed to create folder', variant: 'destructive' })
@@ -127,7 +127,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
     try {
       await mediaFolders.update(id, input)
       await fetchData()
-      toast({ title: 'Success', description: 'Folder updated', variant: 'success' })
+      toast({ description: 'Folder updated', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to update folder', variant: 'destructive' })
       throw new Error('Failed to update folder')
@@ -142,7 +142,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
       await Promise.all(storagePaths.map((path) => deleteFile(path).catch(() => {})))
 
       await fetchData()
-      toast({ title: 'Success', description: 'Folder deleted', variant: 'success' })
+      toast({ description: 'Folder deleted', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to delete folder', variant: 'destructive' })
       throw new Error('Failed to delete folder')
@@ -158,7 +158,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
         await mediaFiles.delete(id)
       }
       await fetchData()
-      toast({ title: 'Success', description: 'File deleted', variant: 'success' })
+      toast({ description: 'File deleted', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to delete file', variant: 'destructive' })
       throw new Error('Failed to delete file')
@@ -174,7 +174,6 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
 
       await fetchData()
       toast({
-        title: 'Success',
         description: `${ids.length} file(s) deleted`,
         variant: 'success',
       })
@@ -189,7 +188,6 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
       await mediaBatch.moveFiles(fileIds, targetFolderId)
       await fetchData()
       toast({
-        title: 'Success',
         description: `${fileIds.length} file(s) moved`,
         variant: 'success',
       })
@@ -203,7 +201,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
     try {
       await mediaFiles.update(id, { displayName: newDisplayName })
       await fetchData()
-      toast({ title: 'Success', description: 'File renamed', variant: 'success' })
+      toast({ description: 'File renamed', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to rename file', variant: 'destructive' })
       throw new Error('Failed to rename file')
@@ -215,7 +213,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
     try {
       await mediaFiles.linkToProject(fileId, projectId)
       await fetchData()
-      toast({ title: 'Success', description: 'File linked to project', variant: 'success' })
+      toast({ description: 'File linked to project', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to link file', variant: 'destructive' })
       throw new Error('Failed to link file')
@@ -226,7 +224,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
     try {
       await mediaFiles.unlinkFromProject(fileId, projectId)
       await fetchData()
-      toast({ title: 'Success', description: 'File unlinked from project', variant: 'success' })
+      toast({ description: 'File unlinked from project', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to unlink file', variant: 'destructive' })
       throw new Error('Failed to unlink file')
@@ -237,7 +235,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
     try {
       await mediaFiles.linkToTask(fileId, taskId)
       await fetchData()
-      toast({ title: 'Success', description: 'File linked to task', variant: 'success' })
+      toast({ description: 'File linked to task', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to link file', variant: 'destructive' })
       throw new Error('Failed to link file')
@@ -248,7 +246,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
     try {
       await mediaFiles.unlinkFromTask(fileId, taskId)
       await fetchData()
-      toast({ title: 'Success', description: 'File unlinked from task', variant: 'success' })
+      toast({ description: 'File unlinked from task', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to unlink file', variant: 'destructive' })
       throw new Error('Failed to unlink file')

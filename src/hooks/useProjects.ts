@@ -90,7 +90,7 @@ export function useProjects(systemId?: string) {
     try {
       setLoading(true)
       const result = await projects.getAll(systemId)
-      setData(result)
+      setData(result.filter(p => !p.parentProjectId))
       setError(null)
     } catch (err) {
       setError(err as Error)
@@ -119,9 +119,21 @@ export function useProjects(systemId?: string) {
         changes: [],
       }).catch(() => {}) // Non-blocking
 
+      // Log activity on parent project if this is a sub-project
+      if (input.parentProjectId) {
+        projectLogs.create({
+          projectId: input.parentProjectId,
+          action: 'updated',
+          changes: [{
+            field: 'subProject',
+            oldValue: null,
+            newValue: `Added sub-project: ${input.name}`,
+          }],
+        }).catch(() => {}) // Non-blocking
+      }
+
       await fetchProjects()
       toast({
-        title: 'Success',
         description: 'Project created successfully',
         variant: 'success',
       })
@@ -141,7 +153,6 @@ export function useProjects(systemId?: string) {
       await projects.update(id, input)
       await fetchProjects()
       toast({
-        title: 'Success',
         description: 'Project updated successfully',
         variant: 'success',
       })
@@ -160,7 +171,6 @@ export function useProjects(systemId?: string) {
       await projects.delete(id)
       await fetchProjects()
       toast({
-        title: 'Success',
         description: 'Project deleted successfully',
         variant: 'success',
       })
@@ -187,6 +197,8 @@ export function useProjects(systemId?: string) {
 
 export function useProject(projectId: string) {
   const [project, setProject] = useState<Project | null>(null)
+  const [parentProject, setParentProject] = useState<Project | null>(null)
+  const [subProjects, setSubProjects] = useState<Project[]>([])
   const [projectMilestones, setMilestones] = useState<Milestone[]>([])
   const [payments, setPayments] = useState<MonthlyPayment[]>([])
   const [loading, setLoading] = useState(true)
@@ -195,14 +207,24 @@ export function useProject(projectId: string) {
   const fetchProject = useCallback(async () => {
     try {
       setLoading(true)
-      const [projectData, milestonesData, paymentsData] = await Promise.all([
+      const [projectData, milestonesData, paymentsData, subProjectsData] = await Promise.all([
         projects.getById(projectId),
         milestones.getAll(projectId),
         monthlyPayments.getAll(projectId),
+        projects.getSubProjects(projectId),
       ])
       setProject(projectData)
       setMilestones(milestonesData)
       setPayments(paymentsData)
+      setSubProjects(subProjectsData)
+
+      // Fetch parent if this is a sub-project
+      if (projectData?.parentProjectId) {
+        const parent = await projects.getById(projectData.parentProjectId)
+        setParentProject(parent)
+      } else {
+        setParentProject(null)
+      }
     } catch (err) {
       toast({
         title: 'Error',
@@ -258,7 +280,6 @@ export function useProject(projectId: string) {
 
       if (showToast) {
         toast({
-          title: 'Success',
           description: 'Project updated',
           variant: 'success',
         })
@@ -292,7 +313,6 @@ export function useProject(projectId: string) {
       }
       setMilestones(prev => [...prev, newMilestone])
       toast({
-        title: 'Success',
         description: 'Milestone created',
         variant: 'success',
       })
@@ -332,7 +352,6 @@ export function useProject(projectId: string) {
     try {
       await milestones.update(id, input)
       toast({
-        title: 'Success',
         description: 'Milestone updated',
         variant: 'success',
       })
@@ -358,7 +377,6 @@ export function useProject(projectId: string) {
     try {
       await milestones.delete(id)
       toast({
-        title: 'Success',
         description: 'Milestone deleted',
         variant: 'success',
       })
@@ -390,7 +408,6 @@ export function useProject(projectId: string) {
       }
       setPayments(prev => [...prev, newPayment])
       toast({
-        title: 'Success',
         description: 'Payment record created',
         variant: 'success',
       })
@@ -427,7 +444,6 @@ export function useProject(projectId: string) {
     try {
       await monthlyPayments.update(id, input)
       toast({
-        title: 'Success',
         description: 'Payment updated',
         variant: 'success',
       })
@@ -448,7 +464,6 @@ export function useProject(projectId: string) {
     try {
       await batch.deleteProjectCascade(projectId)
       toast({
-        title: 'Success',
         description: 'Project and all related data deleted',
         variant: 'success',
       })
@@ -464,6 +479,8 @@ export function useProject(projectId: string) {
 
   return {
     project,
+    parentProject,
+    subProjects,
     milestones: projectMilestones,
     payments,
     loading,

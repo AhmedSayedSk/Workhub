@@ -41,7 +41,6 @@ export function useSystems(organizationId?: string) {
       })
       await fetchSystems()
       toast({
-        title: 'Success',
         description: 'System created successfully',
         variant: 'success',
       })
@@ -61,7 +60,6 @@ export function useSystems(organizationId?: string) {
       await systems.update(id, input)
       await fetchSystems()
       toast({
-        title: 'Success',
         description: 'System updated successfully',
         variant: 'success',
       })
@@ -80,7 +78,6 @@ export function useSystems(organizationId?: string) {
       await systems.delete(id)
       await fetchSystems()
       toast({
-        title: 'Success',
         description: 'System deleted successfully',
         variant: 'success',
       })

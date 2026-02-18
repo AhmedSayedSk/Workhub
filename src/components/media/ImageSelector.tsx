@@ -140,7 +140,6 @@ export function ImageSelector({
       })
 
       toast({
-        title: 'Success',
         description: 'Image uploaded successfully',
         variant: 'success',
       })

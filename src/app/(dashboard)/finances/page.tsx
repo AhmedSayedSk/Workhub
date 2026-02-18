@@ -77,10 +77,10 @@ export default function FinancesPage() {
   }
 
   // Calculate totals
-  // Exclude internal projects from all financial calculations
+  // Exclude internal projects and sub-projects with shared finances from all financial calculations
   // For non-monthly projects: total value and owed from totalAmount - paidAmount
   // For monthly projects: don't include in "owed" from project, use pending payments instead
-  const projectsWithPayments = allProjects.filter((p) => p.paymentModel !== 'internal')
+  const projectsWithPayments = allProjects.filter((p) => p.paymentModel !== 'internal' && p.hasOwnFinances !== false)
   const nonMonthlyProjects = projectsWithPayments.filter((p) => p.paymentModel !== 'monthly')
   const totalPaid = projectsWithPayments.reduce((sum, p) => sum + p.paidAmount, 0)
 
@@ -128,8 +128,11 @@ export default function FinancesPage() {
     const ids = new Set<string>()
     allMilestones.filter((m) => m.status === 'paid').forEach((m) => ids.add(m.projectId))
     allPayments.filter((p) => p.status === 'paid').forEach((p) => ids.add(p.projectId))
-    // Exclude internal projects
-    return Array.from(ids).filter((id) => projectsMap[id]?.paymentModel !== 'internal')
+    // Exclude internal projects and shared-finance sub-projects
+    return Array.from(ids).filter((id) => {
+      const p = projectsMap[id]
+      return p && p.paymentModel !== 'internal' && p.hasOwnFinances !== false
+    })
   }, [allMilestones, allPayments, projectsMap])
 
   // Monthly earnings data (last 6 months) — per-project breakdown
@@ -165,7 +168,7 @@ export default function FinancesPage() {
     return row
   })
 
-  // Revenue distribution by project (excludes internal projects)
+  // Revenue distribution by project (excludes internal projects and shared-finance sub-projects)
   const projectDistribution = projectsWithPayments
     .filter((p) => p.totalAmount > 0 || p.paidAmount > 0)
     .map((p) => ({
@@ -460,7 +463,7 @@ export default function FinancesPage() {
                 No projects yet
               </p>
             ) : (
-              allProjects.map((project) => {
+              allProjects.filter((p) => p.hasOwnFinances !== false).map((project) => {
                 const system = systemsMap[project.systemId]
                 const isMonthly = project.paymentModel === 'monthly'
                 const isInternal = project.paymentModel === 'internal'

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { useSystems } from '@/hooks/useSystems'
 import { projects } from '@/lib/firestore'
-import { PaymentModel, ProjectStatus } from '@/types'
+import { PaymentModel, ProjectStatus, Project } from '@/types'
 import { useToast } from '@/hooks/useToast'
 import { systemColors } from '@/lib/utils'
 import {
@@ -37,8 +37,11 @@ import {
   Users,
   CreditCard,
   CalendarClock,
+  FolderKanban,
+  Link2,
 } from 'lucide-react'
 import { ProjectImagePicker } from '@/components/projects/ProjectImagePicker'
+import { Suspense } from 'react'
 
 const paymentModels: { value: PaymentModel; label: string; description: string; icon: typeof Milestone }[] = [
   {
@@ -75,11 +78,22 @@ const wizardSteps = [
 ]
 
 export default function NewProjectPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+      <NewProjectContent />
+    </Suspense>
+  )
+}
+
+function NewProjectContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const parentId = searchParams.get('parent')
   const { systems } = useSystems()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
+  const [parentProject, setParentProject] = useState<Project | null>(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -95,7 +109,24 @@ export default function NewProjectPage() {
     notes: '',
     coverImageUrl: null as string | null,
     color: systemColors[0].value,
+    hasOwnFinances: true,
   })
+
+  // Fetch parent project and auto-fill form
+  useEffect(() => {
+    if (!parentId) return
+    projects.getById(parentId).then((parent) => {
+      if (!parent) return
+      setParentProject(parent)
+      setFormData(prev => ({
+        ...prev,
+        clientName: parent.clientName || '',
+        clientNumber: parent.clientNumber || '',
+        systemId: parent.systemId || '',
+        color: parent.color || systemColors[0].value,
+      }))
+    })
+  }, [parentId])
 
   // For internal projects, disable the client step
   const isInternal = formData.paymentModel === 'internal'
@@ -156,12 +187,13 @@ export default function NewProjectPage() {
         notes: formData.notes,
         coverImageUrl: formData.coverImageUrl,
         color: formData.color,
+        parentProjectId: parentId || null,
+        hasOwnFinances: formData.hasOwnFinances,
         ...(isInternal && formData.estimatedValue ? { estimatedValue: parseFloat(formData.estimatedValue) } : {}),
       })
 
       toast({
-        title: 'Success',
-        description: 'Project created successfully',
+        description: parentProject ? 'Sub-project created successfully' : 'Project created successfully',
         variant: 'success',
       })
 
@@ -181,14 +213,20 @@ export default function NewProjectPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/projects">
+        <Link href={parentId ? `/projects/${parentId}` : '/projects'}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">New Project</h1>
-          <p className="text-muted-foreground">Create a new project to track</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {parentProject ? 'New Sub-Project' : 'New Project'}
+          </h1>
+          <p className="text-muted-foreground">
+            {parentProject
+              ? <>Creating under <span className="font-medium text-foreground">{parentProject.name}</span></>
+              : 'Create a new project to track'}
+          </p>
         </div>
       </div>
 
@@ -464,6 +502,53 @@ export default function NewProjectPage() {
                 </div>
               )}
 
+              {/* Finance Mode - Only when creating sub-project */}
+              {parentProject && (
+                <div className="space-y-3">
+                  <Label>Finance Mode</Label>
+                  <div className="grid gap-3">
+                    <div
+                      className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
+                        formData.hasOwnFinances
+                          ? 'border-primary bg-primary/5'
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => setFormData({ ...formData, hasOwnFinances: true })}
+                    >
+                      <div className={`p-2 rounded-lg ${formData.hasOwnFinances ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        <DollarSign className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">Own Finances</p>
+                        <p className="text-sm text-muted-foreground">Independent payment tracking and financial stats</p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 ${formData.hasOwnFinances ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
+                        {formData.hasOwnFinances && <div className="w-full h-full rounded-full bg-primary-foreground scale-50" />}
+                      </div>
+                    </div>
+                    <div
+                      className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
+                        !formData.hasOwnFinances
+                          ? 'border-primary bg-primary/5'
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => setFormData({ ...formData, hasOwnFinances: false })}
+                    >
+                      <div className={`p-2 rounded-lg ${!formData.hasOwnFinances ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        <Link2 className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">Share Parent Finances</p>
+                        <p className="text-sm text-muted-foreground">Finances managed at the parent project level</p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 ${!formData.hasOwnFinances ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
+                        {!formData.hasOwnFinances && <div className="w-full h-full rounded-full bg-primary-foreground scale-50" />}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Estimated Value - Only for internal projects */}
               {formData.paymentModel === 'internal' && (
                 <div className="space-y-2">
@@ -536,7 +621,7 @@ export default function NewProjectPage() {
       <div className="flex justify-between">
         <div>
           {safeStep === 0 ? (
-            <Link href="/projects">
+            <Link href={parentId ? `/projects/${parentId}` : '/projects'}>
               <Button variant="outline">Cancel</Button>
             </Link>
           ) : (
@@ -550,7 +635,7 @@ export default function NewProjectPage() {
           {isLastStep ? (
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Project
+              {parentProject ? 'Create Sub-Project' : 'Create Project'}
             </Button>
           ) : (
             <Button onClick={handleNext}>

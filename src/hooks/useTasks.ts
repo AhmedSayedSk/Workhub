@@ -35,7 +35,7 @@ export function useFeatures(projectId?: string) {
     try {
       const id = await features.create(input)
       await fetchFeatures()
-      toast({ title: 'Success', description: 'Feature created', variant: 'success' })
+      toast({ description: 'Feature created', variant: 'success' })
       return id
     } catch {
       toast({ title: 'Error', description: 'Failed to create feature', variant: 'destructive' })
@@ -47,7 +47,7 @@ export function useFeatures(projectId?: string) {
     try {
       await features.update(id, input)
       await fetchFeatures()
-      toast({ title: 'Success', description: 'Feature updated', variant: 'success' })
+      toast({ description: 'Feature updated', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to update feature', variant: 'destructive' })
       throw new Error('Failed to update feature')
@@ -58,7 +58,7 @@ export function useFeatures(projectId?: string) {
     try {
       await features.delete(id)
       await fetchFeatures()
-      toast({ title: 'Success', description: 'Feature deleted', variant: 'success' })
+      toast({ description: 'Feature deleted', variant: 'success' })
     } catch {
       toast({ title: 'Error', description: 'Failed to delete feature', variant: 'destructive' })
       throw new Error('Failed to delete feature')
@@ -75,7 +75,7 @@ export function useFeatures(projectId?: string) {
   }
 }
 
-export function useTasks(projectId?: string, featureId?: string) {
+export function useTasks(projectId?: string, featureId?: string, projectName?: string) {
   const [data, setData] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
@@ -123,7 +123,7 @@ export function useTasks(projectId?: string, featureId?: string) {
       setData((prev) =>
         prev.map((t) => (t.id === optimisticTask.id ? { ...t, id } : t))
       )
-      toast({ title: 'Success', description: 'Task created', variant: 'success' })
+      toast({ description: `Task created${projectName ? ` in ${projectName}` : ''}`, variant: 'success' })
       return id
     } catch {
       // Rollback on error
@@ -176,7 +176,7 @@ export function useTasks(projectId?: string, featureId?: string) {
 
     try {
       await tasks.update(id, { archived: true, archivedAt: Timestamp.now() } as Partial<TaskInput>)
-      toast({ title: 'Success', description: 'Task archived', variant: 'success' })
+      toast({ description: 'Task archived', variant: 'success' })
     } catch {
       await fetchTasks()
       toast({ title: 'Error', description: 'Failed to archive task', variant: 'destructive' })
@@ -194,7 +194,7 @@ export function useTasks(projectId?: string, featureId?: string) {
 
     try {
       await tasks.update(id, { archived: false, archivedAt: null } as Partial<TaskInput>)
-      toast({ title: 'Success', description: 'Task restored', variant: 'success' })
+      toast({ description: 'Task restored', variant: 'success' })
     } catch {
       await fetchTasks()
       toast({ title: 'Error', description: 'Failed to restore task', variant: 'destructive' })
@@ -209,7 +209,7 @@ export function useTasks(projectId?: string, featureId?: string) {
 
     try {
       await tasks.delete(id)
-      toast({ title: 'Success', description: 'Task permanently deleted', variant: 'success' })
+      toast({ description: 'Task permanently deleted', variant: 'success' })
     } catch {
       setData(previousData)
       toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' })
@@ -227,7 +227,7 @@ export function useTasks(projectId?: string, featureId?: string) {
 
     try {
       await tasks.update(id, { waiting: true, waitingAt: Timestamp.now(), waitingReason: reason || '' } as Partial<TaskInput>)
-      toast({ title: 'Success', description: 'Task set to waiting', variant: 'success' })
+      toast({ description: 'Task set to waiting', variant: 'success' })
     } catch {
       await fetchTasks()
       toast({ title: 'Error', description: 'Failed to set task waiting', variant: 'destructive' })
@@ -245,7 +245,7 @@ export function useTasks(projectId?: string, featureId?: string) {
 
     try {
       await tasks.update(id, { waiting: false, waitingAt: null, waitingReason: '' } as Partial<TaskInput>)
-      toast({ title: 'Success', description: 'Task resumed', variant: 'success' })
+      toast({ description: 'Task resumed', variant: 'success' })
     } catch {
       await fetchTasks()
       toast({ title: 'Error', description: 'Failed to resume task', variant: 'destructive' })
@@ -327,7 +327,7 @@ export function useSubtasks(taskId?: string) {
     try {
       const id = await subtasks.create(input)
       await fetchSubtasks()
-      toast({ title: 'Success', description: 'Subtask created', variant: 'success' })
+      toast({ description: 'Subtask created', variant: 'success' })
       return id
     } catch {
       toast({ title: 'Error', description: 'Failed to create subtask', variant: 'destructive' })

@@ -62,10 +62,13 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
+  ChevronRight,
   Clock,
   DollarSign,
   Edit,
+  FolderKanban,
   History,
+  Link2,
   Loader2,
   Milestone,
   Plus,
@@ -86,6 +89,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter()
   const {
     project,
+    parentProject,
+    subProjects,
     milestones,
     payments,
     loading,
@@ -364,7 +369,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     try {
       await reauthenticate(deletePassword)
       await deleteProject()
-      router.push('/projects')
+      router.push(parentProject ? `/projects/${parentProject.id}` : '/projects')
     } catch (err: unknown) {
       const error = err as { code?: string | number; message?: string }
       const isAuthError = String(error.code ?? '').startsWith('auth/') ||
@@ -444,7 +449,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       {/* Header */}
       <div className="flex items-start justify-between shrink-0">
         <div className="flex items-center gap-4">
-          <Link href="/projects">
+          <Link href={parentProject ? `/projects/${parentProject.id}` : '/projects'}>
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -455,13 +460,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             size="lg"
           />
           <div>
+            {/* Breadcrumb for sub-projects */}
+            {parentProject && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-0.5">
+                <Link href="/projects" className="hover:text-foreground transition-colors">Projects</Link>
+                <ChevronRight className="h-3.5 w-3.5" />
+                <Link href={`/projects/${parentProject.id}`} className="hover:text-foreground transition-colors">{parentProject.name}</Link>
+                <ChevronRight className="h-3.5 w-3.5" />
+                <span className="text-foreground">{project.name}</span>
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
               {!isInternal && project.clientName && (
                 <span className="text-sm font-medium text-primary">· {project.clientName}</span>
               )}
             </div>
-            <p className="text-muted-foreground truncate max-w-2xl" title={project.description}>{project.description}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-muted-foreground truncate max-w-2xl" title={project.description}>{project.description}</p>
+              {parentProject && !project.hasOwnFinances && (
+                <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-0 shrink-0">
+                  <Link2 className="h-3 w-3 mr-1" />
+                  Shared finances
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -477,6 +500,92 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Internal
             </Badge>
           )}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <FolderKanban className="h-4 w-4" />
+                Sub-Projects
+                {subProjects.length > 0 && (
+                  <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                    {subProjects.length}
+                  </Badge>
+                )}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Sub-Projects</DialogTitle>
+                <DialogDescription>
+                  Manage sub-projects under {project.name}
+                </DialogDescription>
+              </DialogHeader>
+              {subProjects.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                  <FolderKanban className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="mb-1">No sub-projects yet</p>
+                  <p className="text-sm mb-4">Create sub-projects to break this project into smaller parts</p>
+                  <Link href={`/projects/new?parent=${id}`}>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Sub-Project
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <Link href={`/projects/new?parent=${id}`}>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Sub-Project
+                      </Button>
+                    </Link>
+                  </div>
+                  <div className="grid gap-3">
+                    {subProjects.map((sub) => {
+                      const subIsInternal = sub.paymentModel === 'internal'
+                      return (
+                        <Link key={sub.id} href={`/projects/${sub.id}`}>
+                          <div
+                            className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm transition-all cursor-pointer"
+                            style={{
+                              backgroundColor: `color-mix(in srgb, ${sub.color || project.color || '#6B8DD6'} 6%, transparent)`,
+                            }}
+                          >
+                            <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium truncate">{sub.name}</p>
+                                <Badge variant="outline" className={statusColors.project[sub.status]}>
+                                  {sub.status}
+                                </Badge>
+                                {!sub.hasOwnFinances && (
+                                  <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-0 text-xs">
+                                    <Link2 className="h-3 w-3 mr-0.5" />
+                                    Shared
+                                  </Badge>
+                                )}
+                              </div>
+                              {sub.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{sub.description}</p>
+                              )}
+                            </div>
+                            {sub.hasOwnFinances !== false && !subIsInternal && (
+                              <div className="text-right text-sm shrink-0">
+                                <p className="font-medium">{formatCurrency(sub.totalAmount)}</p>
+                                <p className="text-muted-foreground">{formatCurrency(sub.paidAmount)} paid</p>
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           <Button variant="outline" size="sm" onClick={openEditDialog}>
             <Edit className="h-4 w-4 mr-1.5" />
             Edit
@@ -556,8 +665,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* Stats Overview - Only for non-internal projects */}
-      {!isInternal && (
+      {/* Stats Overview - Only for non-internal projects with own finances */}
+      {!isInternal && project.hasOwnFinances !== false && (
         <div className="grid gap-4 md:grid-cols-3 shrink-0">
           <Card className="py-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
@@ -639,7 +748,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <KeyRound className="h-4 w-4" />
             Vault
           </TabsTriggerBoxed>
-          {!isInternal && (
+          {!isInternal && project.hasOwnFinances !== false && (
             <TabsTriggerBoxed value="payments" className="gap-2">
               <Wallet className="h-4 w-4" />
               Payments

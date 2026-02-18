@@ -85,7 +85,6 @@ export function ProjectAttachmentsTab({ projectId }: ProjectAttachmentsTabProps)
       await mediaFiles.unlinkFromProject(selectedFile.id, projectId)
       await refetch()
       toast({
-        title: 'Success',
         description: 'File unlinked from project',
         variant: 'success',
       })

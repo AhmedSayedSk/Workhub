@@ -46,7 +46,7 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
     setTaskWaiting,
     removeTaskWaiting,
     reorderTask,
-  } = useTasks(projectId)
+  } = useTasks(projectId, undefined, projectName)
 
   // Separate active and archived tasks
   const { activeTasks, archivedTasks } = useMemo(() => {

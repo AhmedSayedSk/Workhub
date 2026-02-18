@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useProjects } from '@/hooks/useProjects'
 import { useSystems } from '@/hooks/useSystems'
+import { projects as projectsApi, tasks as tasksApi } from '@/lib/firestore'
 import { System, PaymentModel, ProjectStatus, Project } from '@/types'
 import {
   formatCurrency,
@@ -29,8 +31,10 @@ import {
   CheckCircle2,
   PauseCircle,
   XCircle,
+  ListTodo,
 } from 'lucide-react'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const paymentModelLabels: Record<PaymentModel, string> = {
   milestone: 'Milestones',
@@ -70,9 +74,43 @@ const statusConfig: Record<ProjectStatus, {
 
 const statusOrder: ProjectStatus[] = ['active', 'paused', 'completed', 'cancelled']
 
+
 export default function ProjectsPage() {
+  const router = useRouter()
   const { projects, loading } = useProjects()
   const { systems } = useSystems()
+  const [subProjectsByParent, setSubProjectsByParent] = useState<Record<string, Project[]>>({})
+  const [subTaskCounts, setSubTaskCounts] = useState<Record<string, number>>({})
+
+  // Fetch all projects (including sub-projects) and their active task counts
+  useEffect(() => {
+    projectsApi.getAll().then(async (allProjects) => {
+      const map: Record<string, Project[]> = {}
+      const subIds: string[] = []
+      allProjects.forEach((p) => {
+        if (p.parentProjectId) {
+          if (!map[p.parentProjectId]) map[p.parentProjectId] = []
+          map[p.parentProjectId].push(p)
+          subIds.push(p.id)
+        }
+      })
+      setSubProjectsByParent(map)
+
+      // Fetch task counts for sub-projects
+      if (subIds.length > 0) {
+        const allTasks = await Promise.all(
+          subIds.map((id) => tasksApi.getAll(undefined, id))
+        )
+        const counts: Record<string, number> = {}
+        subIds.forEach((id, i) => {
+          counts[id] = allTasks[i].filter(
+            (t) => ['todo', 'in_progress', 'review'].includes(t.status) && !t.archived && !t.waiting
+          ).length
+        })
+        setSubTaskCounts(counts)
+      }
+    })
+  }, [projects]) // re-compute when top-level projects change
 
   const systemsMap = systems.reduce((acc, s) => {
     acc[s.id] = s
@@ -180,15 +218,15 @@ export default function ProjectsPage() {
                     const PaymentIcon = paymentModelIcons[project.paymentModel]
 
                     return (
-                      <Link key={project.id} href={`/projects/${project.id}`}>
+                      <div key={project.id} onClick={() => router.push(`/projects/${project.id}`)}>
                         <Card
                           className="h-full hover:shadow-md transition-all cursor-pointer overflow-hidden border"
                           style={{
                             backgroundColor: `color-mix(in srgb, ${project.color || system?.color || '#6B8DD6'} 6%, transparent)`,
                           }}
                         >
-                          <CardHeader className="pb-3 relative">
-                            <div className="absolute top-4 right-4 flex items-center gap-1 text-muted-foreground">
+                          <CardHeader className="pb-1 pt-4 px-4 relative">
+                            <div className="absolute top-3 right-3 flex items-center gap-1 text-muted-foreground">
                               <PaymentIcon className="h-4 w-4" />
                               <span className="text-xs">
                                 {paymentModelLabels[project.paymentModel]}
@@ -203,31 +241,23 @@ export default function ProjectsPage() {
                               <div className="flex-1 min-w-0">
                                 <CardTitle className="text-xl pr-16 !mt-0 truncate">{project.name}</CardTitle>
                                 {project.paymentModel === 'internal' ? (
-                                  <p className="text-sm text-muted-foreground">
-                                    Internal Project
-                                  </p>
+                                  <p className="text-sm text-muted-foreground">Internal Project</p>
                                 ) : project.clientName ? (
-                                  <p className="text-sm text-primary font-medium">
-                                    {project.clientName}
-                                  </p>
+                                  <p className="text-sm text-primary font-medium">{project.clientName}</p>
                                 ) : null}
                               </div>
                             </div>
                             {project.description && (
-                              <CardDescription className="line-clamp-2 mt-2">
+                              <CardDescription className="line-clamp-2 pt-1.5">
                                 {project.description}
                               </CardDescription>
                             )}
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="p-4 pt-3">
                             <div className="space-y-4">
                               {/* Financial Progress - Only for milestone/fixed projects */}
                               {project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && (
                                 <div className="space-y-2">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">Payment Progress</span>
-                                    <span className="font-medium">{progress}%</span>
-                                  </div>
                                   <Progress value={progress} className="h-2" />
                                   <div className="flex items-center justify-between text-sm">
                                     <span className="text-muted-foreground">
@@ -247,8 +277,96 @@ export default function ProjectsPage() {
                                 </div>
                               )}
 
-                              {/* Separator */}
-                              <hr className="border-border" />
+                              {/* Separator - before sub-projects for normal, after for parents */}
+                              {!subProjectsByParent[project.id]?.length && (
+                                <hr className="border-border" />
+                              )}
+
+                              {/* Sub-Projects */}
+                              {subProjectsByParent[project.id]?.length > 0 && (
+                                <div className="space-y-2">
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sub-projects</p>
+                                  <div className="flex items-center gap-4 flex-wrap">
+                                    <TooltipProvider delayDuration={200}>
+                                      {subProjectsByParent[project.id].map((sub) => {
+                                        const SubStatusIcon = statusConfig[sub.status].icon
+                                        const subStatusLabel = statusConfig[sub.status].label
+                                        const taskCount = subTaskCounts[sub.id] || 0
+
+                                        return (
+                                          <Tooltip key={sub.id}>
+                                            <TooltipTrigger asChild>
+                                              <div
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  router.push(`/projects/${sub.id}`)
+                                                }}
+                                                onPointerDown={(e) => e.stopPropagation()}
+                                                className="cursor-pointer hover:opacity-80 transition-all"
+                                              >
+                                                <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md-lg" />
+                                              </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="p-0 w-[240px]">
+                                              <div className="p-3 space-y-2.5">
+                                                {/* Header */}
+                                                <div className="flex items-center gap-2">
+                                                  <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="sm" />
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="font-semibold text-sm">{sub.name}</p>
+                                                  </div>
+                                                </div>
+
+                                                {/* Description */}
+                                                {sub.description && (
+                                                  <p className="text-xs text-muted-foreground line-clamp-2">{sub.description}</p>
+                                                )}
+
+                                                {/* Info rows */}
+                                                <div className="space-y-1.5 text-xs">
+                                                  {/* Status */}
+                                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                                    <SubStatusIcon className="h-3.5 w-3.5 shrink-0" />
+                                                    <span>{subStatusLabel}</span>
+                                                  </div>
+
+                                                  {/* Tasks */}
+                                                  {taskCount > 0 && (
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                      <ListTodo className="h-3.5 w-3.5 shrink-0" />
+                                                      <span>{taskCount} active task{taskCount !== 1 ? 's' : ''}</span>
+                                                    </div>
+                                                  )}
+
+                                                  {/* Start date */}
+                                                  {sub.startDate && (
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                      <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                                      <span>Started {formatDate(sub.startDate)}</span>
+                                                    </div>
+                                                  )}
+
+                                                  {/* Deadline */}
+                                                  {sub.deadline && (
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                                                      <span>Due {formatDate(sub.deadline)}</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )
+                                      })}
+                                    </TooltipProvider>
+                                  </div>
+                                </div>
+                              )}
+
+                              {subProjectsByParent[project.id]?.length > 0 && (
+                                <hr className="border-border" />
+                              )}
 
                               {/* Dates */}
                               <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -281,7 +399,7 @@ export default function ProjectsPage() {
                             </div>
                           </CardContent>
                         </Card>
-                      </Link>
+                      </div>
                     )
                   })}
                 </div>
