@@ -135,51 +135,49 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   }
 
   const deleteFolder = async (id: string) => {
+    const previousFolders = folders
+    setFolders((prev) => prev.filter((f) => f.id !== id))
+    toast({ description: 'Folder deleted', variant: 'success' })
+
     try {
       const storagePaths = await mediaBatch.deleteFolderCascade(id, userId)
-
-      // Delete files from storage
       await Promise.all(storagePaths.map((path) => deleteFile(path).catch(() => {})))
-
-      await fetchData()
-      toast({ description: 'Folder deleted', variant: 'success' })
     } catch {
+      setFolders(previousFolders)
       toast({ title: 'Error', description: 'Failed to delete folder', variant: 'destructive' })
-      throw new Error('Failed to delete folder')
     }
   }
 
   // File operations
   const deleteMediaFile = async (id: string) => {
+    const previousFiles = files
+    const fileToDelete = files.find((f) => f.id === id)
+    setFiles((prev) => prev.filter((f) => f.id !== id))
+    toast({ description: 'File deleted', variant: 'success' })
+
     try {
-      const file = await mediaFiles.getById(id)
-      if (file) {
-        await deleteFile(file.storagePath).catch(() => {})
+      if (fileToDelete) {
+        await deleteFile(fileToDelete.storagePath).catch(() => {})
         await mediaFiles.delete(id)
       }
-      await fetchData()
-      toast({ description: 'File deleted', variant: 'success' })
     } catch {
+      setFiles(previousFiles)
       toast({ title: 'Error', description: 'Failed to delete file', variant: 'destructive' })
-      throw new Error('Failed to delete file')
     }
   }
 
   const deleteMultipleFiles = async (ids: string[]) => {
+    const previousFiles = files
+    const idsSet = new Set(ids)
+    setFiles((prev) => prev.filter((f) => !idsSet.has(f.id)))
+    toast({ description: `${ids.length} file(s) deleted`, variant: 'success' })
+
     try {
       const storagePaths = await mediaBatch.deleteFiles(ids)
-
-      // Delete files from storage
       await Promise.all(storagePaths.map((path) => deleteFile(path).catch(() => {})))
-
-      await fetchData()
-      toast({
-        description: `${ids.length} file(s) deleted`,
-        variant: 'success',
-      })
     } catch {
+      setFiles(previousFiles)
       toast({ title: 'Error', description: 'Failed to delete files', variant: 'destructive' })
-      throw new Error('Failed to delete files')
     }
   }
 

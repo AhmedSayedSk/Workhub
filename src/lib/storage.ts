@@ -121,7 +121,7 @@ const DEFAULT_OPTIMIZATION: ImageOptimizationSettings = {
   maxWidth: 1920,
   maxHeight: 1920,
   quality: 0.85, // 85% quality - good balance of size and quality
-  outputFormat: 'jpeg',
+  outputFormat: 'original',
 }
 
 // Check if file is an optimizable image
@@ -231,7 +231,17 @@ export async function optimizeImage(
       mimeType = 'image/png'
       break
     case 'original':
-      mimeType = file.type
+      // Preserve transparency while enabling compression:
+      // - PNG → WebP (PNG ignores quality param; WebP supports transparency + lossy compression)
+      // - BMP → WebP (BMP has no canvas export support)
+      // - WebP stays WebP, JPEG stays JPEG
+      if (file.type === 'image/png' || file.type === 'image/bmp') {
+        mimeType = 'image/webp'
+      } else if (['image/jpeg', 'image/webp'].includes(file.type)) {
+        mimeType = file.type
+      } else {
+        mimeType = 'image/webp'
+      }
       break
     case 'jpeg':
     default:
@@ -430,28 +440,28 @@ export const OPTIMIZATION_PRESETS = {
     maxWidth: 2048,
     maxHeight: 2048,
     quality: 0.9,
-    outputFormat: 'jpeg' as const,
+    outputFormat: 'original' as const,
   },
   // Standard quality for general images (default)
   standard: {
     maxWidth: 1920,
     maxHeight: 1920,
     quality: 0.85,
-    outputFormat: 'jpeg' as const,
+    outputFormat: 'original' as const,
   },
   // Lower quality for faster loading
   compressed: {
     maxWidth: 1280,
     maxHeight: 1280,
     quality: 0.75,
-    outputFormat: 'jpeg' as const,
+    outputFormat: 'original' as const,
   },
   // Thumbnail quality for previews
   thumbnail: {
     maxWidth: 512,
     maxHeight: 512,
     quality: 0.8,
-    outputFormat: 'jpeg' as const,
+    outputFormat: 'original' as const,
   },
   // WebP format for modern browsers (better compression)
   webp: {

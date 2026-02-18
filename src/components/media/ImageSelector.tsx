@@ -232,7 +232,7 @@ export function ImageSelector({
                   key={image.id}
                   onClick={() => setSelectedUrl(image.url)}
                   className={cn(
-                    'relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all hover:opacity-90',
+                    'relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all hover:opacity-90 bg-[image:repeating-conic-gradient(#80808015_0%_25%,transparent_0%_50%)] bg-[length:12px_12px]',
                     selectedUrl === image.url
                       ? 'border-primary ring-2 ring-primary ring-offset-2'
                       : 'border-transparent hover:border-muted-foreground/25'

@@ -51,7 +51,7 @@ export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
     // Image preview
     if (file.category === 'image') {
       return (
-        <div className="relative bg-black/5 dark:bg-white/5 rounded-lg overflow-hidden">
+        <div className="relative rounded-lg overflow-hidden bg-[image:repeating-conic-gradient(#80808015_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]">
           <CachedImage
             src={file.url}
             alt={file.displayName}

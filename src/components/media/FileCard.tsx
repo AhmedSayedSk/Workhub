@@ -269,7 +269,10 @@ export function FileCard({
       </div>
 
       {/* Thumbnail/Icon */}
-      <div className="aspect-square relative overflow-hidden rounded-t-lg bg-muted">
+      <div className={cn(
+        'aspect-square relative overflow-hidden rounded-t-lg',
+        file.category === 'image' ? 'bg-[image:repeating-conic-gradient(#80808015_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]' : 'bg-muted'
+      )}>
         {file.category === 'image' ? (
           <CachedImage
             src={file.thumbnailUrl || file.url}
