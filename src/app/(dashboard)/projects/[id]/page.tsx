@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContentBoxed, TabsListBoxed, TabsTriggerBoxed } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command'
 import {
   Dialog,
   DialogContent,
@@ -45,7 +47,7 @@ import { useProject } from '@/hooks/useProjects'
 import { useProjectLogs } from '@/hooks/useProjectLogs'
 import { useSystems } from '@/hooks/useSystems'
 import { useAuth } from '@/hooks/useAuth'
-import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput, ProjectStatus } from '@/types'
+import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput, ProjectStatus, ProjectType } from '@/types'
 import { format } from 'date-fns'
 import {
   formatCurrency,
@@ -54,8 +56,10 @@ import {
   formatDateTime,
   statusColors,
   calculateProgress,
+  cn,
   systemColors,
   projectFieldLabels,
+  projectTypes,
 } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -78,6 +82,7 @@ import {
   Paperclip,
   KeyRound,
   Check,
+  ChevronsUpDown,
 } from 'lucide-react'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
@@ -185,6 +190,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     notes: '',
     coverImageUrl: null as string | null,
     color: systemColors[0].value,
+    projectType: null as ProjectType | null,
   })
 
   const [paymentForm, setPaymentForm] = useState({
@@ -407,6 +413,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         notes: project.notes,
         coverImageUrl: project.coverImageUrl || null,
         color: project.color || systemColors[0].value,
+        projectType: project.projectType || null,
       })
       setIsEditDialogOpen(true)
     }
@@ -432,6 +439,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         notes: editForm.notes,
         coverImageUrl: editForm.coverImageUrl,
         color: editForm.color,
+        projectType: editForm.projectType || null,
       }
       if (isEditInternal && editForm.estimatedValue) {
         updateData.estimatedValue = parseFloat(editForm.estimatedValue)
@@ -475,6 +483,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               {!isInternal && project.clientName && (
                 <span className="text-sm font-medium text-primary">· {project.clientName}</span>
               )}
+              {project.projectType && project.projectType !== 'other' && (
+                <span className="text-sm text-muted-foreground">· {projectTypes.find((t) => t.value === project.projectType)?.label}</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <p className="text-muted-foreground truncate max-w-2xl" title={project.description}>{project.description}</p>
@@ -500,6 +511,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Internal
             </Badge>
           )}
+          {!project.parentProjectId && (
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5">
@@ -512,7 +524,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 )}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Sub-Projects</DialogTitle>
                 <DialogDescription>
@@ -585,6 +597,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               )}
             </DialogContent>
           </Dialog>
+          )}
 
           <Button variant="outline" size="sm" onClick={openEditDialog}>
             <Edit className="h-4 w-4 mr-1.5" />
@@ -1372,14 +1385,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
               Update the project details
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
             <ProjectImagePicker
               value={editForm.coverImageUrl}
               onChange={(url) => setEditForm({ ...editForm, coverImageUrl: url })}
@@ -1483,7 +1496,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Status</Label>
                 <Select
@@ -1500,6 +1513,48 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Project Type</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn('w-full justify-between font-normal', !editForm.projectType && 'text-muted-foreground')}
+                    >
+                      {projectTypes.find((t) => t.value === editForm.projectType)?.label ?? 'Not specified'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search types..." />
+                      <CommandList>
+                        <CommandEmpty>No type found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="Not specified"
+                            onSelect={() => setEditForm({ ...editForm, projectType: null })}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', !editForm.projectType ? 'opacity-100' : 'opacity-0')} />
+                            <span className="text-muted-foreground">Not specified</span>
+                          </CommandItem>
+                          {projectTypes.map((type) => (
+                            <CommandItem
+                              key={type.value}
+                              value={type.label}
+                              onSelect={() => setEditForm({ ...editForm, projectType: type.value })}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', editForm.projectType === type.value ? 'opacity-100' : 'opacity-0')} />
+                              {type.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>System</Label>

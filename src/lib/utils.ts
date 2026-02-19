@@ -153,6 +153,31 @@ export const systemColors = [
   { name: 'Cyan', value: '#5BAAB5' },
 ]
 
+// Project type labels for display
+import { ProjectType } from '@/types'
+
+export const projectTypes: { value: ProjectType; label: string }[] = [
+  { value: 'website', label: 'Website' },
+  { value: 'saas', label: 'SaaS' },
+  { value: 'admin_panel', label: 'Admin Panel' },
+  { value: 'mobile_app', label: 'Mobile App' },
+  { value: 'desktop_app', label: 'Desktop App' },
+  { value: 'landing_page', label: 'Landing Page' },
+  { value: 'ecommerce', label: 'E-Commerce' },
+  { value: 'api', label: 'API / Backend' },
+  { value: 'cms', label: 'CMS' },
+  { value: 'erp', label: 'ERP' },
+  { value: 'crm', label: 'CRM' },
+  { value: 'dashboard', label: 'Dashboard' },
+  { value: 'portfolio', label: 'Portfolio' },
+  { value: 'blog', label: 'Blog' },
+  { value: 'game', label: 'Game' },
+  { value: 'browser_extension', label: 'Browser Extension' },
+  { value: 'cli_tool', label: 'CLI Tool' },
+  { value: 'library', label: 'Library / Package' },
+  { value: 'other', label: 'Other' },
+]
+
 // Chart colors - softer palette for dark mode
 export const chartColors = [
   '#6B8DD6', // soft blue

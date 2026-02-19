@@ -18,6 +18,7 @@ import {
   calculateProgress,
   formatRemainingTime,
   formatTimeSince,
+  projectTypes,
 } from '@/lib/utils'
 import {
   Plus,
@@ -241,10 +242,22 @@ export default function ProjectsPage() {
                               <div className="flex-1 min-w-0">
                                 <CardTitle className="text-xl pr-16 !mt-0 truncate">{project.name}</CardTitle>
                                 {project.paymentModel === 'internal' ? (
-                                  <p className="text-sm text-muted-foreground">Internal Project</p>
-                                ) : project.clientName ? (
-                                  <p className="text-sm text-primary font-medium">{project.clientName}</p>
-                                ) : null}
+                                  <p className="text-sm text-muted-foreground">
+                                    Internal Project
+                                    {project.projectType && project.projectType !== 'other' && (
+                                      <span className="text-muted-foreground/70"> · {projectTypes.find((t) => t.value === project.projectType)?.label}</span>
+                                    )}
+                                  </p>
+                                ) : (
+                                  <p className="text-sm">
+                                    {project.clientName && (
+                                      <span className="text-primary font-medium">{project.clientName}</span>
+                                    )}
+                                    {project.projectType && project.projectType !== 'other' && (
+                                      <span className="text-muted-foreground"> · {projectTypes.find((t) => t.value === project.projectType)?.label}</span>
+                                    )}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             {project.description && (

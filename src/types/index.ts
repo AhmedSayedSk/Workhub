@@ -23,6 +23,27 @@ export type MilestoneStatus = 'pending' | 'completed' | 'paid'
 
 export type PaymentStatus = 'pending' | 'paid'
 
+export type ProjectType =
+  | 'website'
+  | 'saas'
+  | 'admin_panel'
+  | 'mobile_app'
+  | 'desktop_app'
+  | 'landing_page'
+  | 'ecommerce'
+  | 'api'
+  | 'cms'
+  | 'erp'
+  | 'crm'
+  | 'dashboard'
+  | 'portfolio'
+  | 'blog'
+  | 'game'
+  | 'browser_extension'
+  | 'cli_tool'
+  | 'library'
+  | 'other'
+
 export type AISuggestionContext = 'task_breakdown' | 'time_estimate' | 'insight'
 
 // Firestore document types
@@ -59,6 +80,7 @@ export interface Project {
   coverImageUrl: string | null
   estimatedValue?: number // For internal projects - estimated market value for hourly rate calculation
   color: string
+  projectType?: ProjectType | null
   parentProjectId: string | null
   hasOwnFinances: boolean
   createdAt: Timestamp
@@ -189,6 +211,7 @@ export interface ProjectInput {
   coverImageUrl: string | null
   estimatedValue?: number // For internal projects - estimated market value
   color: string
+  projectType?: ProjectType | null
   parentProjectId?: string | null
   hasOwnFinances?: boolean
 }

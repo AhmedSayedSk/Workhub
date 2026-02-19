@@ -15,13 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command'
 import { DatePicker } from '@/components/ui/date-picker'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { useSystems } from '@/hooks/useSystems'
 import { projects } from '@/lib/firestore'
-import { PaymentModel, ProjectStatus, Project } from '@/types'
+import { PaymentModel, ProjectStatus, ProjectType, Project } from '@/types'
 import { useToast } from '@/hooks/useToast'
-import { systemColors } from '@/lib/utils'
+import { cn, systemColors, projectTypes } from '@/lib/utils'
 import {
   ArrowLeft,
   ArrowRight,
@@ -39,6 +41,7 @@ import {
   CalendarClock,
   FolderKanban,
   Link2,
+  ChevronsUpDown,
 } from 'lucide-react'
 import { ProjectImagePicker } from '@/components/projects/ProjectImagePicker'
 import { Suspense } from 'react'
@@ -109,6 +112,7 @@ function NewProjectContent() {
     notes: '',
     coverImageUrl: null as string | null,
     color: systemColors[0].value,
+    projectType: null as ProjectType | null,
     hasOwnFinances: true,
   })
 
@@ -187,6 +191,7 @@ function NewProjectContent() {
         notes: formData.notes,
         coverImageUrl: formData.coverImageUrl,
         color: formData.color,
+        projectType: formData.projectType || null,
         parentProjectId: parentId || null,
         hasOwnFinances: formData.hasOwnFinances,
         ...(isInternal && formData.estimatedValue ? { estimatedValue: parseFloat(formData.estimatedValue) } : {}),
@@ -360,6 +365,50 @@ function NewProjectContent() {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
+              </div>
+
+              {/* Project Type */}
+              <div className="space-y-2">
+                <Label>Project Type <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn('w-full justify-between font-normal', !formData.projectType && 'text-muted-foreground')}
+                    >
+                      {projectTypes.find((t) => t.value === formData.projectType)?.label ?? 'Not specified'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search types..." />
+                      <CommandList>
+                        <CommandEmpty>No type found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="Not specified"
+                            onSelect={() => setFormData({ ...formData, projectType: null })}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', !formData.projectType ? 'opacity-100' : 'opacity-0')} />
+                            <span className="text-muted-foreground">Not specified</span>
+                          </CommandItem>
+                          {projectTypes.map((type) => (
+                            <CommandItem
+                              key={type.value}
+                              value={type.label}
+                              onSelect={() => setFormData({ ...formData, projectType: type.value })}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', formData.projectType === type.value ? 'opacity-100' : 'opacity-0')} />
+                              {type.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </CardContent>
           </>

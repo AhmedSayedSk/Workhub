@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import {
   Dialog,
   DialogContent,
@@ -400,12 +400,13 @@ export function TaskBoard({
 
       {/* Create Task Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Create Task</DialogTitle>
             <DialogDescription>Add a new task to the board</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Row 1: Task name */}
             <div className="space-y-2">
               <Label>Name *</Label>
               <Input
@@ -416,26 +417,18 @@ export function TaskBoard({
                 }
               />
             </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                placeholder="Task description..."
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Type</Label>
+
+            {/* Row 2: Compact metadata grid */}
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Type</Label>
                 <Select
                   value={formData.taskType}
                   onValueChange={(value) =>
                     setFormData({ ...formData, taskType: value as TaskType })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -447,15 +440,15 @@ export function TaskBoard({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Priority</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Priority</Label>
                 <Select
                   value={formData.priority}
                   onValueChange={(value) =>
                     setFormData({ ...formData, priority: value as Priority })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -465,31 +458,29 @@ export function TaskBoard({
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Feature</Label>
-              <Select
-                value={formData.featureId || 'none'}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, featureId: value === 'none' ? '' : value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select feature" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No feature</SelectItem>
-                  {features.map((feature) => (
-                    <SelectItem key={feature.id} value={feature.id}>
-                      {feature.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Estimated Time</Label>
-              <div className="flex items-center gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Feature</Label>
+                <Select
+                  value={formData.featureId || 'none'}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, featureId: value === 'none' ? '' : value })
+                  }
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No feature</SelectItem>
+                    {features.map((feature) => (
+                      <SelectItem key={feature.id} value={feature.id}>
+                        {feature.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Est. Hours</Label>
                 <Input
                   type="number"
                   placeholder="0"
@@ -497,10 +488,20 @@ export function TaskBoard({
                   onChange={(e) =>
                     setFormData({ ...formData, estimatedHours: e.target.value })
                   }
-                  className="flex-1"
+                  className="h-9"
                 />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">hours</span>
               </div>
+            </div>
+
+            {/* Row 3: Rich text description */}
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <RichTextEditor
+                content={formData.description}
+                onChange={(md) => setFormData({ ...formData, description: md })}
+                placeholder="Task description..."
+                minHeight="120px"
+              />
             </div>
           </div>
           <DialogFooter>

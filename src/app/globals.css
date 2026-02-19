@@ -125,3 +125,63 @@
   opacity: 0.3;
   animation: pulse-ring 1.5s ease-out infinite;
 }
+
+/* ───── ProseMirror / Rich Text Editor ───── */
+.ProseMirror {
+  outline: none;
+  min-height: inherit;
+}
+
+.ProseMirror h1 {
+  @apply text-2xl font-bold mt-4 mb-2;
+}
+.ProseMirror h2 {
+  @apply text-xl font-semibold mt-3 mb-2;
+}
+.ProseMirror h3 {
+  @apply text-lg font-semibold mt-3 mb-1;
+}
+.ProseMirror p {
+  @apply my-1 leading-relaxed;
+}
+.ProseMirror ul {
+  @apply list-disc pl-6 my-2;
+}
+.ProseMirror ol {
+  @apply list-decimal pl-6 my-2;
+}
+.ProseMirror li {
+  @apply my-0.5;
+}
+.ProseMirror blockquote {
+  @apply border-l-4 border-muted-foreground/30 pl-4 italic text-muted-foreground my-2;
+}
+.ProseMirror code {
+  @apply px-1 py-0.5 rounded bg-muted font-mono text-sm;
+}
+.ProseMirror pre {
+  @apply bg-muted rounded-md p-3 my-2 overflow-x-auto;
+}
+.ProseMirror pre code {
+  @apply bg-transparent p-0;
+}
+.ProseMirror img {
+  @apply max-w-full h-auto rounded-md my-2 cursor-zoom-in transition-opacity hover:opacity-90;
+}
+.ProseMirror a {
+  @apply text-primary underline underline-offset-2;
+}
+.ProseMirror hr {
+  @apply border-border my-4;
+}
+
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-muted-foreground pointer-events-none float-left h-0;
+  content: attr(data-placeholder);
+}
+
+/* Read-only viewer — no extra chrome */
+.prose-viewer .ProseMirror {
+  @apply text-muted-foreground text-sm;
+}
