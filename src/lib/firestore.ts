@@ -18,8 +18,6 @@ import { db } from './firebase'
 import {
   Organization,
   OrganizationInput,
-  System,
-  SystemInput,
   Project,
   ProjectInput,
   Milestone,
@@ -136,40 +134,10 @@ export const organizations = {
   },
 }
 
-// Systems
-export const systems = {
-  async getAll(organizationId?: string): Promise<System[]> {
-    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')]
-    if (organizationId) {
-      constraints.unshift(where('organizationId', '==', organizationId))
-    }
-    return getAll<System>('systems', ...constraints)
-  },
-
-  async getById(id: string): Promise<System | null> {
-    return getById<System>('systems', id)
-  },
-
-  async create(data: SystemInput): Promise<string> {
-    return create('systems', data)
-  },
-
-  async update(id: string, data: Partial<SystemInput>): Promise<void> {
-    return update('systems', id, data)
-  },
-
-  async delete(id: string): Promise<void> {
-    return remove('systems', id)
-  },
-}
-
 // Projects
 export const projects = {
-  async getAll(systemId?: string): Promise<Project[]> {
+  async getAll(): Promise<Project[]> {
     const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')]
-    if (systemId) {
-      constraints.unshift(where('systemId', '==', systemId))
-    }
     return getAll<Project>('projects', ...constraints)
   },
 
@@ -695,18 +663,6 @@ export const batch = {
     await batchOp.commit()
   },
 
-  async deleteSystemCascade(systemId: string): Promise<void> {
-    // Get all projects in this system
-    const systemProjects = await projects.getAll(systemId)
-
-    // Delete each project with cascade
-    for (const project of systemProjects) {
-      await this.deleteProjectCascade(project.id)
-    }
-
-    // Delete the system itself
-    await systems.delete(systemId)
-  },
 }
 
 // Media Folders

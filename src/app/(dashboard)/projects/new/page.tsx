@@ -19,11 +19,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command'
 import { DatePicker } from '@/components/ui/date-picker'
 import { PhoneInput } from '@/components/ui/phone-input'
-import { useSystems } from '@/hooks/useSystems'
 import { projects } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus, ProjectType, Project } from '@/types'
 import { useToast } from '@/hooks/useToast'
-import { cn, systemColors, projectTypes } from '@/lib/utils'
+import { cn, colorPresets, projectTypes } from '@/lib/utils'
 import {
   ArrowLeft,
   ArrowRight,
@@ -92,7 +91,6 @@ function NewProjectContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const parentId = searchParams.get('parent')
-  const { systems } = useSystems()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
@@ -103,7 +101,6 @@ function NewProjectContent() {
     clientName: '',
     clientNumber: '',
     description: '',
-    systemId: '',
     paymentModel: 'milestone' as PaymentModel,
     totalAmount: '',
     estimatedValue: '',
@@ -111,7 +108,7 @@ function NewProjectContent() {
     deadline: null as Date | null,
     notes: '',
     coverImageUrl: null as string | null,
-    color: systemColors[0].value,
+    color: colorPresets[0].value,
     projectType: null as ProjectType | null,
     hasOwnFinances: true,
   })
@@ -126,8 +123,7 @@ function NewProjectContent() {
         ...prev,
         clientName: parent.clientName || '',
         clientNumber: parent.clientNumber || '',
-        systemId: parent.systemId || '',
-        color: parent.color || systemColors[0].value,
+        color: parent.color || colorPresets[0].value,
       }))
     })
   }, [parentId])
@@ -180,7 +176,6 @@ function NewProjectContent() {
         clientName: formData.clientName,
         clientNumber: formData.clientNumber,
         description: formData.description,
-        systemId: formData.systemId,
         paymentModel: formData.paymentModel,
         totalAmount: isInternal ? 0 : (parseFloat(formData.totalAmount) || 0),
         paidAmount: 0,
@@ -301,7 +296,7 @@ function NewProjectContent() {
               <div className="space-y-2">
                 <Label>Brand Color</Label>
                 <div className="flex flex-wrap items-center gap-2">
-                  {systemColors.map((c) => (
+                  {colorPresets.map((c) => (
                     <button
                       key={c.value}
                       type="button"
@@ -322,14 +317,14 @@ function NewProjectContent() {
                   <label
                     className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center cursor-pointer hover:border-muted-foreground/70 transition-all relative overflow-hidden"
                     style={{
-                      backgroundColor: !systemColors.some((c) => c.value === formData.color) ? formData.color : undefined,
-                      boxShadow: !systemColors.some((c) => c.value === formData.color) ? `0 0 0 2px var(--background), 0 0 0 4px ${formData.color}` : 'none',
-                      borderStyle: !systemColors.some((c) => c.value === formData.color) ? 'solid' : 'dashed',
-                      borderColor: !systemColors.some((c) => c.value === formData.color) ? 'transparent' : undefined,
+                      backgroundColor: !colorPresets.some((c) => c.value === formData.color) ? formData.color : undefined,
+                      boxShadow: !colorPresets.some((c) => c.value === formData.color) ? `0 0 0 2px var(--background), 0 0 0 4px ${formData.color}` : 'none',
+                      borderStyle: !colorPresets.some((c) => c.value === formData.color) ? 'solid' : 'dashed',
+                      borderColor: !colorPresets.some((c) => c.value === formData.color) ? 'transparent' : undefined,
                     }}
                     title="Custom color"
                   >
-                    {!systemColors.some((c) => c.value === formData.color) ? (
+                    {!colorPresets.some((c) => c.value === formData.color) ? (
                       <Check className="h-4 w-4 text-white" />
                     ) : (
                       <Plus className="h-4 w-4 text-muted-foreground/60" />
@@ -418,9 +413,9 @@ function NewProjectContent() {
         {currentStepId === 'client' && (
           <>
             <CardHeader className="shrink-0">
-              <CardTitle>Client & System</CardTitle>
+              <CardTitle>Client Details</CardTitle>
               <CardDescription>
-                Add client information and assign to a system
+                Add client information
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 flex-1 overflow-y-auto">
@@ -445,35 +440,6 @@ function NewProjectContent() {
                     onChange={(value) => setFormData({ ...formData, clientNumber: value })}
                   />
                 </div>
-              </div>
-
-              {/* System */}
-              <div className="space-y-2">
-                <Label>System</Label>
-                <Select
-                  value={formData.systemId || 'none'}
-                  onValueChange={(value) => setFormData({ ...formData, systemId: value === 'none' ? '' : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a system (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      <span className="text-muted-foreground">No system</span>
-                    </SelectItem>
-                    {systems.map((system) => (
-                      <SelectItem key={system.id} value={system.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: system.color }}
-                          />
-                          {system.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </CardContent>
           </>

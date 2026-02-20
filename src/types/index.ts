@@ -53,18 +53,8 @@ export interface Organization {
   createdAt: Timestamp
 }
 
-export interface System {
-  id: string
-  organizationId: string
-  name: string
-  description: string
-  color: string
-  createdAt: Timestamp
-}
-
 export interface Project {
   id: string
-  systemId: string
   name: string
   clientName: string
   clientNumber: string
@@ -188,15 +178,7 @@ export interface OrganizationInput {
   name: string
 }
 
-export interface SystemInput {
-  organizationId: string
-  name: string
-  description: string
-  color: string
-}
-
 export interface ProjectInput {
-  systemId: string
   name: string
   clientName: string
   clientNumber: string
@@ -310,10 +292,6 @@ export interface DashboardStats {
   weeklyHours: number
 }
 
-export interface ProjectWithSystem extends Project {
-  system: System
-}
-
 export interface TaskWithFeature extends Task {
   feature: Feature
 }
@@ -362,7 +340,6 @@ export interface FinanceChartData {
 
 // Filter types
 export interface ProjectFilters {
-  systemId?: string
   status?: ProjectStatus
   paymentModel?: PaymentModel
 }

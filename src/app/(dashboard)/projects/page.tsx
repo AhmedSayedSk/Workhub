@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useProjects } from '@/hooks/useProjects'
-import { useSystems } from '@/hooks/useSystems'
 import { projects as projectsApi, tasks as tasksApi } from '@/lib/firestore'
-import { System, PaymentModel, ProjectStatus, Project } from '@/types'
+import { PaymentModel, ProjectStatus, Project } from '@/types'
 import {
   formatCurrency,
   formatDate,
@@ -79,7 +78,6 @@ const statusOrder: ProjectStatus[] = ['active', 'paused', 'completed', 'cancelle
 export default function ProjectsPage() {
   const router = useRouter()
   const { projects, loading } = useProjects()
-  const { systems } = useSystems()
   const [subProjectsByParent, setSubProjectsByParent] = useState<Record<string, Project[]>>({})
   const [subTaskCounts, setSubTaskCounts] = useState<Record<string, number>>({})
 
@@ -112,11 +110,6 @@ export default function ProjectsPage() {
       }
     })
   }, [projects]) // re-compute when top-level projects change
-
-  const systemsMap = systems.reduce((acc, s) => {
-    acc[s.id] = s
-    return acc
-  }, {} as Record<string, System>)
 
   // Group projects by status and sort by start date (oldest first)
   const groupedProjects = useMemo(() => {
@@ -214,7 +207,6 @@ export default function ProjectsPage() {
                 {/* Projects Grid */}
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {projectsInGroup.map((project) => {
-                    const system = systemsMap[project.systemId]
                     const progress = calculateProgress(project.paidAmount, project.totalAmount)
                     const PaymentIcon = paymentModelIcons[project.paymentModel]
 
@@ -223,7 +215,7 @@ export default function ProjectsPage() {
                         <Card
                           className="h-full hover:shadow-md transition-all cursor-pointer overflow-hidden border"
                           style={{
-                            backgroundColor: `color-mix(in srgb, ${project.color || system?.color || '#6B8DD6'} 6%, transparent)`,
+                            backgroundColor: `color-mix(in srgb, ${project.color || '#6B8DD6'} 6%, transparent)`,
                           }}
                         >
                           <CardHeader className="pb-1 pt-4 px-4 relative">

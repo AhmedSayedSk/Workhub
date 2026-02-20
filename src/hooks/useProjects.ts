@@ -80,7 +80,7 @@ function computeProjectChanges(
   return changes
 }
 
-export function useProjects(systemId?: string) {
+export function useProjects() {
   const [data, setData] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -89,7 +89,7 @@ export function useProjects(systemId?: string) {
   const fetchProjects = useCallback(async () => {
     try {
       setLoading(true)
-      const result = await projects.getAll(systemId)
+      const result = await projects.getAll()
       setData(result.filter(p => !p.parentProjectId))
       setError(null)
     } catch (err) {
@@ -102,7 +102,7 @@ export function useProjects(systemId?: string) {
     } finally {
       setLoading(false)
     }
-  }, [systemId, toast])
+  }, [toast])
 
   useEffect(() => {
     fetchProjects()

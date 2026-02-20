@@ -45,9 +45,8 @@ import { PhoneInput } from '@/components/ui/phone-input'
 import { Textarea } from '@/components/ui/textarea'
 import { useProject } from '@/hooks/useProjects'
 import { useProjectLogs } from '@/hooks/useProjectLogs'
-import { useSystems } from '@/hooks/useSystems'
 import { useAuth } from '@/hooks/useAuth'
-import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput, ProjectStatus, ProjectType } from '@/types'
+import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput, ProjectStatus, ProjectType, Milestone as MilestoneType } from '@/types'
 import { format } from 'date-fns'
 import {
   formatCurrency,
@@ -57,7 +56,7 @@ import {
   statusColors,
   calculateProgress,
   cn,
-  systemColors,
+  colorPresets,
   projectFieldLabels,
   projectTypes,
 } from '@/lib/utils'
@@ -107,7 +106,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     updateProject,
     deleteProject,
   } = useProject(id)
-  const { systems } = useSystems()
   const { logs: activityLogs, loading: logsLoading, refetch: refetchLogs, deleteLog } = useProjectLogs(id)
   const { reauthenticate } = useAuth()
 
@@ -180,7 +178,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     clientName: '',
     clientNumber: '',
     description: '',
-    systemId: '',
     status: 'active' as ProjectStatus,
     paymentModel: 'milestone' as PaymentModel,
     totalAmount: '',
@@ -189,7 +186,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     deadline: null as Date | null,
     notes: '',
     coverImageUrl: null as string | null,
-    color: systemColors[0].value,
+    color: colorPresets[0].value,
     projectType: null as ProjectType | null,
   })
 
@@ -200,8 +197,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   })
   const [editingPayment, setEditingPayment] = useState<MonthlyPayment | null>(null)
   const [isEditPaymentDialogOpen, setIsEditPaymentDialogOpen] = useState(false)
-
-  const system = systems.find((s) => s.id === project?.systemId)
+  const [editingMilestone, setEditingMilestone] = useState<MilestoneType | null>(null)
+  const [isEditMilestoneDialogOpen, setIsEditMilestoneDialogOpen] = useState(false)
 
   if (loading) {
     return (
@@ -289,6 +286,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
 
     await updateMilestone(milestoneId, updates)
+  }
+
+  const handleOpenEditMilestone = (milestone: MilestoneType) => {
+    setEditingMilestone(milestone)
+    setMilestoneForm({
+      name: milestone.name,
+      amount: milestone.amount.toString(),
+      dueDate: milestone.dueDate.toDate(),
+    })
+    setIsEditMilestoneDialogOpen(true)
+  }
+
+  const handleEditMilestone = async () => {
+    if (!editingMilestone || !milestoneForm.name || !milestoneForm.amount || !milestoneForm.dueDate) return
+
+    setIsSubmitting(true)
+    try {
+      await updateMilestone(editingMilestone.id, {
+        name: milestoneForm.name,
+        amount: parseFloat(milestoneForm.amount),
+        dueDate: milestoneForm.dueDate,
+      })
+      setMilestoneForm({ name: '', amount: '', dueDate: new Date() })
+      setEditingMilestone(null)
+      setIsEditMilestoneDialogOpen(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCreatePayment = async () => {
@@ -403,7 +428,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         clientName: project.clientName || '',
         clientNumber: project.clientNumber || '',
         description: project.description,
-        systemId: project.systemId,
         status: project.status,
         paymentModel: project.paymentModel,
         totalAmount: project.totalAmount.toString(),
@@ -412,7 +436,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         deadline: project.deadline ? project.deadline.toDate() : null,
         notes: project.notes,
         coverImageUrl: project.coverImageUrl || null,
-        color: project.color || systemColors[0].value,
+        color: project.color || colorPresets[0].value,
         projectType: project.projectType || null,
       })
       setIsEditDialogOpen(true)
@@ -430,7 +454,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         clientName: editForm.clientName,
         clientNumber: editForm.clientNumber,
         description: editForm.description,
-        systemId: editForm.systemId,
         status: editForm.status,
         paymentModel: editForm.paymentModel,
         totalAmount: isEditInternal ? 0 : (parseFloat(editForm.totalAmount) || 0),
@@ -948,6 +971,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => handleOpenEditMilestone(milestone)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             onClick={() => deleteMilestone(milestone.id)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -1260,10 +1290,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               )}
               <div>
-                <Label className="text-muted-foreground">System</Label>
-                <p className="font-medium">{system?.name || (project.systemId ? 'Unknown' : 'Not assigned')}</p>
-              </div>
-              <div>
                 <Label className="text-muted-foreground">Payment Model</Label>
                 <p className="font-medium capitalize">{project.paymentModel}</p>
               </div>
@@ -1304,6 +1330,72 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </TabsContentBoxed>
       </Tabs>
+
+      {/* Edit Milestone Dialog */}
+      <Dialog open={isEditMilestoneDialogOpen} onOpenChange={(open) => {
+        setIsEditMilestoneDialogOpen(open)
+        if (!open) setEditingMilestone(null)
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Milestone</DialogTitle>
+            <DialogDescription>
+              Update the milestone details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                placeholder="e.g., Initial Design"
+                value={milestoneForm.name}
+                onChange={(e) =>
+                  setMilestoneForm({ ...milestoneForm, name: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Amount (EGP)</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={milestoneForm.amount}
+                onChange={(e) =>
+                  setMilestoneForm({ ...milestoneForm, amount: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <DatePicker
+                value={milestoneForm.dueDate}
+                onChange={(date) =>
+                  setMilestoneForm({ ...milestoneForm, dueDate: date })
+                }
+                placeholder="Select due date"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditMilestoneDialogOpen(false)
+                setEditingMilestone(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditMilestone}
+              disabled={isSubmitting}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Payment Dialog */}
       <Dialog open={isEditPaymentDialogOpen} onOpenChange={setIsEditPaymentDialogOpen}>
@@ -1402,7 +1494,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <div className="space-y-2">
               <Label>Brand Color</Label>
               <div className="flex flex-wrap items-center gap-2">
-                {systemColors.map((c) => (
+                {colorPresets.map((c) => (
                   <button
                     key={c.value}
                     type="button"
@@ -1423,14 +1515,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <label
                   className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center cursor-pointer hover:border-muted-foreground/70 transition-all relative overflow-hidden"
                   style={{
-                    backgroundColor: !systemColors.some((c) => c.value === editForm.color) ? editForm.color : undefined,
-                    boxShadow: !systemColors.some((c) => c.value === editForm.color) ? `0 0 0 2px var(--background), 0 0 0 4px ${editForm.color}` : 'none',
-                    borderStyle: !systemColors.some((c) => c.value === editForm.color) ? 'solid' : 'dashed',
-                    borderColor: !systemColors.some((c) => c.value === editForm.color) ? 'transparent' : undefined,
+                    backgroundColor: !colorPresets.some((c) => c.value === editForm.color) ? editForm.color : undefined,
+                    boxShadow: !colorPresets.some((c) => c.value === editForm.color) ? `0 0 0 2px var(--background), 0 0 0 4px ${editForm.color}` : 'none',
+                    borderStyle: !colorPresets.some((c) => c.value === editForm.color) ? 'solid' : 'dashed',
+                    borderColor: !colorPresets.some((c) => c.value === editForm.color) ? 'transparent' : undefined,
                   }}
                   title="Custom color"
                 >
-                  {!systemColors.some((c) => c.value === editForm.color) ? (
+                  {!colorPresets.some((c) => c.value === editForm.color) ? (
                     <Check className="h-4 w-4 text-white" />
                   ) : (
                     <Plus className="h-4 w-4 text-muted-foreground/60" />
@@ -1555,33 +1647,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     </Command>
                   </PopoverContent>
                 </Popover>
-              </div>
-              <div className="space-y-2">
-                <Label>System</Label>
-                <Select
-                  value={editForm.systemId || 'none'}
-                  onValueChange={(value) => setEditForm({ ...editForm, systemId: value === 'none' ? '' : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      <span className="text-muted-foreground">No system</span>
-                    </SelectItem>
-                    {systems.map((sys) => (
-                      <SelectItem key={sys.id} value={sys.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: sys.color }}
-                          />
-                          {sys.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Payment Model</Label>

@@ -9,7 +9,6 @@ import {
   FolderKanban,
   Clock,
   Wallet,
-  Layers,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -21,7 +20,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 const mainNavItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/systems', label: 'Systems', icon: Layers },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/time', label: 'Time Tracking', icon: Clock },
   { href: '/finances', label: 'Finances', icon: Wallet },

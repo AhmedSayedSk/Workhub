@@ -4,10 +4,11 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { projects, milestones, monthlyPayments, systems } from '@/lib/firestore'
-import { Project, Milestone, MonthlyPayment, System } from '@/types'
+import { projects, milestones, monthlyPayments } from '@/lib/firestore'
+import { Project, Milestone, MonthlyPayment } from '@/types'
 import {
   formatCurrency,
   formatDate,
@@ -15,7 +16,7 @@ import {
   calculateProgress,
   chartColors,
 } from '@/lib/utils'
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { format, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, differenceInDays, isPast } from 'date-fns'
 import {
   Building2,
   Wallet,
@@ -34,9 +35,8 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
+  LabelList,
 } from 'recharts'
 
 // Using soft chart colors from utils for dark mode comfort
@@ -45,8 +45,8 @@ export default function FinancesPage() {
   const [allProjects, setProjects] = useState<Project[]>([])
   const [allMilestones, setMilestones] = useState<Milestone[]>([])
   const [allPayments, setPayments] = useState<MonthlyPayment[]>([])
-  const [systemsMap, setSystemsMap] = useState<Record<string, System>>({})
   const [loading, setLoading] = useState(true)
+  const [distributionPeriod, setDistributionPeriod] = useState<'week' | 'month' | '3months' | '6months' | 'all'>('all')
 
   useEffect(() => {
     loadFinanceData()
@@ -54,21 +54,16 @@ export default function FinancesPage() {
 
   const loadFinanceData = async () => {
     try {
-      const [projectsData, milestonesData, paymentsData, systemsData] =
+      const [projectsData, milestonesData, paymentsData] =
         await Promise.all([
           projects.getAll(),
           milestones.getAll(),
           monthlyPayments.getAll(),
-          systems.getAll(),
         ])
 
       setProjects(projectsData)
       setMilestones(milestonesData)
       setPayments(paymentsData)
-
-      const sMap: Record<string, System> = {}
-      systemsData.forEach((s) => (sMap[s.id] = s))
-      setSystemsMap(sMap)
     } catch (error) {
       console.error('Error loading finance data:', error)
     } finally {
@@ -123,17 +118,21 @@ export default function FinancesPage() {
     return map
   }, [allProjects])
 
-  // Collect unique project IDs that have earnings (milestones or monthly payments)
+  // Collect unique project IDs that have earnings (milestones, monthly payments, or fixed-price paid)
   const earningProjectIds = useMemo(() => {
     const ids = new Set<string>()
     allMilestones.filter((m) => m.status === 'paid').forEach((m) => ids.add(m.projectId))
     allPayments.filter((p) => p.status === 'paid').forEach((p) => ids.add(p.projectId))
+    // Include fixed-price projects with paidAmount > 0
+    allProjects
+      .filter((p) => p.paymentModel === 'fixed' && p.paidAmount > 0)
+      .forEach((p) => ids.add(p.id))
     // Exclude internal projects and shared-finance sub-projects
     return Array.from(ids).filter((id) => {
       const p = projectsMap[id]
       return p && p.paymentModel !== 'internal' && p.hasOwnFinances !== false
     })
-  }, [allMilestones, allPayments, projectsMap])
+  }, [allMilestones, allPayments, allProjects, projectsMap])
 
   // Monthly earnings data (last 6 months) — per-project breakdown
   const monthlyData = Array.from({ length: 6 }, (_, i) => {
@@ -148,6 +147,8 @@ export default function FinancesPage() {
     }
 
     earningProjectIds.forEach((pid) => {
+      const proj = projectsMap[pid]
+
       // Milestones paid this month for this project
       const milestoneEarnings = allMilestones
         .filter((m) => {
@@ -162,22 +163,83 @@ export default function FinancesPage() {
         .filter((p) => p.projectId === pid && p.status === 'paid' && p.month === month)
         .reduce((sum, p) => sum + p.amount, 0)
 
-      row[pid] = milestoneEarnings + monthlyEarnings
+      // Fixed-price projects: show paidAmount in the month they started
+      let fixedEarnings = 0
+      if (proj?.paymentModel === 'fixed' && proj.paidAmount > 0) {
+        const startDate = proj.startDate.toDate()
+        if (startDate >= monthStart && startDate <= monthEnd) {
+          fixedEarnings = proj.paidAmount
+        }
+      }
+
+      row[pid] = milestoneEarnings + monthlyEarnings + fixedEarnings
     })
 
     return row
   })
 
-  // Revenue distribution by project (excludes internal projects and shared-finance sub-projects)
-  const projectDistribution = projectsWithPayments
-    .filter((p) => p.totalAmount > 0 || p.paidAmount > 0)
-    .map((p) => ({
-      name: p.name,
-      value: p.totalAmount || p.paidAmount,
-      paid: p.paidAmount,
-      color: p.color,
-    }))
-    .sort((a, b) => b.value - a.value)
+  // Revenue distribution by project — filtered by period
+  const projectDistribution = useMemo(() => {
+    if (distributionPeriod === 'all') {
+      return projectsWithPayments
+        .filter((p) => p.totalAmount > 0 || p.paidAmount > 0)
+        .map((p) => ({
+          name: p.name,
+          value: p.totalAmount || p.paidAmount,
+          color: p.color,
+        }))
+        .sort((a, b) => b.value - a.value)
+    }
+
+    const now = new Date()
+    let periodStart: Date
+    if (distributionPeriod === 'week') {
+      periodStart = startOfWeek(now)
+    } else if (distributionPeriod === 'month') {
+      periodStart = startOfMonth(now)
+    } else if (distributionPeriod === '3months') {
+      periodStart = startOfMonth(subMonths(now, 2))
+    } else {
+      periodStart = startOfMonth(subMonths(now, 5))
+    }
+    const periodEnd = endOfDay(now)
+
+    const earningsByProject: Record<string, number> = {}
+
+    allMilestones
+      .filter((m) => m.status === 'paid' && m.paidAt)
+      .forEach((m) => {
+        const paidDate = m.paidAt!.toDate()
+        if (paidDate >= periodStart && paidDate <= periodEnd) {
+          earningsByProject[m.projectId] = (earningsByProject[m.projectId] || 0) + m.amount
+        }
+      })
+
+    allPayments
+      .filter((p) => p.status === 'paid')
+      .forEach((p) => {
+        const [year, month] = p.month.split('-').map(Number)
+        const paymentDate = new Date(year, month - 1, 1)
+        if (paymentDate >= periodStart && paymentDate <= periodEnd) {
+          earningsByProject[p.projectId] = (earningsByProject[p.projectId] || 0) + p.amount
+        }
+      })
+
+    const projectMap: Record<string, Project> = {}
+    allProjects.forEach((p) => (projectMap[p.id] = p))
+
+    return Object.entries(earningsByProject)
+      .filter(([id]) => {
+        const p = projectMap[id]
+        return p && p.paymentModel !== 'internal' && p.hasOwnFinances !== false
+      })
+      .map(([id, value]) => ({
+        name: projectMap[id].name,
+        value,
+        color: projectMap[id].color,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [distributionPeriod, projectsWithPayments, allMilestones, allPayments, allProjects])
 
   if (loading) {
     return (
@@ -224,7 +286,23 @@ export default function FinancesPage() {
               {formatCurrency(totalPaid)}
             </div>
             <p className="text-xs text-muted-foreground">
-              All time earnings
+              {(() => {
+                const paidDates: Date[] = []
+                allMilestones.filter((m) => m.status === 'paid' && m.paidAt).forEach((m) => paidDates.push(m.paidAt!.toDate()))
+                allPayments.filter((p) => p.status === 'paid').forEach((p) => {
+                  const [y, mo] = p.month.split('-').map(Number)
+                  paidDates.push(new Date(y, mo - 1, 1))
+                })
+                // Fixed-price projects with payments — use start date as payment date
+                projectsWithPayments
+                  .filter((p) => p.paymentModel === 'fixed' && p.paidAmount > 0)
+                  .forEach((p) => paidDates.push(p.startDate.toDate()))
+                if (paidDates.length === 0) return 'No earnings yet'
+                const earliest = paidDates.reduce((min, d) => d < min ? d : min, paidDates[0])
+                const days = differenceInDays(new Date(), earliest)
+                const duration = days < 30 ? `${days} day${days !== 1 ? 's' : ''}` : `${Math.floor(days / 30)} month${Math.floor(days / 30) !== 1 ? 's' : ''}`
+                return `Since ${format(earliest, 'MMM yyyy')} · ${duration}`
+              })()}
             </p>
           </CardContent>
         </Card>
@@ -335,8 +413,31 @@ export default function FinancesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>By Project</CardTitle>
-            <CardDescription>Revenue distribution across projects</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>By Project</CardTitle>
+                <CardDescription>Revenue distribution across projects</CardDescription>
+              </div>
+              <div className="flex items-center gap-1">
+                {([
+                  { key: 'week', label: 'Week' },
+                  { key: 'month', label: 'Month' },
+                  { key: '3months', label: '3M' },
+                  { key: '6months', label: '6M' },
+                  { key: 'all', label: 'All' },
+                ] as const).map((p) => (
+                  <Button
+                    key={p.key}
+                    variant={distributionPeriod === p.key ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setDistributionPeriod(p.key)}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {projectDistribution.length === 0 ? (
@@ -344,127 +445,149 @@ export default function FinancesPage() {
                 <p className="text-muted-foreground">No data available</p>
               </div>
             ) : (
-              <div className="flex items-center gap-4 h-64">
-                <div className="w-1/2 h-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={projectDistribution}
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={projectDistribution.map((d) => ({ ...d, logValue: Math.log10(Math.max(d.value, 1)) }))}
+                    layout="vertical"
+                    margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      dataKey="logValue"
+                      className="text-xs"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      tickFormatter={(value) => {
+                        const real = Math.round(Math.pow(10, value))
+                        if (real >= 1000000) return `${(real / 1000000).toFixed(0)}M`
+                        if (real >= 1000) return `${(real / 1000).toFixed(0)}k`
+                        return `${real}`
+                      }}
+                      domain={[Math.log10(1000), Math.log10(200000)]}
+                      ticks={[Math.log10(1000), Math.log10(5000), Math.log10(10000), Math.log10(50000), Math.log10(100000), Math.log10(200000)]}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      className="text-xs"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      width={100}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null
+                        const total = projectDistribution.reduce((s, d) => s + d.value, 0)
+                        const value = payload[0].payload.value as number
+                        const percent = total > 0 ? (value / total * 100).toFixed(0) : '0'
+                        return (
+                          <div className="bg-popover text-popover-foreground rounded-lg border p-2 shadow-md">
+                            <p className="font-medium">{payload[0].payload.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatCurrency(value)} ({percent}%)
+                            </p>
+                          </div>
+                        )
+                      }}
+                    />
+                    <Bar dataKey="logValue" radius={[0, 4, 4, 0]}>
+                      <LabelList
                         dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        label={false}
-                      >
-                        {projectDistribution.map((item, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={item.color || chartColors[index % chartColors.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (!active || !payload?.length) return null
-                          const total = projectDistribution.reduce((s, d) => s + d.value, 0)
-                          const percent = total > 0 ? ((payload[0].value as number) / total * 100).toFixed(0) : '0'
-                          return (
-                            <div className="bg-popover text-popover-foreground rounded-lg border p-2 shadow-md">
-                              <p className="font-medium">{payload[0].name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {formatCurrency(payload[0].value as number)} ({percent}%)
-                              </p>
-                            </div>
-                          )
+                        position="insideRight"
+                        className="text-xs font-medium"
+                        fill="#fff"
+                        formatter={(v: number) => {
+                          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
+                          if (v >= 1000) return `${(v / 1000).toFixed(1)}k`
+                          return `${v}`
                         }}
                       />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="w-1/2 space-y-2 overflow-y-auto max-h-64 pr-1">
-                  {(() => {
-                    const total = projectDistribution.reduce((s, d) => s + d.value, 0)
-                    return projectDistribution.map((item, index) => {
-                      const percent = total > 0 ? (item.value / total * 100).toFixed(0) : '0'
-                      return (
-                        <div key={item.name} className="flex items-center gap-2 text-sm">
-                          <div
-                            className="w-3 h-3 rounded-full shrink-0"
-                            style={{ backgroundColor: item.color || chartColors[index % chartColors.length] }}
-                          />
-                          <span className="truncate flex-1 text-foreground">{item.name}</span>
-                          <span className="text-muted-foreground whitespace-nowrap">{percent}%</span>
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
+                      {projectDistribution.map((item, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={item.color || chartColors[index % chartColors.length]}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Pending Milestones */}
-      {pendingMilestones.length > 0 && (
+      {/* Milestones & Projects Financial Status - Side by Side */}
+      <div className="grid gap-6 md:grid-cols-2 items-start">
+        {/* Pending Milestones */}
         <Card>
           <CardHeader>
             <CardTitle>Upcoming Milestones</CardTitle>
             <CardDescription>Milestones awaiting payment</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {pendingMilestones.slice(0, 5).map((milestone) => {
-                const project = allProjects.find(
-                  (p) => p.id === milestone.projectId
-                )
+            {pendingMilestones.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                No pending milestones
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {pendingMilestones.slice(0, 5).map((milestone) => {
+                  const project = allProjects.find(
+                    (p) => p.id === milestone.projectId
+                  )
+                  const dueDate = milestone.dueDate.toDate()
+                  const overdue = isPast(dueDate)
+                  const daysLeft = differenceInDays(dueDate, new Date())
+                  const dueSoon = !overdue && daysLeft <= 7
+                  const dateColor = overdue
+                    ? 'text-red-500'
+                    : dueSoon
+                      ? 'text-amber-500'
+                      : 'text-muted-foreground'
 
-                return (
-                  <div
-                    key={milestone.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
-                  >
-                    <div>
-                      <p className="font-medium">{milestone.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {project?.name} - Due {formatDate(milestone.dueDate)}
-                      </p>
+                  return (
+                    <div
+                      key={milestone.id}
+                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
+                    >
+                      <div>
+                        <p className="font-medium">{milestone.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {project?.name} - <span className={`text-xs ${dateColor}`}>Due {formatDate(milestone.dueDate)}</span>
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{formatCurrency(milestone.amount)}</p>
+                        <Badge
+                          variant="outline"
+                          className={statusColors.milestone[milestone.status]}
+                        >
+                          {milestone.status}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(milestone.amount)}</p>
-                      <Badge
-                        variant="outline"
-                        className={statusColors.milestone[milestone.status]}
-                      >
-                        {milestone.status}
-                      </Badge>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
 
-      {/* Projects Overview */}
-      <Card>
-        <CardHeader>
+        {/* Projects Overview */}
+        <Card className="max-h-[600px] flex flex-col">
+        <CardHeader className="shrink-0">
           <CardTitle>Projects Financial Status</CardTitle>
           <CardDescription>Payment progress for all projects</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="overflow-y-auto">
+          <div className="space-y-3">
             {allProjects.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 No projects yet
               </p>
             ) : (
-              allProjects.filter((p) => p.hasOwnFinances !== false).map((project) => {
-                const system = systemsMap[project.systemId]
+              allProjects.filter((p) => p.hasOwnFinances !== false && p.paymentModel !== 'internal').sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()).map((project) => {
                 const isMonthly = project.paymentModel === 'monthly'
                 const isInternal = project.paymentModel === 'internal'
                 const progress = (isMonthly || isInternal) ? 0 : calculateProgress(
@@ -489,10 +612,10 @@ export default function FinancesPage() {
                     href={`/projects/${project.id}`}
                     className="block"
                   >
-                    <div className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors">
+                    <div className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors">
                       <div
                         className="w-2 h-12 rounded-full"
-                        style={{ backgroundColor: project.color || system?.color || '#6366F1' }}
+                        style={{ backgroundColor: project.color || '#6366F1' }}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
@@ -530,6 +653,16 @@ export default function FinancesPage() {
                             <span>{formatCurrency(project.totalAmount)}/mo</span>
                             <span>•</span>
                             <span>Received: {formatCurrency(project.paidAmount)}</span>
+                          </div>
+                        ) : progress >= 100 ? (
+                          <div className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="font-medium">Fully Paid</span>
+                          </div>
+                        ) : progress === 0 ? (
+                          <div className="flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400">
+                            <Clock className="h-4 w-4" />
+                            <span className="font-medium">Awaiting Payment</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-4">
@@ -573,6 +706,7 @@ export default function FinancesPage() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }

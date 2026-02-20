@@ -140,7 +140,7 @@ export function getMinutesBetween(start: Date | Timestamp, end: Date | Timestamp
 }
 
 // Color utilities - Softer, muted colors for dark mode comfort
-export const systemColors = [
+export const colorPresets = [
   { name: 'Blue', value: '#6B8DD6' },
   { name: 'Green', value: '#5BA67C' },
   { name: 'Purple', value: '#9B7DC9' },
@@ -252,7 +252,6 @@ export const projectFieldLabels: Record<string, string> = {
   notes: 'Notes',
   coverImageUrl: 'Cover Image',
   color: 'Brand Color',
-  systemId: 'System',
   estimatedValue: 'Estimated Value',
 }
 

@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { projects, tasks, timeEntries, systems, milestones, monthlyPayments } from '@/lib/firestore'
-import { Project, Task, TimeEntry, System, Milestone, MonthlyPayment, TaskType } from '@/types'
+import { projects, tasks, timeEntries, milestones, monthlyPayments } from '@/lib/firestore'
+import { Project, Task, TimeEntry, Milestone, MonthlyPayment, TaskType } from '@/types'
 import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime } from '@/lib/utils'
 
 const taskTypeBorderColors: Record<TaskType, string> = {
@@ -77,7 +77,6 @@ export default function DashboardPage() {
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([])
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([])
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([])
-  const [systemsMap, setSystemsMap] = useState<Record<string, System>>({})
   const [projectsMap, setProjectsMap] = useState<Record<string, Project>>({})
   const [allMilestones, setAllMilestones] = useState<Milestone[]>([])
   const [allPayments, setAllPayments] = useState<MonthlyPayment[]>([])
@@ -92,11 +91,10 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const [projectsData, todoData, inProgressData, systemsData, allProjects, milestonesData, paymentsData] = await Promise.all([
+      const [projectsData, todoData, inProgressData, allProjects, milestonesData, paymentsData] = await Promise.all([
         projects.getByStatus('active'),
         tasks.getByStatus('todo'),
         tasks.getByStatus('in_progress'),
-        systems.getAll(),
         projects.getAll(),
         milestones.getAll(),
         monthlyPayments.getAll(),
@@ -115,12 +113,6 @@ export default function DashboardPage() {
         timeEntries.getByDateRange(weekStart, weekEnd),
         timeEntries.getByDateRange(monthStart, monthEnd),
       ])
-
-      const sysMap: Record<string, System> = {}
-      systemsData.forEach((s) => {
-        sysMap[s.id] = s
-      })
-      setSystemsMap(sysMap)
 
       const projMap: Record<string, Project> = {}
       allProjects.forEach((p) => {
@@ -388,7 +380,6 @@ export default function DashboardPage() {
                 {/* Project List */}
                 <div className="space-y-4">
                   {activeProjects.map((project) => {
-                    const system = systemsMap[project.systemId]
                     const isMonthly = project.paymentModel === 'monthly'
                     const isInternal = project.paymentModel === 'internal'
                     const progress = (isMonthly || isInternal) ? 0 : calculateProgress(project.paidAmount, project.totalAmount)
@@ -402,7 +393,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                           <div
                             className="w-2 h-10 rounded-full"
-                            style={{ backgroundColor: project.color || system?.color || '#6366F1' }}
+                            style={{ backgroundColor: project.color || '#6366F1' }}
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
