@@ -10,7 +10,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -22,8 +21,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Task, TaskStatus, TaskType, Priority, Feature, TaskInput } from '@/types'
+import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Plus, Loader2 } from 'lucide-react'
 import { TaskCard } from './TaskCard'
 import { useSubtaskCounts } from '@/hooks/useTasks'
@@ -77,6 +78,7 @@ export function TaskBoard({
     taskType: 'task' as TaskType,
     priority: 'medium' as Priority,
     estimatedHours: '',
+    deadline: null as Date | null,
   })
 
   // Drag and drop state
@@ -128,6 +130,7 @@ export function TaskBoard({
         taskType: formData.taskType,
         priority: formData.priority,
         estimatedHours: parseFloat(formData.estimatedHours) || 0,
+        deadline: formData.deadline ? Timestamp.fromDate(formData.deadline) : null,
       })
       setFormData({
         name: '',
@@ -136,6 +139,7 @@ export function TaskBoard({
         taskType: 'task',
         priority: 'medium',
         estimatedHours: '',
+        deadline: null,
       })
       setIsCreateOpen(false)
     } finally {
@@ -293,6 +297,7 @@ export function TaskBoard({
       taskType: 'task',
       priority: 'medium',
       estimatedHours: '',
+      deadline: null,
     })
     setIsCreateOpen(true)
   }
@@ -400,28 +405,45 @@ export function TaskBoard({
 
       {/* Create Task Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Create Task</DialogTitle>
-            <DialogDescription>Add a new task to the board</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Row 1: Task name */}
-            <div className="space-y-2">
-              <Label>Name *</Label>
-              <Input
-                placeholder="Task name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-              />
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+          {/* Header */}
+          <div className="px-6 pt-6 pb-4 border-b shrink-0">
+            <DialogHeader>
+              <DialogTitle>Create Task</DialogTitle>
+              <DialogDescription>Add a new task to the board</DialogDescription>
+            </DialogHeader>
+          </div>
+
+          {/* Two-column layout */}
+          <div className="flex flex-1 min-h-0">
+            {/* Left column - Name + Description */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="space-y-2">
+                <Label>Name *</Label>
+                <Input
+                  placeholder="Task name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <RichTextEditor
+                  content={formData.description}
+                  onChange={(md) => setFormData({ ...formData, description: md })}
+                  placeholder="Task description..."
+                  minHeight="180px"
+                />
+              </div>
             </div>
 
-            {/* Row 2: Compact metadata grid */}
-            <div className="grid grid-cols-4 gap-3">
+            {/* Right column - Properties sidebar */}
+            <div className="w-64 shrink-0 border-l bg-muted/20 overflow-y-auto p-5 space-y-5">
+              {/* Type */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Type</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
                 <Select
                   value={formData.taskType}
                   onValueChange={(value) =>
@@ -440,8 +462,10 @@ export function TaskBoard({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Priority */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Priority</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Priority</Label>
                 <Select
                   value={formData.priority}
                   onValueChange={(value) =>
@@ -458,29 +482,46 @@ export function TaskBoard({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Feature */}
+              {features.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feature</Label>
+                  <Select
+                    value={formData.featureId || 'none'}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, featureId: value === 'none' ? '' : value })
+                    }
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No feature</SelectItem>
+                      {features.map((feature) => (
+                        <SelectItem key={feature.id} value={feature.id}>
+                          {feature.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Deadline */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Feature</Label>
-                <Select
-                  value={formData.featureId || 'none'}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, featureId: value === 'none' ? '' : value })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No feature</SelectItem>
-                    {features.map((feature) => (
-                      <SelectItem key={feature.id} value={feature.id}>
-                        {feature.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deadline</Label>
+                <DatePicker
+                  value={formData.deadline}
+                  onChange={(date) => setFormData({ ...formData, deadline: date })}
+                  placeholder="No deadline"
+                  className="h-9"
+                />
               </div>
+
+              {/* Est. Hours */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Est. Hours</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Est. Hours</Label>
                 <Input
                   type="number"
                   placeholder="0"
@@ -492,19 +533,10 @@ export function TaskBoard({
                 />
               </div>
             </div>
-
-            {/* Row 3: Rich text description */}
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <RichTextEditor
-                content={formData.description}
-                onChange={(md) => setFormData({ ...formData, description: md })}
-                placeholder="Task description..."
-                minHeight="120px"
-              />
-            </div>
           </div>
-          <DialogFooter>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
@@ -515,7 +547,7 @@ export function TaskBoard({
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </>

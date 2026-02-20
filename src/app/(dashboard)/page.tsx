@@ -33,12 +33,24 @@ const sortByPriorityAndDeadline = (tasks: Task[], projectsMap: Record<string, Pr
       return priorityA - priorityB
     }
 
-    // Then sort by project deadline (earliest first, no deadline last)
-    const deadlineA = projectsMap[a.projectId]?.deadline?.toDate()?.getTime() ?? Infinity
-    const deadlineB = projectsMap[b.projectId]?.deadline?.toDate()?.getTime() ?? Infinity
+    // Then sort by deadline (task deadline takes priority over project deadline)
+    const deadlineA = a.deadline?.toDate()?.getTime() ?? projectsMap[a.projectId]?.deadline?.toDate()?.getTime() ?? Infinity
+    const deadlineB = b.deadline?.toDate()?.getTime() ?? projectsMap[b.projectId]?.deadline?.toDate()?.getTime() ?? Infinity
     return deadlineA - deadlineB
   })
 }
+
+function getDeadlineInfo(task: Task, project?: Project) {
+  const deadline = task.deadline?.toDate() ?? project?.deadline?.toDate()
+  if (!deadline) return null
+  const now = new Date()
+  const days = differenceInDays(deadline, now)
+  const label = format(deadline, 'MMM d')
+  if (days < 0) return { label, color: 'text-red-500', bg: 'bg-red-500/10' }
+  if (days <= 3) return { label, color: 'text-amber-500', bg: 'bg-amber-500/10' }
+  return { label, color: 'text-muted-foreground', bg: '' }
+}
+
 import {
   FolderKanban,
   Clock,
@@ -48,9 +60,10 @@ import {
   Plus,
   CircleDollarSign,
   BarChart3,
+  CalendarDays,
 } from 'lucide-react'
 import Link from 'next/link'
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, differenceInDays, format } from 'date-fns'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { ProjectIncomeChart } from '@/components/charts/ProjectIncomeChart'
 import { useSettings } from '@/hooks/useSettings'
@@ -119,8 +132,14 @@ export default function DashboardPage() {
       const topLevelActive = projectsData.filter((p: Project) => !p.parentProjectId)
       setActiveProjects(topLevelActive.slice(0, 5))
       const activeProjectIdSet = new Set(projectsData.map((p: Project) => p.id))
-      const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIdSet.has(t.projectId))
-      const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIdSet.has(t.projectId))
+      // Include tasks from both active and completed projects
+      const completedProjects = allProjects.filter((p: Project) => p.status === 'completed')
+      const relevantProjectIdSet = new Set([
+        ...activeProjectIdSet,
+        ...completedProjects.map((p: Project) => p.id),
+      ])
+      const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && relevantProjectIdSet.has(t.projectId))
+      const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && relevantProjectIdSet.has(t.projectId))
       setAllTodoTasks(filteredTodo)
       setAllInProgressTasks(filteredInProgress)
       setTodoTasks(sortByPriorityAndDeadline(filteredTodo, projMap).slice(0, 5))
@@ -474,6 +493,7 @@ export default function DashboardPage() {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
+                        const deadlineInfo = getDeadlineInfo(task, project)
                         return (
                           <Link
                             key={task.id}
@@ -492,6 +512,12 @@ export default function DashboardPage() {
                                 />
                               )}
                               <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                              {deadlineInfo && (
+                                <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
+                                  <CalendarDays className="h-3 w-3" />
+                                  {deadlineInfo.label}
+                                </span>
+                              )}
                               {task.estimatedHours > 0 && (
                                 <span className="text-xs text-muted-foreground flex-shrink-0">
                                   {task.estimatedHours}h
@@ -519,6 +545,7 @@ export default function DashboardPage() {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
+                        const deadlineInfo = getDeadlineInfo(task, project)
                         return (
                           <Link
                             key={task.id}
@@ -537,6 +564,12 @@ export default function DashboardPage() {
                                 />
                               )}
                               <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                              {deadlineInfo && (
+                                <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
+                                  <CalendarDays className="h-3 w-3" />
+                                  {deadlineInfo.label}
+                                </span>
+                              )}
                               {task.estimatedHours > 0 && (
                                 <span className="text-xs text-muted-foreground flex-shrink-0">
                                   {task.estimatedHours}h

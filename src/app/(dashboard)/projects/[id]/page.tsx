@@ -771,7 +771,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <Edit className="h-4 w-4" />
             Details
           </TabsTriggerBoxed>
-          <TabsTriggerBoxed value="activity" className="gap-2 ml-auto mr-[9rem]">
+          <TabsTriggerBoxed value="activity" className="gap-2">
             <History className="h-4 w-4" />
             Activity
           </TabsTriggerBoxed>

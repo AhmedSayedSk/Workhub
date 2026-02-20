@@ -64,10 +64,11 @@ export function FeatureList({
   const [deletingFeature, setDeletingFeature] = useState<Feature | null>(null)
 
   const getTaskCount = (featureId: string | null) => {
+    const activeTasks = tasks.filter((t) => !t.archived)
     if (featureId === null) {
-      return tasks.length
+      return activeTasks.length
     }
-    return tasks.filter((t) => t.featureId === featureId).length
+    return activeTasks.filter((t) => t.featureId === featureId).length
   }
 
   const handleEdit = (feature: Feature) => {

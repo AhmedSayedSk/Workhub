@@ -31,7 +31,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Task, Subtask, TaskStatus, TaskType, Priority, Feature, TaskInput, CommentParentType } from '@/types'
+import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels, formatDuration } from '@/lib/utils'
 import { useSubtasks } from '@/hooks/useTasks'
 import { useComments } from '@/hooks/useComments'
@@ -328,12 +330,12 @@ export function TaskDetail({
   useEffect(() => {
     if (task && open) {
       setEditForm({
-        name: task.name,
-        description: task.description,
-        featureId: task.featureId,
+        name: task.name || '',
+        description: task.description || '',
+        featureId: task.featureId || '',
         taskType: task.taskType || 'task',
-        priority: task.priority,
-        estimatedHours: task.estimatedHours.toString(),
+        priority: task.priority || 'medium',
+        estimatedHours: (task.estimatedHours || 0).toString(),
       })
       setIsEditing(false)
     }
@@ -413,7 +415,7 @@ export function TaskDetail({
                   className="text-xl font-semibold"
                 />
               ) : (
-                <DialogTitle className="text-xl">{task.name}</DialogTitle>
+                <DialogTitle className="text-xl cursor-pointer" onDoubleClick={() => setIsEditing(true)}>{task.name}</DialogTitle>
               )}
             </DialogHeader>
             <div className="flex items-center gap-2 mt-3">
@@ -433,45 +435,14 @@ export function TaskDetail({
                   </Button>
                 </>
               ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  {task.waiting ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
-                      onClick={() => onRemoveTaskWaiting?.(task.id)}
-                    >
-                      <Play className="h-4 w-4 mr-1" />
-                      Resume
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                      onClick={() => onSetTaskWaiting?.(task.id)}
-                    >
-                      <Pause className="h-4 w-4 mr-1" />
-                      Set Waiting
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsArchiving(true)}
-                  >
-                    <Archive className="h-4 w-4 mr-1" />
-                    Archive
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
               )}
             </div>
             {/* Waiting Banner */}
@@ -503,12 +474,14 @@ export function TaskDetail({
                     minHeight="120px"
                   />
                 ) : task.description ? (
-                  <RichTextEditor
-                    content={task.description}
-                    editable={false}
-                  />
+                  <div onDoubleClick={() => setIsEditing(true)} className="cursor-pointer">
+                    <RichTextEditor
+                      content={task.description}
+                      editable={false}
+                    />
+                  </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No description</p>
+                  <p className="text-sm text-muted-foreground cursor-pointer" onDoubleClick={() => setIsEditing(true)}>No description</p>
                 )}
               </div>
 
@@ -709,33 +682,67 @@ export function TaskDetail({
                 )}
               </div>
 
-              {/* Feature (Edit Mode) */}
-              {isEditing && (
+              {/* Feature */}
+              {features.length > 0 && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feature</Label>
-                  <Select
-                    value={editForm.featureId || 'none'}
-                    onValueChange={(value) =>
-                      setEditForm({
-                        ...editForm,
-                        featureId: value === 'none' ? '' : value,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select feature" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No feature</SelectItem>
-                      {features.map((feature) => (
-                        <SelectItem key={feature.id} value={feature.id}>
-                          {feature.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isEditing ? (
+                    <Select
+                      value={editForm.featureId || 'none'}
+                      onValueChange={(value) =>
+                        setEditForm({
+                          ...editForm,
+                          featureId: value === 'none' ? '' : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select feature" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No feature</SelectItem>
+                        {features.map((feature) => (
+                          <SelectItem key={feature.id} value={feature.id}>
+                            {feature.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select
+                      value={task.featureId || 'none'}
+                      onValueChange={(value) =>
+                        onUpdateTask(task.id, { featureId: value === 'none' ? '' : value })
+                      }
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select feature" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No feature</SelectItem>
+                        {features.map((feature) => (
+                          <SelectItem key={feature.id} value={feature.id}>
+                            {feature.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               )}
+
+              {/* Deadline */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deadline</Label>
+                <DatePicker
+                  value={task.deadline ? task.deadline.toDate() : null}
+                  onChange={(date) =>
+                    onUpdateTask(task.id, { deadline: date ? Timestamp.fromDate(date) : null })
+                  }
+                  placeholder="No deadline"
+                  className="h-9"
+                />
+              </div>
 
               {/* Waiting Info */}
               {task.waiting && task.waitingAt && (
@@ -758,6 +765,7 @@ export function TaskDetail({
                     {isEditing ? (
                       <div className="flex items-center gap-1">
                         <Input
+                          key="est-edit"
                           type="number"
                           value={editForm.estimatedHours}
                           onChange={(e) =>
@@ -769,11 +777,25 @@ export function TaskDetail({
                         <span className="text-xs text-muted-foreground">h</span>
                       </div>
                     ) : (
-                      <span className="text-sm font-medium">
-                        {task.estimatedHours > 0
-                          ? `${task.estimatedHours}h`
-                          : '-'}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          key="est-view"
+                          type="number"
+                          defaultValue={task.estimatedHours || ''}
+                          onBlur={(e) => {
+                            const val = parseFloat(e.target.value) || 0
+                            if (val !== task.estimatedHours) {
+                              onUpdateTask(task.id, { estimatedHours: val })
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                          }}
+                          className="w-16 h-7 text-sm text-right"
+                          placeholder="0"
+                        />
+                        <span className="text-xs text-muted-foreground">h</span>
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center justify-between">
@@ -793,6 +815,43 @@ export function TaskDetail({
                     </div>
                   )}
                 </div>
+              </div>
+
+              <Separator />
+
+              {/* Actions */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Actions</Label>
+                {task.waiting ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
+                    onClick={() => onRemoveTaskWaiting?.(task.id)}
+                  >
+                    <Play className="h-4 w-4 mr-1" />
+                    Resume
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                    onClick={() => onSetTaskWaiting?.(task.id)}
+                  >
+                    <Pause className="h-4 w-4 mr-1" />
+                    Set Waiting
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-destructive hover:bg-destructive/10"
+                  onClick={() => setIsArchiving(true)}
+                >
+                  <Archive className="h-4 w-4 mr-1" />
+                  Archive
+                </Button>
               </div>
             </div>
           </div>
