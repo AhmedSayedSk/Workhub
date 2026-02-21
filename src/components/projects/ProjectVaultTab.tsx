@@ -55,10 +55,14 @@ import {
   KeyRound,
   StickyNote,
   Paperclip,
+  Shield,
+  ShieldCheck,
 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
+import { useSettings } from '@/hooks/useSettings'
 import { detectBrand } from '@/lib/brand-icons'
 import { BrandIcon } from '@/components/vault/BrandIcon'
+import { VaultPasskeyDialog } from '@/components/vault/VaultPasskeyDialog'
 
 interface ProjectVaultTabProps {
   projectId: string
@@ -82,10 +86,13 @@ const entryTypeConfig: Record<VaultEntryType, { label: string; icon: typeof File
   },
 }
 
+const VAULT_SESSION_DURATION = 5 * 60 * 1000 // 5 minutes
+
 export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
   const { user } = useAuth()
   const { entries, loading, createEntry, updateEntry, deleteEntry } = useProjectVault({ projectId })
   const { toast } = useToast()
+  const { settings } = useSettings()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -96,6 +103,50 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  // Vault passkey session
+  const [vaultUnlockedAt, setVaultUnlockedAt] = useState<number | null>(null)
+  const [isPasskeyDialogOpen, setIsPasskeyDialogOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
+
+  const hasPasskeyProtection = !!settings?.vaultPasskey
+
+  const isVaultLocked = () => {
+    if (!hasPasskeyProtection) return true
+    if (!vaultUnlockedAt) return true
+    return Date.now() - vaultUnlockedAt > VAULT_SESSION_DURATION
+  }
+
+  const requirePasskey = (action: () => void) => {
+    if (!hasPasskeyProtection) {
+      toast({
+        title: 'Passkey Required',
+        description: 'Set a vault passkey first in Settings > Security to access sensitive data.',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (!isVaultLocked()) {
+      action()
+      return
+    }
+    setPendingAction(() => action)
+    setIsPasskeyDialogOpen(true)
+  }
+
+  const handlePasskeyVerified = () => {
+    setVaultUnlockedAt(Date.now())
+    setIsPasskeyDialogOpen(false)
+    if (pendingAction) {
+      pendingAction()
+      setPendingAction(null)
+    }
+  }
+
+  const handlePasskeyCancel = () => {
+    setIsPasskeyDialogOpen(false)
+    setPendingAction(null)
+  }
 
   const [formData, setFormData] = useState({
     type: 'text' as VaultEntryType,
@@ -179,6 +230,20 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
   }
 
   const handleOpenEdit = (entry: VaultEntry) => {
+    if (entry.type === 'password') {
+      const doOpen = () => {
+        setSelectedEntry(entry)
+        setFormData({
+          type: entry.type,
+          label: entry.label,
+          key: entry.key || '',
+          value: entry.value,
+        })
+        setIsEditDialogOpen(true)
+      }
+      requirePasskey(doOpen)
+      return
+    }
     setSelectedEntry(entry)
     setFormData({
       type: entry.type,
@@ -236,15 +301,24 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
   }
 
   const togglePasswordVisibility = (entryId: string) => {
-    setVisiblePasswords((prev) => {
-      const next = new Set(prev)
-      if (next.has(entryId)) {
-        next.delete(entryId)
-      } else {
-        next.add(entryId)
-      }
-      return next
-    })
+    const doToggle = () => {
+      setVisiblePasswords((prev) => {
+        const next = new Set(prev)
+        if (next.has(entryId)) {
+          next.delete(entryId)
+        } else {
+          next.add(entryId)
+        }
+        return next
+      })
+    }
+
+    // Only require passkey when revealing (not hiding)
+    if (!visiblePasswords.has(entryId)) {
+      requirePasskey(doToggle)
+    } else {
+      doToggle()
+    }
   }
 
   const copyToClipboard = async (entryId: string, value: string) => {
@@ -257,13 +331,17 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
         description: 'Value copied to clipboard',
         variant: 'success',
       })
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to copy to clipboard',
         variant: 'destructive',
       })
     }
+  }
+
+  const protectedCopy = (entryId: string, value: string) => {
+    requirePasskey(() => copyToClipboard(entryId, value))
   }
 
   const handleDownload = (entry: VaultEntry) => {
@@ -295,8 +373,14 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Vault className="h-5 w-5" />
                 Project Vault
+                {hasPasskeyProtection && (
+                  isVaultLocked() ? (
+                    <Shield className="h-4 w-4 text-amber-500" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4 text-green-500" />
+                  )
+                )}
               </CardTitle>
               <CardDescription>
                 Store sensitive data, notes, and files specific to this project
@@ -390,7 +474,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6"
-                                onClick={() => copyToClipboard(`${entry.id}-key`, entry.key!)}
+                                onClick={() => protectedCopy(`${entry.id}-key`, entry.key!)}
                               >
                                 {copiedId === `${entry.id}-key` ? (
                                   <Check className="h-3 w-3 text-green-500" />
@@ -420,7 +504,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => copyToClipboard(entry.id, entry.value)}
+                              onClick={() => protectedCopy(entry.id, entry.value)}
                             >
                               {copiedId === entry.id ? (
                                 <Check className="h-4 w-4 text-green-500" />
@@ -638,6 +722,16 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Vault Passkey Dialog */}
+      {hasPasskeyProtection && (
+        <VaultPasskeyDialog
+          open={isPasskeyDialogOpen}
+          storedHash={settings!.vaultPasskey!}
+          onVerified={handlePasskeyVerified}
+          onCancel={handlePasskeyCancel}
+        />
+      )}
     </div>
   )
 }

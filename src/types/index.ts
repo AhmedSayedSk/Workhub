@@ -372,6 +372,7 @@ export interface AppSettings {
   aiModel: GeminiModel
   aiEnabled: boolean
   thinkingTimePercent: number
+  vaultPasskey?: string | null
   updatedAt: Timestamp
 }
 
@@ -379,6 +380,7 @@ export interface AppSettingsInput {
   aiModel: GeminiModel
   aiEnabled: boolean
   thinkingTimePercent?: number
+  vaultPasskey?: string | null
 }
 
 // Media Library types

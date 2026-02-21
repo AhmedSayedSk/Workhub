@@ -37,13 +37,17 @@ import {
   Image as ImageIcon,
   Trash2,
   Clock,
+  Shield,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { clearImageCache, getImageCacheInfo } from '@/lib/image-cache'
+import { verifyPasskey } from '@/lib/passkey'
 
 export default function SettingsPage() {
   const { theme, setTheme } = useThemeContext()
   const { user, signOut, updateUserProfile } = useAuth()
-  const { settings, loading, saving, setAIModel, setAIEnabled, setThinkingTimePercent } = useSettings()
+  const { settings, loading, saving, setAIModel, setAIEnabled, setThinkingTimePercent, setVaultPasskey, removeVaultPasskey } = useSettings()
 
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [profileName, setProfileName] = useState('')
@@ -53,6 +57,13 @@ export default function SettingsPage() {
   const [clearingCache, setClearingCache] = useState(false)
   const [thinkingTimeLocal, setThinkingTimeLocal] = useState(0)
   const thinkingTimeTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // Passkey state
+  const [passkeyForm, setPasskeyForm] = useState({ current: '', new: '', confirm: '' })
+  const [passkeyError, setPasskeyError] = useState('')
+  const [savingPasskey, setSavingPasskey] = useState(false)
+  const [passkeySuccess, setPasskeySuccess] = useState('')
+  const [showPasskeyFields, setShowPasskeyFields] = useState({ current: false, new: false, confirm: false })
 
   const refreshCacheInfo = useCallback(async () => {
     const info = await getImageCacheInfo()
@@ -135,6 +146,74 @@ export default function SettingsPage() {
     }
   }
 
+  const hasPasskey = !!settings?.vaultPasskey
+
+  const handleSetPasskey = async () => {
+    setPasskeyError('')
+    setPasskeySuccess('')
+
+    if (hasPasskey) {
+      // Changing passkey — verify current first
+      if (!passkeyForm.current) {
+        setPasskeyError('Current passkey is required')
+        return
+      }
+      const valid = await verifyPasskey(passkeyForm.current, settings!.vaultPasskey!)
+      if (!valid) {
+        setPasskeyError('Current passkey is incorrect')
+        return
+      }
+    }
+
+    if (passkeyForm.new.length < 4) {
+      setPasskeyError('Passkey must be at least 4 characters')
+      return
+    }
+    if (passkeyForm.new !== passkeyForm.confirm) {
+      setPasskeyError('Passkeys do not match')
+      return
+    }
+
+    setSavingPasskey(true)
+    try {
+      await setVaultPasskey(passkeyForm.new)
+      setPasskeyForm({ current: '', new: '', confirm: '' })
+      setPasskeySuccess(hasPasskey ? 'Passkey changed successfully' : 'Passkey set successfully')
+      setTimeout(() => setPasskeySuccess(''), 3000)
+    } catch {
+      setPasskeyError('Failed to save passkey')
+    } finally {
+      setSavingPasskey(false)
+    }
+  }
+
+  const handleRemovePasskey = async () => {
+    setPasskeyError('')
+    setPasskeySuccess('')
+
+    if (!passkeyForm.current) {
+      setPasskeyError('Enter your current passkey to remove it')
+      return
+    }
+    const valid = await verifyPasskey(passkeyForm.current, settings!.vaultPasskey!)
+    if (!valid) {
+      setPasskeyError('Current passkey is incorrect')
+      return
+    }
+
+    setSavingPasskey(true)
+    try {
+      await removeVaultPasskey()
+      setPasskeyForm({ current: '', new: '', confirm: '' })
+      setPasskeySuccess('Passkey removed successfully')
+      setTimeout(() => setPasskeySuccess(''), 3000)
+    } catch {
+      setPasskeyError('Failed to remove passkey')
+    } finally {
+      setSavingPasskey(false)
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Page Header */}
@@ -144,7 +223,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="account" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="account" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Account</span>
@@ -153,9 +232,13 @@ export default function SettingsPage() {
             <Sun className="h-4 w-4" />
             <span className="hidden sm:inline">Appearance</span>
           </TabsTrigger>
+          <TabsTrigger value="security" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Security</span>
+          </TabsTrigger>
           <TabsTrigger value="time" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            <span className="hidden sm:inline">Time</span>
+            <span className="hidden sm:inline">Time Tracking</span>
           </TabsTrigger>
           <TabsTrigger value="ai" className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
@@ -424,6 +507,141 @@ export default function SettingsPage() {
                   </kbd>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Security Tab */}
+        <TabsContent value="security" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Vault Passkey
+                {savingPasskey && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </CardTitle>
+              <CardDescription>
+                {hasPasskey
+                  ? 'A passkey is set. Sensitive vault entries require verification before viewing.'
+                  : 'Set a passkey to protect sensitive vault entries (passwords, API keys). You will be asked for it before revealing or copying protected data.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {hasPasskey && (
+                    <div className="space-y-2">
+                      <Label>Current Passkey</Label>
+                      <div className="relative">
+                        <Input
+                          type={showPasskeyFields.current ? 'text' : 'password'}
+                          placeholder="Enter current passkey"
+                          value={passkeyForm.current}
+                          onChange={(e) => {
+                            setPasskeyForm({ ...passkeyForm, current: e.target.value })
+                            setPasskeyError('')
+                          }}
+                          disabled={savingPasskey}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                          onClick={() => setShowPasskeyFields({ ...showPasskeyFields, current: !showPasskeyFields.current })}
+                        >
+                          {showPasskeyFields.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>{hasPasskey ? 'New Passkey' : 'Passkey'}</Label>
+                    <div className="relative">
+                      <Input
+                        type={showPasskeyFields.new ? 'text' : 'password'}
+                        placeholder={hasPasskey ? 'Enter new passkey' : 'Enter a passkey (min 4 characters)'}
+                        value={passkeyForm.new}
+                        onChange={(e) => {
+                          setPasskeyForm({ ...passkeyForm, new: e.target.value })
+                          setPasskeyError('')
+                        }}
+                        disabled={savingPasskey}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        onClick={() => setShowPasskeyFields({ ...showPasskeyFields, new: !showPasskeyFields.new })}
+                      >
+                        {showPasskeyFields.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Confirm {hasPasskey ? 'New ' : ''}Passkey</Label>
+                    <div className="relative">
+                      <Input
+                        type={showPasskeyFields.confirm ? 'text' : 'password'}
+                        placeholder="Confirm passkey"
+                        value={passkeyForm.confirm}
+                        onChange={(e) => {
+                          setPasskeyForm({ ...passkeyForm, confirm: e.target.value })
+                          setPasskeyError('')
+                        }}
+                        disabled={savingPasskey}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        onClick={() => setShowPasskeyFields({ ...showPasskeyFields, confirm: !showPasskeyFields.confirm })}
+                      >
+                        {showPasskeyFields.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {passkeyError && (
+                    <p className="text-sm text-destructive">{passkeyError}</p>
+                  )}
+
+                  {passkeySuccess && (
+                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="h-4 w-4" />
+                      {passkeySuccess}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSetPasskey}
+                      disabled={savingPasskey || !passkeyForm.new || !passkeyForm.confirm}
+                    >
+                      {savingPasskey && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {hasPasskey ? 'Change Passkey' : 'Set Passkey'}
+                    </Button>
+                    {hasPasskey && (
+                      <Button
+                        variant="destructive"
+                        onClick={handleRemovePasskey}
+                        disabled={savingPasskey || !passkeyForm.current}
+                      >
+                        {savingPasskey && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Remove Passkey
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

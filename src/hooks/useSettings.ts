@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { appSettings } from '@/lib/firestore'
 import { AppSettings, AppSettingsInput, GeminiModel } from '@/types'
+import { hashPasskey } from '@/lib/passkey'
 
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -71,6 +72,18 @@ export function useSettings() {
     [updateSettings]
   )
 
+  const setVaultPasskey = useCallback(
+    async (passkey: string) => {
+      const hashed = await hashPasskey(passkey)
+      await updateSettings({ vaultPasskey: hashed })
+    },
+    [updateSettings]
+  )
+
+  const removeVaultPasskey = useCallback(async () => {
+    await updateSettings({ vaultPasskey: null })
+  }, [updateSettings])
+
   return {
     settings,
     loading,
@@ -80,6 +93,8 @@ export function useSettings() {
     setAIModel,
     setAIEnabled,
     setThinkingTimePercent,
+    setVaultPasskey,
+    removeVaultPasskey,
     refreshSettings: loadSettings,
   }
 }
