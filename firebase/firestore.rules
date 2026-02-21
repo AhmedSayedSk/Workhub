@@ -90,5 +90,10 @@ service cloud.firestore {
     match /projectLogs/{logId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Team Members collection
+    match /members/{memberId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

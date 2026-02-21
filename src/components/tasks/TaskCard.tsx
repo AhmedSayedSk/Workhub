@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Task, Feature, Priority, TaskType } from '@/types'
+import { Task, Feature, Priority, TaskType, Member } from '@/types'
 import { taskTypeLabels } from '@/lib/utils'
 import {
   Clock,
@@ -20,7 +20,10 @@ import {
   Hourglass,
   Pause,
   Play,
+  UserPlus,
 } from 'lucide-react'
+import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
+import { AssigneeSelect } from '@/components/members/AssigneeSelect'
 import { format } from 'date-fns'
 
 const priorityBorderColors: Record<Priority, string | null> = {
@@ -43,13 +46,16 @@ interface TaskCardProps {
   feature?: Feature
   subtaskCount?: { total: number; completed: number }
   commentCount?: number
+  assignees?: Member[]
+  allMembers?: Member[]
+  onAssigneeChange?: (ids: string[]) => void
   onClick: () => void
   onArchive: () => void
   onSetWaiting?: () => void
   onRemoveWaiting?: () => void
 }
 
-export function TaskCard({ task, feature, subtaskCount, commentCount, onClick, onArchive, onSetWaiting, onRemoveWaiting }: TaskCardProps) {
+export function TaskCard({ task, feature, subtaskCount, commentCount, assignees, allMembers, onAssigneeChange, onClick, onArchive, onSetWaiting, onRemoveWaiting }: TaskCardProps) {
   const taskType = task.taskType || 'task'
   const priority = task.priority || 'low'
   const borderColor = priorityBorderColors[priority] || undefined
@@ -147,30 +153,56 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, onClick, o
           </DropdownMenu>
         </div>
 
-        {(task.estimatedHours > 0 || hasSubtasks || hasComments) && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {task.estimatedHours > 0 && (
-              <div className="flex items-center">
-                <Clock className="h-3 w-3 mr-1" />
-                {task.estimatedHours}h
-              </div>
-            )}
+        {(task.estimatedHours > 0 || hasSubtasks || hasComments || (assignees && assignees.length > 0) || (allMembers && onAssigneeChange)) && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-3">
+              {task.estimatedHours > 0 && (
+                <div className="flex items-center">
+                  <Clock className="h-3 w-3 mr-1" />
+                  {task.estimatedHours}h
+                </div>
+              )}
 
-            {hasSubtasks && (
-              <div className="flex items-center" title={`${subtaskCount.completed}/${subtaskCount.total} subtasks completed`}>
-                <CheckSquare className="h-3 w-3 mr-1" />
-                <span className={subtaskCount.completed === subtaskCount.total ? 'text-green-600 dark:text-green-400' : ''}>
-                  {subtaskCount.completed}/{subtaskCount.total}
-                </span>
-              </div>
-            )}
+              {hasSubtasks && (
+                <div className="flex items-center" title={`${subtaskCount.completed}/${subtaskCount.total} subtasks completed`}>
+                  <CheckSquare className="h-3 w-3 mr-1" />
+                  <span className={subtaskCount.completed === subtaskCount.total ? 'text-green-600 dark:text-green-400' : ''}>
+                    {subtaskCount.completed}/{subtaskCount.total}
+                  </span>
+                </div>
+              )}
 
-            {hasComments && (
-              <div className="flex items-center text-blue-500" title={`${commentCount} comment${commentCount > 1 ? 's' : ''}`}>
-                <MessageSquare className="h-3 w-3 mr-1" />
-                {commentCount}
+              {hasComments && (
+                <div className="flex items-center text-blue-500" title={`${commentCount} comment${commentCount > 1 ? 's' : ''}`}>
+                  <MessageSquare className="h-3 w-3 mr-1" />
+                  {commentCount}
+                </div>
+              )}
+            </div>
+
+            {/* Assignee avatars / quick-assign */}
+            {allMembers && onAssigneeChange ? (
+              <div onClick={(e) => e.stopPropagation()}>
+                <AssigneeSelect
+                  members={allMembers}
+                  selectedIds={task.assigneeIds || []}
+                  onChange={onAssigneeChange}
+                  trigger={
+                    assignees && assignees.length > 0 ? (
+                      <button className="hover:opacity-80 transition-opacity">
+                        <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                      </button>
+                    ) : (
+                      <button className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-muted-foreground/40 hover:border-muted-foreground transition-colors">
+                        <UserPlus className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    )
+                  }
+                />
               </div>
-            )}
+            ) : assignees && assignees.length > 0 ? (
+              <MemberAvatarGroup members={assignees} max={3} size="sm" />
+            ) : null}
           </div>
         )}
 

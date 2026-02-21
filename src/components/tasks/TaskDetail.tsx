@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Task, Subtask, TaskStatus, TaskType, Priority, Feature, TaskInput, CommentParentType } from '@/types'
+import { Task, Subtask, TaskStatus, TaskType, Priority, Feature, TaskInput, CommentParentType, Member } from '@/types'
 import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels, formatDuration } from '@/lib/utils'
 import { useSubtasks } from '@/hooks/useTasks'
@@ -56,6 +56,8 @@ import {
   Pause,
 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { MemberAvatar } from '@/components/members/MemberAvatar'
+import { AssigneeSelect } from '@/components/members/AssigneeSelect'
 
 function formatRelativeTime(timestamp: { toDate: () => Date }): string {
   const now = new Date()
@@ -285,6 +287,7 @@ interface TaskDetailProps {
   projectId: string
   projectName: string
   features: Feature[]
+  allMembers?: Member[]
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
@@ -299,6 +302,7 @@ export function TaskDetail({
   projectId,
   projectName,
   features,
+  allMembers,
   open,
   onOpenChange,
   onUpdateTask,
@@ -681,6 +685,42 @@ export function TaskDetail({
                   </Select>
                 )}
               </div>
+
+              {/* Assignees */}
+              {allMembers && allMembers.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignees</Label>
+                  <div className="space-y-2">
+                    {(task.assigneeIds || []).length > 0 && (
+                      <div className="space-y-1.5">
+                        {(task.assigneeIds || []).map((id) => {
+                          const member = allMembers.find((m) => m.id === id)
+                          if (!member) return null
+                          return (
+                            <div key={id} className="flex items-center gap-2">
+                              <MemberAvatar member={member} size="sm" />
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium truncate">{member.name}</div>
+                                {member.role && <div className="text-xs text-muted-foreground truncate">{member.role}</div>}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <AssigneeSelect
+                      members={allMembers}
+                      selectedIds={task.assigneeIds || []}
+                      onChange={(ids) => onUpdateTask(task.id, { assigneeIds: ids })}
+                      trigger={
+                        <Button variant="outline" size="sm" className="w-full text-xs">
+                          {(task.assigneeIds || []).length > 0 ? 'Edit Assignees' : 'Assign Members'}
+                        </Button>
+                      }
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Feature */}
               {features.length > 0 && (

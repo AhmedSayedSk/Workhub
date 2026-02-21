@@ -479,8 +479,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     <div className="flex flex-col gap-5 lg:h-[calc(100vh-7rem)] lg:overflow-hidden">
       {/* Header */}
       <div className="flex items-start justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <Link href={parentProject ? `/projects/${parentProject.id}` : '/projects'}>
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+          <Link href={parentProject ? `/projects/${parentProject.id}` : '/projects'} className="shrink-0">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -490,7 +490,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             name={project.name}
             size="lg"
           />
-          <div>
+          <div className="min-w-0">
             {/* Breadcrumb for sub-projects */}
             {parentProject && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-0.5">
@@ -511,7 +511,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               )}
             </div>
             <div className="flex items-center gap-2">
-              <p className="text-muted-foreground truncate max-w-2xl" title={project.description}>{project.description}</p>
+              <p className="text-muted-foreground truncate">{project.description}</p>
               {parentProject && !project.hasOwnFinances && (
                 <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-0 shrink-0">
                   <Link2 className="h-3 w-3 mr-1" />

@@ -118,6 +118,7 @@ export interface Task {
   waitingReason?: string
   deadline?: Timestamp | null
   doneAt?: Timestamp
+  assigneeIds?: string[]
   createdAt: Timestamp
 }
 
@@ -236,6 +237,7 @@ export interface TaskInput {
   waitingReason?: string
   deadline?: Timestamp | null
   doneAt?: Timestamp | null
+  assigneeIds?: string[]
 }
 
 export interface SubtaskInput {
@@ -464,6 +466,7 @@ export interface VaultEntry {
   projectId: string
   type: VaultEntryType
   label: string
+  key?: string // For password type: identifier/key name (e.g., API_KEY, DB_HOST)
   value: string // For text/password: the content. For file: the file URL
   fileName?: string // For file type: original file name
   fileSize?: number // For file type: file size in bytes
@@ -476,6 +479,7 @@ export interface VaultEntryInput {
   projectId: string
   type: VaultEntryType
   label: string
+  key?: string
   value: string
   fileName?: string
   fileSize?: number
@@ -497,4 +501,25 @@ export interface ProjectLog {
   action: ProjectLogAction
   changes: ProjectLogChange[]
   createdAt: Timestamp
+}
+
+// Team Member types
+export interface Member {
+  id: string
+  name: string
+  role: string
+  email: string
+  phone: string
+  avatarUrl: string | null
+  color: string
+  createdAt: Timestamp
+}
+
+export interface MemberInput {
+  name: string
+  role: string
+  email: string
+  phone: string
+  avatarUrl: string | null
+  color: string
 }

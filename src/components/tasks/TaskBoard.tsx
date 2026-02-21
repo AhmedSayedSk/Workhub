@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Task, TaskStatus, TaskType, Priority, Feature, TaskInput } from '@/types'
+import { Task, TaskStatus, TaskType, Priority, Feature, TaskInput, Member } from '@/types'
 import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -29,6 +29,7 @@ import { Plus, Loader2 } from 'lucide-react'
 import { TaskCard } from './TaskCard'
 import { useSubtaskCounts } from '@/hooks/useTasks'
 import { useCommentCounts } from '@/hooks/useComments'
+import { AssigneeSelect } from '@/components/members/AssigneeSelect'
 
 const columns: { id: TaskStatus; title: string; borderColor: string; headerText: string }[] = [
   { id: 'todo', title: 'To Do', borderColor: 'border-slate-300', headerText: 'text-slate-600 dark:text-slate-400' },
@@ -41,6 +42,7 @@ interface TaskBoardProps {
   tasks: Task[]
   features: Feature[]
   projectId: string
+  allMembers?: Member[]
   selectedFeatureId?: string | null
   onCreateTask: (task: TaskInput) => Promise<void>
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
@@ -57,6 +59,7 @@ export function TaskBoard({
   tasks,
   features,
   projectId,
+  allMembers,
   selectedFeatureId,
   onCreateTask,
   onUpdateTask,
@@ -79,6 +82,7 @@ export function TaskBoard({
     priority: 'medium' as Priority,
     estimatedHours: '',
     deadline: null as Date | null,
+    assigneeIds: [] as string[],
   })
 
   // Drag and drop state
@@ -91,6 +95,13 @@ export function TaskBoard({
   const taskIds = useMemo(() => tasks.map(t => t.id), [tasks])
   const { counts: subtaskCounts } = useSubtaskCounts(taskIds, refreshKey)
   const { counts: commentCounts } = useCommentCounts(taskIds, 'task', refreshKey)
+
+  // Build membersMap for efficient lookup
+  const membersMap = useMemo(() => {
+    const map = new Map<string, Member>()
+    allMembers?.forEach((m) => map.set(m.id, m))
+    return map
+  }, [allMembers])
 
   // Pre-select feature when dialog opens if a feature is selected
   useEffect(() => {
@@ -131,6 +142,7 @@ export function TaskBoard({
         priority: formData.priority,
         estimatedHours: parseFloat(formData.estimatedHours) || 0,
         deadline: formData.deadline ? Timestamp.fromDate(formData.deadline) : null,
+        assigneeIds: formData.assigneeIds,
       })
       setFormData({
         name: '',
@@ -140,6 +152,7 @@ export function TaskBoard({
         priority: 'medium',
         estimatedHours: '',
         deadline: null,
+        assigneeIds: [],
       })
       setIsCreateOpen(false)
     } finally {
@@ -298,6 +311,7 @@ export function TaskBoard({
       priority: 'medium',
       estimatedHours: '',
       deadline: null,
+      assigneeIds: [],
     })
     setIsCreateOpen(true)
   }
@@ -370,6 +384,9 @@ export function TaskBoard({
                           feature={features.find((f) => f.id === task.featureId)}
                           subtaskCount={subtaskCounts[task.id]}
                           commentCount={commentCounts[task.id] || 0}
+                          assignees={(task.assigneeIds || []).map((id) => membersMap.get(id)).filter(Boolean) as Member[]}
+                          allMembers={allMembers}
+                          onAssigneeChange={allMembers ? (ids) => onUpdateTask(task.id, { assigneeIds: ids }) : undefined}
                           onClick={() => onSelectTask(task)}
                           onArchive={() => onArchiveTask(task.id)}
                           onSetWaiting={onSetTaskWaiting ? () => onSetTaskWaiting(task.id) : undefined}
@@ -532,6 +549,25 @@ export function TaskBoard({
                   className="h-9"
                 />
               </div>
+
+              {/* Assignees */}
+              {allMembers && allMembers.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignees</Label>
+                  <AssigneeSelect
+                    members={allMembers}
+                    selectedIds={formData.assigneeIds}
+                    onChange={(ids) => setFormData({ ...formData, assigneeIds: ids })}
+                    trigger={
+                      <Button variant="outline" size="sm" className="w-full h-9 text-xs">
+                        {formData.assigneeIds.length > 0
+                          ? `${formData.assigneeIds.length} assigned`
+                          : 'Assign members'}
+                      </Button>
+                    }
+                  />
+                </div>
+              )}
             </div>
           </div>
 

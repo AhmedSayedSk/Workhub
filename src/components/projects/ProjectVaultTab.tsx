@@ -57,6 +57,8 @@ import {
   Paperclip,
 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
+import { detectBrand } from '@/lib/brand-icons'
+import { BrandIcon } from '@/components/vault/BrandIcon'
 
 interface ProjectVaultTabProps {
   projectId: string
@@ -98,6 +100,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
   const [formData, setFormData] = useState({
     type: 'text' as VaultEntryType,
     label: '',
+    key: '',
     value: '',
   })
 
@@ -105,6 +108,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
     setFormData({
       type: 'text',
       label: '',
+      key: '',
       value: '',
     })
   }
@@ -164,6 +168,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
       await createEntry({
         type: formData.type,
         label: formData.label,
+        ...(formData.type === 'password' && formData.key.trim() ? { key: formData.key.trim() } : {}),
         value: formData.value,
       })
       setIsAddDialogOpen(false)
@@ -178,6 +183,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
     setFormData({
       type: entry.type,
       label: entry.label,
+      key: entry.key || '',
       value: entry.value,
     })
     setIsEditDialogOpen(true)
@@ -190,6 +196,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
     try {
       await updateEntry(selectedEntry.id, {
         label: formData.label,
+        ...(selectedEntry.type === 'password' ? { key: formData.key.trim() || undefined } : {}),
         value: formData.value,
       })
       setIsEditDialogOpen(false)
@@ -336,6 +343,13 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
                 const config = entryTypeConfig[entry.type]
                 const Icon = config.icon
                 const isPasswordVisible = visiblePasswords.has(entry.id)
+                const brand = detectBrand(entry.label)
+
+                const defaultIcon = (
+                  <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0', config.color)}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                )
 
                 return (
                   <div
@@ -343,9 +357,11 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
                     className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
                   >
                     {/* Icon */}
-                    <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0', config.color)}>
-                      <Icon className="h-5 w-5" />
-                    </div>
+                    {brand ? (
+                      <BrandIcon brand={brand} fallback={defaultIcon} />
+                    ) : (
+                      defaultIcon
+                    )}
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
@@ -363,34 +379,56 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
                       )}
 
                       {entry.type === 'password' && (
-                        <div className="flex items-center gap-2">
-                          <code className="text-sm bg-muted px-2 py-1 rounded font-mono">
-                            {isPasswordVisible ? entry.value : '••••••••••••'}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => togglePasswordVisibility(entry.id)}
-                          >
-                            {isPasswordVisible ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => copyToClipboard(entry.id, entry.value)}
-                          >
-                            {copiedId === entry.id ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
+                        <div className="space-y-1.5">
+                          {entry.key && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">Key:</span>
+                              <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                                {entry.key}
+                              </code>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => copyToClipboard(`${entry.id}-key`, entry.key!)}
+                              >
+                                {copiedId === `${entry.id}-key` ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <code className="text-sm bg-muted px-2 py-1 rounded font-mono">
+                              {isPasswordVisible ? entry.value : '••••••••••••'}
+                            </code>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => togglePasswordVisibility(entry.id)}
+                            >
+                              {isPasswordVisible ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => copyToClipboard(entry.id, entry.value)}
+                            >
+                              {copiedId === entry.id ? (
+                                <Check className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       )}
 
@@ -476,6 +514,16 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
                 onChange={(e) => setFormData({ ...formData, label: e.target.value })}
               />
             </div>
+            {formData.type === 'password' && (
+              <div className="space-y-2">
+                <Label>Key</Label>
+                <Input
+                  placeholder="e.g., API_KEY, DB_PASSWORD"
+                  value={formData.key}
+                  onChange={(e) => setFormData({ ...formData, key: e.target.value })}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>{formData.type === 'password' ? 'Value *' : 'Content *'}</Label>
               {formData.type === 'password' ? (
@@ -525,6 +573,16 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
                 onChange={(e) => setFormData({ ...formData, label: e.target.value })}
               />
             </div>
+            {formData.type === 'password' && (
+              <div className="space-y-2">
+                <Label>Key</Label>
+                <Input
+                  placeholder="e.g., API_KEY, DB_PASSWORD"
+                  value={formData.key}
+                  onChange={(e) => setFormData({ ...formData, key: e.target.value })}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>{formData.type === 'password' ? 'Value *' : 'Content *'}</Label>
               {formData.type === 'password' ? (

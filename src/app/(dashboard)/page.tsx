@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { projects, tasks, timeEntries, milestones, monthlyPayments } from '@/lib/firestore'
-import { Project, Task, TimeEntry, Milestone, MonthlyPayment, TaskType } from '@/types'
+import { projects, tasks, timeEntries, milestones, monthlyPayments, members as membersApi } from '@/lib/firestore'
+import { Project, Task, TimeEntry, Milestone, MonthlyPayment, TaskType, Member } from '@/types'
 import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime } from '@/lib/utils'
 
 const taskTypeBorderColors: Record<TaskType, string> = {
@@ -66,6 +66,7 @@ import Link from 'next/link'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, differenceInDays, format } from 'date-fns'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { ProjectIncomeChart } from '@/components/charts/ProjectIncomeChart'
+import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
 import { useSettings } from '@/hooks/useSettings'
 
 export default function DashboardPage() {
@@ -80,6 +81,7 @@ export default function DashboardPage() {
   const [projectsMap, setProjectsMap] = useState<Record<string, Project>>({})
   const [allMilestones, setAllMilestones] = useState<Milestone[]>([])
   const [allPayments, setAllPayments] = useState<MonthlyPayment[]>([])
+  const [membersMap, setMembersMap] = useState<Record<string, Member>>({})
   const [showIncomeChart, setShowIncomeChart] = useState(false)
   const [loading, setLoading] = useState(true)
   const { settings } = useSettings()
@@ -91,13 +93,14 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const [projectsData, todoData, inProgressData, allProjects, milestonesData, paymentsData] = await Promise.all([
+      const [projectsData, todoData, inProgressData, allProjects, milestonesData, paymentsData, membersData] = await Promise.all([
         projects.getByStatus('active'),
         tasks.getByStatus('todo'),
         tasks.getByStatus('in_progress'),
         projects.getAll(),
         milestones.getAll(),
         monthlyPayments.getAll(),
+        membersApi.getAll(),
       ])
 
       const now = new Date()
@@ -119,6 +122,12 @@ export default function DashboardPage() {
         projMap[p.id] = p
       })
       setProjectsMap(projMap)
+
+      const memMap: Record<string, Member> = {}
+      membersData.forEach((m) => {
+        memMap[m.id] = m
+      })
+      setMembersMap(memMap)
 
       // Filter out sub-projects from dashboard display
       const topLevelActive = projectsData.filter((p: Project) => !p.parentProjectId)
@@ -485,6 +494,7 @@ export default function DashboardPage() {
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
                         const deadlineInfo = getDeadlineInfo(task, project)
+                        const assignees = (task.assigneeIds || []).map((id) => membersMap[id]).filter(Boolean)
                         return (
                           <Link
                             key={task.id}
@@ -503,6 +513,9 @@ export default function DashboardPage() {
                                 />
                               )}
                               <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                              {assignees.length > 0 && (
+                                <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                              )}
                               {deadlineInfo && (
                                 <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
                                   <CalendarDays className="h-3 w-3" />
@@ -537,6 +550,7 @@ export default function DashboardPage() {
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
                         const deadlineInfo = getDeadlineInfo(task, project)
+                        const assignees = (task.assigneeIds || []).map((id) => membersMap[id]).filter(Boolean)
                         return (
                           <Link
                             key={task.id}
@@ -555,6 +569,9 @@ export default function DashboardPage() {
                                 />
                               )}
                               <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                              {assignees.length > 0 && (
+                                <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                              )}
                               {deadlineInfo && (
                                 <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
                                   <CalendarDays className="h-3 w-3" />

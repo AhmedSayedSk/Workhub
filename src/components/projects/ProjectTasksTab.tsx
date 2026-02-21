@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { useFeatures, useTasks } from '@/hooks/useTasks'
+import { useMembers } from '@/hooks/useMembers'
 import { Task, TaskInput, FeatureInput, TaskStatus } from '@/types'
 import { FeatureList } from '@/components/features/FeatureList'
 import { TaskBoard } from '@/components/tasks/TaskBoard'
@@ -34,6 +35,8 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
     updateFeature,
     deleteFeature,
   } = useFeatures(projectId)
+
+  const { members: allMembers } = useMembers()
 
   const {
     tasks,
@@ -193,6 +196,7 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
           tasks={filteredTasks}
           features={features}
           projectId={projectId}
+          allMembers={allMembers}
           selectedFeatureId={selectedFeatureId}
           onCreateTask={handleCreateTask}
           onUpdateTask={handleUpdateTask}
@@ -212,6 +216,7 @@ export function ProjectTasksTab({ projectId, projectName }: ProjectTasksTabProps
         projectId={projectId}
         projectName={projectName}
         features={features}
+        allMembers={allMembers}
         open={!!selectedTask}
         onOpenChange={handleCloseTaskDetail}
         onUpdateTask={handleUpdateTask}

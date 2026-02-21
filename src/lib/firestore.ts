@@ -47,6 +47,8 @@ import {
   ProjectLog,
   ProjectLogAction,
   ProjectLogChange,
+  Member,
+  MemberInput,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -601,6 +603,47 @@ export const appSettings = {
         updatedAt: Timestamp.now(),
       })
     }
+  },
+}
+
+// Members
+export const members = {
+  async getAll(): Promise<Member[]> {
+    return getAll<Member>('members', orderBy('createdAt', 'desc'))
+  },
+
+  async getById(id: string): Promise<Member | null> {
+    return getById<Member>('members', id)
+  },
+
+  async getByIds(ids: string[]): Promise<Member[]> {
+    if (ids.length === 0) return []
+
+    const results: Member[] = []
+    const batchSize = 30
+
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batch = ids.slice(i, i + batchSize)
+      const batchResults = await getAll<Member>(
+        'members',
+        where('__name__', 'in', batch)
+      )
+      results.push(...batchResults)
+    }
+
+    return results
+  },
+
+  async create(data: MemberInput): Promise<string> {
+    return create('members', data)
+  },
+
+  async update(id: string, data: Partial<MemberInput>): Promise<void> {
+    return update('members', id, data)
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('members', id)
   },
 }
 

@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Sparkles,
   FolderOpen,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -21,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 const mainNavItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
+  { href: '/team', label: 'Team', icon: Users },
   { href: '/time', label: 'Time Tracking', icon: Clock },
   { href: '/finances', label: 'Finances', icon: Wallet },
 ]
@@ -45,7 +47,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         collapsed ? 'w-16' : 'w-64'
       )}
     >
-      <div className="flex h-full flex-col w-64">
+      <div className={cn("flex h-full flex-col transition-[width] duration-300 ease-in-out", collapsed ? "w-16" : "w-64")}>
         {/* Logo */}
         <div className="flex h-16 items-center border-b px-4">
           <Link href="/" className="flex items-center gap-2">
@@ -168,7 +170,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </nav>
 
         {/* Settings & Collapse */}
-        <div className="border-t p-2 space-y-1">
+        <div className="border-t p-2 space-y-1 overflow-hidden">
           {collapsed ? (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
@@ -201,27 +203,38 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </Link>
           )}
 
-          <Button
-            variant="ghost"
-            onClick={onToggle}
-            className="w-full justify-start gap-3"
-          >
-            <span className="flex-shrink-0">
-              {collapsed ? (
-                <ChevronRight className="h-5 w-5" />
-              ) : (
-                <ChevronLeft className="h-5 w-5" />
-              )}
-            </span>
-            <span
-              className={cn(
-                'whitespace-nowrap transition-opacity duration-200',
-                collapsed ? 'opacity-0' : 'opacity-100 delay-100'
-              )}
+          {collapsed ? (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  onClick={onToggle}
+                  className="w-full justify-start gap-3"
+                >
+                  <span className="flex-shrink-0">
+                    <ChevronRight className="h-5 w-5" />
+                  </span>
+                  <span className="whitespace-nowrap opacity-0">Expand</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10}>
+                Expand
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={onToggle}
+              className="w-full justify-start gap-3"
             >
-              Collapse
-            </span>
-          </Button>
+              <span className="flex-shrink-0">
+                <ChevronLeft className="h-5 w-5" />
+              </span>
+              <span className="whitespace-nowrap transition-opacity duration-200 opacity-100 delay-100">
+                Collapse
+              </span>
+            </Button>
+          )}
         </div>
       </div>
     </aside>
