@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useProjectVault } from '@/hooks/useProjectVault'
 import { useAuth } from '@/hooks/useAuth'
 import { VaultEntry, VaultEntryType } from '@/types'
@@ -84,6 +84,29 @@ const entryTypeConfig: Record<VaultEntryType, { label: string; icon: typeof File
     icon: Paperclip,
     color: 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/20',
   },
+}
+
+const URL_REGEX = /(https?:\/\/[^\s]+)/
+
+function linkifyText(text: string): React.ReactNode[] {
+  const parts = text.split(URL_REGEX)
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline underline-offset-2 hover:text-primary/80 break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      )
+    }
+    return part ? <span key={i}>{part}</span> : null
+  })
 }
 
 const VAULT_SESSION_DURATION = 5 * 60 * 1000 // 5 minutes
@@ -458,7 +481,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
 
                       {entry.type === 'text' && (
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">
-                          {entry.value}
+                          {linkifyText(entry.value)}
                         </p>
                       )}
 

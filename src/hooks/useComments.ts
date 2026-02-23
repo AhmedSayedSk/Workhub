@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { taskComments } from '@/lib/firestore'
 import { TaskComment, TaskCommentInput, CommentParentType } from '@/types'
+import { deleteFile } from '@/lib/storage'
 import { useToast } from './useToast'
 
 export function useComments(parentId?: string, parentType?: CommentParentType) {
@@ -45,12 +46,19 @@ export function useComments(parentId?: string, parentType?: CommentParentType) {
     }
   }
 
-  const deleteComment = async (id: string) => {
+  const deleteComment = async (id: string, audioStoragePath?: string) => {
     const previousData = data
     setData((prev) => prev.filter((c) => c.id !== id))
 
     try {
       await taskComments.delete(id)
+      if (audioStoragePath) {
+        try {
+          await deleteFile(audioStoragePath)
+        } catch {
+          // Audio file may already be deleted — not critical
+        }
+      }
     } catch {
       setData(previousData)
       toast({ title: 'Error', description: 'Failed to delete comment', variant: 'destructive' })

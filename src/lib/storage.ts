@@ -417,6 +417,34 @@ export async function uploadFileWithOptimization(
   return { url, optimized, originalSize, newSize }
 }
 
+export async function uploadBlob(
+  blob: Blob,
+  storagePath: string,
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  const storageRef = ref(storage, storagePath)
+  const uploadTask = uploadBytesResumable(storageRef, blob)
+
+  return new Promise((resolve, reject) => {
+    uploadTask.on(
+      'state_changed',
+      (snapshot: UploadTaskSnapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+        onProgress?.(progress)
+      },
+      reject,
+      async () => {
+        try {
+          const url = await getDownloadURL(uploadTask.snapshot.ref)
+          resolve(url)
+        } catch (error) {
+          reject(error)
+        }
+      }
+    )
+  })
+}
+
 export async function deleteFile(storagePath: string): Promise<void> {
   const storageRef = ref(storage, storagePath)
   await deleteObject(storageRef)

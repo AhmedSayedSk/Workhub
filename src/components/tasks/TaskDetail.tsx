@@ -34,11 +34,14 @@ import { Separator } from '@/components/ui/separator'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Task, Subtask, TaskStatus, TaskType, Priority, Feature, TaskInput, CommentParentType, Member } from '@/types'
 import { Timestamp } from 'firebase/firestore'
-import { taskTypeLabels, formatDuration } from '@/lib/utils'
+import { cn, taskTypeLabels, formatDuration } from '@/lib/utils'
 import { useSubtasks } from '@/hooks/useTasks'
 import { useComments } from '@/hooks/useComments'
 import { useTimerStore } from '@/store/timerStore'
 import { useAuth } from '@/hooks/useAuth'
+import { AudioRecorder } from '@/components/ui/audio-recorder'
+import { AudioPlayer } from '@/components/ui/audio-player'
+import { uploadBlob } from '@/lib/storage'
 import {
   Plus,
   Play,
@@ -87,6 +90,8 @@ function CommentSection({
   const { user } = useAuth()
   const { comments, addComment, deleteComment } = useComments(parentId, parentType)
   const [newComment, setNewComment] = useState('')
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false)
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
 
   const handleSubmit = async () => {
     if (!newComment.trim() || !user) return
@@ -101,42 +106,94 @@ function CommentSection({
     onDataChanged?.()
   }
 
+  const handleRecordingComplete = async (blob: Blob, durationSecs: number) => {
+    if (!user) return
+    setIsUploadingAudio(true)
+    try {
+      const commentId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+      const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
+      const storagePath = `comments/${user.uid}/${commentId}.${ext}`
+      const audioUrl = await uploadBlob(blob, storagePath)
+      await addComment({
+        parentId,
+        parentType,
+        text: '',
+        authorId: user.uid,
+        authorName: user.displayName || user.email || 'Unknown',
+        audioUrl,
+        audioDuration: durationSecs,
+      })
+      onDataChanged?.()
+    } catch {
+      // Error handled by hook toast
+    } finally {
+      setIsUploadingAudio(false)
+    }
+  }
+
+  const getAudioStoragePath = (comment: { audioUrl?: string | null; authorId: string }) => {
+    if (!comment.audioUrl) return undefined
+    // Extract storage path from the download URL
+    try {
+      const url = new URL(comment.audioUrl)
+      const encoded = url.pathname.split('/o/')[1]?.split('?')[0]
+      return encoded ? decodeURIComponent(encoded) : undefined
+    } catch {
+      return undefined
+    }
+  }
+
   return (
     <div className="space-y-2">
       {/* Comment list */}
       {comments.length > 0 && (
         <div className="space-y-2">
-          {comments.map((comment) => (
-            <div
-              key={comment.id}
-              className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 text-sm group"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-xs">{comment.authorName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatRelativeTime(comment.createdAt)}
-                  </span>
+          {comments.map((comment) => {
+            const isVoiceOnly = !!comment.audioUrl && !comment.text
+            return (
+              <div
+                key={comment.id}
+                className={cn(
+                  'flex items-start gap-3 rounded-lg bg-muted/30 text-sm group',
+                  isVoiceOnly ? 'px-3 py-2 items-center' : 'p-4'
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-xs">{comment.authorName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatRelativeTime(comment.createdAt)}
+                    </span>
+                  </div>
+                  {comment.audioUrl && (
+                    <AudioPlayer
+                      src={comment.audioUrl}
+                      duration={comment.audioDuration}
+                      className={comment.text ? 'mt-1' : 'mt-0.5'}
+                    />
+                  )}
+                  {comment.text && (
+                    <p className="mt-0.5 whitespace-pre-wrap break-words">{comment.text}</p>
+                  )}
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words">{comment.text}</p>
+                {user && comment.authorId === user.uid && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    onClick={() => setDeletingCommentId(comment.id)}
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                )}
               </div>
-              {user && comment.authorId === user.uid && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  onClick={() => { deleteComment(comment.id); onDataChanged?.() }}
-                >
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       {/* Comment input */}
-      <div className="flex items-end gap-2">
+      <div className="flex items-center gap-2">
         <Textarea
           placeholder="Add a comment... (Shift+Enter for new line)"
           value={newComment}
@@ -150,16 +207,52 @@ function CommentSection({
           className="flex-1 min-h-[40px] max-h-[160px] text-sm resize-none"
           rows={2}
         />
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-9 w-9 shrink-0"
-          disabled={!newComment.trim()}
-          onClick={handleSubmit}
-        >
-          <Send className="h-4 w-4" />
-        </Button>
+        <AudioRecorder
+          onRecordingComplete={handleRecordingComplete}
+          disabled={isUploadingAudio}
+        />
+        {isUploadingAudio ? (
+          <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" disabled>
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </Button>
+        ) : (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-9 w-9 shrink-0"
+            disabled={!newComment.trim()}
+            onClick={handleSubmit}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        )}
       </div>
+
+      <AlertDialog open={!!deletingCommentId} onOpenChange={(open) => { if (!open) setDeletingCommentId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (!deletingCommentId) return
+                const comment = comments.find((c) => c.id === deletingCommentId)
+                deleteComment(deletingCommentId, comment ? getAudioStoragePath(comment) : undefined)
+                onDataChanged?.()
+                setDeletingCommentId(null)
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

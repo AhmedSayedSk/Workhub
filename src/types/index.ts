@@ -138,6 +138,8 @@ export interface TaskComment {
   text: string
   authorId: string
   authorName: string
+  audioUrl?: string | null
+  audioDuration?: number // seconds
   createdAt: Timestamp
 }
 
@@ -253,6 +255,8 @@ export interface TaskCommentInput {
   text: string
   authorId: string
   authorName: string
+  audioUrl?: string | null
+  audioDuration?: number
 }
 
 export interface TimeEntryInput {

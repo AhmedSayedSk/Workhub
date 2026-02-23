@@ -28,5 +28,12 @@ service firebase.storage {
       // Allow delete if authenticated and is owner
       allow delete: if isAuthenticated() && isOwner(userId);
     }
+
+    // Voice comment audio files
+    match /comments/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isOwner(userId) && isValidSize();
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
   }
 }
