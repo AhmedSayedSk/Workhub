@@ -16,16 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   FileGrid,
   FilePreview,
@@ -501,60 +492,39 @@ export default function MediaPage() {
       />
 
       {/* Delete confirmation */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete {selectedFolder ? 'Folder' : 'File'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedFolder ? (
-                <>
-                  Are you sure you want to delete the folder &quot;{selectedFolder.name}&quot;?
-                  This will also delete all files and subfolders inside it.
-                  This action cannot be undone.
-                </>
-              ) : (
-                <>
-                  Are you sure you want to delete &quot;{selectedFile?.displayName}&quot;?
-                  This action cannot be undone.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={selectedFolder ? handleDeleteFolder : handleDeleteFile}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title={`Delete ${selectedFolder ? 'Folder' : 'File'}`}
+        description={
+          selectedFolder ? (
+            <>
+              Are you sure you want to delete the folder &quot;{selectedFolder.name}&quot;?
+              This will also delete all files and subfolders inside it.
+              This action cannot be undone.
+            </>
+          ) : (
+            <>
+              Are you sure you want to delete &quot;{selectedFile?.displayName}&quot;?
+              This action cannot be undone.
+            </>
+          )
+        }
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={selectedFolder ? handleDeleteFolder : handleDeleteFile}
+      />
 
       {/* Bulk delete confirmation */}
-      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedFiles.size} files</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {selectedFiles.size} selected files?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleBulkDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete {selectedFiles.size} files
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={isBulkDeleteDialogOpen}
+        onOpenChange={setIsBulkDeleteDialogOpen}
+        title={`Delete ${selectedFiles.size} files`}
+        description={`Are you sure you want to delete ${selectedFiles.size} selected files? This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedFiles.size} files`}
+        variant="destructive"
+        onConfirm={handleBulkDelete}
+      />
     </div>
   )
 }

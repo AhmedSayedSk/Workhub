@@ -8,16 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Task, Feature, TaskType, Priority } from '@/types'
 import { RotateCcw, Trash2, AlertOctagon, ChevronUp, Minus, ChevronDown } from 'lucide-react'
@@ -153,27 +144,15 @@ export function TaskArchive({
       </Dialog>
 
       {/* Permanent Delete Confirmation */}
-      <AlertDialog open={!!deletingTaskId} onOpenChange={(open) => !open && setDeletingTaskId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Task Permanently</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to permanently delete &quot;{deletingTask?.name}&quot;?
-              This will also delete all subtasks, comments, and time entries.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handlePermanentDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete Permanently
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deletingTaskId}
+        onOpenChange={(open) => !open && setDeletingTaskId(null)}
+        title="Delete Task Permanently"
+        description={`Are you sure you want to permanently delete "${deletingTask?.name}"? This will also delete all subtasks, comments, and time entries. This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        variant="destructive"
+        onConfirm={handlePermanentDelete}
+      />
     </>
   )
 }

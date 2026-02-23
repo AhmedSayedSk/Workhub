@@ -7,16 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -228,31 +219,21 @@ function CommentSection({
         )}
       </div>
 
-      <AlertDialog open={!!deletingCommentId} onOpenChange={(open) => { if (!open) setDeletingCommentId(null) }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete comment?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (!deletingCommentId) return
-                const comment = comments.find((c) => c.id === deletingCommentId)
-                deleteComment(deletingCommentId, comment ? getAudioStoragePath(comment) : undefined)
-                onDataChanged?.()
-                setDeletingCommentId(null)
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deletingCommentId}
+        onOpenChange={(open) => { if (!open) setDeletingCommentId(null) }}
+        title="Delete comment?"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          if (!deletingCommentId) return
+          const comment = comments.find((c) => c.id === deletingCommentId)
+          deleteComment(deletingCommentId, comment ? getAudioStoragePath(comment) : undefined)
+          onDataChanged?.()
+          setDeletingCommentId(null)
+        }}
+      />
     </div>
   )
 }
@@ -992,23 +973,14 @@ export function TaskDetail({
       </Dialog>
 
       {/* Archive Confirmation Dialog */}
-      <AlertDialog open={isArchiving} onOpenChange={setIsArchiving}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Archive Task</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to archive &quot;{task.name}&quot;? You can restore
-              it later from the archive.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleArchive}>
-              Archive
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={isArchiving}
+        onOpenChange={setIsArchiving}
+        title="Archive Task"
+        description={`Are you sure you want to archive "${task.name}"? You can restore it later from the archive.`}
+        confirmLabel="Archive"
+        onConfirm={handleArchive}
+      />
     </>
   )
 }

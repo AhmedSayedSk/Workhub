@@ -8,16 +8,7 @@ import { mediaFiles } from '@/lib/firestore'
 import { MediaFile } from '@/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { FileTypeIcon } from '@/components/media/FileTypeIcon'
 import { CachedImage } from '@/components/media/CachedImage'
 import { FilePreview } from '@/components/media/FilePreview'
@@ -235,23 +226,14 @@ export function ProjectAttachmentsTab({ projectId }: ProjectAttachmentsTabProps)
       />
 
       {/* Unlink Confirmation */}
-      <AlertDialog open={isUnlinkDialogOpen} onOpenChange={setIsUnlinkDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unlink File</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to unlink &quot;{selectedFile?.displayName}&quot; from this project?
-              The file will remain in your Media Library.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleUnlink}>
-              Unlink
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={isUnlinkDialogOpen}
+        onOpenChange={setIsUnlinkDialogOpen}
+        title="Unlink File"
+        description={`Are you sure you want to unlink "${selectedFile?.displayName}" from this project? The file will remain in your Media Library.`}
+        confirmLabel="Unlink"
+        onConfirm={handleUnlink}
+      />
     </Card>
   )
 }

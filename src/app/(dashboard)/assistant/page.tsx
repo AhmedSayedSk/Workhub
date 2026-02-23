@@ -18,16 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface Message {
   id: string
@@ -1821,25 +1812,15 @@ ${webContext ? '\nYou have access to web search results above. Use this informat
       />
 
       {/* Clear Chat Confirmation Dialog */}
-      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear Chat</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to clear this chat? This action cannot be undone and all messages will be permanently deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmClearChat}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Clear Chat
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={showClearConfirm}
+        onOpenChange={setShowClearConfirm}
+        title="Clear Chat"
+        description="Are you sure you want to clear this chat? This action cannot be undone and all messages will be permanently deleted."
+        confirmLabel="Clear Chat"
+        variant="destructive"
+        onConfirm={confirmClearChat}
+      />
     </div>
   )
 }

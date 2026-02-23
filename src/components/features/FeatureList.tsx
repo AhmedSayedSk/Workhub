@@ -9,16 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Feature, Task, FeatureInput } from '@/types'
 import { cn } from '@/lib/utils'
 import { FeatureDialog, getFeatureIcon } from './FeatureDialog'
@@ -229,30 +220,15 @@ export function FeatureList({
       />
 
       {/* Delete Confirmation */}
-      <AlertDialog
+      <ConfirmDialog
         open={!!deletingFeature}
         onOpenChange={(open) => !open && setDeletingFeature(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Feature</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingFeature?.name}&quot;? This will
-              not delete the tasks associated with this feature, but they will no
-              longer be grouped.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete Feature"
+        description={`Are you sure you want to delete "${deletingFeature?.name}"? This will not delete the tasks associated with this feature, but they will no longer be grouped.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }
