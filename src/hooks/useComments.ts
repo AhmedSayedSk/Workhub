@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { taskComments } from '@/lib/firestore'
+import { Timestamp } from 'firebase/firestore'
+import { taskComments, projectLogs } from '@/lib/firestore'
 import { TaskComment, TaskCommentInput, CommentParentType } from '@/types'
 import { deleteFile } from '@/lib/storage'
 import { useToast } from './useToast'
 
-export function useComments(parentId?: string, parentType?: CommentParentType) {
+export function useComments(parentId?: string, parentType?: CommentParentType, projectId?: string, contextLabel?: string) {
   const [data, setData] = useState<TaskComment[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
@@ -38,16 +39,46 @@ export function useComments(parentId?: string, parentType?: CommentParentType) {
   }, [fetchComments])
 
   const addComment = async (input: TaskCommentInput) => {
+    const optimisticComment: TaskComment = {
+      id: `temp-${Date.now()}`,
+      parentId: input.parentId,
+      parentType: input.parentType,
+      text: input.text,
+      authorId: input.authorId,
+      authorName: input.authorName,
+      audioUrl: input.audioUrl,
+      audioDuration: input.audioDuration,
+      createdAt: Timestamp.now(),
+    }
+    setData((prev) => [...prev, optimisticComment])
+
     try {
-      await taskComments.create(input)
-      await fetchComments()
+      const id = await taskComments.create(input)
+      setData((prev) =>
+        prev.map((c) => (c.id === optimisticComment.id ? { ...c, id } : c))
+      )
+      if (projectId) {
+        const commentPreview = input.text
+          ? input.text.length > 120 ? input.text.slice(0, 120) + '...' : input.text
+          : 'Voice message'
+        projectLogs.create({
+          projectId,
+          action: 'comment_added',
+          changes: [
+            { field: 'comment_on', oldValue: null, newValue: contextLabel || parentType || 'comment' },
+            { field: 'comment_text', oldValue: null, newValue: commentPreview },
+          ],
+        }).catch(() => {})
+      }
     } catch {
+      setData((prev) => prev.filter((c) => c.id !== optimisticComment.id))
       toast({ title: 'Error', description: 'Failed to add comment', variant: 'destructive' })
     }
   }
 
   const deleteComment = async (id: string, audioStoragePath?: string) => {
     const previousData = data
+    const deletedComment = data.find((c) => c.id === id)
     setData((prev) => prev.filter((c) => c.id !== id))
 
     try {
@@ -58,6 +89,19 @@ export function useComments(parentId?: string, parentType?: CommentParentType) {
         } catch {
           // Audio file may already be deleted — not critical
         }
+      }
+      if (projectId) {
+        const commentPreview = deletedComment?.text
+          ? deletedComment.text.length > 120 ? deletedComment.text.slice(0, 120) + '...' : deletedComment.text
+          : 'Voice message'
+        projectLogs.create({
+          projectId,
+          action: 'comment_deleted',
+          changes: [
+            { field: 'comment_on', oldValue: null, newValue: contextLabel || parentType || 'comment' },
+            { field: 'comment_text', oldValue: commentPreview, newValue: null },
+          ],
+        }).catch(() => {})
       }
     } catch {
       setData(previousData)

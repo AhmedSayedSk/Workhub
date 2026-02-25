@@ -138,19 +138,12 @@ export function ProjectIncomeChart({ projects, payments }: ProjectIncomeChartPro
     return Math.min(200, Math.max(100, maxLen * 7))
   }, [projects])
 
-  // Calculate optimal domain for hourly rate scale
-  const ratesDomain = useMemo(() => {
-    const rates = chartData.map(d => d.hourlyRate).filter(r => r > 0)
-    if (rates.length === 0) return [1, 1000]
-
-    const minRate = Math.min(...rates)
-    const maxRate = Math.max(...rates)
-
-    // Round down min to nearest nice number, round up max
-    const minDomain = Math.max(1, Math.floor(minRate * 0.8 / 10) * 10) // 80% of min, rounded down
-    const maxDomain = Math.ceil(maxRate * 1.1 / 10) * 10 // 110% of max, rounded up
-
-    return [minDomain, maxDomain]
+  // Calculate optimal domain for the income scale
+  const incomeDomain = useMemo(() => {
+    const totals = chartData.map(d => d.paid + d.remaining).filter(t => t > 0)
+    if (totals.length === 0) return [0, 1000]
+    const maxTotal = Math.max(...totals)
+    return [0, Math.ceil(maxTotal * 1.1)]
   }, [chartData])
 
   if (projects.length === 0) {
@@ -164,13 +157,13 @@ export function ProjectIncomeChart({ projects, payments }: ProjectIncomeChartPro
           data={chartData}
           layout="vertical"
           margin={{ top: 5, right: 60, left: 10, bottom: 5 }}
-          barGap={2}
+          stackOffset="none"
         >
           <XAxis
             type="number"
-            domain={[0, ratesDomain[1]]}
+            domain={[0, incomeDomain[1]]}
             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-            tickFormatter={(value) => `${value}`}
+            tickFormatter={(value) => formatCurrency(value)}
             axisLine={false}
             tickLine={false}
           />
@@ -217,7 +210,7 @@ export function ProjectIncomeChart({ projects, payments }: ProjectIncomeChartPro
                   ) : (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-green-600 dark:text-green-400">Paid:</span>
+                        <span className="text-green-600 dark:text-green-400">Received:</span>
                         <span className="text-green-600 dark:text-green-400">{formatCurrency(data.paid)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
@@ -256,14 +249,27 @@ export function ProjectIncomeChart({ projects, payments }: ProjectIncomeChartPro
               )
             }}
           />
+          {/* Received (solid color) */}
           <Bar
-            dataKey="hourlyRate"
+            dataKey="paid"
+            stackId="income"
+            animationDuration={800}
+            animationEasing="ease-out"
+          >
+            {chartData.map((entry, index) => (
+              <Cell key={`paid-${index}`} fill={entry.color} fillOpacity={0.9} />
+            ))}
+          </Bar>
+          {/* Remaining (faded color) */}
+          <Bar
+            dataKey="remaining"
+            stackId="income"
             radius={[0, 4, 4, 0]}
             animationDuration={800}
             animationEasing="ease-out"
           >
             {chartData.map((entry, index) => (
-              <Cell key={`rate-${index}`} fill={entry.color} fillOpacity={0.9} />
+              <Cell key={`rem-${index}`} fill={entry.color} fillOpacity={0.25} />
             ))}
             <LabelList
               dataKey="hourlyRateLabel"

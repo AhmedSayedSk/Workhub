@@ -493,7 +493,12 @@ export interface VaultEntryInput {
 }
 
 // Project Activity Log types
-export type ProjectLogAction = 'created' | 'updated' | 'status_changed'
+export type ProjectLogAction =
+  | 'created' | 'updated' | 'status_changed'
+  | 'task_created' | 'task_archived' | 'task_restored' | 'task_deleted' | 'task_status_changed'
+  | 'comment_added' | 'comment_deleted'
+  | 'feature_created' | 'feature_deleted'
+  | 'vault_entry_added' | 'vault_entry_deleted'
 
 export interface ProjectLogChange {
   field: string

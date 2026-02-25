@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Timestamp } from 'firebase/firestore'
-import { tasks, subtasks, features } from '@/lib/firestore'
+import { tasks, subtasks, features, projectLogs } from '@/lib/firestore'
 import { Task, TaskInput, Subtask, SubtaskInput, Feature, FeatureInput } from '@/types'
 import { useToast } from './useToast'
 
@@ -36,6 +36,11 @@ export function useFeatures(projectId?: string) {
       const id = await features.create(input)
       await fetchFeatures()
       toast({ description: 'Feature created', variant: 'success' })
+      projectLogs.create({
+        projectId: input.projectId,
+        action: 'feature_created',
+        changes: [{ field: 'feature', oldValue: null, newValue: input.name }],
+      }).catch(() => {})
       return id
     } catch {
       toast({ title: 'Error', description: 'Failed to create feature', variant: 'destructive' })
@@ -55,10 +60,18 @@ export function useFeatures(projectId?: string) {
   }
 
   const deleteFeature = async (id: string) => {
+    const feature = data.find((f) => f.id === id)
     try {
       await features.delete(id)
       await fetchFeatures()
       toast({ description: 'Feature deleted', variant: 'success' })
+      if (feature) {
+        projectLogs.create({
+          projectId: feature.projectId,
+          action: 'feature_deleted',
+          changes: [{ field: 'feature', oldValue: feature.name, newValue: null }],
+        }).catch(() => {})
+      }
     } catch {
       toast({ title: 'Error', description: 'Failed to delete feature', variant: 'destructive' })
       throw new Error('Failed to delete feature')
@@ -124,6 +137,11 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
         prev.map((t) => (t.id === optimisticTask.id ? { ...t, id } : t))
       )
       toast({ description: `Task created${projectName ? ` in ${projectName}` : ''}`, variant: 'success' })
+      projectLogs.create({
+        projectId: input.projectId,
+        action: 'task_created',
+        changes: [{ field: 'task', oldValue: null, newValue: input.name }],
+      }).catch(() => {})
       return id
     } catch {
       // Rollback on error
@@ -134,6 +152,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
   }
 
   const updateTask = async (id: string, input: Partial<TaskInput>) => {
+    const existingTask = data.find((t) => t.id === id)
     // Optimistic update - update local state immediately
     setData((prev) =>
       prev.map((t) =>
@@ -143,6 +162,13 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
 
     try {
       await tasks.update(id, input)
+      if (input.status && existingTask && input.status !== existingTask.status) {
+        projectLogs.create({
+          projectId: existingTask.projectId,
+          action: 'task_status_changed',
+          changes: [{ field: 'task_status', oldValue: `${existingTask.name}: ${existingTask.status}`, newValue: `${existingTask.name}: ${input.status}` }],
+        }).catch(() => {})
+      }
     } catch {
       // Revert on error by refetching
       await fetchTasks()
@@ -167,6 +193,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
   }
 
   const archiveTask = async (id: string) => {
+    const task = data.find((t) => t.id === id)
     // Optimistic update - mark as archived
     setData((prev) =>
       prev.map((t) =>
@@ -177,6 +204,13 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
     try {
       await tasks.update(id, { archived: true, archivedAt: Timestamp.now() } as Partial<TaskInput>)
       toast({ description: 'Task archived', variant: 'success' })
+      if (task) {
+        projectLogs.create({
+          projectId: task.projectId,
+          action: 'task_archived',
+          changes: [{ field: 'task', oldValue: null, newValue: task.name }],
+        }).catch(() => {})
+      }
     } catch {
       await fetchTasks()
       toast({ title: 'Error', description: 'Failed to archive task', variant: 'destructive' })
@@ -185,6 +219,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
   }
 
   const unarchiveTask = async (id: string) => {
+    const task = data.find((t) => t.id === id)
     // Optimistic update - unarchive
     setData((prev) =>
       prev.map((t) =>
@@ -195,6 +230,13 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
     try {
       await tasks.update(id, { archived: false, archivedAt: null } as Partial<TaskInput>)
       toast({ description: 'Task restored', variant: 'success' })
+      if (task) {
+        projectLogs.create({
+          projectId: task.projectId,
+          action: 'task_restored',
+          changes: [{ field: 'task', oldValue: null, newValue: task.name }],
+        }).catch(() => {})
+      }
     } catch {
       await fetchTasks()
       toast({ title: 'Error', description: 'Failed to restore task', variant: 'destructive' })
@@ -203,6 +245,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
   }
 
   const permanentDeleteTask = async (id: string) => {
+    const task = data.find((t) => t.id === id)
     // Optimistic delete
     const previousData = data
     setData((prev) => prev.filter((t) => t.id !== id))
@@ -210,6 +253,13 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
     try {
       await tasks.delete(id)
       toast({ description: 'Task permanently deleted', variant: 'success' })
+      if (task) {
+        projectLogs.create({
+          projectId: task.projectId,
+          action: 'task_deleted',
+          changes: [{ field: 'task', oldValue: task.name, newValue: null }],
+        }).catch(() => {})
+      }
     } catch {
       setData(previousData)
       toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' })
@@ -254,6 +304,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
   }
 
   const reorderTask = async (id: string, newStatus: string, newSortOrder: number) => {
+    const existingTask = data.find((t) => t.id === id)
     // Optimistic update
     setData((prev) =>
       prev.map((t) =>
@@ -268,6 +319,13 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
 
     try {
       await tasks.reorder(id, newStatus, newSortOrder)
+      if (existingTask && newStatus !== existingTask.status) {
+        projectLogs.create({
+          projectId: existingTask.projectId,
+          action: 'task_status_changed',
+          changes: [{ field: 'task_status', oldValue: `${existingTask.name}: ${existingTask.status}`, newValue: `${existingTask.name}: ${newStatus}` }],
+        }).catch(() => {})
+      }
     } catch {
       // Revert on error
       await fetchTasks()

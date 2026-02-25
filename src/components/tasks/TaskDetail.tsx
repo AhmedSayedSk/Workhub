@@ -72,14 +72,18 @@ function formatRelativeTime(timestamp: { toDate: () => Date }): string {
 function CommentSection({
   parentId,
   parentType,
+  projectId,
+  contextLabel,
   onDataChanged,
 }: {
   parentId: string
   parentType: CommentParentType
+  projectId?: string
+  contextLabel?: string
   onDataChanged?: () => void
 }) {
   const { user } = useAuth()
-  const { comments, addComment, deleteComment } = useComments(parentId, parentType)
+  const { comments, addComment, deleteComment } = useComments(parentId, parentType, projectId, contextLabel)
   const [newComment, setNewComment] = useState('')
   const [isUploadingAudio, setIsUploadingAudio] = useState(false)
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
@@ -141,12 +145,14 @@ function CommentSection({
         <div className="space-y-2">
           {comments.map((comment) => {
             const isVoiceOnly = !!comment.audioUrl && !comment.text
+            const isPending = comment.id.startsWith('temp-')
             return (
               <div
                 key={comment.id}
                 className={cn(
-                  'flex items-start gap-3 rounded-lg bg-muted/30 text-sm group',
-                  isVoiceOnly ? 'px-3 py-2 items-center' : 'p-4'
+                  'flex items-start gap-3 rounded-lg bg-muted/30 text-sm group transition-opacity duration-300',
+                  isVoiceOnly ? 'px-3 py-2 items-center' : 'p-4',
+                  isPending && 'opacity-50 pointer-events-none'
                 )}
               >
                 <div className="flex-1 min-w-0">
@@ -349,7 +355,7 @@ function SubtaskItem({
       {/* Subtask Comments (expandable) */}
       {commentsOpen && (
         <div className="mt-2 pl-8">
-          <CommentSection parentId={subtask.id} parentType="subtask" onDataChanged={onDataChanged} />
+          <CommentSection parentId={subtask.id} parentType="subtask" projectId={projectId} contextLabel={`${taskName} > ${subtask.name}`} onDataChanged={onDataChanged} />
         </div>
       )}
     </div>
@@ -568,7 +574,7 @@ export function TaskDetail({
               {/* Task Comments */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Comments</Label>
-                <CommentSection parentId={task.id} parentType="task" onDataChanged={onDataChanged} />
+                <CommentSection parentId={task.id} parentType="task" projectId={projectId} contextLabel={task.name} onDataChanged={onDataChanged} />
               </div>
 
               <Separator />

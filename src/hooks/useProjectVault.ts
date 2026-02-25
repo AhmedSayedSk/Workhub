@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { vaultEntries } from '@/lib/firestore'
+import { vaultEntries, projectLogs } from '@/lib/firestore'
 import { VaultEntry, VaultEntryInput, VaultEntryType } from '@/types'
 import { useToast } from './useToast'
 
@@ -49,6 +49,11 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
           description: 'Entry added to vault',
           variant: 'success',
         })
+        projectLogs.create({
+          projectId,
+          action: 'vault_entry_added',
+          changes: [{ field: 'vault', oldValue: null, newValue: data.label }],
+        }).catch(() => {})
       } catch (error) {
         console.error('Failed to create vault entry:', error)
         toast({
@@ -86,9 +91,8 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
 
   const deleteEntry = useCallback(
     async (id: string) => {
+      const entry = entries.find((e) => e.id === id)
       try {
-        const entry = entries.find((e) => e.id === id)
-
         // If it's a file entry, we should also delete from storage
         // But we'll handle that in the component level
         await vaultEntries.delete(id)
@@ -97,6 +101,13 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
           description: 'Entry deleted',
           variant: 'success',
         })
+        if (entry) {
+          projectLogs.create({
+            projectId,
+            action: 'vault_entry_deleted',
+            changes: [{ field: 'vault', oldValue: entry.label, newValue: null }],
+          }).catch(() => {})
+        }
 
         return entry?.storagePath || null
       } catch (error) {

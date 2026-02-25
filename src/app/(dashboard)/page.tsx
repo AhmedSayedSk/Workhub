@@ -370,7 +370,7 @@ export default function DashboardPage() {
                 {showIncomeChart && (
                   <div className="mb-4 pb-4 border-b">
                     <ProjectIncomeChart
-                      projects={activeProjects}
+                      projects={activeProjects.filter((p) => p.totalAmount > 0 || p.paidAmount > 0)}
                       payments={allPayments}
                     />
                     <div className="flex items-center justify-center gap-6 mt-3 text-xs text-muted-foreground">
@@ -386,9 +386,9 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Project List */}
+                {/* Project List — only show projects with payment setup */}
                 <div className="space-y-4">
-                  {activeProjects.map((project) => {
+                  {activeProjects.filter((p) => p.totalAmount > 0 || p.paidAmount > 0).map((project) => {
                     const isMonthly = project.paymentModel === 'monthly'
                     const isInternal = project.paymentModel === 'internal'
                     const progress = (isMonthly || isInternal) ? 0 : calculateProgress(project.paidAmount, project.totalAmount)

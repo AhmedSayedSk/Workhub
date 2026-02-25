@@ -1211,19 +1211,40 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
               <div className="space-y-6">
                 {activityLogs.map((log) => {
-                  const dotColor =
-                    log.action === 'created'
-                      ? 'bg-green-500'
-                      : log.action === 'status_changed'
-                        ? 'bg-orange-500'
-                        : 'bg-blue-500'
-
-                  const actionLabel =
-                    log.action === 'created'
-                      ? 'Project created'
-                      : log.action === 'status_changed'
-                        ? 'Status changed'
-                        : 'Project updated'
+                  const dotColorMap: Record<string, string> = {
+                    created: 'bg-green-500',
+                    updated: 'bg-blue-500',
+                    status_changed: 'bg-orange-500',
+                    task_created: 'bg-green-500',
+                    task_archived: 'bg-slate-500',
+                    task_restored: 'bg-blue-500',
+                    task_deleted: 'bg-red-500',
+                    task_status_changed: 'bg-orange-500',
+                    comment_added: 'bg-blue-500',
+                    comment_deleted: 'bg-slate-500',
+                    feature_created: 'bg-purple-500',
+                    feature_deleted: 'bg-red-500',
+                    vault_entry_added: 'bg-amber-500',
+                    vault_entry_deleted: 'bg-red-500',
+                  }
+                  const actionLabelMap: Record<string, string> = {
+                    created: 'Project created',
+                    updated: 'Project updated',
+                    status_changed: 'Status changed',
+                    task_created: 'Task created',
+                    task_archived: 'Task archived',
+                    task_restored: 'Task restored',
+                    task_deleted: 'Task deleted',
+                    task_status_changed: 'Task status changed',
+                    comment_added: 'Comment added',
+                    comment_deleted: 'Comment deleted',
+                    feature_created: 'Feature created',
+                    feature_deleted: 'Feature deleted',
+                    vault_entry_added: 'Vault entry added',
+                    vault_entry_deleted: 'Vault entry deleted',
+                  }
+                  const dotColor = dotColorMap[log.action] || 'bg-blue-500'
+                  const actionLabel = actionLabelMap[log.action] || log.action
 
                   return (
                     <div key={log.id} className="relative group">
@@ -1253,21 +1274,58 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
                         {log.changes.length > 0 && (
                           <div className="space-y-1 ml-0.5">
-                            {log.changes.map((change, idx) => (
-                              <div key={idx} className="text-sm text-muted-foreground">
-                                <span className="font-medium text-foreground/80">
-                                  {projectFieldLabels[change.field] || change.field}
-                                </span>
-                                {': '}
-                                <span className="text-muted-foreground">
-                                  {change.oldValue || '(empty)'}
-                                </span>
-                                <span className="mx-1.5 text-muted-foreground/60">&rarr;</span>
-                                <span className="text-foreground/80">
-                                  {change.newValue || '(empty)'}
-                                </span>
-                              </div>
-                            ))}
+                            {log.changes.map((change, idx) => {
+                              const isEntityChange = ['task', 'feature', 'comment', 'vault', 'task_status'].includes(change.field)
+                              if (isEntityChange && change.field === 'task_status') {
+                                return (
+                                  <div key={idx} className="text-sm text-muted-foreground">
+                                    <span className="text-muted-foreground">
+                                      {change.oldValue || ''}
+                                    </span>
+                                    <span className="mx-1.5 text-muted-foreground/60">&rarr;</span>
+                                    <span className="text-foreground/80">
+                                      {change.newValue || ''}
+                                    </span>
+                                  </div>
+                                )
+                              }
+                              if (change.field === 'comment_on') {
+                                return (
+                                  <div key={idx} className="text-sm text-muted-foreground">
+                                    on <span className="font-medium text-foreground/80">{change.newValue}</span>
+                                  </div>
+                                )
+                              }
+                              if (change.field === 'comment_text') {
+                                return (
+                                  <div key={idx} className="text-sm text-muted-foreground/80 italic line-clamp-2">
+                                    &ldquo;{change.newValue || change.oldValue}&rdquo;
+                                  </div>
+                                )
+                              }
+                              if (isEntityChange) {
+                                return (
+                                  <div key={idx} className="text-sm text-foreground/80">
+                                    {change.newValue || change.oldValue}
+                                  </div>
+                                )
+                              }
+                              return (
+                                <div key={idx} className="text-sm text-muted-foreground">
+                                  <span className="font-medium text-foreground/80">
+                                    {projectFieldLabels[change.field] || change.field}
+                                  </span>
+                                  {': '}
+                                  <span className="text-muted-foreground">
+                                    {change.oldValue || '(empty)'}
+                                  </span>
+                                  <span className="mx-1.5 text-muted-foreground/60">&rarr;</span>
+                                  <span className="text-foreground/80">
+                                    {change.newValue || '(empty)'}
+                                  </span>
+                                </div>
+                              )
+                            })}
                           </div>
                         )}
                       </div>
