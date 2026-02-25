@@ -1,4 +1,5 @@
 export { FileTypeIcon } from './FileTypeIcon'
+export { FileThumbnail } from './FileThumbnail'
 export { FileCard } from './FileCard'
 export { FileGrid } from './FileGrid'
 export { FolderCard } from './FolderCard'

@@ -72,6 +72,7 @@ export interface Project {
   color: string
   projectType?: ProjectType | null
   parentProjectId: string | null
+  mediaFolderId: string | null
   hasOwnFinances: boolean
   createdAt: Timestamp
 }
@@ -199,6 +200,7 @@ export interface ProjectInput {
   color: string
   projectType?: ProjectType | null
   parentProjectId?: string | null
+  mediaFolderId?: string | null
   hasOwnFinances?: boolean
 }
 

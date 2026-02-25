@@ -37,6 +37,7 @@ import {
   FolderInput,
   SortAsc,
   SortDesc,
+  ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -49,6 +50,7 @@ export default function MediaPage() {
   const {
     files,
     folders,
+    folderFileCounts,
     breadcrumb,
     loading,
     searchTerm,
@@ -270,14 +272,26 @@ export default function MediaPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Media Library</h1>
-          <p className="text-muted-foreground">
-            Manage your files and folders
-          </p>
+        <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
+          {folderId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 flex-shrink-0"
+              onClick={() => {
+                const parentId = breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2].id : null
+                navigateToFolder(parentId)
+              }}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <h1 className="text-3xl font-bold tracking-tight whitespace-nowrap">Media Library</h1>
+          {breadcrumb.length > 0 && (
+            <MediaBreadcrumb path={breadcrumb} onNavigate={navigateToFolder} />
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <MediaBreadcrumb path={breadcrumb} onNavigate={navigateToFolder} />
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Button
             variant="outline"
             onClick={() => {
@@ -429,6 +443,7 @@ export default function MediaPage() {
       <FileGrid
         files={files}
         folders={folders}
+        folderFileCounts={folderFileCounts}
         viewMode={viewMode}
         selectedFiles={selectedFiles}
         onFileSelect={handleFileSelect}

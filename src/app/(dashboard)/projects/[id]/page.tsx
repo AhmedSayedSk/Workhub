@@ -805,7 +805,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </TabsContentBoxed>
 
         <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-          <ProjectAttachmentsTab projectId={id} />
+          <ProjectAttachmentsTab projectId={id} projectName={project.name} />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="vault" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">

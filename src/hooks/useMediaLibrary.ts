@@ -21,6 +21,7 @@ interface UseMediaLibraryOptions {
 export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const [files, setFiles] = useState<MediaFile[]>([])
   const [folders, setFolders] = useState<MediaFolder[]>([])
+  const [folderFileCounts, setFolderFileCounts] = useState<Record<string, number>>({})
   const [breadcrumb, setBreadcrumb] = useState<MediaFolder[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -38,14 +39,26 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
     try {
       setLoading(true)
 
-      const [filesResult, foldersResult, pathResult] = await Promise.all([
-        mediaFiles.getAll(userId, folderId),
+      const [allUserFiles, foldersResult, pathResult] = await Promise.all([
+        mediaFiles.getAll(userId),
         mediaFolders.getChildren(userId, folderId ?? null),
         folderId ? mediaFolders.getPath(folderId) : Promise.resolve([]),
       ])
 
+      // Filter files for the current folder
+      const filesResult = folderId
+        ? allUserFiles.filter((f) => f.folderId === folderId)
+        : allUserFiles.filter((f) => !f.folderId && f.linkedProjects.length === 0)
+
+      // Compute file counts per subfolder
+      const counts: Record<string, number> = {}
+      for (const folder of foldersResult) {
+        counts[folder.id] = allUserFiles.filter((f) => f.folderId === folder.id).length
+      }
+
       setFiles(filesResult)
       setFolders(foldersResult)
+      setFolderFileCounts(counts)
       setBreadcrumb(pathResult)
     } catch (error) {
       console.error('Failed to load media library:', error)
@@ -254,6 +267,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   return {
     files: filteredFiles(),
     folders,
+    folderFileCounts,
     breadcrumb,
     loading,
     searchTerm,

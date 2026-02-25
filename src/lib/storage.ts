@@ -44,6 +44,7 @@ const mimeTypeCategories: Record<string, FileCategory> = {
   'application/vnd.ms-powerpoint': 'document',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'document',
   'text/plain': 'document',
+  'text/markdown': 'document',
   'text/csv': 'document',
   'text/html': 'document',
   'text/css': 'document',
@@ -67,6 +68,36 @@ export function getFileExtension(fileName: string): string {
   const lastDot = fileName.lastIndexOf('.')
   if (lastDot === -1) return ''
   return fileName.slice(lastDot + 1).toLowerCase()
+}
+
+// Extension-based MIME type fallback for when browsers return empty or generic types
+const extensionMimeMap: Record<string, string> = {
+  md: 'text/markdown',
+  markdown: 'text/markdown',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  json: 'application/json',
+  xml: 'application/xml',
+  html: 'text/html',
+  htm: 'text/html',
+  css: 'text/css',
+  js: 'text/javascript',
+  ts: 'text/plain',
+  tsx: 'text/plain',
+  jsx: 'text/plain',
+  yaml: 'text/plain',
+  yml: 'text/plain',
+  log: 'text/plain',
+  env: 'text/plain',
+  sh: 'text/plain',
+}
+
+export function detectMimeType(fileName: string, browserMimeType: string): string {
+  if (browserMimeType && browserMimeType !== 'application/octet-stream') {
+    return browserMimeType
+  }
+  const ext = getFileExtension(fileName)
+  return extensionMimeMap[ext] || browserMimeType || 'application/octet-stream'
 }
 
 export function formatFileSize(bytes: number): string {
@@ -93,6 +124,9 @@ export function isPreviewable(mimeType: string): boolean {
 
   // PDFs are previewable
   if (mimeType === 'application/pdf') return true
+
+  // Text and markdown are previewable
+  if (mimeType === 'text/plain' || mimeType === 'text/markdown') return true
 
   return false
 }

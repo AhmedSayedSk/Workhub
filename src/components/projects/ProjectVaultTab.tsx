@@ -114,6 +114,7 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<VaultEntry | null>(null)
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set())
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -471,7 +472,20 @@ export function ProjectVaultTab({ projectId }: ProjectVaultTabProps) {
                       </div>
 
                       {entry.type === 'text' && (
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">
+                        <p
+                          className={cn(
+                            'text-sm text-muted-foreground whitespace-pre-wrap cursor-pointer transition-all',
+                            !expandedEntries.has(entry.id) && 'line-clamp-3'
+                          )}
+                          onClick={() =>
+                            setExpandedEntries((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(entry.id)) next.delete(entry.id)
+                              else next.add(entry.id)
+                              return next
+                            })
+                          }
+                        >
                           {linkifyText(entry.value)}
                         </p>
                       )}

@@ -273,17 +273,17 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex items-baseline gap-3">
               <div>
-                <div className="text-2xl font-bold">{formatDuration(todayMinutes)}</div>
+                <div className="text-2xl font-bold">{Math.round(todayMinutes / 60 * 10) / 10}h</div>
                 <p className="text-xs text-muted-foreground">Today</p>
               </div>
               <div className="text-muted-foreground">/</div>
               <div>
-                <div className="text-xl font-semibold text-muted-foreground">{formatDuration(weekMinutes)}</div>
+                <div className="text-xl font-semibold text-muted-foreground">{Math.round(weekMinutes / 60 * 10) / 10}h</div>
                 <p className="text-xs text-muted-foreground">This week</p>
               </div>
               <div className="text-muted-foreground">/</div>
               <div>
-                <div className="text-lg font-semibold text-muted-foreground/70">{formatDuration(monthMinutes)}</div>
+                <div className="text-lg font-semibold text-muted-foreground/70">{Math.round(monthMinutes / 60 * 10) / 10}h</div>
                 <p className="text-xs text-muted-foreground">This month</p>
               </div>
             </div>
@@ -375,11 +375,11 @@ export default function DashboardPage() {
                     />
                     <div className="flex items-center justify-center gap-6 mt-3 text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded bg-primary" />
+                        <div className="w-3 h-3 rounded bg-indigo-500" />
                         <span>Received</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded bg-primary/25" />
+                        <div className="w-3 h-3 rounded bg-indigo-500/25" />
                         <span>Remaining</span>
                       </div>
                     </div>

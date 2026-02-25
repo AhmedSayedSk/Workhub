@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { MediaFile, MediaViewMode } from '@/types'
-import { FileTypeIcon } from './FileTypeIcon'
+import { FileThumbnail } from './FileThumbnail'
 import { cn, formatFileSize, formatRelativeTime } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -22,7 +22,6 @@ import {
   FolderInput,
   Eye,
 } from 'lucide-react'
-import { CachedImage } from './CachedImage'
 
 interface FileCardProps {
   file: MediaFile
@@ -98,23 +97,15 @@ export function FileCard({
           onClick={(e) => e.stopPropagation()}
         />
 
-        <div className="flex-shrink-0">
-          {file.category === 'image' && file.thumbnailUrl ? (
-            <CachedImage
-              src={file.thumbnailUrl || file.url}
-              alt={file.displayName}
-              className="w-10 h-10 object-contain rounded"
-            />
-          ) : (
-            <div className="w-10 h-10 flex items-center justify-center bg-muted rounded">
-              <FileTypeIcon
-                category={file.category}
-                mimeType={file.mimeType}
-                size="md"
-              />
-            </div>
-          )}
-        </div>
+        <FileThumbnail
+          fileName={file.name}
+          displayName={file.displayName}
+          category={file.category}
+          mimeType={file.mimeType}
+          url={file.url}
+          thumbnailUrl={file.thumbnailUrl}
+          variant="list"
+        />
 
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{file.displayName}</p>
@@ -270,24 +261,18 @@ export function FileCard({
 
       {/* Thumbnail/Icon */}
       <div className={cn(
-        'aspect-square relative overflow-hidden rounded-t-lg',
+        'aspect-square relative overflow-hidden rounded-t-lg flex items-center justify-center',
         file.category === 'image' ? 'bg-[image:repeating-conic-gradient(#80808015_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]' : 'bg-muted'
       )}>
-        {file.category === 'image' ? (
-          <CachedImage
-            src={file.thumbnailUrl || file.url}
-            alt={file.displayName}
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <FileTypeIcon
-              category={file.category}
-              mimeType={file.mimeType}
-              size="lg"
-            />
-          </div>
-        )}
+        <FileThumbnail
+          fileName={file.name}
+          displayName={file.displayName}
+          category={file.category}
+          mimeType={file.mimeType}
+          url={file.url}
+          thumbnailUrl={file.thumbnailUrl}
+          variant="grid"
+        />
       </div>
 
       {/* File info */}

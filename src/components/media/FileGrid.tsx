@@ -9,6 +9,7 @@ import { Files, Folder } from 'lucide-react'
 interface FileGridProps {
   files: MediaFile[]
   folders: MediaFolder[]
+  folderFileCounts?: Record<string, number>
   viewMode: MediaViewMode
   selectedFiles: Set<string>
   onFileSelect: (fileId: string, selected: boolean) => void
@@ -26,6 +27,7 @@ interface FileGridProps {
 export function FileGrid({
   files,
   folders,
+  folderFileCounts,
   viewMode,
   selectedFiles,
   onFileSelect,
@@ -66,6 +68,7 @@ export function FileGrid({
                 key={folder.id}
                 folder={folder}
                 viewMode={viewMode}
+                fileCount={folderFileCounts?.[folder.id]}
                 onClick={() => onFolderClick(folder)}
                 onRename={() => onFolderRename(folder)}
                 onDelete={() => onFolderDelete(folder)}
@@ -123,6 +126,7 @@ export function FileGrid({
                 key={folder.id}
                 folder={folder}
                 viewMode={viewMode}
+                fileCount={folderFileCounts?.[folder.id]}
                 onClick={() => onFolderClick(folder)}
                 onRename={() => onFolderRename(folder)}
                 onDelete={() => onFolderDelete(folder)}

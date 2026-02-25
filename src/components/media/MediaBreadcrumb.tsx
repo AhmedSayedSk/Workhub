@@ -2,7 +2,7 @@
 
 import { MediaFolder } from '@/types'
 import { Button } from '@/components/ui/button'
-import { ChevronRight, Home } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
 interface MediaBreadcrumbProps {
   path: MediaFolder[]
@@ -11,27 +11,20 @@ interface MediaBreadcrumbProps {
 
 export function MediaBreadcrumb({ path, onNavigate }: MediaBreadcrumbProps) {
   return (
-    <nav className="flex items-center gap-1 text-sm overflow-x-auto pb-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 px-2 text-muted-foreground hover:text-foreground"
-        onClick={() => onNavigate(null)}
-      >
-        <Home className="h-4 w-4" />
-      </Button>
+    <nav className="flex items-center gap-0.5 text-sm whitespace-nowrap">
+      <ChevronRight className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
 
       {path.map((folder, index) => (
         <div key={folder.id} className="flex items-center">
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />}
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-muted-foreground hover:text-foreground"
+            className="h-8 px-2 text-muted-foreground hover:text-foreground font-medium"
             onClick={() => onNavigate(folder.id)}
           >
             <span
-              className="w-2 h-2 rounded-full mr-2"
+              className="w-2.5 h-2.5 rounded-full mr-1.5 flex-shrink-0"
               style={{ backgroundColor: folder.color }}
             />
             {folder.name}

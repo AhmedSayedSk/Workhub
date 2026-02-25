@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { mediaFiles } from '@/lib/firestore'
 import {
   uploadFile,
   generateStoragePath,
   getFileCategory,
   validateFileSize,
+  detectMimeType,
   MAX_FILE_SIZE,
 } from '@/lib/storage'
 import { UploadProgress } from '@/types'
@@ -16,13 +17,25 @@ import { generateId, formatFileSize } from '@/lib/utils'
 interface UseFileUploadOptions {
   userId: string
   folderId?: string | null
+  linkedProjectId?: string | null
   onUploadComplete?: () => void
 }
 
-export function useFileUpload({ userId, folderId, onUploadComplete }: UseFileUploadOptions) {
+export interface FileWithDisplayName {
+  file: File
+  displayName: string
+}
+
+export function useFileUpload({ userId, folderId, linkedProjectId, onUploadComplete }: UseFileUploadOptions) {
   const [uploads, setUploads] = useState<UploadProgress[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const { toast } = useToast()
+
+  // Use refs so the upload callback always reads the latest values
+  const folderIdRef = useRef(folderId)
+  folderIdRef.current = folderId
+  const linkedProjectIdRef = useRef(linkedProjectId)
+  linkedProjectIdRef.current = linkedProjectId
 
   const updateUploadProgress = useCallback(
     (fileId: string, updates: Partial<UploadProgress>) => {
@@ -36,7 +49,7 @@ export function useFileUpload({ userId, folderId, onUploadComplete }: UseFileUpl
   )
 
   const uploadFiles = useCallback(
-    async (files: File[]) => {
+    async (items: FileWithDisplayName[]) => {
       if (!userId) {
         toast({
           title: 'Error',
@@ -47,7 +60,7 @@ export function useFileUpload({ userId, folderId, onUploadComplete }: UseFileUpl
       }
 
       // Validate file sizes
-      const invalidFiles = files.filter((file) => !validateFileSize(file))
+      const invalidFiles = items.filter((item) => !validateFileSize(item.file))
       if (invalidFiles.length > 0) {
         toast({
           title: 'Error',
@@ -60,17 +73,18 @@ export function useFileUpload({ userId, folderId, onUploadComplete }: UseFileUpl
       setIsUploading(true)
 
       // Initialize upload progress for all files
-      const initialUploads: UploadProgress[] = files.map((file) => ({
+      const initialUploads: UploadProgress[] = items.map((item) => ({
         fileId: generateId(),
-        fileName: file.name,
+        fileName: item.file.name,
         progress: 0,
         status: 'pending',
       }))
 
       setUploads(initialUploads)
 
-      const uploadPromises = files.map(async (file, index) => {
+      const uploadPromises = items.map(async (item, index) => {
         const fileId = initialUploads[index].fileId
+        const file = item.file
         const storagePath = generateStoragePath(userId, fileId, file.name)
 
         try {
@@ -86,17 +100,19 @@ export function useFileUpload({ userId, folderId, onUploadComplete }: UseFileUpl
           // Processing - create Firestore document
           updateUploadProgress(fileId, { status: 'processing', progress: 100 })
 
+          const mimeType = detectMimeType(file.name, file.type)
+
           await mediaFiles.create({
             name: file.name,
-            displayName: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            category: getFileCategory(file.type),
+            displayName: item.displayName || file.name,
+            mimeType,
+            category: getFileCategory(mimeType),
             size: result.size, // Use optimized size
             url: result.url,
             storagePath,
             thumbnailUrl: null,
-            folderId: folderId ?? null,
-            linkedProjects: [],
+            folderId: folderIdRef.current ?? null,
+            linkedProjects: linkedProjectIdRef.current ? [linkedProjectIdRef.current] : [],
             linkedTasks: [],
             uploadedBy: userId,
             metadata: {},
@@ -144,7 +160,7 @@ export function useFileUpload({ userId, folderId, onUploadComplete }: UseFileUpl
         )
       }, 3000)
     },
-    [userId, folderId, toast, updateUploadProgress, onUploadComplete]
+    [userId, toast, updateUploadProgress, onUploadComplete]
   )
 
   const cancelUpload = useCallback((fileId: string) => {

@@ -16,6 +16,7 @@ import { MoreVertical, Trash2, Edit, Folder } from 'lucide-react'
 interface FolderCardProps {
   folder: MediaFolder
   viewMode: MediaViewMode
+  fileCount?: number
   onClick: () => void
   onRename: () => void
   onDelete: () => void
@@ -24,6 +25,7 @@ interface FolderCardProps {
 export function FolderCard({
   folder,
   viewMode,
+  fileCount,
   onClick,
   onRename,
   onDelete,
@@ -49,7 +51,9 @@ export function FolderCard({
 
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{folder.name}</p>
-          <p className="text-sm text-muted-foreground">Folder</p>
+          <p className="text-sm text-muted-foreground">
+            {fileCount !== undefined ? `${fileCount} file${fileCount !== 1 ? 's' : ''}` : 'Folder'}
+          </p>
         </div>
 
         <div className="text-sm text-muted-foreground hidden md:block">
@@ -147,7 +151,9 @@ export function FolderCard({
       {/* Folder info */}
       <div className="p-3">
         <p className="font-medium truncate text-sm">{folder.name}</p>
-        <p className="text-xs text-muted-foreground mt-1">Folder</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {fileCount !== undefined ? `${fileCount} file${fileCount !== 1 ? 's' : ''}` : 'Folder'}
+        </p>
       </div>
     </div>
   )

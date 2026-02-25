@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import { MediaFile } from '@/types'
 import { formatFileSize, formatDate } from '@/lib/utils'
 import { isPreviewable } from '@/lib/storage'
 import { FileTypeIcon } from './FileTypeIcon'
-import { Download, X, ExternalLink } from 'lucide-react'
+import { Download, X, ExternalLink, Loader2 } from 'lucide-react'
 import { CachedImage } from './CachedImage'
 
 interface FilePreviewProps {
@@ -20,10 +21,86 @@ interface FilePreviewProps {
   onOpenChange: (open: boolean) => void
 }
 
+function isTextFile(mimeType: string, fileName?: string): boolean {
+  if (mimeType === 'text/plain' || mimeType === 'text/markdown') return true
+  if (fileName) {
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    if (ext === 'md' || ext === 'markdown' || ext === 'txt') return true
+  }
+  return false
+}
+
+function isMarkdownFile(mimeType: string, fileName?: string): boolean {
+  if (mimeType === 'text/markdown') return true
+  if (fileName) {
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    if (ext === 'md' || ext === 'markdown') return true
+  }
+  return false
+}
+
+function TextFilePreview({ url, mimeType, fileName }: { url: string; mimeType: string; fileName?: string }) {
+  const [content, setContent] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(false)
+    setContent(null)
+
+    const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(url)}`
+    fetch(proxyUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch')
+        return res.text()
+      })
+      .then((text) => {
+        setContent(text)
+        setLoading(false)
+      })
+      .catch(() => {
+        setError(true)
+        setLoading(false)
+      })
+  }, [url])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16 bg-muted rounded-lg">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error || content === null) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 bg-muted rounded-lg">
+        <p className="text-muted-foreground">Failed to load file content</p>
+      </div>
+    )
+  }
+
+  const isMarkdown = isMarkdownFile(mimeType, fileName)
+
+  return (
+    <div className="relative bg-muted/30 rounded-lg border overflow-hidden max-h-[50vh] overflow-y-auto">
+      {isMarkdown && (
+        <div className="sticky top-0 px-4 py-1.5 bg-muted border-b text-xs text-muted-foreground font-medium">
+          Markdown
+        </div>
+      )}
+      <pre className="p-4 text-sm whitespace-pre-wrap break-words font-mono leading-relaxed">
+        {content}
+      </pre>
+    </div>
+  )
+}
+
 export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
   if (!file) return null
 
-  const canPreview = isPreviewable(file.mimeType)
+  const canPreview = isPreviewable(file.mimeType) || isTextFile(file.mimeType, file.name)
 
   const handleDownload = () => {
     window.open(file.url, '_blank')
@@ -106,6 +183,11 @@ export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
       )
     }
 
+    // Text / Markdown preview
+    if (isTextFile(file.mimeType, file.name)) {
+      return <TextFilePreview url={file.url} mimeType={file.mimeType} fileName={file.name} />
+    }
+
     // Fallback
     return (
       <div className="flex flex-col items-center justify-center py-16 bg-muted rounded-lg">
@@ -126,8 +208,8 @@ export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between pr-8">
             <DialogTitle className="truncate">{file.displayName}</DialogTitle>
             <div className="flex items-center gap-2">
@@ -135,19 +217,21 @@ export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
                 <Download className="mr-2 h-4 w-4" />
                 Download
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(file.url, '_blank')}
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open
-              </Button>
+              {!isTextFile(file.mimeType, file.name) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(file.url, '_blank')}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open
+                </Button>
+              )}
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto min-h-0">
           {/* Preview area */}
           {renderPreview()}
 

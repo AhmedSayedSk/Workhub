@@ -13,16 +13,19 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { UploadProgress } from '@/types'
 import { formatFileSize } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
 import { Upload, X, CheckCircle2, AlertCircle, Loader2, File } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { FileWithDisplayName } from '@/hooks/useFileUpload'
 
 interface FileUploadDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   uploads: UploadProgress[]
   isUploading: boolean
-  onUpload: (files: File[]) => void
+  onUpload: (files: FileWithDisplayName[]) => void
   onCancel: (fileId: string) => void
+  requireDisplayName?: boolean
 }
 
 export function FileUploadDialog({
@@ -32,8 +35,10 @@ export function FileUploadDialog({
   isUploading,
   onUpload,
   onCancel,
+  requireDisplayName = false,
 }: FileUploadDialogProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [fileNames, setFileNames] = useState<Record<number, string>>({})
   const [isDragActive, setIsDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -65,14 +70,30 @@ export function FileUploadDialog({
 
     const files = Array.from(e.dataTransfer.files)
     if (files.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...files])
+      setSelectedFiles((prev) => {
+        const startIdx = prev.length
+        const newNames: Record<number, string> = {}
+        files.forEach((f, i) => {
+          newNames[startIdx + i] = f.name.replace(/\.[^/.]+$/, '')
+        })
+        setFileNames((prevNames) => ({ ...prevNames, ...newNames }))
+        return [...prev, ...files]
+      })
     }
   }, [isUploading])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : []
     if (files.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...files])
+      setSelectedFiles((prev) => {
+        const startIdx = prev.length
+        const newNames: Record<number, string> = {}
+        files.forEach((f, i) => {
+          newNames[startIdx + i] = f.name.replace(/\.[^/.]+$/, '')
+        })
+        setFileNames((prevNames) => ({ ...prevNames, ...newNames }))
+        return [...prev, ...files]
+      })
     }
     // Reset the input so the same file can be selected again
     if (fileInputRef.current) {
@@ -88,18 +109,33 @@ export function FileUploadDialog({
 
   const removeSelectedFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+    setFileNames((prev) => {
+      const next: Record<number, string> = {}
+      Object.entries(prev).forEach(([key, value]) => {
+        const k = Number(key)
+        if (k < index) next[k] = value
+        else if (k > index) next[k - 1] = value
+      })
+      return next
+    })
   }
 
   const handleUpload = () => {
     if (selectedFiles.length > 0) {
-      onUpload(selectedFiles)
+      const items: FileWithDisplayName[] = selectedFiles.map((file, i) => ({
+        file,
+        displayName: fileNames[i] || file.name.replace(/\.[^/.]+$/, ''),
+      }))
+      onUpload(items)
       setSelectedFiles([])
+      setFileNames({})
     }
   }
 
   const handleClose = () => {
     if (!isUploading) {
       setSelectedFiles([])
+      setFileNames({})
       onOpenChange(false)
     }
   }
@@ -120,6 +156,7 @@ export function FileUploadDialog({
 
   const hasUploads = uploads.length > 0
   const hasSelectedFiles = selectedFiles.length > 0
+  const hasEmptyNames = requireDisplayName && selectedFiles.some((_, i) => !fileNames[i]?.trim())
 
   // Check if all uploads are complete (no pending/uploading/processing)
   const allUploadsFinished = hasUploads && uploads.every(
@@ -131,6 +168,7 @@ export function FileUploadDialog({
     if (allUploadsFinished && !isUploading) {
       const timer = setTimeout(() => {
         setSelectedFiles([])
+        setFileNames({})
         onOpenChange(false)
       }, 1000) // Close after 1 second to show completion status briefly
 
@@ -191,7 +229,7 @@ export function FileUploadDialog({
 
         {/* Selected files (before upload) */}
         {hasSelectedFiles && !hasUploads && (
-          <div className="space-y-2 max-h-48 overflow-y-auto">
+          <div className="space-y-2 max-h-64 overflow-y-auto">
             <p className="text-sm font-medium">
               Selected files ({selectedFiles.length})
             </p>
@@ -202,9 +240,20 @@ export function FileUploadDialog({
               >
                 <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(file.size)}
+                  {requireDisplayName ? (
+                    <Input
+                      value={fileNames[index] || ''}
+                      onChange={(e) =>
+                        setFileNames((prev) => ({ ...prev, [index]: e.target.value }))
+                      }
+                      placeholder="File name (required)"
+                      className="h-7 text-sm"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium truncate">{file.name}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {file.name} · {formatFileSize(file.size)}
                   </p>
                 </div>
                 <Button
@@ -278,7 +327,7 @@ export function FileUploadDialog({
           {!hasUploads && (
             <Button
               onClick={handleUpload}
-              disabled={!hasSelectedFiles || isUploading}
+              disabled={!hasSelectedFiles || isUploading || hasEmptyNames}
             >
               {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Upload {hasSelectedFiles ? `(${selectedFiles.length})` : ''}
