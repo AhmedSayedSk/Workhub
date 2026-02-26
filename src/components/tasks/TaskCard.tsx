@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -56,6 +57,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, feature, subtaskCount, commentCount, assignees, allMembers, onAssigneeChange, onClick, onArchive, onSetWaiting, onRemoveWaiting }: TaskCardProps) {
+  const [assignOpen, setAssignOpen] = useState(false)
   const taskType = task.taskType || 'task'
   const priority = task.priority || 'low'
   const borderColor = priorityBorderColors[priority] || undefined
@@ -64,6 +66,7 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
 
   const hasSubtasks = subtaskCount && subtaskCount.total > 0
   const hasComments = !!commentCount && commentCount > 0
+  const hasAssignees = assignees && assignees.length > 0
 
   const createdDate = task.createdAt?.toDate?.()
   const currentYear = new Date().getFullYear()
@@ -111,49 +114,78 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
           <div className="flex-1 min-w-0">
             <h4 className="font-medium text-sm line-clamp-2">{task.name}</h4>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 flex-shrink-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {isWaiting ? (
+          <div className="relative">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 flex-shrink-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {allMembers && onAssigneeChange && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setTimeout(() => setAssignOpen(true), 100)
+                      }}
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Assign
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {isWaiting ? (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRemoveWaiting?.()
+                    }}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Resume Task
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSetWaiting?.()
+                    }}
+                  >
+                    <Pause className="h-4 w-4 mr-2" />
+                    Set Waiting
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation()
-                    onRemoveWaiting?.()
+                    onArchive()
                   }}
                 >
-                  <Play className="h-4 w-4 mr-2" />
-                  Resume Task
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archive
                 </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onSetWaiting?.()
-                  }}
-                >
-                  <Pause className="h-4 w-4 mr-2" />
-                  Set Waiting
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onArchive()
-                }}
-              >
-                <Archive className="h-4 w-4 mr-2" />
-                Archive
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/* AssigneeSelect popover anchored to the three-dot button */}
+            {allMembers && onAssigneeChange && (
+              <div onClick={(e) => e.stopPropagation()}>
+                <AssigneeSelect
+                  members={allMembers}
+                  selectedIds={task.assigneeIds || []}
+                  onChange={onAssigneeChange}
+                  open={assignOpen}
+                  onOpenChange={setAssignOpen}
+                  trigger={<span className="absolute inset-0 pointer-events-none" />}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
-        {(task.estimatedHours > 0 || hasSubtasks || hasComments || (assignees && assignees.length > 0) || (allMembers && onAssigneeChange)) && (
+        {(task.estimatedHours > 0 || hasSubtasks || hasComments || hasAssignees) && (
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-3">
               {task.estimatedHours > 0 && (
@@ -180,29 +212,10 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
               )}
             </div>
 
-            {/* Assignee avatars / quick-assign */}
-            {allMembers && onAssigneeChange ? (
-              <div onClick={(e) => e.stopPropagation()}>
-                <AssigneeSelect
-                  members={allMembers}
-                  selectedIds={task.assigneeIds || []}
-                  onChange={onAssigneeChange}
-                  trigger={
-                    assignees && assignees.length > 0 ? (
-                      <button className="hover:opacity-80 transition-opacity">
-                        <MemberAvatarGroup members={assignees} max={3} size="sm" />
-                      </button>
-                    ) : (
-                      <button className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-muted-foreground/40 hover:border-muted-foreground transition-colors">
-                        <UserPlus className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    )
-                  }
-                />
-              </div>
-            ) : assignees && assignees.length > 0 ? (
+            {/* Assignee avatars (only shown when there are assignees) */}
+            {hasAssignees && (
               <MemberAvatarGroup members={assignees} max={3} size="sm" />
-            ) : null}
+            )}
           </div>
         )}
 

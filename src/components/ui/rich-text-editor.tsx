@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
+import { ResizableImage } from '@/components/ui/resizable-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Markdown } from 'tiptap-markdown'
 import { uploadFileWithOptimization, OPTIMIZATION_PRESETS } from '@/lib/storage'
@@ -59,16 +59,14 @@ export function RichTextEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
-      Image.configure({
-        HTMLAttributes: { class: 'rich-editor-image' },
-      }),
+      ResizableImage,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: { class: 'rich-editor-link' },
       }),
       Placeholder.configure({ placeholder }),
       Markdown.configure({
-        html: false,
+        html: true,
         transformPastedText: true,
         transformCopiedText: true,
       }),
@@ -178,12 +176,12 @@ export function RichTextEditor({
 
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement
-    if (target.tagName === 'IMG') {
+    if (target.tagName === 'IMG' && !editable) {
       e.preventDefault()
       e.stopPropagation()
       setLightboxSrc((target as HTMLImageElement).src)
     }
-  }, [])
+  }, [editable])
 
   if (!editor) return null
 

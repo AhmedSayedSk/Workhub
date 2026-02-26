@@ -168,6 +168,36 @@
 .ProseMirror img {
   @apply max-w-full h-auto rounded-md my-2 cursor-zoom-in transition-opacity hover:opacity-90;
 }
+
+/* ── Resizable Image ── */
+.resizable-image-wrapper {
+  @apply my-2;
+}
+.resizable-image-container {
+  @apply relative inline-block;
+}
+.resizable-image-container img {
+  @apply max-w-full h-auto rounded-md block;
+}
+.resizable-image-container.selected {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+.resizable-image-container.resizing {
+  user-select: none;
+}
+.resize-handle {
+  @apply absolute bottom-0 right-0 w-3 h-3 rounded-bl-md cursor-se-resize;
+  background: hsl(var(--primary));
+  border-top-left-radius: 2px;
+}
+.resize-handle::after {
+  content: '';
+  @apply absolute bottom-0.5 right-0.5 w-1.5 h-1.5;
+  border-right: 2px solid white;
+  border-bottom: 2px solid white;
+}
 .ProseMirror a {
   @apply text-primary underline underline-offset-2;
 }
