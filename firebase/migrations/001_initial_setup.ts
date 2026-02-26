@@ -29,10 +29,10 @@ async function runMigration() {
 
     if (!orgDoc.exists) {
       await orgRef.set({
-        name: 'Upsmart',
+        name: 'Sikasio',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       })
-      console.log('Created default organization: Upsmart')
+      console.log('Created default organization: Sikasio')
     } else {
       console.log('Default organization already exists')
     }

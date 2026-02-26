@@ -5,7 +5,7 @@ This folder contains database migrations for the WorkHub Firestore database.
 ## Data Architecture
 
 ```
-Organization (Upsmart)
+Organization (Sikasio)
   └── Systems (Groups)
         └── Projects (Apps/Works)
               ├── Milestones (for milestone-based payments)
@@ -20,7 +20,7 @@ Organization (Upsmart)
 
 | Collection | Description |
 |------------|-------------|
-| `organizations` | Top-level organization (e.g., Upsmart) |
+| `organizations` | Top-level organization (e.g., Sikasio) |
 | `systems` | Project groups/categories |
 | `projects` | Individual projects with payment tracking |
 | `milestones` | Payment milestones for milestone-based projects |

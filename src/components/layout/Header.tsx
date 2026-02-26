@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, CachedAvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
-import { Bell, Search, Moon, Sun, LogOut, User } from 'lucide-react'
+import { Search, Moon, Sun, LogOut, User } from 'lucide-react'
 import { useThemeContext } from '@/components/layout/ThemeProvider'
 
 export function Header() {
@@ -53,12 +53,6 @@ export function Header() {
           ) : (
             <Moon className="h-5 w-5" />
           )}
-        </Button>
-
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
         </Button>
 
         {/* User Menu */}

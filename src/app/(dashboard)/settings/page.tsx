@@ -215,40 +215,42 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Page Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">Manage your account and preferences</p>
       </div>
 
-      <Tabs defaultValue="account" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="account" className="flex items-center gap-2">
+      <Tabs defaultValue="account" orientation="vertical" className="flex gap-6">
+        <TabsList className="flex flex-col h-fit w-56 shrink-0 bg-muted/50 p-2 rounded-lg">
+          <TabsTrigger value="account" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
             <User className="h-4 w-4" />
-            <span className="hidden sm:inline">Account</span>
+            Account
           </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex items-center gap-2">
+          <TabsTrigger value="appearance" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
             <Sun className="h-4 w-4" />
-            <span className="hidden sm:inline">Appearance</span>
+            Appearance
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
+          <TabsTrigger value="security" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
             <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">Security</span>
+            Security
           </TabsTrigger>
-          <TabsTrigger value="time" className="flex items-center gap-2">
+          <TabsTrigger value="time" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
             <Clock className="h-4 w-4" />
-            <span className="hidden sm:inline">Time Tracking</span>
+            Time Tracking
           </TabsTrigger>
-          <TabsTrigger value="ai" className="flex items-center gap-2">
+          <TabsTrigger value="ai" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
             <Sparkles className="h-4 w-4" />
-            <span className="hidden sm:inline">AI</span>
+            AI
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
+          <TabsTrigger value="notifications" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
             <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Notifications</span>
+            Notifications
           </TabsTrigger>
         </TabsList>
+
+        <div className="flex-1 min-w-0">
 
         {/* Account Tab */}
         <TabsContent value="account" className="space-y-6">
@@ -346,37 +348,26 @@ export default function SettingsPage() {
               ) : (
                 <>
                   {/* View Mode */}
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16">
-                      <CachedAvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} />
-                      <AvatarFallback className="text-lg bg-primary/10">
-                        {getInitials(user?.displayName || null)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-lg">{user?.displayName || 'No name set'}</p>
-                      <p className="text-sm text-muted-foreground">{user?.email}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-16 w-16">
+                        <CachedAvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} />
+                        <AvatarFallback className="text-lg bg-primary/10">
+                          {getInitials(user?.displayName || null)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-lg">{user?.displayName || 'No name set'}</p>
+                        <p className="text-sm text-muted-foreground">{user?.email}</p>
+                      </div>
                     </div>
+                    <Button variant="destructive" size="sm" onClick={() => signOut()}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </Button>
                   </div>
                 </>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Sign Out Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-destructive">
-                <LogOut className="h-5 w-5" />
-                Sign Out
-              </CardTitle>
-              <CardDescription>Sign out of your account</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="destructive" onClick={() => signOut()}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
             </CardContent>
           </Card>
 
@@ -929,6 +920,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        </div>
       </Tabs>
     </div>
   )

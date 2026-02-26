@@ -94,10 +94,10 @@ async function runMigration() {
     // 1. ORGANIZATIONS
     // ================================================
     console.log('\n1. Setting up Organizations...')
-    await createIfNotExists('organizations', 'upsmart', {
-      name: 'Upsmart',
+    await createIfNotExists('organizations', 'sikasio', {
+      name: 'Sikasio',
       description: 'Main organization for all projects',
-    }, 'Organization: Upsmart')
+    }, 'Organization: Sikasio')
 
     // ================================================
     // 2. SYSTEMS
@@ -107,35 +107,35 @@ async function runMigration() {
     const systemsData = [
       {
         id: 'mobile-apps',
-        organizationId: 'upsmart',
+        organizationId: 'sikasio',
         name: 'Mobile Apps',
         description: 'iOS and Android mobile applications',
         color: '#22C55E',
       },
       {
         id: 'web-apps',
-        organizationId: 'upsmart',
+        organizationId: 'sikasio',
         name: 'Web Applications',
         description: 'Web-based applications and dashboards',
         color: '#3B82F6',
       },
       {
         id: 'backend-services',
-        organizationId: 'upsmart',
+        organizationId: 'sikasio',
         name: 'Backend Services',
         description: 'APIs, microservices, and backend systems',
         color: '#A855F7',
       },
       {
         id: 'design-projects',
-        organizationId: 'upsmart',
+        organizationId: 'sikasio',
         name: 'Design Projects',
         description: 'UI/UX design and branding projects',
         color: '#EC4899',
       },
       {
         id: 'consulting',
-        organizationId: 'upsmart',
+        organizationId: 'sikasio',
         name: 'Consulting',
         description: 'Technical consulting and advisory',
         color: '#F97316',

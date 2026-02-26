@@ -4,9 +4,9 @@ import { writeFileSync, appendFileSync } from 'fs';
 const LOG = '/tmp/workhub-mcp-debug.log';
 writeFileSync(LOG, `=== MCP Debug started at ${new Date().toISOString()} ===\n`);
 
-const child = spawn('node', ['/mnt/d/programming/Upsmart/workhub/mcp-server/dist/index.js'], {
+const child = spawn('node', ['/mnt/d/programming/Sikasio/workhub/mcp-server/dist/index.js'], {
   stdio: ['pipe', 'pipe', 'pipe'],
-  cwd: '/mnt/d/programming/Upsmart/workhub/mcp-server'
+  cwd: '/mnt/d/programming/Sikasio/workhub/mcp-server'
 });
 
 // Forward stdin from Claude Code -> child, logging it

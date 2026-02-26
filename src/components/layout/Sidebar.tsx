@@ -15,6 +15,7 @@ import {
   Sparkles,
   FolderOpen,
   Users,
+  ExternalLink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -58,14 +59,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               height={32}
               className="h-8 w-8 flex-shrink-0"
             />
-            <span
+            <div
               className={cn(
-                'text-xl font-bold whitespace-nowrap transition-opacity duration-200',
+                'flex flex-col whitespace-nowrap transition-opacity duration-200',
                 collapsed ? 'opacity-0' : 'opacity-100 delay-100'
               )}
             >
-              WorkHub
-            </span>
+              <span className="text-xl font-bold leading-tight">WorkHub</span>
+              <span className="text-[10px] text-muted-foreground leading-tight">Sikasio Works</span>
+            </div>
           </Link>
         </div>
 
@@ -234,6 +236,37 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 Collapse
               </span>
             </Button>
+          )}
+        </div>
+
+        {/* Sikasio link */}
+        <div className="border-t px-4 py-2 overflow-hidden">
+          {collapsed ? (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <a
+                  href="https://sikasio.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground transition-colors" />
+                </a>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10}>
+                sikasio.com
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <a
+              href="https://sikasio.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            >
+              <span>Support us & see more at sikasio.com</span>
+              <ExternalLink className="h-2.5 w-2.5" />
+            </a>
           )}
         </div>
       </div>
