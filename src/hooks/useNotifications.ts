@@ -15,10 +15,30 @@ export function useNotifications() {
   const notifiedDeadlines = useRef(new Set<string>())
   const notifiedPayments = useRef(new Set<string>())
   const prevTimerStartTime = useRef<number | null>(null)
+  const dailySummaryFired = useRef(false)
+  const idleReminderFired = useRef(false)
+  const breakReminderFired = useRef(false)
+  const lastActivityTime = useRef<number>(Date.now())
 
   const notify = useCallback((title: string, body: string, tag: string) => {
     toast({ title, description: body })
     sendBrowserNotification(title, { body, tag })
+  }, [])
+
+  // Track user activity for idle detection
+  useEffect(() => {
+    const updateActivity = () => {
+      lastActivityTime.current = Date.now()
+      idleReminderFired.current = false
+    }
+    window.addEventListener('mousemove', updateActivity)
+    window.addEventListener('keydown', updateActivity)
+    window.addEventListener('click', updateActivity)
+    return () => {
+      window.removeEventListener('mousemove', updateActivity)
+      window.removeEventListener('keydown', updateActivity)
+      window.removeEventListener('click', updateActivity)
+    }
   }, [])
 
   const checkTimerReminder = useCallback(() => {
@@ -107,6 +127,83 @@ export function useNotifications() {
     }
   }, [settings, notify])
 
+  const checkDailySummary = useCallback(() => {
+    if (!settings?.notifyDailySummary) return
+    if (dailySummaryFired.current) return
+
+    const now = new Date()
+    const targetHour = settings.dailySummaryHour ?? 18
+
+    if (now.getHours() === targetHour) {
+      dailySummaryFired.current = true
+      notify(
+        'Daily Summary',
+        'Time to review your daily progress. Check your time entries and plan for tomorrow.',
+        'daily-summary'
+      )
+    }
+  }, [settings, notify])
+
+  // Reset daily summary flag at midnight
+  useEffect(() => {
+    const resetAtMidnight = () => {
+      const now = new Date()
+      if (now.getHours() === 0 && now.getMinutes() === 0) {
+        dailySummaryFired.current = false
+      }
+    }
+    const interval = setInterval(resetAtMidnight, 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const checkIdleReminder = useCallback(() => {
+    if (!settings?.notifyIdleReminder) return
+    if (idleReminderFired.current) return
+
+    const state = useTimerStore.getState()
+    // Only remind if no timer is running
+    if (state.isRunning) {
+      idleReminderFired.current = false
+      return
+    }
+
+    const idleMs = Date.now() - lastActivityTime.current
+    const thresholdMs = (settings.idleReminderMinutes ?? 30) * 60_000
+
+    if (idleMs >= thresholdMs) {
+      idleReminderFired.current = true
+      notify(
+        'No Timer Running',
+        `You\'ve been active for ${Math.round(idleMs / 60_000)} minutes without a timer. Don\'t forget to track your time!`,
+        'idle-reminder'
+      )
+    }
+  }, [settings, notify])
+
+  const checkBreakReminder = useCallback(() => {
+    if (!settings?.notifyBreakReminder) return
+
+    const state = useTimerStore.getState()
+    if (!state.isRunning || breakReminderFired.current) return
+
+    // Reset when timer restarts
+    if (state.startTime !== prevTimerStartTime.current) {
+      breakReminderFired.current = false
+    }
+
+    const elapsed = state.getElapsedTime()
+    const thresholdMs = (settings.breakReminderMinutes ?? 90) * 60_000
+
+    if (elapsed >= thresholdMs) {
+      breakReminderFired.current = true
+      notify(
+        'Take a Break',
+        `You\'ve been working for ${Math.round(elapsed / 60_000)} minutes. Consider taking a short break to stay productive.`,
+        'break-reminder'
+      )
+    }
+  }, [settings, notify])
+
   useEffect(() => {
     if (!settings) return
     if (getNotificationPermission() === 'unsupported') return
@@ -115,13 +212,19 @@ export function useNotifications() {
     checkTimerReminder()
     checkDeadlineAlerts()
     checkPaymentReminders()
+    checkDailySummary()
+    checkIdleReminder()
+    checkBreakReminder()
 
     const interval = setInterval(() => {
       checkTimerReminder()
       checkDeadlineAlerts()
       checkPaymentReminders()
+      checkDailySummary()
+      checkIdleReminder()
+      checkBreakReminder()
     }, CHECK_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [settings, checkTimerReminder, checkDeadlineAlerts, checkPaymentReminders])
+  }, [settings, checkTimerReminder, checkDeadlineAlerts, checkPaymentReminders, checkDailySummary, checkIdleReminder, checkBreakReminder])
 }

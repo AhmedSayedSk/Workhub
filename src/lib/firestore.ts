@@ -568,6 +568,14 @@ export const appSettings = {
       notifyDeadlineAlerts: true,
       deadlineAlertDays: 3,
       notifyPaymentReminders: true,
+      notifyDailySummary: false,
+      dailySummaryHour: 18,
+      notifyIdleReminder: true,
+      idleReminderMinutes: 30,
+      notifyTaskDue: true,
+      taskDueHoursBefore: 24,
+      notifyBreakReminder: false,
+      breakReminderMinutes: 90,
     }
 
     const docRef = doc(db, 'settings', SETTINGS_DOC_ID)

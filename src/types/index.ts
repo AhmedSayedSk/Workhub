@@ -384,6 +384,14 @@ export interface AppSettings {
   notifyDeadlineAlerts: boolean
   deadlineAlertDays: number
   notifyPaymentReminders: boolean
+  notifyDailySummary: boolean
+  dailySummaryHour: number
+  notifyIdleReminder: boolean
+  idleReminderMinutes: number
+  notifyTaskDue: boolean
+  taskDueHoursBefore: number
+  notifyBreakReminder: boolean
+  breakReminderMinutes: number
   updatedAt: Timestamp
 }
 
@@ -397,6 +405,14 @@ export interface AppSettingsInput {
   notifyDeadlineAlerts?: boolean
   deadlineAlertDays?: number
   notifyPaymentReminders?: boolean
+  notifyDailySummary?: boolean
+  dailySummaryHour?: number
+  notifyIdleReminder?: boolean
+  idleReminderMinutes?: number
+  notifyTaskDue?: boolean
+  taskDueHoursBefore?: number
+  notifyBreakReminder?: boolean
+  breakReminderMinutes?: number
 }
 
 // Media Library types

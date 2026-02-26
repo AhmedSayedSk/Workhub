@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,6 +47,8 @@ import { verifyPasskey } from '@/lib/passkey'
 import { getNotificationPermission, requestNotificationPermission } from '@/lib/notifications'
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams()
+  const defaultTab = searchParams.get('tab') || 'account'
   const { theme, setTheme } = useThemeContext()
   const { user, signOut, updateUserProfile } = useAuth()
   const {
@@ -54,6 +57,10 @@ export default function SettingsPage() {
     setNotifyTimerReminder, setTimerReminderMinutes,
     setNotifyDeadlineAlerts, setDeadlineAlertDays,
     setNotifyPaymentReminders,
+    setNotifyDailySummary, setDailySummaryHour,
+    setNotifyIdleReminder, setIdleReminderMinutes,
+    setNotifyTaskDue, setTaskDueHoursBefore,
+    setNotifyBreakReminder, setBreakReminderMinutes,
   } = useSettings()
 
   const [isEditingProfile, setIsEditingProfile] = useState(false)
@@ -76,8 +83,16 @@ export default function SettingsPage() {
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | 'unsupported'>('default')
   const [timerMinutesLocal, setTimerMinutesLocal] = useState(120)
   const [deadlineDaysLocal, setDeadlineDaysLocal] = useState(3)
+  const [dailySummaryHourLocal, setDailySummaryHourLocal] = useState(18)
+  const [idleReminderMinutesLocal, setIdleReminderMinutesLocal] = useState(30)
+  const [taskDueHoursLocal, setTaskDueHoursLocal] = useState(24)
+  const [breakReminderMinutesLocal, setBreakReminderMinutesLocal] = useState(90)
   const timerMinutesTimer = useRef<NodeJS.Timeout | null>(null)
   const deadlineDaysTimer = useRef<NodeJS.Timeout | null>(null)
+  const dailySummaryHourTimer = useRef<NodeJS.Timeout | null>(null)
+  const idleReminderTimer = useRef<NodeJS.Timeout | null>(null)
+  const taskDueHoursTimer = useRef<NodeJS.Timeout | null>(null)
+  const breakReminderTimer = useRef<NodeJS.Timeout | null>(null)
 
   const refreshCacheInfo = useCallback(async () => {
     const info = await getImageCacheInfo()
@@ -100,6 +115,10 @@ export default function SettingsPage() {
       setThinkingTimeLocal(settings.thinkingTimePercent ?? 0)
       setTimerMinutesLocal(settings.timerReminderMinutes ?? 120)
       setDeadlineDaysLocal(settings.deadlineAlertDays ?? 3)
+      setDailySummaryHourLocal(settings.dailySummaryHour ?? 18)
+      setIdleReminderMinutesLocal(settings.idleReminderMinutes ?? 30)
+      setTaskDueHoursLocal(settings.taskDueHoursBefore ?? 24)
+      setBreakReminderMinutesLocal(settings.breakReminderMinutes ?? 90)
     }
   }, [settings])
 
@@ -242,7 +261,7 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Manage your account and preferences</p>
       </div>
 
-      <Tabs defaultValue="account" orientation="vertical" className="flex gap-6">
+      <Tabs defaultValue={defaultTab} orientation="vertical" className="flex gap-6">
         <TabsList className="flex flex-col h-fit w-56 shrink-0 bg-muted/50 p-2 rounded-lg">
           <TabsTrigger value="account" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
             <User className="h-4 w-4" />
@@ -924,16 +943,25 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <Card>
+          <Card className="relative">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notifications
-                {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                {!saving && settings && (
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                )}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  Notifications
+                </CardTitle>
+                <div className="flex items-center gap-1.5">
+                  {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {!saving && settings && (
+                    <div className="flex items-center gap-1.5 text-green-500">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-xs font-medium">
+                        {notifPermission === 'granted' ? 'Enabled' : 'Saved'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
               <CardDescription>Configure notification preferences</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1035,6 +1063,162 @@ export default function SettingsPage() {
                       disabled={saving}
                     />
                   </div>
+
+                  <Separator />
+
+                  {/* Daily Summary */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Daily Summary</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get a daily reminder to review your progress
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.notifyDailySummary ?? false}
+                      onCheckedChange={(checked) => setNotifyDailySummary(checked)}
+                      disabled={saving}
+                    />
+                  </div>
+                  {settings?.notifyDailySummary && (
+                    <div className="ml-0 flex items-center gap-3 pl-1">
+                      <Label className="text-sm text-muted-foreground whitespace-nowrap">Remind at</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="23"
+                        className="w-20"
+                        value={dailySummaryHourLocal}
+                        onChange={(e) => {
+                          const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0))
+                          setDailySummaryHourLocal(val)
+                          if (dailySummaryHourTimer.current) clearTimeout(dailySummaryHourTimer.current)
+                          dailySummaryHourTimer.current = setTimeout(() => {
+                            setDailySummaryHour(val)
+                          }, 800)
+                        }}
+                        disabled={saving}
+                      />
+                      <span className="text-sm text-muted-foreground">:00 ({dailySummaryHourLocal >= 12 ? `${dailySummaryHourLocal === 12 ? 12 : dailySummaryHourLocal - 12}:00 PM` : `${dailySummaryHourLocal === 0 ? 12 : dailySummaryHourLocal}:00 AM`})</span>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Idle Reminder */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Idle Reminder</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Remind to start a timer when you&apos;re active but not tracking
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.notifyIdleReminder ?? true}
+                      onCheckedChange={(checked) => setNotifyIdleReminder(checked)}
+                      disabled={saving}
+                    />
+                  </div>
+                  {settings?.notifyIdleReminder && (
+                    <div className="ml-0 flex items-center gap-3 pl-1">
+                      <Label className="text-sm text-muted-foreground whitespace-nowrap">Remind after</Label>
+                      <Input
+                        type="number"
+                        min="5"
+                        max="120"
+                        className="w-20"
+                        value={idleReminderMinutesLocal}
+                        onChange={(e) => {
+                          const val = Math.max(5, Math.min(120, parseInt(e.target.value) || 5))
+                          setIdleReminderMinutesLocal(val)
+                          if (idleReminderTimer.current) clearTimeout(idleReminderTimer.current)
+                          idleReminderTimer.current = setTimeout(() => {
+                            setIdleReminderMinutes(val)
+                          }, 800)
+                        }}
+                        disabled={saving}
+                      />
+                      <span className="text-sm text-muted-foreground">minutes idle</span>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Task Due Reminders */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Task Due Reminders</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Notify when tasks are approaching their due date
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.notifyTaskDue ?? true}
+                      onCheckedChange={(checked) => setNotifyTaskDue(checked)}
+                      disabled={saving}
+                    />
+                  </div>
+                  {settings?.notifyTaskDue && (
+                    <div className="ml-0 flex items-center gap-3 pl-1">
+                      <Label className="text-sm text-muted-foreground whitespace-nowrap">Alert</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="72"
+                        className="w-20"
+                        value={taskDueHoursLocal}
+                        onChange={(e) => {
+                          const val = Math.max(1, Math.min(72, parseInt(e.target.value) || 1))
+                          setTaskDueHoursLocal(val)
+                          if (taskDueHoursTimer.current) clearTimeout(taskDueHoursTimer.current)
+                          taskDueHoursTimer.current = setTimeout(() => {
+                            setTaskDueHoursBefore(val)
+                          }, 800)
+                        }}
+                        disabled={saving}
+                      />
+                      <span className="text-sm text-muted-foreground">hours before due</span>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Break Reminder */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Break Reminder</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Remind to take breaks during long work sessions
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.notifyBreakReminder ?? false}
+                      onCheckedChange={(checked) => setNotifyBreakReminder(checked)}
+                      disabled={saving}
+                    />
+                  </div>
+                  {settings?.notifyBreakReminder && (
+                    <div className="ml-0 flex items-center gap-3 pl-1">
+                      <Label className="text-sm text-muted-foreground whitespace-nowrap">Remind after</Label>
+                      <Input
+                        type="number"
+                        min="15"
+                        max="240"
+                        className="w-20"
+                        value={breakReminderMinutesLocal}
+                        onChange={(e) => {
+                          const val = Math.max(15, Math.min(240, parseInt(e.target.value) || 15))
+                          setBreakReminderMinutesLocal(val)
+                          if (breakReminderTimer.current) clearTimeout(breakReminderTimer.current)
+                          breakReminderTimer.current = setTimeout(() => {
+                            setBreakReminderMinutes(val)
+                          }, 800)
+                        }}
+                        disabled={saving}
+                      />
+                      <span className="text-sm text-muted-foreground">minutes of work</span>
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>

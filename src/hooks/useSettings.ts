@@ -119,6 +119,62 @@ export function useSettings() {
     [updateSettings]
   )
 
+  const setNotifyDailySummary = useCallback(
+    async (enabled: boolean) => {
+      await updateSettings({ notifyDailySummary: enabled })
+    },
+    [updateSettings]
+  )
+
+  const setDailySummaryHour = useCallback(
+    async (hour: number) => {
+      await updateSettings({ dailySummaryHour: hour })
+    },
+    [updateSettings]
+  )
+
+  const setNotifyIdleReminder = useCallback(
+    async (enabled: boolean) => {
+      await updateSettings({ notifyIdleReminder: enabled })
+    },
+    [updateSettings]
+  )
+
+  const setIdleReminderMinutes = useCallback(
+    async (minutes: number) => {
+      await updateSettings({ idleReminderMinutes: minutes })
+    },
+    [updateSettings]
+  )
+
+  const setNotifyTaskDue = useCallback(
+    async (enabled: boolean) => {
+      await updateSettings({ notifyTaskDue: enabled })
+    },
+    [updateSettings]
+  )
+
+  const setTaskDueHoursBefore = useCallback(
+    async (hours: number) => {
+      await updateSettings({ taskDueHoursBefore: hours })
+    },
+    [updateSettings]
+  )
+
+  const setNotifyBreakReminder = useCallback(
+    async (enabled: boolean) => {
+      await updateSettings({ notifyBreakReminder: enabled })
+    },
+    [updateSettings]
+  )
+
+  const setBreakReminderMinutes = useCallback(
+    async (minutes: number) => {
+      await updateSettings({ breakReminderMinutes: minutes })
+    },
+    [updateSettings]
+  )
+
   return {
     settings,
     loading,
@@ -135,6 +191,14 @@ export function useSettings() {
     setNotifyDeadlineAlerts,
     setDeadlineAlertDays,
     setNotifyPaymentReminders,
+    setNotifyDailySummary,
+    setDailySummaryHour,
+    setNotifyIdleReminder,
+    setIdleReminderMinutes,
+    setNotifyTaskDue,
+    setTaskDueHoursBefore,
+    setNotifyBreakReminder,
+    setBreakReminderMinutes,
     refreshSettings: loadSettings,
   }
 }

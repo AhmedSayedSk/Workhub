@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,15 +14,35 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, CachedAvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
-import { Search, Moon, Sun, LogOut, User } from 'lucide-react'
+import { Search, Moon, Sun, LogOut, User, Bell, BellOff } from 'lucide-react'
 import { useThemeContext } from '@/components/layout/ThemeProvider'
+import { getNotificationPermission, requestNotificationPermission } from '@/lib/notifications'
 
 export function Header() {
   const { user, signOut } = useAuth()
+  const router = useRouter()
   const { resolvedTheme, setTheme } = useThemeContext()
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | 'unsupported'>('default')
+
+  useEffect(() => {
+    setNotifPermission(getNotificationPermission())
+  }, [])
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+  }
+
+  const handleNotificationClick = async () => {
+    if (notifPermission === 'granted') {
+      router.push('/settings?tab=notifications')
+      return
+    }
+    if (notifPermission === 'unsupported') return
+    const granted = await requestNotificationPermission()
+    setNotifPermission(granted ? 'granted' : 'denied')
+    if (granted) {
+      router.push('/settings?tab=notifications')
+    }
   }
 
   const initials = user?.displayName
@@ -45,7 +67,38 @@ export function Header() {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
+        {/* Notification Bell */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleNotificationClick}
+          className="relative"
+          title={
+            notifPermission === 'granted'
+              ? 'Notifications enabled'
+              : notifPermission === 'denied'
+                ? 'Notifications blocked — update in browser settings'
+                : notifPermission === 'unsupported'
+                  ? 'Notifications not supported'
+                  : 'Click to enable notifications'
+          }
+        >
+          {notifPermission === 'granted' ? (
+            <>
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-background" />
+            </>
+          ) : notifPermission === 'denied' || notifPermission === 'unsupported' ? (
+            <BellOff className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <>
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+            </>
+          )}
+        </Button>
+
         {/* Theme Toggle */}
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {resolvedTheme === 'dark' ? (
