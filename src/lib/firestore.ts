@@ -563,6 +563,11 @@ export const appSettings = {
       aiModel: 'gemini-3-flash-preview',
       aiEnabled: true,
       thinkingTimePercent: 0,
+      notifyTimerReminder: true,
+      timerReminderMinutes: 120,
+      notifyDeadlineAlerts: true,
+      deadlineAlertDays: 3,
+      notifyPaymentReminders: true,
     }
 
     const docRef = doc(db, 'settings', SETTINGS_DOC_ID)

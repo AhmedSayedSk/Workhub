@@ -379,6 +379,11 @@ export interface AppSettings {
   aiEnabled: boolean
   thinkingTimePercent: number
   vaultPasskey?: string | null
+  notifyTimerReminder: boolean
+  timerReminderMinutes: number
+  notifyDeadlineAlerts: boolean
+  deadlineAlertDays: number
+  notifyPaymentReminders: boolean
   updatedAt: Timestamp
 }
 
@@ -387,6 +392,11 @@ export interface AppSettingsInput {
   aiEnabled: boolean
   thinkingTimePercent?: number
   vaultPasskey?: string | null
+  notifyTimerReminder?: boolean
+  timerReminderMinutes?: number
+  notifyDeadlineAlerts?: boolean
+  deadlineAlertDays?: number
+  notifyPaymentReminders?: boolean
 }
 
 // Media Library types

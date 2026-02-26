@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { TimerWidget } from '@/components/time/TimerWidget'
 import { cn } from '@/lib/utils'
+import { useNotifications } from '@/hooks/useNotifications'
 
 export default function DashboardLayout({
   children,
@@ -29,6 +30,8 @@ export default function DashboardLayout({
       return next
     })
   }
+
+  useNotifications()
 
   useEffect(() => {
     if (!loading && !user) {

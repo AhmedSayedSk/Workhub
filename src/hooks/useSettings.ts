@@ -84,6 +84,41 @@ export function useSettings() {
     await updateSettings({ vaultPasskey: null })
   }, [updateSettings])
 
+  const setNotifyTimerReminder = useCallback(
+    async (enabled: boolean) => {
+      await updateSettings({ notifyTimerReminder: enabled })
+    },
+    [updateSettings]
+  )
+
+  const setTimerReminderMinutes = useCallback(
+    async (minutes: number) => {
+      await updateSettings({ timerReminderMinutes: minutes })
+    },
+    [updateSettings]
+  )
+
+  const setNotifyDeadlineAlerts = useCallback(
+    async (enabled: boolean) => {
+      await updateSettings({ notifyDeadlineAlerts: enabled })
+    },
+    [updateSettings]
+  )
+
+  const setDeadlineAlertDays = useCallback(
+    async (days: number) => {
+      await updateSettings({ deadlineAlertDays: days })
+    },
+    [updateSettings]
+  )
+
+  const setNotifyPaymentReminders = useCallback(
+    async (enabled: boolean) => {
+      await updateSettings({ notifyPaymentReminders: enabled })
+    },
+    [updateSettings]
+  )
+
   return {
     settings,
     loading,
@@ -95,6 +130,11 @@ export function useSettings() {
     setThinkingTimePercent,
     setVaultPasskey,
     removeVaultPasskey,
+    setNotifyTimerReminder,
+    setTimerReminderMinutes,
+    setNotifyDeadlineAlerts,
+    setDeadlineAlertDays,
+    setNotifyPaymentReminders,
     refreshSettings: loadSettings,
   }
 }

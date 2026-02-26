@@ -43,11 +43,18 @@ import {
 } from 'lucide-react'
 import { clearImageCache, getImageCacheInfo } from '@/lib/image-cache'
 import { verifyPasskey } from '@/lib/passkey'
+import { getNotificationPermission, requestNotificationPermission } from '@/lib/notifications'
 
 export default function SettingsPage() {
   const { theme, setTheme } = useThemeContext()
   const { user, signOut, updateUserProfile } = useAuth()
-  const { settings, loading, saving, setAIModel, setAIEnabled, setThinkingTimePercent, setVaultPasskey, removeVaultPasskey } = useSettings()
+  const {
+    settings, loading, saving, setAIModel, setAIEnabled, setThinkingTimePercent,
+    setVaultPasskey, removeVaultPasskey,
+    setNotifyTimerReminder, setTimerReminderMinutes,
+    setNotifyDeadlineAlerts, setDeadlineAlertDays,
+    setNotifyPaymentReminders,
+  } = useSettings()
 
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [profileName, setProfileName] = useState('')
@@ -64,6 +71,13 @@ export default function SettingsPage() {
   const [savingPasskey, setSavingPasskey] = useState(false)
   const [passkeySuccess, setPasskeySuccess] = useState('')
   const [showPasskeyFields, setShowPasskeyFields] = useState({ current: false, new: false, confirm: false })
+
+  // Notification state
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | 'unsupported'>('default')
+  const [timerMinutesLocal, setTimerMinutesLocal] = useState(120)
+  const [deadlineDaysLocal, setDeadlineDaysLocal] = useState(3)
+  const timerMinutesTimer = useRef<NodeJS.Timeout | null>(null)
+  const deadlineDaysTimer = useRef<NodeJS.Timeout | null>(null)
 
   const refreshCacheInfo = useCallback(async () => {
     const info = await getImageCacheInfo()
@@ -84,8 +98,14 @@ export default function SettingsPage() {
   useEffect(() => {
     if (settings) {
       setThinkingTimeLocal(settings.thinkingTimePercent ?? 0)
+      setTimerMinutesLocal(settings.timerReminderMinutes ?? 120)
+      setDeadlineDaysLocal(settings.deadlineAlertDays ?? 3)
     }
   }, [settings])
+
+  useEffect(() => {
+    setNotifPermission(getNotificationPermission())
+  }, [])
 
   const handleEditProfile = () => {
     setProfileName(user?.displayName || '')
@@ -879,44 +899,144 @@ export default function SettingsPage() {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-6">
+          {/* Browser Permission Banner */}
+          {notifPermission !== 'granted' && notifPermission !== 'unsupported' && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                  Browser notifications are not enabled
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Enable them to receive desktop alerts for timers, deadlines, and payments.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const granted = await requestNotificationPermission()
+                  setNotifPermission(granted ? 'granted' : 'denied')
+                }}
+              >
+                <Bell className="h-4 w-4 mr-2" />
+                Enable
+              </Button>
+            </div>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
                 Notifications
+                {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                {!saving && settings && (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
               </CardTitle>
               <CardDescription>Configure notification preferences</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Timer Reminders</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Get reminded when timer is running for too long
-                  </p>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-                <Switch />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Deadline Alerts</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Notify before project deadlines
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Payment Reminders</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Remind about pending payments
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
+              ) : (
+                <>
+                  {/* Timer Reminders */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Timer Reminders</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get reminded when timer is running for too long
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.notifyTimerReminder ?? true}
+                      onCheckedChange={(checked) => setNotifyTimerReminder(checked)}
+                      disabled={saving}
+                    />
+                  </div>
+                  {settings?.notifyTimerReminder && (
+                    <div className="ml-0 flex items-center gap-3 pl-1">
+                      <Label className="text-sm text-muted-foreground whitespace-nowrap">Remind after</Label>
+                      <Input
+                        type="number"
+                        min="5"
+                        max="480"
+                        className="w-20"
+                        value={timerMinutesLocal}
+                        onChange={(e) => {
+                          const val = Math.max(5, Math.min(480, parseInt(e.target.value) || 5))
+                          setTimerMinutesLocal(val)
+                          if (timerMinutesTimer.current) clearTimeout(timerMinutesTimer.current)
+                          timerMinutesTimer.current = setTimeout(() => {
+                            setTimerReminderMinutes(val)
+                          }, 800)
+                        }}
+                        disabled={saving}
+                      />
+                      <span className="text-sm text-muted-foreground">minutes</span>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Deadline Alerts */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Deadline Alerts</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Notify before project deadlines
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.notifyDeadlineAlerts ?? true}
+                      onCheckedChange={(checked) => setNotifyDeadlineAlerts(checked)}
+                      disabled={saving}
+                    />
+                  </div>
+                  {settings?.notifyDeadlineAlerts && (
+                    <div className="ml-0 flex items-center gap-3 pl-1">
+                      <Label className="text-sm text-muted-foreground whitespace-nowrap">Alert</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="30"
+                        className="w-20"
+                        value={deadlineDaysLocal}
+                        onChange={(e) => {
+                          const val = Math.max(1, Math.min(30, parseInt(e.target.value) || 1))
+                          setDeadlineDaysLocal(val)
+                          if (deadlineDaysTimer.current) clearTimeout(deadlineDaysTimer.current)
+                          deadlineDaysTimer.current = setTimeout(() => {
+                            setDeadlineAlertDays(val)
+                          }, 800)
+                        }}
+                        disabled={saving}
+                      />
+                      <span className="text-sm text-muted-foreground">days before deadline</span>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Payment Reminders */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Payment Reminders</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Remind about pending payments
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.notifyPaymentReminders ?? true}
+                      onCheckedChange={(checked) => setNotifyPaymentReminders(checked)}
+                      disabled={saving}
+                    />
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
