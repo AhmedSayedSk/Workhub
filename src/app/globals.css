@@ -215,3 +215,50 @@
 .prose-viewer .ProseMirror {
   @apply text-muted-foreground text-sm;
 }
+
+/* ── Comment Markdown — colorful rendering for Claude Code comments ── */
+.comment-markdown .ProseMirror {
+  @apply text-foreground/80 text-sm;
+}
+.comment-markdown .ProseMirror h1 {
+  @apply text-base font-bold mt-2 mb-1 text-primary;
+}
+.comment-markdown .ProseMirror h2 {
+  @apply text-sm font-semibold mt-2 mb-1 text-violet-600 dark:text-violet-400;
+}
+.comment-markdown .ProseMirror h3 {
+  @apply text-sm font-semibold mt-2 mb-0.5 text-sky-600 dark:text-sky-400;
+}
+.comment-markdown .ProseMirror strong {
+  @apply text-foreground font-semibold;
+}
+.comment-markdown .ProseMirror code {
+  @apply px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-mono text-xs;
+}
+.comment-markdown .ProseMirror pre {
+  @apply bg-zinc-100 dark:bg-zinc-800/60 rounded-md p-2.5 my-1.5 overflow-x-auto;
+}
+.comment-markdown .ProseMirror pre code {
+  @apply bg-transparent p-0 text-emerald-700 dark:text-emerald-300;
+}
+.comment-markdown .ProseMirror ol {
+  @apply list-decimal pl-5 my-1 space-y-0.5;
+}
+.comment-markdown .ProseMirror ul {
+  @apply list-disc pl-5 my-1 space-y-0.5;
+}
+.comment-markdown .ProseMirror li {
+  @apply my-0;
+}
+.comment-markdown .ProseMirror p {
+  @apply my-0.5 leading-relaxed;
+}
+.comment-markdown .ProseMirror blockquote {
+  @apply border-l-4 border-indigo-400 dark:border-indigo-500 pl-3 text-indigo-600 dark:text-indigo-300 italic my-1.5;
+}
+.comment-markdown .ProseMirror a {
+  @apply text-blue-600 dark:text-blue-400 underline underline-offset-2;
+}
+.comment-markdown .ProseMirror hr {
+  @apply border-border my-2;
+}

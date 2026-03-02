@@ -62,6 +62,7 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft,
+  Bot,
   Building2,
   Calendar,
   CheckCircle2,
@@ -86,6 +87,7 @@ import {
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
 import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
+import { ClaudeSessionsTab } from '@/components/projects/ClaudeSessionsTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -118,6 +120,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [deletePassword, setDeletePassword] = useState('')
   const [deletePasswordError, setDeletePasswordError] = useState('')
   const [deleteAttempts, setDeleteAttempts] = useState(0)
+  const [activeTab, setActiveTab] = useState('tasks')
   const [deleteCooldown, setDeleteCooldown] = useState(0)
   const cooldownRef = useRef<NodeJS.Timeout | null>(null)
   const maxDeleteAttempts = 3
@@ -188,6 +191,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     coverImageUrl: null as string | null,
     color: colorPresets[0].value,
     projectType: null as ProjectType | null,
+    repoPath: '' as string,
   })
 
   const [paymentForm, setPaymentForm] = useState({
@@ -438,6 +442,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         coverImageUrl: project.coverImageUrl || null,
         color: project.color || colorPresets[0].value,
         projectType: project.projectType || null,
+        repoPath: project.repoPath || '',
       })
       setIsEditDialogOpen(true)
     }
@@ -463,6 +468,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         coverImageUrl: editForm.coverImageUrl,
         color: editForm.color,
         projectType: editForm.projectType || null,
+        repoPath: editForm.repoPath.trim() || null,
       }
       if (isEditInternal && editForm.estimatedValue) {
         updateData.estimatedValue = parseFloat(editForm.estimatedValue)
@@ -478,7 +484,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div className="flex flex-col gap-5 lg:h-[calc(100vh-7rem)] lg:overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between shrink-0">
+      <div className="flex items-start gap-6 shrink-0">
+        {/* Left: Project info */}
         <div className="flex items-center gap-4 min-w-0 flex-1">
           <Link href={parentProject ? `/projects/${parentProject.id}` : '/projects'} className="shrink-0">
             <Button variant="ghost" size="icon">
@@ -521,256 +528,222 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={statusColors.project[project.status]}
-          >
-            {project.status}
-          </Badge>
-          {isInternal && (
-            <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 border-0">
-              <Building2 className="h-3 w-3 mr-1" />
-              Internal
-            </Badge>
-          )}
-          {!project.parentProjectId && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <FolderKanban className="h-4 w-4" />
-                Sub-Projects
-                {subProjects.length > 0 && (
-                  <Badge variant="secondary" className="h-5 px-1.5 text-xs">
-                    {subProjects.length}
-                  </Badge>
-                )}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Sub-Projects</DialogTitle>
-                <DialogDescription>
-                  Manage sub-projects under {project.name}
-                </DialogDescription>
-              </DialogHeader>
-              {subProjects.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
-                  <FolderKanban className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="mb-1">No sub-projects yet</p>
-                  <p className="text-sm mb-4">Create sub-projects to break this project into smaller parts</p>
-                  <Link href={`/projects/new?parent=${id}`}>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Sub-Project
-                    </Button>
-                  </Link>
+
+        {/* Right: Combined info card */}
+        <Card className="shrink-0 py-2">
+          <CardContent className="space-y-2 pb-0 pt-0 px-4">
+            {/* Finances - horizontal row for non-internal projects with own finances */}
+            {!isInternal && project.hasOwnFinances !== false && (
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{isMonthly ? 'Rate' : 'Total'}</span>
+                  <span className="text-sm font-semibold">{formatCurrency(project.totalAmount)}</span>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <Link href={`/projects/new?parent=${id}`}>
-                      <Button size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Sub-Project
-                      </Button>
-                    </Link>
-                  </div>
-                  <div className="grid gap-3">
-                    {subProjects.map((sub) => {
-                      const subIsInternal = sub.paymentModel === 'internal'
-                      return (
-                        <Link key={sub.id} href={`/projects/${sub.id}`}>
-                          <div
-                            className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm transition-all cursor-pointer"
-                            style={{
-                              backgroundColor: `color-mix(in srgb, ${sub.color || project.color || '#6B8DD6'} 6%, transparent)`,
-                            }}
-                          >
-                            <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md" />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium truncate">{sub.name}</p>
-                                <Badge variant="outline" className={statusColors.project[sub.status]}>
-                                  {sub.status}
-                                </Badge>
-                                {!sub.hasOwnFinances && (
-                                  <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-0 text-xs">
-                                    <Link2 className="h-3 w-3 mr-0.5" />
-                                    Shared
-                                  </Badge>
+                <Separator orientation="vertical" className="h-4" />
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                  <span className="text-xs text-muted-foreground">{isMonthly ? 'Received' : 'Paid'}</span>
+                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">{formatCurrency(project.paidAmount)}</span>
+                  {!isMonthly && <span className="text-xs text-muted-foreground">({progress}%)</span>}
+                </div>
+                <Separator orientation="vertical" className="h-4" />
+                <div className="flex items-center gap-1.5">
+                  <Wallet className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                  <span className="text-xs text-muted-foreground">{isMonthly ? 'Pending' : 'Owed'}</span>
+                  <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">{formatCurrency(owedAmount)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Actions + Status */}
+            <Separator />
+            <div className="flex items-center gap-2 flex-wrap">
+              {!project.parentProjectId && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+                    <FolderKanban className="h-3.5 w-3.5" />
+                    Sub-Projects
+                    {subProjects.length > 0 && (
+                      <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                        {subProjects.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Sub-Projects</DialogTitle>
+                    <DialogDescription>
+                      Manage sub-projects under {project.name}
+                    </DialogDescription>
+                  </DialogHeader>
+                  {subProjects.length === 0 ? (
+                    <div className="text-center py-10 text-muted-foreground">
+                      <FolderKanban className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="mb-1">No sub-projects yet</p>
+                      <p className="text-sm mb-4">Create sub-projects to break this project into smaller parts</p>
+                      <Link href={`/projects/new?parent=${id}`}>
+                        <Button>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Sub-Project
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex justify-end">
+                        <Link href={`/projects/new?parent=${id}`}>
+                          <Button size="sm">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Sub-Project
+                          </Button>
+                        </Link>
+                      </div>
+                      <div className="grid gap-3">
+                        {subProjects.map((sub) => {
+                          const subIsInternal = sub.paymentModel === 'internal'
+                          return (
+                            <Link key={sub.id} href={`/projects/${sub.id}`}>
+                              <div
+                                className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm transition-all cursor-pointer"
+                                style={{
+                                  backgroundColor: `color-mix(in srgb, ${sub.color || project.color || '#6B8DD6'} 6%, transparent)`,
+                                }}
+                              >
+                                <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium truncate">{sub.name}</p>
+                                    <Badge variant="outline" className={statusColors.project[sub.status]}>
+                                      {sub.status}
+                                    </Badge>
+                                    {!sub.hasOwnFinances && (
+                                      <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-0 text-xs">
+                                        <Link2 className="h-3 w-3 mr-0.5" />
+                                        Shared
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {sub.description && (
+                                    <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{sub.description}</p>
+                                  )}
+                                </div>
+                                {sub.hasOwnFinances !== false && !subIsInternal && (
+                                  <div className="text-right text-sm shrink-0">
+                                    <p className="font-medium">{formatCurrency(sub.totalAmount)}</p>
+                                    <p className="text-muted-foreground">{formatCurrency(sub.paidAmount)} paid</p>
+                                  </div>
                                 )}
                               </div>
-                              {sub.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{sub.description}</p>
-                              )}
-                            </div>
-                            {sub.hasOwnFinances !== false && !subIsInternal && (
-                              <div className="text-right text-sm shrink-0">
-                                <p className="font-medium">{formatCurrency(sub.totalAmount)}</p>
-                                <p className="text-muted-foreground">{formatCurrency(sub.paidAmount)} paid</p>
-                              </div>
-                            )}
-                          </div>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
-          )}
-
-          <Button variant="outline" size="sm" onClick={openEditDialog}>
-            <Edit className="h-4 w-4 mr-1.5" />
-            Edit
-          </Button>
-
-          <AlertDialog onOpenChange={(open) => { if (!open) { setDeleteConfirmation(''); setDeletePassword(''); if (!deleteCooldown) { setDeletePasswordError(''); setDeleteAttempts(0) } } }}>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="icon" className="text-destructive hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Project</AlertDialogTitle>
-                <AlertDialogDescription asChild>
-                  <div className="text-sm text-muted-foreground">
-                    <p>
-                      Are you sure you want to delete <span className="font-semibold">{project.name}</span>?
-                      This will permanently remove the project and all related data including:
-                    </p>
-                    <ul className="list-disc list-inside mt-2 space-y-1">
-                      <li>All milestones and payments</li>
-                      <li>All features, tasks, and subtasks</li>
-                      <li>All time entries</li>
-                    </ul>
-                    <p className="mt-2 text-destructive font-medium">This action cannot be undone.</p>
-                    <div className="mt-4 space-y-2">
-                      <p>Type <span className="font-semibold text-foreground">{project.name}</span> to confirm:</p>
-                      <Input
-                        value={deleteConfirmation}
-                        onChange={(e) => setDeleteConfirmation(e.target.value)}
-                        placeholder={project.name}
-                        className="mt-1"
-                        autoComplete="off"
-                      />
+                            </Link>
+                          )
+                        })}
+                      </div>
                     </div>
-                    <div className="mt-3 space-y-2">
-                      <p>Enter your password:</p>
-                      <Input
-                        type="password"
-                        value={deletePassword}
-                        onChange={(e) => { setDeletePassword(e.target.value); if (!deleteCooldown) setDeletePasswordError('') }}
-                        placeholder="Password"
-                        className="mt-1"
-                        autoComplete="current-password"
-                      />
-                      {deletePasswordError && (
-                        <p className="text-xs text-destructive">
-                          {deleteCooldown > 0
-                            ? `Too many failed attempts. Try again in ${Math.floor(deleteCooldown / 60)}:${String(deleteCooldown % 60).padStart(2, '0')}.`
-                            : deletePasswordError}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <Button
-                  onClick={handleDeleteProject}
-                  disabled={isDeleting || deleteConfirmation !== project.name || !deletePassword || deleteCooldown > 0}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    'Delete Project'
                   )}
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+                </DialogContent>
+              </Dialog>
+              )}
+
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={openEditDialog}>
+                <Edit className="h-3.5 w-3.5 mr-1" />
+                Edit
+              </Button>
+
+              <AlertDialog onOpenChange={(open) => { if (!open) { setDeleteConfirmation(''); setDeletePassword(''); if (!deleteCooldown) { setDeletePasswordError(''); setDeleteAttempts(0) } } }}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="text-destructive hover:text-destructive h-8 w-8">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Project</AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                      <div className="text-sm text-muted-foreground">
+                        <p>
+                          Are you sure you want to delete <span className="font-semibold">{project.name}</span>?
+                          This will permanently remove the project and all related data including:
+                        </p>
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                          <li>All milestones and payments</li>
+                          <li>All features, tasks, and subtasks</li>
+                          <li>All time entries</li>
+                        </ul>
+                        <p className="mt-2 text-destructive font-medium">This action cannot be undone.</p>
+                        <div className="mt-4 space-y-2">
+                          <p>Type <span className="font-semibold text-foreground">{project.name}</span> to confirm:</p>
+                          <Input
+                            value={deleteConfirmation}
+                            onChange={(e) => setDeleteConfirmation(e.target.value)}
+                            placeholder={project.name}
+                            className="mt-1"
+                            autoComplete="off"
+                          />
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          <p>Enter your password:</p>
+                          <Input
+                            type="password"
+                            value={deletePassword}
+                            onChange={(e) => { setDeletePassword(e.target.value); if (!deleteCooldown) setDeletePasswordError('') }}
+                            placeholder="Password"
+                            className="mt-1"
+                            autoComplete="current-password"
+                          />
+                          {deletePasswordError && (
+                            <p className="text-xs text-destructive">
+                              {deleteCooldown > 0
+                                ? `Too many failed attempts. Try again in ${Math.floor(deleteCooldown / 60)}:${String(deleteCooldown % 60).padStart(2, '0')}.`
+                                : deletePasswordError}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <Button
+                      onClick={handleDeleteProject}
+                      disabled={isDeleting || deleteConfirmation !== project.name || !deletePassword || deleteCooldown > 0}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        'Delete Project'
+                      )}
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <div className="flex-1" />
+              <Badge
+                variant="outline"
+                className={statusColors.project[project.status]}
+              >
+                {project.status}
+              </Badge>
+              {isInternal && (
+                <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 border-0">
+                  <Building2 className="h-3 w-3 mr-1" />
+                  Internal
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Stats Overview - Only for non-internal projects with own finances */}
-      {!isInternal && project.hasOwnFinances !== false && (
-        <div className="grid gap-4 md:grid-cols-3 shrink-0">
-          <Card className="py-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-              <CardTitle className="text-sm font-medium">
-                {isMonthly ? 'Monthly Rate' : 'Total Value'}
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="pb-1">
-              <div className="text-2xl font-bold">
-                {formatCurrency(project.totalAmount)}
-              </div>
-              {isMonthly && (
-                <p className="text-xs text-muted-foreground">per month</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="py-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-              <CardTitle className="text-sm font-medium">
-                {isMonthly ? 'Total Received' : 'Paid'}
-              </CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-            </CardHeader>
-            <CardContent className="pb-1">
-              <div className="flex items-center gap-3">
-                <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-                  {formatCurrency(project.paidAmount)}
-                </div>
-                {!isMonthly && (
-                  <div className="flex items-center gap-2 flex-1">
-                    <Progress value={progress} className="h-2 flex-1" />
-                    <span className="text-sm font-medium text-muted-foreground">{progress}%</span>
-                  </div>
-                )}
-              </div>
-              {isMonthly && project.paidAmount > 0 && project.totalAmount > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {Math.floor(project.paidAmount / project.totalAmount)} month{Math.floor(project.paidAmount / project.totalAmount) !== 1 ? 's' : ''} paid
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="py-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-1">
-              <CardTitle className="text-sm font-medium">
-                {isMonthly ? 'Pending Payments' : 'Owed'}
-              </CardTitle>
-              <Wallet className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-            </CardHeader>
-            <CardContent className="pb-1">
-              <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">
-                {formatCurrency(owedAmount)}
-              </div>
-              {isMonthly && (
-                <p className="text-xs text-muted-foreground">
-                  {payments.filter(p => p.status === 'pending').length} pending
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {/* Main Content Tabs */}
-      <Tabs defaultValue="tasks" className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
         <TabsListBoxed>
           <TabsTriggerBoxed value="tasks" className="gap-2">
             <ListTodo className="h-4 w-4" />
@@ -798,10 +771,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <History className="h-4 w-4" />
             Activity
           </TabsTriggerBoxed>
+          <TabsTriggerBoxed value="ai-sessions" className="gap-2">
+            <Bot className="h-4 w-4" />
+            AI Sessions
+          </TabsTriggerBoxed>
         </TabsListBoxed>
 
         <TabsContentBoxed value="tasks" className="lg:flex-1 lg:min-h-0">
-          <ProjectTasksTab projectId={id} projectName={project.name} />
+          <ProjectTasksTab projectId={id} projectName={project.name} repoPath={project.repoPath || null} onSwitchToAiTab={() => setActiveTab('ai-sessions')} />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
@@ -1337,6 +1314,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </TabsContentBoxed>
 
+        <TabsContentBoxed value="ai-sessions" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <ClaudeSessionsTab projectId={id} repoPath={project.repoPath || null} />
+        </TabsContentBoxed>
+
         <TabsContentBoxed value="details" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Project Details</h3>
@@ -1781,6 +1762,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-repoPath">Repository Path</Label>
+              <Input
+                id="edit-repoPath"
+                value={editForm.repoPath}
+                onChange={(e) => setEditForm({ ...editForm, repoPath: e.target.value })}
+                placeholder="/mnt/d/programming/project-name"
+              />
+              <p className="text-xs text-muted-foreground">
+                Local filesystem path to the project&apos;s repository. Used by Claude Code for automated task processing.
+              </p>
+            </div>
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>

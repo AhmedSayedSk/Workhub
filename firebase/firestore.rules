@@ -95,5 +95,10 @@ service cloud.firestore {
     match /members/{memberId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Claude AI Sessions collection
+    match /claudeSessions/{sessionId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

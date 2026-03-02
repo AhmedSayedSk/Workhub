@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -25,11 +25,201 @@ import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Plus, Loader2 } from 'lucide-react'
+import { Plus, Loader2, Bot, UserX } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { TaskCard } from './TaskCard'
 import { useSubtaskCounts } from '@/hooks/useTasks'
 import { useCommentCounts } from '@/hooks/useComments'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
+
+/** Extracted so its form state doesn't re-render the entire board */
+function CreateTaskDialog({
+  open,
+  onOpenChange,
+  status,
+  features,
+  selectedFeatureId,
+  allMembers,
+  projectId,
+  onCreateTask,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  status: TaskStatus
+  features: Feature[]
+  selectedFeatureId?: string | null
+  allMembers?: Member[]
+  projectId: string
+  onCreateTask: (task: TaskInput) => Promise<void>
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  // Name is separate state so typing doesn't re-render the heavy RichTextEditor
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [taskType, setTaskType] = useState<TaskType>('task')
+  const [priority, setPriority] = useState<Priority>('medium')
+  const [featureId, setFeatureId] = useState('')
+  const [estimatedHours, setEstimatedHours] = useState('')
+  const [deadline, setDeadline] = useState<Date | null>(null)
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([])
+  const [skipAutoAssign, setSkipAutoAssign] = useState(true)
+
+  const handleDescriptionChange = useCallback((md: string) => {
+    setDescription(md)
+  }, [])
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setName('')
+      setDescription('')
+      setTaskType('task')
+      setPriority('medium')
+      setFeatureId(selectedFeatureId || '')
+      setEstimatedHours('')
+      setDeadline(null)
+      setAssigneeIds([])
+      setSkipAutoAssign(true)
+    }
+  }, [open, selectedFeatureId])
+
+  const handleCreate = async () => {
+    if (!name.trim()) return
+    setIsSubmitting(true)
+    try {
+      await onCreateTask({
+        name,
+        description,
+        featureId,
+        projectId,
+        status,
+        taskType,
+        priority,
+        estimatedHours: parseFloat(estimatedHours) || 0,
+        deadline: deadline ? Timestamp.fromDate(deadline) : null,
+        assigneeIds: skipAutoAssign ? [] : assigneeIds,
+        skipAutoAssign,
+      })
+      onOpenChange(false)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <div className="px-6 pt-6 pb-4 border-b shrink-0">
+          <DialogHeader>
+            <DialogTitle>Create Task</DialogTitle>
+            <DialogDescription>Add a new task to the board</DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 flex flex-col p-6 gap-4 min-h-0">
+            <div className="space-y-2 shrink-0">
+              <Label>Name *</Label>
+              <Input
+                placeholder="Task name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col flex-1 min-h-0 space-y-2">
+              <Label className="shrink-0">Description</Label>
+              <div className="flex-1 min-h-0 [&>div]:h-full [&>div]:flex [&>div]:flex-col [&>div>div:last-of-type]:flex-1 [&>div>div:last-of-type]:overflow-y-auto [&_.ProseMirror]:min-h-full">
+                <RichTextEditor
+                  content={description}
+                  onChange={handleDescriptionChange}
+                  placeholder="Task description..."
+                  minHeight="0"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="w-64 shrink-0 border-l bg-muted/20 overflow-y-auto p-5 space-y-5">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
+              <Select value={taskType} onValueChange={(value) => setTaskType(value as TaskType)}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(taskTypeLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Priority</Label>
+              <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {features.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feature</Label>
+                <Select value={featureId || 'none'} onValueChange={(value) => setFeatureId(value === 'none' ? '' : value)}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No feature</SelectItem>
+                    {features.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deadline</Label>
+              <DatePicker value={deadline} onChange={setDeadline} placeholder="No deadline" className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Est. Hours</Label>
+              <Input type="number" placeholder="0" value={estimatedHours} onChange={(e) => setEstimatedHours(e.target.value)} className="h-9" />
+            </div>
+            {allMembers && allMembers.length > 0 && !skipAutoAssign && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignees</Label>
+                <AssigneeSelect
+                  members={allMembers}
+                  selectedIds={assigneeIds}
+                  onChange={setAssigneeIds}
+                  trigger={
+                    <Button variant="outline" size="sm" className="w-full h-9 text-xs">
+                      {assigneeIds.length > 0 ? `${assigneeIds.length} assigned` : 'Assign members'}
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserX className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-xs font-medium cursor-pointer" htmlFor="skip-auto-assign">Leave unassigned</Label>
+                </div>
+                <Switch id="skip-auto-assign" checked={skipAutoAssign} onCheckedChange={(checked) => { setSkipAutoAssign(checked); if (checked) setAssigneeIds([]) }} />
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight">Task will not be assigned to anyone. A manager can assign later.</p>
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleCreate} disabled={isSubmitting || !name.trim()}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 const columns: { id: TaskStatus; title: string; borderColor: string; headerText: string }[] = [
   { id: 'todo', title: 'To Do', borderColor: 'border-slate-300', headerText: 'text-slate-600 dark:text-slate-400' },
@@ -42,8 +232,12 @@ interface TaskBoardProps {
   tasks: Task[]
   features: Feature[]
   projectId: string
+  projectName?: string
   allMembers?: Member[]
   selectedFeatureId?: string | null
+  selectionMode?: boolean
+  aiProcessingTaskIds?: Set<string>
+  onProcessingStarted?: (taskIds: string[]) => void
   onCreateTask: (task: TaskInput) => Promise<void>
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
   onArchiveTask: (id: string) => Promise<void>
@@ -59,8 +253,12 @@ export function TaskBoard({
   tasks,
   features,
   projectId,
+  projectName,
   allMembers,
   selectedFeatureId,
+  selectionMode = false,
+  aiProcessingTaskIds,
+  onProcessingStarted,
   onCreateTask,
   onUpdateTask,
   onArchiveTask,
@@ -73,17 +271,9 @@ export function TaskBoard({
 }: TaskBoardProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [createColumn, setCreateColumn] = useState<TaskStatus>('todo')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    featureId: '',
-    taskType: 'task' as TaskType,
-    priority: 'medium' as Priority,
-    estimatedHours: '',
-    deadline: null as Date | null,
-    assigneeIds: [] as string[],
-  })
+
+  // Selection state
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
 
   // Drag and drop state
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
@@ -103,19 +293,36 @@ export function TaskBoard({
     return map
   }, [allMembers])
 
-  // Pre-select feature when dialog opens if a feature is selected
-  useEffect(() => {
-    if (isCreateOpen && selectedFeatureId) {
-      setFormData((prev) => ({ ...prev, featureId: selectedFeatureId }))
-    }
-  }, [isCreateOpen, selectedFeatureId])
+  const toggleTaskSelection = (taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(taskId)) {
+        next.delete(taskId)
+      } else {
+        next.add(taskId)
+      }
+      return next
+    })
+  }
 
-  const tasksByStatus = columns.reduce((acc, col) => {
+  // Clear selection when selection mode is turned off
+  useEffect(() => {
+    if (!selectionMode) {
+      setSelectedTaskIds(new Set())
+    }
+  }, [selectionMode])
+
+  const handleProcessTasks = () => {
+    if (selectedTaskIds.size === 0) return
+    onProcessingStarted?.(Array.from(selectedTaskIds))
+    setSelectedTaskIds(new Set())
+  }
+
+  const tasksByStatus = useMemo(() => columns.reduce((acc, col) => {
     acc[col.id] = tasks
       .filter((t) => t.status === col.id)
       .sort((a, b) => {
         if (col.id === 'done') {
-          // Done column: sort by doneAt descending (last finished first)
           const doneA = a.doneAt?.toMillis?.() ?? a.sortOrder ?? a.createdAt?.toMillis?.() ?? 0
           const doneB = b.doneAt?.toMillis?.() ?? b.sortOrder ?? b.createdAt?.toMillis?.() ?? 0
           return doneB - doneA
@@ -125,40 +332,7 @@ export function TaskBoard({
         return orderA - orderB
       })
     return acc
-  }, {} as Record<TaskStatus, Task[]>)
-
-  const handleCreate = async () => {
-    if (!formData.name.trim()) return
-
-    setIsSubmitting(true)
-    try {
-      await onCreateTask({
-        name: formData.name,
-        description: formData.description,
-        featureId: formData.featureId,
-        projectId,
-        status: createColumn,
-        taskType: formData.taskType,
-        priority: formData.priority,
-        estimatedHours: parseFloat(formData.estimatedHours) || 0,
-        deadline: formData.deadline ? Timestamp.fromDate(formData.deadline) : null,
-        assigneeIds: formData.assigneeIds,
-      })
-      setFormData({
-        name: '',
-        description: '',
-        featureId: selectedFeatureId || '',
-        taskType: 'task',
-        priority: 'medium',
-        estimatedHours: '',
-        deadline: null,
-        assigneeIds: [],
-      })
-      setIsCreateOpen(false)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+  }, {} as Record<TaskStatus, Task[]>), [tasks])
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId)
@@ -303,22 +477,12 @@ export function TaskBoard({
 
   const openCreateDialog = (status: TaskStatus) => {
     setCreateColumn(status)
-    setFormData({
-      name: '',
-      description: '',
-      featureId: selectedFeatureId || '',
-      taskType: 'task',
-      priority: 'medium',
-      estimatedHours: '',
-      deadline: null,
-      assigneeIds: [],
-    })
     setIsCreateOpen(true)
   }
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 h-full">
         {columns.map((column) => {
           const isOver = dragOverColumn === column.id
           const columnTasks = tasksByStatus[column.id] || []
@@ -357,7 +521,7 @@ export function TaskBoard({
               {/* Column Content */}
               <div
                 ref={(el) => { columnRefs.current[column.id] = el }}
-                className="space-y-3 flex-1 min-h-0 overflow-y-auto p-4 pt-3"
+                className="space-y-3 flex-1 min-h-0 overflow-y-auto py-3"
               >
                 {columnTasks.map((task, index) => {
                   const isDragging = draggedTaskId === task.id
@@ -386,11 +550,15 @@ export function TaskBoard({
                           commentCount={commentCounts[task.id] || 0}
                           assignees={(task.assigneeIds || []).map((id) => membersMap.get(id)).filter(Boolean) as Member[]}
                           allMembers={allMembers}
+                          isAiProcessing={aiProcessingTaskIds?.has(task.id)}
                           onAssigneeChange={allMembers ? (ids) => onUpdateTask(task.id, { assigneeIds: ids }) : undefined}
-                          onClick={() => onSelectTask(task)}
+                          onClick={() => selectionMode ? toggleTaskSelection(task.id) : onSelectTask(task)}
                           onArchive={() => onArchiveTask(task.id)}
                           onSetWaiting={onSetTaskWaiting ? () => onSetTaskWaiting(task.id) : undefined}
                           onRemoveWaiting={onRemoveTaskWaiting ? () => onRemoveTaskWaiting(task.id) : undefined}
+                          selectable={selectionMode}
+                          selected={selectedTaskIds.has(task.id)}
+                          onSelectionToggle={toggleTaskSelection}
                         />
                       </div>
                     </div>
@@ -420,172 +588,35 @@ export function TaskBoard({
         })}
       </div>
 
-      {/* Create Task Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
-          {/* Header */}
-          <div className="px-6 pt-6 pb-4 border-b shrink-0">
-            <DialogHeader>
-              <DialogTitle>Create Task</DialogTitle>
-              <DialogDescription>Add a new task to the board</DialogDescription>
-            </DialogHeader>
-          </div>
+      {/* Floating Action Bar - shown when tasks are selected */}
+      {selectionMode && selectedTaskIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl border bg-card shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+          <span className="text-sm font-medium text-muted-foreground">
+            {selectedTaskIds.size} task{selectedTaskIds.size > 1 ? 's' : ''} selected
+          </span>
+          <div className="w-px h-6 bg-border" />
+          <Button
+            size="sm"
+            onClick={handleProcessTasks}
+            className="gap-2"
+          >
+            <Bot className="h-4 w-4" />
+            Process with Claude
+          </Button>
+        </div>
+      )}
 
-          {/* Two-column layout */}
-          <div className="flex flex-1 min-h-0">
-            {/* Left column - Name + Description */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div className="space-y-2">
-                <Label>Name *</Label>
-                <Input
-                  placeholder="Task name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <RichTextEditor
-                  content={formData.description}
-                  onChange={(md) => setFormData({ ...formData, description: md })}
-                  placeholder="Task description..."
-                  minHeight="180px"
-                />
-              </div>
-            </div>
-
-            {/* Right column - Properties sidebar */}
-            <div className="w-64 shrink-0 border-l bg-muted/20 overflow-y-auto p-5 space-y-5">
-              {/* Type */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
-                <Select
-                  value={formData.taskType}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, taskType: value as TaskType })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(taskTypeLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Priority */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Priority</Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, priority: value as Priority })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Feature */}
-              {features.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feature</Label>
-                  <Select
-                    value={formData.featureId || 'none'}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, featureId: value === 'none' ? '' : value })
-                    }
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No feature</SelectItem>
-                      {features.map((feature) => (
-                        <SelectItem key={feature.id} value={feature.id}>
-                          {feature.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Deadline */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deadline</Label>
-                <DatePicker
-                  value={formData.deadline}
-                  onChange={(date) => setFormData({ ...formData, deadline: date })}
-                  placeholder="No deadline"
-                  className="h-9"
-                />
-              </div>
-
-              {/* Est. Hours */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Est. Hours</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={formData.estimatedHours}
-                  onChange={(e) =>
-                    setFormData({ ...formData, estimatedHours: e.target.value })
-                  }
-                  className="h-9"
-                />
-              </div>
-
-              {/* Assignees */}
-              {allMembers && allMembers.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignees</Label>
-                  <AssigneeSelect
-                    members={allMembers}
-                    selectedIds={formData.assigneeIds}
-                    onChange={(ids) => setFormData({ ...formData, assigneeIds: ids })}
-                    trigger={
-                      <Button variant="outline" size="sm" className="w-full h-9 text-xs">
-                        {formData.assigneeIds.length > 0
-                          ? `${formData.assigneeIds.length} assigned`
-                          : 'Assign members'}
-                      </Button>
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={isSubmitting || !formData.name.trim()}
-            >
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Create Task Dialog — extracted component so form state doesn't re-render the board */}
+      <CreateTaskDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        status={createColumn}
+        features={features}
+        selectedFeatureId={selectedFeatureId}
+        allMembers={allMembers}
+        projectId={projectId}
+        onCreateTask={onCreateTask}
+      />
     </>
   )
 }

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { MarkdownContent } from '@/components/ui/markdown-content'
 import {
   Select,
   SelectContent,
@@ -48,7 +49,9 @@ import {
   Archive,
   Hourglass,
   Pause,
+  UserX,
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { MemberAvatar } from '@/components/members/MemberAvatar'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
@@ -170,10 +173,12 @@ function CommentSection({
                     />
                   )}
                   {comment.text && (
-                    <p className="mt-0.5 whitespace-pre-wrap break-words">{comment.text}</p>
+                    <div className="mt-0.5">
+                      <MarkdownContent content={comment.text} className="comment-markdown" />
+                    </div>
                   )}
                 </div>
-                {user && comment.authorId === user.uid && (
+                {user && (comment.authorId === user.uid || comment.authorId === 'claude-code') && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -394,7 +399,6 @@ export function TaskDetail({
   const { subtasks, createSubtask, updateSubtask, deleteSubtask } = useSubtasks(
     task?.id
   )
-
   const [isEditing, setIsEditing] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
   const [subtasksExpanded, setSubtasksExpanded] = useState(false)
@@ -987,6 +991,7 @@ export function TaskDetail({
         confirmLabel="Archive"
         onConfirm={handleArchive}
       />
+
     </>
   )
 }

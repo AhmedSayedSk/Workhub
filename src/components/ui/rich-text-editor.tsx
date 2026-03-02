@@ -103,9 +103,11 @@ export function RichTextEditor({
         return false
       },
     },
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor: ed }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const md = (editor.storage as any).markdown.getMarkdown()
+      const md = (ed.storage as any).markdown.getMarkdown()
+      isInternalUpdate.current = true
+      lastContentRef.current = md
       onChange?.(md)
     },
   })
@@ -118,11 +120,20 @@ export function RichTextEditor({
   }, [editor, editable])
 
   // Sync content when prop changes externally (e.g. switching tasks, toggling edit mode)
+  // Track whether the last change came from the editor itself to avoid expensive getMarkdown() calls
+  const lastContentRef = useRef(content)
+  const isInternalUpdate = useRef(false)
   useEffect(() => {
     if (!editor) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const currentMd = (editor.storage as any).markdown.getMarkdown() as string
-    if (content !== currentMd) {
+    // Skip if this content update came from the editor's own onUpdate callback
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false
+      lastContentRef.current = content
+      return
+    }
+    // Only sync if content actually changed from outside
+    if (content !== lastContentRef.current) {
+      lastContentRef.current = content
       editor.commands.setContent(content)
     }
   }, [editor, content])

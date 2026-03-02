@@ -12,6 +12,9 @@ import { getTimeSummarySchema, getTimeSummary } from './tools/get-time-summary.j
 import { listTimeEntriesSchema, listTimeEntries } from './tools/list-time-entries.js';
 import { updateTimeEntrySchema, updateTimeEntry } from './tools/update-time-entry.js';
 import { deleteTimeEntrySchema, deleteTimeEntry } from './tools/delete-time-entry.js';
+import { getTaskDetailsSchema, getTaskDetails } from './tools/get-task-details.js';
+import { updateTaskStatusSchema, updateTaskStatus } from './tools/update-task-status.js';
+import { addTaskCommentSchema, addTaskComment } from './tools/add-task-comment.js';
 
 const server = new McpServer({
   name: 'workhub',
@@ -87,6 +90,27 @@ server.tool(
   'Delete a time entry by its ID.',
   deleteTimeEntrySchema,
   async (args) => deleteTimeEntry(args)
+);
+
+server.tool(
+  'get_task_details',
+  'Get full details of a task including description, subtasks, project/feature names, and comment count.',
+  getTaskDetailsSchema,
+  async (args) => getTaskDetails(args)
+);
+
+server.tool(
+  'update_task_status',
+  'Update a task status (todo, in_progress, review, done). Creates a project log entry and optionally adds a comment.',
+  updateTaskStatusSchema,
+  async (args) => updateTaskStatus(args)
+);
+
+server.tool(
+  'add_task_comment',
+  'Add a comment to a task or subtask. Shows up in the WorkHub UI.',
+  addTaskCommentSchema,
+  async (args) => addTaskComment(args)
 );
 
 // Connect via stdio

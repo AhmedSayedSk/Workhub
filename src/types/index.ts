@@ -74,6 +74,7 @@ export interface Project {
   parentProjectId: string | null
   mediaFolderId: string | null
   hasOwnFinances: boolean
+  repoPath?: string | null
   createdAt: Timestamp
 }
 
@@ -120,6 +121,7 @@ export interface Task {
   deadline?: Timestamp | null
   doneAt?: Timestamp
   assigneeIds?: string[]
+  skipAutoAssign?: boolean // When true, task will not be auto-assigned to any user or role
   createdAt: Timestamp
 }
 
@@ -202,6 +204,7 @@ export interface ProjectInput {
   parentProjectId?: string | null
   mediaFolderId?: string | null
   hasOwnFinances?: boolean
+  repoPath?: string | null
 }
 
 export interface MilestoneInput {
@@ -242,6 +245,7 @@ export interface TaskInput {
   deadline?: Timestamp | null
   doneAt?: Timestamp | null
   assigneeIds?: string[]
+  skipAutoAssign?: boolean // When true, task will not be auto-assigned to any user or role
 }
 
 export interface SubtaskInput {
@@ -540,6 +544,68 @@ export interface ProjectLog {
   action: ProjectLogAction
   changes: ProjectLogChange[]
   createdAt: Timestamp
+}
+
+// Claude AI Session types
+export type ClaudeSessionStatus = 'running' | 'completed' | 'failed' | 'stopped'
+
+export interface ClaudeSessionTaskResult {
+  taskId: string
+  taskName: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  branchName: string | null
+}
+
+export interface ClaudeSessionFileEdit {
+  type: 'create' | 'edit'
+  oldString?: string
+  newString?: string
+  content?: string
+}
+
+export interface ClaudeSessionFileChange {
+  filePath: string
+  shortPath: string
+  changeType: 'created' | 'modified'
+  edits: ClaudeSessionFileEdit[]
+}
+
+export interface ClaudeSession {
+  id: string
+  projectId: string
+  taskIds: string[]
+  status: ClaudeSessionStatus
+  model: string
+  processId: string | null       // Links to server-side child process for interactive input
+  waitingForInput: boolean       // Whether Claude is waiting for user response
+  startedAt: Timestamp
+  completedAt: Timestamp | null
+  taskResults: ClaudeSessionTaskResult[]
+  summary: string
+  transcript: string[]   // JSON-serialized OutputLine objects
+  fileChanges: ClaudeSessionFileChange[]
+  worktreeBranch: string | null
+  lineCount: number
+  lastFlushAt: Timestamp | null
+  createdAt: Timestamp
+}
+
+export interface ClaudeSessionInput {
+  projectId: string
+  taskIds: string[]
+  status: ClaudeSessionStatus
+  model: string
+  processId?: string | null
+  waitingForInput?: boolean
+  startedAt: Date
+  completedAt: Date | null
+  taskResults: ClaudeSessionTaskResult[]
+  summary: string
+  transcript: string[]
+  fileChanges?: ClaudeSessionFileChange[]
+  worktreeBranch?: string | null
+  lineCount: number
+  lastFlushAt: Date | null
 }
 
 // Team Member types

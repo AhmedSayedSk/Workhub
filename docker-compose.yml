@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3090:3090"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+      - /home/ahmedsk:/home/ahmedsk
+      - /mnt:/mnt
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+      - HOME=/home/ahmedsk
+    command: >
+      bash -c "
+        npm install &&
+        npx next dev --webpack -p 3090 -H 0.0.0.0
+      "

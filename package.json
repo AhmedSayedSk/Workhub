@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3090",
+    "dev": "docker compose up --build",
+    "dev:local": "next dev --webpack -p 3090",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
