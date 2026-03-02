@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useFeatures, useTasks } from '@/hooks/useTasks'
 import { useMembers } from '@/hooks/useMembers'
 import { useClaudeSessions } from '@/hooks/useClaudeSessions'
-import { Task, TaskInput, FeatureInput, TaskStatus, ClaudeSessionTaskResult, ClaudeSessionFileChange, ClaudeSessionFileEdit } from '@/types'
+import { Task, TaskInput, FeatureInput, TaskStatus, TaskType, ClaudeSessionTaskResult, ClaudeSessionFileChange, ClaudeSessionFileEdit } from '@/types'
 import { FeatureList } from '@/components/features/FeatureList'
 import { TaskBoard } from '@/components/tasks/TaskBoard'
 import { TaskDetail } from '@/components/tasks/TaskDetail'
@@ -13,6 +13,8 @@ import { Confetti } from '@/components/ui/confetti'
 import { Loader2, Archive, Bot, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { claudeSessions } from '@/lib/firestore'
+import { useAI } from '@/hooks/useAI'
+import { useSettings } from '@/hooks/useSettings'
 
 interface ProcessingPanelProps {
   projectId: string
@@ -444,6 +446,8 @@ export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAi
   const [showArchive, setShowArchive] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const [processingTaskIds, setProcessingTaskIds] = useState<string[] | null>(null)
+  const { suggestTaskIcon } = useAI()
+  const { settings } = useSettings()
 
   const handleBoardDataChanged = useCallback(() => {
     setBoardRefreshKey((k) => k + 1)
@@ -525,11 +529,20 @@ export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAi
   }
 
   const handleCreateTask = async (data: TaskInput) => {
-    await createTask({
+    const taskId = await createTask({
       ...data,
       // If a feature is selected, use it. Otherwise use whatever was provided
       featureId: selectedFeatureId || data.featureId,
     })
+
+    // Non-blocking: suggest an icon via AI if enabled
+    if (taskId && settings?.aiEnabled) {
+      suggestTaskIcon(data.name, data.description, data.taskType).then((iconName) => {
+        if (iconName) {
+          updateTask(taskId, { icon: iconName } as Partial<TaskInput>)
+        }
+      })
+    }
   }
 
   const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
@@ -540,6 +553,21 @@ export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAi
       }
     }
     await updateTask(id, updates as Partial<TaskInput>)
+
+    // If task has no icon and AI is enabled, suggest one after edit
+    if (settings?.aiEnabled) {
+      const task = tasks.find((t) => t.id === id)
+      if (task && !task.icon) {
+        const name = (updates.name as string) || task.name
+        const description = (updates.description as string) || task.description
+        const taskType = (updates.taskType as string) || task.taskType
+        suggestTaskIcon(name, description, taskType).then((iconName) => {
+          if (iconName) {
+            updateTask(id, { icon: iconName } as Partial<TaskInput>)
+          }
+        })
+      }
+    }
   }
 
   const handleArchiveTask = async (id: string) => {

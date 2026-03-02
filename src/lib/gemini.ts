@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai'
 import { GeminiModel } from '@/types'
+import { VALID_ICON_NAMES, ICON_LIBRARY } from '@/lib/task-icons'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
@@ -210,6 +211,77 @@ Keep the response under 150 words.`
   } catch (error) {
     console.error('Error generating insight:', error)
     throw error
+  }
+}
+
+/** Pre-filter icons by keyword overlap with the task text, returning a short candidate list */
+function prefilterIcons(text: string, maxCandidates = 25): string[] {
+  const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2)
+  if (words.length === 0) return VALID_ICON_NAMES.slice(0, maxCandidates)
+
+  // Score each icon by how many of its tags overlap with the task words
+  const scored = ICON_LIBRARY.map((entry) => {
+    let score = 0
+    for (const word of words) {
+      if (entry.name.includes(word) || word.includes(entry.name)) score += 3
+      for (const tag of entry.tags) {
+        if (tag.includes(word) || word.includes(tag)) score += 1
+      }
+    }
+    return { name: entry.name, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+
+  const top = scored.filter((s) => s.score > 0).slice(0, maxCandidates).map((s) => s.name)
+  if (top.length === 0) return VALID_ICON_NAMES.slice(0, maxCandidates)
+  return top
+}
+
+export async function suggestTaskIcon(
+  { taskName, taskDescription, taskType }: { taskName: string; taskDescription?: string; taskType?: string },
+  model?: GeminiModel
+): Promise<string | null> {
+  const text = [taskName, taskDescription || '', taskType || ''].join(' ')
+  const candidates = prefilterIcons(text)
+
+  const prompt = `Pick ONE icon for this task. Reply with ONLY the icon name.
+
+Task: ${taskName}${taskType ? ` [${taskType}]` : ''}
+${taskDescription ? `Info: ${taskDescription.slice(0, 150)}` : ''}
+
+Icons: ${candidates.join(', ')}`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    const raw = result.response.text().trim().toLowerCase()
+    // Strip quotes, backticks, markdown, newlines
+    const response = raw.replace(/[`"'*\n\r]/g, '').trim()
+
+    console.log('[suggestTaskIcon] raw:', JSON.stringify(raw), '→ cleaned:', response, '| candidates:', candidates.length)
+
+    // Exact match
+    if (VALID_ICON_NAMES.includes(response)) {
+      return response
+    }
+
+    // The AI might return extra text — find first valid icon name anywhere in response
+    for (const name of candidates) {
+      if (response.includes(name)) {
+        return name
+      }
+    }
+    // Broader: check all valid names
+    for (const name of VALID_ICON_NAMES) {
+      if (response.includes(name)) {
+        return name
+      }
+    }
+    return null
+  } catch (error) {
+    console.error('Error suggesting task icon:', error)
+    return null
   }
 }
 

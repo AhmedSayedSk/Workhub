@@ -122,6 +122,7 @@ export interface Task {
   doneAt?: Timestamp
   assigneeIds?: string[]
   skipAutoAssign?: boolean // When true, task will not be auto-assigned to any user or role
+  icon?: string | null
   createdAt: Timestamp
 }
 
@@ -246,6 +247,7 @@ export interface TaskInput {
   doneAt?: Timestamp | null
   assigneeIds?: string[]
   skipAutoAssign?: boolean // When true, task will not be auto-assigned to any user or role
+  icon?: string | null
 }
 
 export interface SubtaskInput {

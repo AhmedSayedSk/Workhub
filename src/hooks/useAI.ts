@@ -112,6 +112,27 @@ export function useAI() {
     return result?.data?.response || null
   }
 
+  const suggestTaskIcon = async (
+    taskName: string,
+    description?: string,
+    taskType?: string
+  ): Promise<string | null> => {
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'suggest_task_icon',
+          data: { taskName, taskDescription: description, taskType },
+        }),
+      })
+      const result = await response.json()
+      return result?.data?.iconName || null
+    } catch {
+      return null
+    }
+  }
+
   const createTask = async (taskData: CreateTaskData): Promise<{ id: string; name: string; projectName: string } | null> => {
     try {
       // Verify project exists and get its name
@@ -165,6 +186,7 @@ export function useAI() {
     getTimeEstimate,
     getInsight,
     askQuestion,
+    suggestTaskIcon,
     createTask,
   }
 }

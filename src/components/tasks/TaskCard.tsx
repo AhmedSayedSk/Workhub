@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
+import { getIconComponent } from '@/lib/task-icons'
 import { format } from 'date-fns'
 
 const priorityBorderColors: Record<Priority, string | null> = {
@@ -124,132 +125,140 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
         </div>
       </div>
       <CardContent className="p-3">
-        <div className="flex items-start justify-between mb-1">
-          {selectable && (
-            <div
-              className="flex items-center mr-2 mt-0.5 shrink-0"
-              onClick={(e) => {
-                e.stopPropagation()
-                onSelectionToggle?.(task.id)
-              }}
-            >
-              <div className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${selected ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary/60'}`}>
-                {selected && (
-                  <svg className="h-3 w-3 text-primary-foreground" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M2 6l3 3 5-5" />
-                  </svg>
-                )}
-              </div>
-            </div>
-          )}
+        <div className="flex items-center gap-2.5">
+          {/* Task icon - vertically centered */}
+          {task.icon && (() => {
+            const TaskIcon = getIconComponent(task.icon)
+            return <TaskIcon className="h-4.5 w-4.5 shrink-0" style={{ color: taskTypeBadgeColors[taskType] }} />
+          })()}
           <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-sm line-clamp-3">{task.name}</h4>
-          </div>
-          <div className="relative">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 flex-shrink-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {allMembers && onAssigneeChange && (
-                  <>
+            <div className="flex items-start justify-between mb-1">
+              {selectable && (
+                <div
+                  className="flex items-center mr-2 mt-0.5 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSelectionToggle?.(task.id)
+                  }}
+                >
+                  <div className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${selected ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary/60'}`}>
+                    {selected && (
+                      <svg className="h-3 w-3 text-primary-foreground" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M2 6l3 3 5-5" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-sm line-clamp-2">{task.name}</h4>
+              </div>
+              <div className="relative">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 flex-shrink-0">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {allMembers && onAssigneeChange && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setTimeout(() => setAssignOpen(true), 100)
+                          }}
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Assign
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
+                    {isWaiting ? (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveWaiting?.()
+                        }}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        Resume Task
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSetWaiting?.()
+                        }}
+                      >
+                        <Pause className="h-4 w-4 mr-2" />
+                        Set Waiting
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation()
-                        setTimeout(() => setAssignOpen(true), 100)
+                        onArchive()
                       }}
                     >
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Assign
+                      <Archive className="h-4 w-4 mr-2" />
+                      Archive
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {/* AssigneeSelect popover anchored to the three-dot button */}
+                {allMembers && onAssigneeChange && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <AssigneeSelect
+                      members={allMembers}
+                      selectedIds={task.assigneeIds || []}
+                      onChange={onAssigneeChange}
+                      open={assignOpen}
+                      onOpenChange={setAssignOpen}
+                      trigger={<span className="absolute inset-0 pointer-events-none" />}
+                    />
+                  </div>
                 )}
-                {isWaiting ? (
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onRemoveWaiting?.()
-                    }}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    Resume Task
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSetWaiting?.()
-                    }}
-                  >
-                    <Pause className="h-4 w-4 mr-2" />
-                    Set Waiting
-                  </DropdownMenuItem>
+              </div>
+            </div>
+
+            {(task.estimatedHours > 0 || hasSubtasks || hasComments || hasAssignees) && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center gap-3">
+                  {task.estimatedHours > 0 && (
+                    <div className="flex items-center">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {task.estimatedHours}h
+                    </div>
+                  )}
+
+                  {hasSubtasks && (
+                    <div className="flex items-center" title={`${subtaskCount.completed}/${subtaskCount.total} subtasks completed`}>
+                      <CheckSquare className="h-3 w-3 mr-1" />
+                      <span className={subtaskCount.completed === subtaskCount.total ? 'text-green-600 dark:text-green-400' : ''}>
+                        {subtaskCount.completed}/{subtaskCount.total}
+                      </span>
+                    </div>
+                  )}
+
+                  {hasComments && (
+                    <div className="flex items-center text-blue-500" title={`${commentCount} comment${commentCount > 1 ? 's' : ''}`}>
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      {commentCount}
+                    </div>
+                  )}
+                </div>
+
+                {/* Assignee avatars (only shown when there are assignees) */}
+                {hasAssignees && (
+                  <MemberAvatarGroup members={assignees} max={3} size="sm" />
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onArchive()
-                  }}
-                >
-                  <Archive className="h-4 w-4 mr-2" />
-                  Archive
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {/* AssigneeSelect popover anchored to the three-dot button */}
-            {allMembers && onAssigneeChange && (
-              <div onClick={(e) => e.stopPropagation()}>
-                <AssigneeSelect
-                  members={allMembers}
-                  selectedIds={task.assigneeIds || []}
-                  onChange={onAssigneeChange}
-                  open={assignOpen}
-                  onOpenChange={setAssignOpen}
-                  trigger={<span className="absolute inset-0 pointer-events-none" />}
-                />
               </div>
             )}
           </div>
         </div>
-
-        {(task.estimatedHours > 0 || hasSubtasks || hasComments || hasAssignees) && (
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-3">
-              {task.estimatedHours > 0 && (
-                <div className="flex items-center">
-                  <Clock className="h-3 w-3 mr-1" />
-                  {task.estimatedHours}h
-                </div>
-              )}
-
-              {hasSubtasks && (
-                <div className="flex items-center" title={`${subtaskCount.completed}/${subtaskCount.total} subtasks completed`}>
-                  <CheckSquare className="h-3 w-3 mr-1" />
-                  <span className={subtaskCount.completed === subtaskCount.total ? 'text-green-600 dark:text-green-400' : ''}>
-                    {subtaskCount.completed}/{subtaskCount.total}
-                  </span>
-                </div>
-              )}
-
-              {hasComments && (
-                <div className="flex items-center text-blue-500" title={`${commentCount} comment${commentCount > 1 ? 's' : ''}`}>
-                  <MessageSquare className="h-3 w-3 mr-1" />
-                  {commentCount}
-                </div>
-              )}
-            </div>
-
-            {/* Assignee avatars (only shown when there are assignees) */}
-            {hasAssignees && (
-              <MemberAvatarGroup members={assignees} max={3} size="sm" />
-            )}
-          </div>
-        )}
-
       </CardContent>
     </Card>
   )

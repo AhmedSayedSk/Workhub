@@ -4,6 +4,7 @@ import {
   generateTimeEstimate,
   generateInsight,
   askAI,
+  suggestTaskIcon,
 } from '@/lib/gemini'
 import { appSettings } from '@/lib/firestore'
 import { GeminiModel } from '@/types'
@@ -74,6 +75,12 @@ export async function POST(request: NextRequest) {
         const { question, context } = data
         const response = await askAI(question, context, model)
         return NextResponse.json({ success: true, data: { response } })
+      }
+
+      case 'suggest_task_icon': {
+        const { taskName, taskDescription, taskType } = data
+        const iconName = await suggestTaskIcon({ taskName, taskDescription, taskType }, model)
+        return NextResponse.json({ success: true, data: { iconName } })
       }
 
       default:

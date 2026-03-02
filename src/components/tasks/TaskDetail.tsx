@@ -51,6 +51,7 @@ import {
   Pause,
   UserX,
 } from 'lucide-react'
+import { getIconComponent } from '@/lib/task-icons'
 import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { MemberAvatar } from '@/components/members/MemberAvatar'
@@ -503,7 +504,13 @@ export function TaskDetail({
                   className="text-xl font-semibold"
                 />
               ) : (
-                <DialogTitle className="text-xl cursor-pointer" onDoubleClick={() => setIsEditing(true)}>{task.name}</DialogTitle>
+                <DialogTitle className="text-xl cursor-pointer flex items-center gap-2" onDoubleClick={() => setIsEditing(true)}>
+                  {task.icon && (() => {
+                    const TaskIcon = getIconComponent(task.icon)
+                    return <TaskIcon className="h-6 w-6 shrink-0 text-primary" />
+                  })()}
+                  {task.name}
+                </DialogTitle>
               )}
             </DialogHeader>
             <div className="flex items-center gap-2 mt-3">
@@ -670,8 +677,7 @@ export function TaskDetail({
             {/* Right Column - Properties sidebar */}
             <div className="w-72 shrink-0 border-l bg-muted/20 overflow-y-auto p-5 space-y-5">
               {/* Status */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</Label>
+              <div>
                 <Select
                   value={task.status}
                   onValueChange={(value) =>
@@ -770,42 +776,6 @@ export function TaskDetail({
                 )}
               </div>
 
-              {/* Assignees */}
-              {allMembers && allMembers.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignees</Label>
-                  <div className="space-y-2">
-                    {(task.assigneeIds || []).length > 0 && (
-                      <div className="space-y-1.5">
-                        {(task.assigneeIds || []).map((id) => {
-                          const member = allMembers.find((m) => m.id === id)
-                          if (!member) return null
-                          return (
-                            <div key={id} className="flex items-center gap-2">
-                              <MemberAvatar member={member} size="sm" />
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm font-medium truncate">{member.name}</div>
-                                {member.role && <div className="text-xs text-muted-foreground truncate">{member.role}</div>}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                    <AssigneeSelect
-                      members={allMembers}
-                      selectedIds={task.assigneeIds || []}
-                      onChange={(ids) => onUpdateTask(task.id, { assigneeIds: ids })}
-                      trigger={
-                        <Button variant="outline" size="sm" className="w-full text-xs">
-                          {(task.assigneeIds || []).length > 0 ? 'Edit Assignees' : 'Assign Members'}
-                        </Button>
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-
               {/* Feature */}
               {features.length > 0 && (
                 <div className="space-y-1.5">
@@ -868,6 +838,42 @@ export function TaskDetail({
                 />
               </div>
 
+              {/* Assignees */}
+              {allMembers && allMembers.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    {(task.assigneeIds || []).length > 0 && (
+                      <div className="space-y-1.5">
+                        {(task.assigneeIds || []).map((id) => {
+                          const member = allMembers.find((m) => m.id === id)
+                          if (!member) return null
+                          return (
+                            <div key={id} className="flex items-center gap-2">
+                              <MemberAvatar member={member} size="sm" />
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium truncate">{member.name}</div>
+                                {member.role && <div className="text-xs text-muted-foreground truncate">{member.role}</div>}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <AssigneeSelect
+                      members={allMembers}
+                      selectedIds={task.assigneeIds || []}
+                      onChange={(ids) => onUpdateTask(task.id, { assigneeIds: ids })}
+                      trigger={
+                        <Button variant="outline" size="sm" className="w-full text-xs">
+                          {(task.assigneeIds || []).length > 0 ? 'Edit Assignees' : 'Assign Members'}
+                        </Button>
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
               {/* Waiting Info */}
               {task.waiting && task.waitingAt && (
                 <>
@@ -882,10 +888,9 @@ export function TaskDetail({
 
               {/* Time Info */}
               <div className="space-y-3">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Time</Label>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Estimated</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Estimated Time</span>
                     {isEditing ? (
                       <div className="flex items-center gap-1">
                         <Input
@@ -895,7 +900,7 @@ export function TaskDetail({
                           onChange={(e) =>
                             setEditForm({ ...editForm, estimatedHours: e.target.value })
                           }
-                          className="w-16 h-7 text-sm text-right"
+                          className="w-full h-7 text-sm text-right"
                           placeholder="0"
                         />
                         <span className="text-xs text-muted-foreground">h</span>
@@ -915,37 +920,38 @@ export function TaskDetail({
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                           }}
-                          className="w-16 h-7 text-sm text-right"
+                          className="w-full h-7 text-sm text-right"
                           placeholder="0"
                         />
                         <span className="text-xs text-muted-foreground">h</span>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Actual</span>
-                    <span className="text-sm font-medium">
-                      {task.actualHours > 0
-                        ? formatDuration(task.actualHours * 60)
-                        : '-'}
-                    </span>
-                  </div>
-                  {totalEstimatedMinutes > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Subtasks Est.</span>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Actual Time</span>
+                    <div className="h-7 flex items-center">
                       <span className="text-sm font-medium">
-                        {formatDuration(totalEstimatedMinutes)}
+                        {task.actualHours > 0
+                          ? formatDuration(task.actualHours * 60)
+                          : '-'}
                       </span>
                     </div>
-                  )}
+                  </div>
                 </div>
+                {totalEstimatedMinutes > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Subtasks Est.</span>
+                    <span className="text-sm font-medium">
+                      {formatDuration(totalEstimatedMinutes)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <Separator />
 
               {/* Actions */}
               <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Actions</Label>
                 {task.waiting ? (
                   <Button
                     variant="outline"
