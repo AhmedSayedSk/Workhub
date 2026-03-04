@@ -223,9 +223,9 @@ function CreateTaskDialog({
 
 const columns: { id: TaskStatus; title: string; borderColor: string; headerText: string }[] = [
   { id: 'todo', title: 'To Do', borderColor: 'border-slate-300', headerText: 'text-slate-600 dark:text-slate-400' },
-  { id: 'in_progress', title: 'In Progress', borderColor: 'border-blue-300', headerText: 'text-blue-600 dark:text-blue-400' },
-  { id: 'review', title: 'Review', borderColor: 'border-purple-300', headerText: 'text-purple-600 dark:text-purple-400' },
-  { id: 'done', title: 'Done', borderColor: 'border-green-300', headerText: 'text-green-600 dark:text-green-400' },
+  { id: 'in_progress', title: 'In Progress', borderColor: 'border-blue-300', headerText: 'text-slate-600 dark:text-slate-400' },
+  { id: 'review', title: 'Review', borderColor: 'border-purple-300', headerText: 'text-slate-600 dark:text-slate-400' },
+  { id: 'done', title: 'Done', borderColor: 'border-green-300', headerText: 'text-slate-600 dark:text-slate-400' },
 ]
 
 interface TaskBoardProps {
@@ -503,7 +503,7 @@ export function TaskBoard({
               {/* Column Header */}
               <div className="flex items-center justify-between px-4 py-3 shrink-0">
                 <div className="flex items-center gap-2">
-                  <h3 className={cn('font-semibold', column.headerText)}>{column.title}</h3>
+                  <h3 className={cn('font-bold', column.headerText)}>{column.title}</h3>
                   <Badge variant="secondary" className="text-xs">
                     {columnTasks.length}
                   </Badge>

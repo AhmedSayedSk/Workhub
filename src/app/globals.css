@@ -129,7 +129,6 @@
 /* ───── ProseMirror / Rich Text Editor ───── */
 .ProseMirror {
   outline: none;
-  min-height: inherit;
 }
 
 .ProseMirror h1 {

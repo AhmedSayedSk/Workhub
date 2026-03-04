@@ -29,7 +29,6 @@ import { Timestamp } from 'firebase/firestore'
 import { cn, taskTypeLabels, formatDuration } from '@/lib/utils'
 import { useSubtasks } from '@/hooks/useTasks'
 import { useComments } from '@/hooks/useComments'
-import { useTimerStore } from '@/store/timerStore'
 import { useAuth } from '@/hooks/useAuth'
 import { AudioRecorder } from '@/components/ui/audio-recorder'
 import { AudioPlayer } from '@/components/ui/audio-player'
@@ -50,12 +49,22 @@ import {
   Hourglass,
   Pause,
   UserX,
+  MoreVertical,
+  Pencil,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { getIconComponent } from '@/lib/task-icons'
 import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { MemberAvatar } from '@/components/members/MemberAvatar'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
+import { useAI } from '@/hooks/useAI'
+import { useSettings } from '@/hooks/useSettings'
 
 function formatRelativeTime(timestamp: { toDate: () => Date }): string {
   const now = new Date()
@@ -253,39 +262,44 @@ function CommentSection({
 // Extracted SubtaskItem so each subtask can manage its own comment state
 function SubtaskItem({
   subtask,
-  taskId,
   projectId,
-  projectName,
   taskName,
   onStatusChange,
+  onSaveEdit,
   onDelete,
   onDataChanged,
 }: {
   subtask: Subtask
-  taskId: string
   projectId: string
-  projectName: string
   taskName: string
   onStatusChange: (subtask: Subtask, checked: boolean) => void
+  onSaveEdit: (id: string, name: string, estimatedMinutes: number) => void
   onDelete: (id: string) => void
   onDataChanged?: () => void
 }) {
-  const { isRunning, startTimer, currentSubtaskId } = useTimerStore()
   const { comments } = useComments(subtask.id, 'subtask')
   const [commentsOpen, setCommentsOpen] = useState(false)
-
-  const handleStartTimer = () => {
-    if (isRunning) return
-    startTimer({
-      subtaskId: subtask.id,
-      taskId,
-      projectId,
-      taskName: `${taskName} - ${subtask.name}`,
-      projectName,
-    })
-  }
+  const [isEditingInline, setIsEditingInline] = useState(false)
+  const [editName, setEditName] = useState(subtask.name)
+  const [editMinutes, setEditMinutes] = useState((subtask.estimatedMinutes || 0).toString())
 
   const commentCount = comments.length
+
+  const startEditing = () => {
+    setEditName(subtask.name)
+    setEditMinutes((subtask.estimatedMinutes || 0).toString())
+    setIsEditingInline(true)
+  }
+
+  const saveEdit = () => {
+    if (!editName.trim()) return
+    onSaveEdit(subtask.id, editName.trim(), parseInt(editMinutes) || 0)
+    setIsEditingInline(false)
+  }
+
+  const cancelEdit = () => {
+    setIsEditingInline(false)
+  }
 
   return (
     <div className="p-3 rounded-lg border hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors">
@@ -296,66 +310,92 @@ function SubtaskItem({
             onCheckedChange={(checked) =>
               onStatusChange(subtask, checked as boolean)
             }
+            className="h-4 w-4"
           />
-          <div className="flex-1 min-w-0">
-            <span
-              className={
-                subtask.status === 'done'
-                  ? 'line-through text-muted-foreground'
-                  : ''
-              }
-            >
-              {subtask.name}
-            </span>
-            {subtask.estimatedMinutes > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">
-                ({formatDuration(subtask.estimatedMinutes)})
+          {isEditingInline ? (
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveEdit()
+                  if (e.key === 'Escape') cancelEdit()
+                }}
+                className="h-7 text-sm flex-1"
+                autoFocus
+              />
+              <Input
+                type="number"
+                placeholder="mins"
+                value={editMinutes}
+                onChange={(e) => setEditMinutes(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveEdit()
+                  if (e.key === 'Escape') cancelEdit()
+                }}
+                className="h-7 text-sm w-16"
+              />
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={saveEdit}>
+                <Save className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={cancelEdit}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex-1 min-w-0 flex items-center gap-2.5">
+              {subtask.icon && (() => {
+                const SubIcon = getIconComponent(subtask.icon)
+                return <SubIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              })()}
+              <span
+                className={
+                  subtask.status === 'done'
+                    ? 'line-through text-muted-foreground text-sm'
+                    : 'text-sm'
+                }
+              >
+                {subtask.name}
               </span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-8 w-8 ${commentCount > 0 ? 'text-blue-500' : 'text-muted-foreground'}`}
-            onClick={() => setCommentsOpen(!commentsOpen)}
-            title={commentCount > 0 ? `${commentCount} comment${commentCount > 1 ? 's' : ''}` : 'Add comment'}
-          >
-            <div className="relative">
-              <MessageSquare className="h-4 w-4" />
-              {commentCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-medium">
-                  {commentCount}
+              {subtask.estimatedMinutes > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  ({formatDuration(subtask.estimatedMinutes)})
                 </span>
               )}
             </div>
-          </Button>
-          {subtask.status !== 'done' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleStartTimer}
-              disabled={isRunning}
-              className={
-                currentSubtaskId === subtask.id
-                  ? 'text-green-600'
-                  : ''
-              }
-            >
-              <Play className="h-4 w-4 mr-1" />
-              {currentSubtaskId === subtask.id ? 'Running' : 'Start'}
-            </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onDelete(subtask.id)}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
         </div>
+        {!isEditingInline && (
+          <div className="flex items-center gap-1">
+            {commentCount > 0 && (
+              <div className="flex items-center text-blue-500 text-xs mr-1 cursor-pointer" onClick={() => setCommentsOpen(!commentsOpen)}>
+                <MessageSquare className="h-3.5 w-3.5 mr-0.5" />
+                {commentCount}
+              </div>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={startEditing}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCommentsOpen(!commentsOpen)}>
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  {commentsOpen ? 'Hide Comments' : 'Comments'}
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => onDelete(subtask.id)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
 
       {/* Subtask Comments (expandable) */}
@@ -400,9 +440,11 @@ export function TaskDetail({
   const { subtasks, createSubtask, updateSubtask, deleteSubtask } = useSubtasks(
     task?.id
   )
+  const { suggestTaskIcon } = useAI()
+  const { settings } = useSettings()
   const [isEditing, setIsEditing] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
-  const [subtasksExpanded, setSubtasksExpanded] = useState(false)
+  const [subtasksExpanded, setSubtasksExpanded] = useState(true)
   const [newSubtaskName, setNewSubtaskName] = useState('')
   const [newSubtaskMinutes, setNewSubtaskMinutes] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -414,6 +456,8 @@ export function TaskDetail({
     priority: 'medium' as Priority,
     estimatedHours: '',
   })
+
+  const [isDiscardConfirm, setIsDiscardConfirm] = useState(false)
 
   // Reset edit form when task changes or modal closes
   useEffect(() => {
@@ -432,22 +476,64 @@ export function TaskDetail({
 
   if (!task) return null
 
+  const hasUnsavedChanges = isEditing && (
+    editForm.name !== (task.name || '') ||
+    editForm.description !== (task.description || '') ||
+    editForm.featureId !== (task.featureId || '') ||
+    editForm.taskType !== (task.taskType || 'task') ||
+    editForm.priority !== (task.priority || 'medium') ||
+    editForm.estimatedHours !== (task.estimatedHours || 0).toString()
+  )
+
+  const handleClose = (open: boolean) => {
+    if (!open && hasUnsavedChanges) {
+      setIsDiscardConfirm(true)
+      return
+    }
+    onOpenChange(open)
+  }
+
+  const handleDiscardAndClose = () => {
+    setIsDiscardConfirm(false)
+    setIsEditing(false)
+    onOpenChange(false)
+  }
+
   const handleCreateSubtask = async () => {
     if (!newSubtaskName.trim()) return
 
     setIsCreating(true)
     try {
-      await createSubtask({
+      const subtaskName = newSubtaskName
+      const subtaskId = await createSubtask({
         taskId: task.id,
-        name: newSubtaskName,
+        name: subtaskName,
         status: 'todo',
         estimatedMinutes: parseInt(newSubtaskMinutes) || 0,
       })
       setNewSubtaskName('')
       setNewSubtaskMinutes('')
       onDataChanged?.()
+      if (subtaskId && settings?.aiEnabled) {
+        suggestTaskIcon(subtaskName).then((iconName) => {
+          if (iconName) updateSubtask(subtaskId, { icon: iconName })
+        })
+      }
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleSaveSubtaskEdit = async (id: string, name: string, estimatedMinutes: number) => {
+    await updateSubtask(id, { name, estimatedMinutes })
+    onDataChanged?.()
+    if (settings?.aiEnabled) {
+      const sub = subtasks.find((s) => s.id === id)
+      if (!sub?.icon || name !== sub.name) {
+        suggestTaskIcon(name).then((iconName) => {
+          if (iconName) updateSubtask(id, { icon: iconName })
+        })
+      }
     }
   }
 
@@ -490,7 +576,7 @@ export function TaskDetail({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-5xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
           {/* Header */}
           <div className="px-6 pt-6 pb-4 border-b shrink-0">
@@ -566,13 +652,14 @@ export function TaskDetail({
                       setEditForm({ ...editForm, description: md })
                     }
                     placeholder="Add a description..."
-                    minHeight="120px"
+                    minHeight="auto"
                   />
                 ) : task.description ? (
                   <div onDoubleClick={() => setIsEditing(true)} className="cursor-pointer">
                     <RichTextEditor
                       content={task.description}
                       editable={false}
+                      minHeight="auto"
                     />
                   </div>
                 ) : (
@@ -600,19 +687,17 @@ export function TaskDetail({
                       ) : (
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       )}
-                      <div className="text-left">
-                        <h4 className="font-medium">Subtasks</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {completedSubtasks} of {totalSubtasks} completed
-                        </p>
-                      </div>
+                      <h4 className="font-medium">Subtasks</h4>
                     </div>
+                    <p className="text-sm text-muted-foreground">
+                      {completedSubtasks} of {totalSubtasks} completed
+                    </p>
                   </button>
                 </CollapsibleTrigger>
 
                 <CollapsibleContent className="space-y-4 pt-4">
                   {/* Add Subtask */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 p-3 rounded-lg border-2 border-dashed border-muted-foreground/25">
                     <Input
                       placeholder="Add a subtask..."
                       value={newSubtaskName}
@@ -654,11 +739,10 @@ export function TaskDetail({
                       <SubtaskItem
                         key={subtask.id}
                         subtask={subtask}
-                        taskId={task.id}
                         projectId={task.projectId}
-                        projectName={projectName}
                         taskName={task.name}
                         onStatusChange={handleSubtaskStatusChange}
+                        onSaveEdit={handleSaveSubtaskEdit}
                         onDelete={(id) => { deleteSubtask(id); onDataChanged?.() }}
                         onDataChanged={onDataChanged}
                       />
@@ -996,6 +1080,17 @@ export function TaskDetail({
         description={`Are you sure you want to archive "${task.name}"? You can restore it later from the archive.`}
         confirmLabel="Archive"
         onConfirm={handleArchive}
+      />
+
+      {/* Discard unsaved changes Confirmation Dialog */}
+      <ConfirmDialog
+        open={isDiscardConfirm}
+        onOpenChange={setIsDiscardConfirm}
+        title="Unsaved Changes"
+        description="You have unsaved changes. Are you sure you want to close without saving?"
+        confirmLabel="Discard"
+        variant="destructive"
+        onConfirm={handleDiscardAndClose}
       />
 
     </>

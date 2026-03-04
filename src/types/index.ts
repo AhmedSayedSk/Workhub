@@ -132,6 +132,7 @@ export interface Subtask {
   name: string
   status: SubtaskStatus
   estimatedMinutes: number
+  icon?: string | null
   createdAt: Timestamp
 }
 
@@ -255,6 +256,7 @@ export interface SubtaskInput {
   name: string
   status: SubtaskStatus
   estimatedMinutes: number
+  icon?: string | null
 }
 
 export interface TaskCommentInput {
