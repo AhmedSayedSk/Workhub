@@ -83,11 +83,13 @@ import {
   KeyRound,
   Check,
   ChevronsUpDown,
+  StickyNote,
 } from 'lucide-react'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
 import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
 import { ClaudeSessionsTab } from '@/components/projects/ClaudeSessionsTab'
+import { ProjectNotesTab } from '@/components/projects/ProjectNotesTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -744,10 +746,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
-        <TabsListBoxed>
+        <TabsListBoxed className="gap-1">
           <TabsTriggerBoxed value="tasks" className="gap-2">
             <ListTodo className="h-4 w-4" />
             Tasks
+          </TabsTriggerBoxed>
+          <TabsTriggerBoxed value="notes" className="gap-2">
+            <StickyNote className="h-4 w-4" />
+            Notes
           </TabsTriggerBoxed>
           <TabsTriggerBoxed value="attachments" className="gap-2">
             <Paperclip className="h-4 w-4" />
@@ -763,10 +769,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Payments
             </TabsTriggerBoxed>
           )}
-          <TabsTriggerBoxed value="details" className="gap-2">
-            <Edit className="h-4 w-4" />
-            Details
-          </TabsTriggerBoxed>
           <TabsTriggerBoxed value="activity" className="gap-2">
             <History className="h-4 w-4" />
             Activity
@@ -787,6 +789,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         <TabsContentBoxed value="vault" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           <ProjectVaultTab projectId={id} />
+        </TabsContentBoxed>
+
+        <TabsContentBoxed value="notes" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <ProjectNotesTab projectId={id} />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="payments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto space-y-6">
@@ -1318,56 +1324,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <ClaudeSessionsTab projectId={id} repoPath={project.repoPath || null} />
         </TabsContentBoxed>
 
-        <TabsContentBoxed value="details" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Project Details</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              {!isInternal && (
-                <div>
-                  <Label className="text-muted-foreground">Client</Label>
-                  <p className="font-medium">{project.clientName || 'Not specified'}</p>
-                </div>
-              )}
-              <div>
-                <Label className="text-muted-foreground">Payment Model</Label>
-                <p className="font-medium capitalize">{project.paymentModel}</p>
-              </div>
-              {!isInternal ? (
-                <div>
-                  <Label className="text-muted-foreground">Total Amount</Label>
-                  <p className="font-medium">{formatCurrency(project.totalAmount)}</p>
-                </div>
-              ) : project.estimatedValue && project.estimatedValue > 0 ? (
-                <div>
-                  <Label className="text-muted-foreground">Estimated Value</Label>
-                  <p className="font-medium">{formatCurrency(project.estimatedValue)}</p>
-                </div>
-              ) : null}
-              <div>
-                <Label className="text-muted-foreground">Start Date</Label>
-                <p className="font-medium">{formatDate(project.startDate)}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Deadline</Label>
-                <p className="font-medium">
-                  {project.deadline
-                    ? formatDate(project.deadline)
-                    : 'Not set'}
-                </p>
-              </div>
-            </div>
-
-            {project.notes && (
-              <>
-                <Separator />
-                <div>
-                  <Label className="text-muted-foreground">Notes</Label>
-                  <p className="mt-1 whitespace-pre-wrap">{project.notes}</p>
-                </div>
-              </>
-            )}
-          </div>
-        </TabsContentBoxed>
       </Tabs>
 
       {/* Edit Milestone Dialog */}
@@ -1752,15 +1708,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   placeholder="Select deadline"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-notes">Notes</Label>
-              <Textarea
-                id="edit-notes"
-                value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-              />
             </div>
 
             <div className="space-y-2">

@@ -52,6 +52,8 @@ import {
   MemberInput,
   ClaudeSession,
   ClaudeSessionInput,
+  ProjectNote,
+  ProjectNoteInput,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -1104,5 +1106,41 @@ export const claudeSessions = {
     for (const session of sessions) {
       await this.delete(session.id)
     }
+  },
+}
+
+// Project Notes
+export const projectNotes = {
+  async getByProject(projectId: string): Promise<ProjectNote[]> {
+    const notes = await getAll<ProjectNote>(
+      'projectNotes',
+      where('projectId', '==', projectId)
+    )
+    // Sort: pinned first, then by updatedAt desc
+    return notes.sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+      return b.updatedAt.toMillis() - a.updatedAt.toMillis()
+    })
+  },
+
+  async create(data: ProjectNoteInput): Promise<string> {
+    const docRef = await addDoc(collection(db, 'projectNotes'), {
+      ...data,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    })
+    return docRef.id
+  },
+
+  async update(id: string, data: Partial<ProjectNoteInput>): Promise<void> {
+    const docRef = doc(db, 'projectNotes', id)
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: Timestamp.now(),
+    })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('projectNotes', id)
   },
 }

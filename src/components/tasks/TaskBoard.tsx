@@ -26,11 +26,20 @@ import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Plus, Loader2, Bot, UserX } from 'lucide-react'
+import { format, isToday, isYesterday } from 'date-fns'
 import { Switch } from '@/components/ui/switch'
 import { TaskCard } from './TaskCard'
 import { useSubtaskCounts } from '@/hooks/useTasks'
 import { useCommentCounts } from '@/hooks/useComments'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
+
+function getDoneDayLabel(task: Task): string {
+  const date = task.doneAt?.toDate?.() ?? task.createdAt?.toDate?.()
+  if (!date) return 'Unknown'
+  if (isToday(date)) return 'Today'
+  if (isYesterday(date)) return 'Yesterday'
+  return format(date, 'MMM d, yyyy')
+}
 
 /** Extracted so its form state doesn't re-render the entire board */
 function CreateTaskDialog({
@@ -527,8 +536,26 @@ export function TaskBoard({
                   const isDragging = draggedTaskId === task.id
                   const showIndicatorBefore = isOver && dropIndicatorIndex === index
 
+                  // Day separator for done column
+                  let daySeparator: React.ReactNode = null
+                  if (column.id === 'done') {
+                    const dayLabel = getDoneDayLabel(task)
+                    const prevTask = index > 0 ? columnTasks[index - 1] : null
+                    const prevDayLabel = prevTask ? getDoneDayLabel(prevTask) : null
+                    if (dayLabel !== prevDayLabel) {
+                      daySeparator = (
+                        <div className={cn('flex items-center gap-2 px-2 pb-2', index > 0 ? 'pt-2' : '')}>
+                          <div className="h-px flex-1 bg-border" />
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{dayLabel}</span>
+                          <div className="h-px flex-1 bg-border" />
+                        </div>
+                      )
+                    }
+                  }
+
                   return (
                     <div key={task.id}>
+                      {daySeparator}
                       {/* Drop indicator before this task */}
                       {showIndicatorBefore && (
                         <div className="h-1 bg-primary rounded-full mb-3 animate-pulse" />

@@ -19,6 +19,33 @@ export type Priority = 'low' | 'medium' | 'high'
 
 export type CommentParentType = 'task' | 'subtask'
 
+export type NoteColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple' | 'orange'
+
+export interface ProjectNote {
+  id: string
+  projectId: string
+  title: string
+  content: string
+  color: NoteColor
+  pinned: boolean
+  tags: string[]
+  authorId: string
+  authorName: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export interface ProjectNoteInput {
+  projectId: string
+  title: string
+  content: string
+  color: NoteColor
+  pinned: boolean
+  tags: string[]
+  authorId: string
+  authorName: string
+}
+
 export type MilestoneStatus = 'pending' | 'completed' | 'paid'
 
 export type PaymentStatus = 'pending' | 'paid'

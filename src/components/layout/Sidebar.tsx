@@ -211,7 +211,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <Button
                   variant="ghost"
                   onClick={onToggle}
-                  className="w-full justify-start gap-3"
+                  className="w-full justify-start gap-3 px-3 py-2.5 h-auto"
                 >
                   <span className="flex-shrink-0">
                     <ChevronRight className="h-5 w-5" />
@@ -227,7 +227,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <Button
               variant="ghost"
               onClick={onToggle}
-              className="w-full justify-start gap-3"
+              className="w-full justify-start gap-3 px-3 py-2.5 h-auto"
             >
               <span className="flex-shrink-0">
                 <ChevronLeft className="h-5 w-5" />

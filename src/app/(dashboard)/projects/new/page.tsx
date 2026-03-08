@@ -76,7 +76,7 @@ const wizardSteps = [
   { id: 'basics', label: 'Basics', icon: Palette },
   { id: 'payment', label: 'Payment', icon: CreditCard },
   { id: 'client', label: 'Client', icon: Users },
-  { id: 'schedule', label: 'Schedule', icon: CalendarClock },
+  { id: 'schedule', label: 'Schedule & Dates', icon: CalendarClock },
 ]
 
 export default function NewProjectPage() {
@@ -587,13 +587,13 @@ function NewProjectContent() {
           </>
         )}
 
-        {/* Step 4: Schedule & Notes */}
+        {/* Step 4: Schedule */}
         {currentStepId === 'schedule' && (
           <>
             <CardHeader className="shrink-0">
-              <CardTitle>Schedule & Notes</CardTitle>
+              <CardTitle>Schedule</CardTitle>
               <CardDescription>
-                Set project timeline and any additional notes
+                Set project timeline
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 flex-1 overflow-y-auto">
@@ -615,17 +615,6 @@ function NewProjectContent() {
                     placeholder="Select deadline"
                   />
                 </div>
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Any additional notes..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                />
               </div>
             </CardContent>
           </>

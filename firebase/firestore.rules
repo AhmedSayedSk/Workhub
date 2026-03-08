@@ -100,5 +100,10 @@ service cloud.firestore {
     match /claudeSessions/{sessionId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Project Notes collection
+    match /projectNotes/{noteId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

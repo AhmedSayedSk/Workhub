@@ -577,7 +577,25 @@ export function TaskDetail({
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogContent
+          className="max-w-5xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
+          onEscapeKeyDown={(e) => {
+            if (isEditing) {
+              e.preventDefault()
+              setIsEditing(false)
+              if (task) {
+                setEditForm({
+                  name: task.name || '',
+                  description: task.description || '',
+                  featureId: task.featureId || '',
+                  taskType: task.taskType || 'task',
+                  priority: task.priority || 'medium',
+                  estimatedHours: (task.estimatedHours || 0).toString(),
+                })
+              }
+            }
+          }}
+        >
           {/* Header */}
           <div className="px-6 pt-6 pb-4 border-b shrink-0">
             <DialogHeader className="pr-8">
