@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -95,6 +95,9 @@ import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectIm
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'activity', 'ai-sessions']
   const {
     project,
     parentProject,
@@ -122,7 +125,21 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [deletePassword, setDeletePassword] = useState('')
   const [deletePasswordError, setDeletePasswordError] = useState('')
   const [deleteAttempts, setDeleteAttempts] = useState(0)
-  const [activeTab, setActiveTab] = useState('tasks')
+  const tabParam = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState(() => {
+    return tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'tasks'
+  })
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab)
+    const url = new URL(window.location.href)
+    if (tab === 'tasks') {
+      url.searchParams.delete('tab')
+    } else {
+      url.searchParams.set('tab', tab)
+    }
+    window.history.replaceState({}, '', url.toString())
+  }, [])
+
   const [deleteCooldown, setDeleteCooldown] = useState(0)
   const cooldownRef = useRef<NodeJS.Timeout | null>(null)
   const maxDeleteAttempts = 3
@@ -745,7 +762,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
         <TabsListBoxed className="gap-1">
           <TabsTriggerBoxed value="tasks" className="gap-2">
             <ListTodo className="h-4 w-4" />
@@ -780,7 +797,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </TabsListBoxed>
 
         <TabsContentBoxed value="tasks" className="lg:flex-1 lg:min-h-0">
-          <ProjectTasksTab projectId={id} projectName={project.name} repoPath={project.repoPath || null} onSwitchToAiTab={() => setActiveTab('ai-sessions')} />
+          <ProjectTasksTab projectId={id} projectName={project.name} repoPath={project.repoPath || null} onSwitchToAiTab={() => handleTabChange('ai-sessions')} />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">

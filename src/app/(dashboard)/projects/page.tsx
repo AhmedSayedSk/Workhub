@@ -276,7 +276,7 @@ export default function ProjectsPage() {
                               )}
 
                               {/* Internal project estimated value */}
-                              {project.paymentModel === 'internal' && project.estimatedValue && project.estimatedValue > 0 && (
+                              {project.paymentModel === 'internal' && (project.estimatedValue ?? 0) > 0 && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                   <span>Estimated Value: {formatCurrency(project.estimatedValue)}</span>
                                 </div>

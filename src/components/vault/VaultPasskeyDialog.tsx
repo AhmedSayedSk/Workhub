@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -27,9 +27,11 @@ export function VaultPasskeyDialog({ open, storedHash, onVerified, onCancel }: V
   const [error, setError] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [showPasskey, setShowPasskey] = useState(false)
+  const autoVerifyRef = useRef(false)
 
-  const handleVerify = async () => {
-    if (!passkey.trim()) {
+  const handleVerify = useCallback(async (value?: string) => {
+    const key = value ?? passkey
+    if (!key.trim()) {
       setError('Please enter the passkey')
       return
     }
@@ -38,23 +40,54 @@ export function VaultPasskeyDialog({ open, storedHash, onVerified, onCancel }: V
     setError('')
 
     try {
-      const valid = await verifyPasskey(passkey, storedHash)
+      const valid = await verifyPasskey(key, storedHash)
       if (valid) {
         setPasskey('')
         setError('')
         onVerified()
       } else {
-        setError('Incorrect passkey')
+        if (!autoVerifyRef.current) {
+          setError('Incorrect passkey')
+        }
       }
     } catch {
-      setError('Verification failed')
+      if (!autoVerifyRef.current) {
+        setError('Verification failed')
+      }
     } finally {
       setVerifying(false)
+      autoVerifyRef.current = false
+    }
+  }, [passkey, storedHash, onVerified])
+
+  const handleChange = (value: string) => {
+    setPasskey(value)
+    setError('')
+    // Auto-verify when passkey reaches a reasonable length (4+ chars)
+    if (value.trim().length >= 4) {
+      autoVerifyRef.current = true
+      // Small debounce to avoid verifying on every keystroke
+      setTimeout(async () => {
+        if (!autoVerifyRef.current) return
+        try {
+          const valid = await verifyPasskey(value, storedHash)
+          if (valid) {
+            setPasskey('')
+            setError('')
+            onVerified()
+          }
+        } catch {
+          // silent on auto-verify
+        } finally {
+          autoVerifyRef.current = false
+        }
+      }, 300)
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && passkey.trim()) {
+      autoVerifyRef.current = false
       handleVerify()
     }
   }
@@ -87,10 +120,7 @@ export function VaultPasskeyDialog({ open, storedHash, onVerified, onCancel }: V
                 type={showPasskey ? 'text' : 'password'}
                 placeholder="Enter vault passkey"
                 value={passkey}
-                onChange={(e) => {
-                  setPasskey(e.target.value)
-                  setError('')
-                }}
+                onChange={(e) => handleChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={verifying}
                 autoFocus

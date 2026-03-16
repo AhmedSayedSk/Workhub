@@ -1,13 +1,34 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import React, { useEffect, useRef, useCallback } from 'react'
 import { useSettings } from './useSettings'
 import { useTimerStore } from '@/store/timerStore'
 import { projects, monthlyPayments } from '@/lib/firestore'
 import { sendBrowserNotification, getNotificationPermission } from '@/lib/notifications'
 import { toast } from './useToast'
+import { ToastAction } from '@/components/ui/toast'
 
 const CHECK_INTERVAL_MS = 60_000 // 1 minute
+const DISMISSED_KEY = 'workhub_dismissed_notifications'
+
+function getDismissedNotifications(): Set<string> {
+  try {
+    const stored = localStorage.getItem(DISMISSED_KEY)
+    return stored ? new Set(JSON.parse(stored)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function dismissNotification(tag: string) {
+  const dismissed = getDismissedNotifications()
+  dismissed.add(tag)
+  localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissed]))
+}
+
+function isNotificationDismissed(tag: string): boolean {
+  return getDismissedNotifications().has(tag)
+}
 
 export function useNotifications() {
   const { settings } = useSettings()
@@ -20,9 +41,19 @@ export function useNotifications() {
   const breakReminderFired = useRef(false)
   const lastActivityTime = useRef<number>(Date.now())
 
-  const notify = useCallback((title: string, body: string, tag: string) => {
-    toast({ title, description: body })
+  const notifyDismissable = useCallback((title: string, body: string, tag: string) => {
+    if (isNotificationDismissed(tag)) return false
+
+    toast({
+      title,
+      description: body,
+      action: React.createElement(ToastAction, {
+        altText: 'Got it',
+        onClick: () => dismissNotification(tag),
+      }, 'Got it') as any,
+    })
     sendBrowserNotification(title, { body, tag })
+    return true
   }, [])
 
   // Track user activity for idle detection
@@ -63,13 +94,13 @@ export function useNotifications() {
       const taskLabel = state.currentTaskName
         ? `on "${state.currentTaskName}"`
         : ''
-      notify(
+      notifyDismissable(
         'Timer Running',
         `Your timer has been running for ${mins} minutes ${taskLabel}. Consider taking a break or stopping.`,
         'timer-reminder'
       )
     }
-  }, [settings, notify])
+  }, [settings, notifyDismissable])
 
   const checkDeadlineAlerts = useCallback(async () => {
     if (!settings?.notifyDeadlineAlerts) return
@@ -89,22 +120,23 @@ export function useNotifications() {
 
         if (daysUntil <= alertDays && daysUntil >= 0) {
           notifiedDeadlines.current.add(project.id)
+          const tag = `deadline-${project.id}`
           const label = daysUntil === 0
             ? 'today'
             : daysUntil === 1
               ? 'tomorrow'
               : `in ${daysUntil} days`
-          notify(
+          notifyDismissable(
             'Deadline Approaching',
             `"${project.name}" deadline is ${label}.`,
-            `deadline-${project.id}`
+            tag
           )
         }
       }
     } catch (err) {
       console.error('Deadline check failed:', err)
     }
-  }, [settings, notify])
+  }, [settings, notifyDismissable])
 
   const checkPaymentReminders = useCallback(async () => {
     if (!settings?.notifyPaymentReminders) return
@@ -116,16 +148,17 @@ export function useNotifications() {
       for (const payment of pending) {
         if (notifiedPayments.current.has(payment.id)) continue
         notifiedPayments.current.add(payment.id)
-        notify(
+        const tag = `payment-${payment.id}`
+        notifyDismissable(
           'Payment Pending',
           `Payment of ${payment.amount} for ${payment.month} is still pending.`,
-          `payment-${payment.id}`
+          tag
         )
       }
     } catch (err) {
       console.error('Payment check failed:', err)
     }
-  }, [settings, notify])
+  }, [settings, notifyDismissable])
 
   const checkDailySummary = useCallback(() => {
     if (!settings?.notifyDailySummary) return
@@ -136,13 +169,14 @@ export function useNotifications() {
 
     if (now.getHours() === targetHour) {
       dailySummaryFired.current = true
-      notify(
+      const today = new Date().toISOString().slice(0, 10)
+      notifyDismissable(
         'Daily Summary',
         'Time to review your daily progress. Check your time entries and plan for tomorrow.',
-        'daily-summary'
+        `daily-summary-${today}`
       )
     }
-  }, [settings, notify])
+  }, [settings, notifyDismissable])
 
   // Reset daily summary flag at midnight
   useEffect(() => {
@@ -172,13 +206,13 @@ export function useNotifications() {
 
     if (idleMs >= thresholdMs) {
       idleReminderFired.current = true
-      notify(
+      notifyDismissable(
         'No Timer Running',
         `You\'ve been active for ${Math.round(idleMs / 60_000)} minutes without a timer. Don\'t forget to track your time!`,
         'idle-reminder'
       )
     }
-  }, [settings, notify])
+  }, [settings, notifyDismissable])
 
   const checkBreakReminder = useCallback(() => {
     if (!settings?.notifyBreakReminder) return
@@ -196,13 +230,13 @@ export function useNotifications() {
 
     if (elapsed >= thresholdMs) {
       breakReminderFired.current = true
-      notify(
+      notifyDismissable(
         'Take a Break',
         `You\'ve been working for ${Math.round(elapsed / 60_000)} minutes. Consider taking a short break to stay productive.`,
         'break-reminder'
       )
     }
-  }, [settings, notify])
+  }, [settings, notifyDismissable])
 
   useEffect(() => {
     if (!settings) return
@@ -226,5 +260,6 @@ export function useNotifications() {
     }, CHECK_INTERVAL_MS)
 
     return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings, checkTimerReminder, checkDeadlineAlerts, checkPaymentReminders, checkDailySummary, checkIdleReminder, checkBreakReminder])
 }
