@@ -76,7 +76,7 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
   return (
     <div className={cn('p-3', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <Button
           variant="ghost"
           size="icon"
@@ -128,11 +128,11 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
       </div>
 
       {/* Week days header */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="grid grid-cols-7 mb-1">
         {weekDays.map((weekDay) => (
           <div
             key={weekDay}
-            className="text-center text-xs font-medium text-muted-foreground py-1"
+            className="text-center text-xs font-medium text-muted-foreground py-0.5"
           >
             {weekDay}
           </div>
@@ -140,7 +140,7 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
       </div>
 
       {/* Days grid */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7">
         {days.map((dayItem, index) => {
           const isCurrentMonth = isSameMonth(dayItem, currentMonth)
           const isSelected = selected && isSameDay(dayItem, selected)
@@ -152,7 +152,7 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
               type="button"
               onClick={() => handleSelectDate(dayItem)}
               className={cn(
-                'h-9 w-9 rounded-md text-sm font-normal transition-colors',
+                'h-7 w-full rounded-md text-xs font-normal transition-colors',
                 'hover:bg-accent hover:text-accent-foreground',
                 'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 !isCurrentMonth && 'text-muted-foreground/40',
@@ -167,7 +167,7 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
       </div>
 
       {/* Quick actions */}
-      <div className="flex gap-2 mt-3 pt-3 border-t">
+      <div className="flex gap-2 mt-2 pt-2 border-t">
         <Button
           variant="ghost"
           size="sm"

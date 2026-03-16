@@ -105,5 +105,10 @@ service cloud.firestore {
     match /projectNotes/{noteId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Calendar Events collection
+    match /calendarEvents/{eventId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

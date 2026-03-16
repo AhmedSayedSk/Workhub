@@ -54,6 +54,8 @@ import {
   ClaudeSessionInput,
   ProjectNote,
   ProjectNoteInput,
+  CalendarEvent,
+  CalendarEventInput,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -1142,5 +1144,46 @@ export const projectNotes = {
 
   async delete(id: string): Promise<void> {
     return remove('projectNotes', id)
+  },
+}
+
+// Calendar Events
+export const calendarEvents = {
+  async getAll(): Promise<CalendarEvent[]> {
+    return getAll<CalendarEvent>('calendarEvents')
+  },
+
+  async getById(id: string): Promise<CalendarEvent | null> {
+    return getById<CalendarEvent>('calendarEvents', id)
+  },
+
+  async create(data: CalendarEventInput): Promise<string> {
+    const { projectId, taskId, ...rest } = data
+    const docData: Record<string, unknown> = {
+      ...rest,
+      start: Timestamp.fromDate(data.start),
+      end: Timestamp.fromDate(data.end),
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    }
+    if (projectId) docData.projectId = projectId
+    if (taskId) docData.taskId = taskId
+    const docRef = await addDoc(collection(db, 'calendarEvents'), docData)
+    return docRef.id
+  },
+
+  async update(id: string, data: Partial<CalendarEventInput>): Promise<void> {
+    const updateData: Record<string, unknown> = { updatedAt: Timestamp.now() }
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined) updateData[key] = value
+    })
+    if (data.start) updateData.start = Timestamp.fromDate(data.start)
+    if (data.end) updateData.end = Timestamp.fromDate(data.end)
+    const docRef = doc(db, 'calendarEvents', id)
+    await updateDoc(docRef, updateData)
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('calendarEvents', id)
   },
 }

@@ -659,3 +659,35 @@ export interface MemberInput {
   avatarUrl: string | null
   color: string
 }
+
+// Calendar
+export type CalendarEventStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled'
+
+export type CalendarCategory = 'work' | 'meeting' | 'deadline' | 'personal' | 'reminder'
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  description: string
+  start: Timestamp
+  end: Timestamp
+  allDay: boolean
+  category: CalendarCategory
+  status: CalendarEventStatus
+  projectId?: string
+  taskId?: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export interface CalendarEventInput {
+  title: string
+  description: string
+  start: Date
+  end: Date
+  allDay: boolean
+  category: CalendarCategory
+  status: CalendarEventStatus
+  projectId?: string
+  taskId?: string
+}

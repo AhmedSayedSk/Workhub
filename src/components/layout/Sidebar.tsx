@@ -16,6 +16,7 @@ import {
   FolderOpen,
   Users,
   ExternalLink,
+  CalendarDays,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -25,6 +26,7 @@ const mainNavItems = [
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/team', label: 'Team', icon: Users },
   { href: '/time', label: 'Time Tracking', icon: Clock },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/finances', label: 'Finances', icon: Wallet },
 ]
 
