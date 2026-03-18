@@ -1,19 +1,21 @@
 <div align="center">
 
-# WorkHub
+<img src="public/logo-with-title.png" alt="WorkHub - From Chaos to Clarity" width="320" />
 
-**A full-stack project management platform for freelancers and small teams.**
+# WorkHub — Open-Source Project Management for Freelancers
 
-Manage projects, tasks, time tracking, finances, media assets, and more — with AI-powered assistance.
+**The all-in-one project management, time tracking, and invoicing platform built for freelancers, agencies, and small teams.**
 
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Stop juggling Trello, Toggl, and spreadsheets. WorkHub combines **Kanban boards**, **time tracking**, **financial management**, **calendar scheduling**, **media library**, and **AI-powered assistance** in a single self-hosted app.
+
+[![License](https://img.shields.io/badge/License-Sikasio_Source-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Firebase](https://img.shields.io/badge/Firebase-11-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Getting Started](#getting-started) &bull; [Features](#features) &bull; [Screenshots](#screenshots) &bull; [Contributing](#contributing) &bull; [License](#license)
+[Live Demo](#) &bull; [Getting Started](#-getting-started) &bull; [Features](#-features) &bull; [Screenshots](#-screenshots) &bull; [Docs](#-architecture) &bull; [Contributing](#-contributing)
 
 </div>
 
@@ -21,197 +23,168 @@ Manage projects, tasks, time tracking, finances, media assets, and more — with
 
 ## Why WorkHub?
 
-Most project management tools are either too simple or too bloated. WorkHub is built for **solo developers, freelancers, and small teams** who need:
-
-- A **Kanban board** that actually feels fast (optimistic updates, drag-and-drop)
-- **Time tracking** built in, not bolted on
-- **Financial tracking** per project — know what you're owed at a glance
-- **AI assistance** for task planning and time estimates
-- **Self-hosted** with Firebase — your data stays yours
+| Problem | WorkHub Solution |
+|---------|-----------------|
+| Kanban boards that lag on 100+ tasks | **Optimistic UI** with instant drag-and-drop — no spinners |
+| Time tracking is a separate app | **Built-in live timer** with per-task, per-subtask granularity |
+| No idea what clients owe you | **Per-project finances** — milestone, monthly, and fixed-price tracking |
+| Scattered files across Google Drive & Dropbox | **Integrated media library** with drag-and-drop upload and image compression |
+| AI tools that don't know your project | **Context-aware AI assistant** that understands your tasks, deadlines, and workload |
+| SaaS tools that own your data | **Self-hosted on Firebase** — your data stays on your infrastructure |
 
 ---
 
 ## Screenshots
 
-> All screenshots show the built-in **dark mode**. Light mode is also fully supported.
+> All screenshots show the built-in **dark mode**. Light mode is fully supported.
 
-### Dashboard
-Your central command center — active projects, pending tasks, time tracked, and financial summary all in one view.
-
+<details open>
+<summary><strong>Dashboard</strong> — Your command center</summary>
 <p align="center">
-  <img src="public/screenshots/dashboard.png" alt="WorkHub Dashboard" width="100%" />
+  <img src="public/screenshots/dashboard.png" alt="WorkHub Dashboard - Active projects, pending tasks, time tracked, financial summary" width="100%" />
 </p>
+Active projects, pending tasks, time tracked today/this week, and financial overview — all at a glance.
+</details>
 
-### Projects
-Manage all your projects with rich cards showing progress, payment models, deadlines, and client info.
-
+<details>
+<summary><strong>Projects</strong> — Rich project cards with progress tracking</summary>
 <p align="center">
-  <img src="public/screenshots/projects.png" alt="Projects Overview" width="100%" />
+  <img src="public/screenshots/projects.png" alt="WorkHub Projects - Manage projects with payment models, deadlines, client info" width="100%" />
 </p>
+Manage all projects with rich cards showing progress bars, payment models, deadlines, sub-projects, and client info.
+</details>
 
-### Kanban Board
-Drag-and-drop task management with color-coded priorities, task types, time estimates, and feature grouping.
-
+<details>
+<summary><strong>Kanban Board</strong> — Drag-and-drop task management</summary>
 <p align="center">
-  <img src="public/screenshots/kanban-board.png" alt="Kanban Board" width="100%" />
+  <img src="public/screenshots/kanban-board.png" alt="WorkHub Kanban Board - Drag and drop tasks with priorities and time estimates" width="100%" />
 </p>
+Color-coded priorities, task types, time estimates, feature grouping, and confetti celebrations when tasks hit Done.
+</details>
 
-### Financial Management
-Track payments, milestones, and monthly earnings with interactive charts and per-project financial status.
-
+<details>
+<summary><strong>Financial Management</strong> — Know what you're owed</summary>
 <p align="center">
-  <img src="public/screenshots/finances.png" alt="Financial Management" width="100%" />
+  <img src="public/screenshots/finances.png" alt="WorkHub Finances - Track payments, milestones, monthly earnings with charts" width="100%" />
 </p>
+Track payments, milestones, and monthly earnings with interactive charts and per-project financial breakdowns.
+</details>
 
-### Time Tracking
-Analyze your work hours with daily breakdowns, project distribution, and detailed time entry logs.
-
+<details>
+<summary><strong>Time Tracking</strong> — Analyze your work hours</summary>
 <p align="center">
-  <img src="public/screenshots/time-tracking.png" alt="Time Tracking" width="100%" />
+  <img src="public/screenshots/time-tracking.png" alt="WorkHub Time Tracking - Daily breakdowns, project distribution, time entry logs" width="100%" />
 </p>
+Daily breakdowns, project distribution, and detailed time entry logs with manual entry support.
+</details>
 
-### Media Library
-Upload, organize, and link files to projects with grid/list views, filters, and automatic image optimization.
-
+<details>
+<summary><strong>Media Library</strong> — Organize project files</summary>
 <p align="center">
-  <img src="public/screenshots/media-library.png" alt="Media Library" width="100%" />
+  <img src="public/screenshots/media-library.png" alt="WorkHub Media Library - Upload, organize files with grid views and image optimization" width="100%" />
 </p>
+Upload, organize, and link files to projects. Grid/list views, filters, and automatic image optimization.
+</details>
 
-### AI Assistant
-Chat-based AI assistant powered by Google Gemini for task breakdowns, time estimates, and productivity insights.
-
+<details>
+<summary><strong>AI Assistant</strong> — Your intelligent project companion</summary>
 <p align="center">
-  <img src="public/screenshots/ai-assistant.png" alt="AI Assistant" width="100%" />
+  <img src="public/screenshots/ai-assistant.png" alt="WorkHub AI Assistant - Task breakdowns, time estimates, productivity insights powered by Gemini" width="100%" />
 </p>
+Chat-based AI powered by Google Gemini for task breakdowns, time estimates, and productivity insights.
+</details>
 
 ---
 
 ## Features
 
 ### Project Management
-- **Multi-tier hierarchy**: Organizations > Systems > Projects > Features > Tasks > Subtasks
-- **Kanban board** with drag-and-drop task reordering across columns (To Do, In Progress, Review, Done)
+- **Multi-tier hierarchy**: Organizations → Systems → Projects → Features → Tasks → Subtasks
+- **Kanban board** with drag-and-drop reordering across columns (To Do, In Progress, Review, Done)
+- **Sub-projects** with shared or independent finances
 - **Task types**: Task, Bug, Feature, Improvement, Documentation, Research — each color-coded
 - **Priority levels**: Low, Medium, High, Critical — with visual border indicators
-- **Task states**: Archive tasks to declutter, or mark as "Waiting" for blocked/external-dependency tasks
-- **Subtasks** with individual time tracking and status management
-- **Comments** on both tasks and subtasks
+- **Task states**: Archive to declutter, or mark as "Waiting" for blocked tasks
+- **Comments** on tasks and subtasks with threaded discussions
 
 ### Time Tracking
-- **Live timer widget** with start, pause, resume, and stop controls
-- **Manual time entry** creation for retroactive logging
+- **Live timer widget** — start, pause, resume, stop from anywhere in the app
+- **Manual time entry** for retroactive logging
 - **Per-subtask tracking** linked to projects and tasks
-- **Daily and weekly summaries** on the dashboard
-- **Persistent timer state** across page navigation (Zustand with localStorage)
+- **Daily/weekly summaries** on the dashboard
+- **Persistent timer** across page navigation (Zustand + localStorage)
+
+### Calendar & Scheduling
+- **Full calendar view** — month, week, day, and list views
+- **Drag-and-drop events** with resize support
+- **Category-based color coding** — Work, Meeting, Deadline, Personal, Reminder
+- **Status tracking** — To Do, In Progress, Review, Done, Cancelled
+- **Mini calendar sidebar** with quick date navigation and filters
 
 ### Financial Management
-- **Payment models**: Milestone-based, Monthly, Fixed-price, and Internal projects
+- **Payment models**: Milestone-based, Monthly, Fixed-price, and Internal
 - **Milestone tracking** with pending/completed/paid statuses
-- **Monthly payment management** with payment history
-- **Income visualization** with interactive charts
-- **Dashboard stats**: Total owed, total received, days until next payment deadline
+- **Monthly payment** management with payment history
+- **Income visualization** with interactive ApexCharts
+- **Dashboard stats**: Total owed, total received, next payment deadline
 
 ### Media Library
-- **File management** with folder hierarchy and breadcrumb navigation
+- **Folder hierarchy** with breadcrumb navigation
 - **Drag-and-drop upload** with progress tracking
-- **Image optimization**: Automatic compression via Canvas API (configurable quality/dimensions)
+- **Automatic image compression** via Canvas API (configurable quality/dimensions)
 - **File categories**: Images, Videos, Audio, Documents, Archives
-- **Link files** to projects and tasks for organized attachments
-- **50MB max file size** with Firebase Storage
+- **Link files** to projects and tasks
+- **50MB max file size** via Firebase Storage
 
 ### Project Vault
-- **Secure storage** for project-specific sensitive data
+- **Encrypted-like storage** for project-specific sensitive data
 - **Entry types**: Text notes, Passwords, and Files
-- **Per-project isolation** with easy access from project detail view
+- **Passkey protection** with auto-unlock on correct entry
+- **Per-project isolation** accessible from the project detail view
 
 ### AI Assistant
-- **Powered by Google Gemini** (4 model options)
+- **Powered by Google Gemini** (4 model options: Gemini 3 Pro/Flash, Gemini 2.5 Pro/Flash)
 - **Task breakdown**: Generate subtask suggestions from feature descriptions
-- **Time estimation**: AI-powered effort estimates for tasks
-- **Productivity insights**: Analyze project health and work patterns
-- **General Q&A**: Ask anything in the assistant chat interface
+- **Time estimation**: AI-powered effort estimates
+- **Productivity insights**: Project health and work pattern analysis
 - **Web search**: Integrated DuckDuckGo search and URL content fetching
+- **Optional** — gracefully disabled without API key
 
-### Dashboard
-- **At-a-glance overview**: Active projects, pending tasks, time tracked, finances
-- **Priority-sorted task list** filtered to actionable items (waiting/archived tasks hidden)
-- **Income chart toggle** for quick financial review
+### Notifications
+- **Deadline alerts** — configurable days-before warning
+- **Payment reminders** for pending invoices
+- **Timer reminders** for long-running sessions
+- **Break reminders** and idle detection
+- **Dismissable** — click "Got it" and it won't appear again
 
 ### Additional
-- **Dark mode** support (class-based toggle)
-- **Responsive design** for desktop and mobile
-- **Confetti celebration** when tasks are moved to Done
-- **Optimistic UI updates** for instant feedback on all operations
-- **Toast notifications** for success/error feedback
+- **Dark mode** with full theme support
+- **Responsive design** for desktop and tablet
+- **URL-based tab navigation** — deep link to any project tab
+- **Confetti celebration** when tasks are completed
+- **Optimistic UI** — instant feedback on all operations
 
 ---
 
 ## Tech Stack
 
 | Category | Technology |
-|---|---|
+|----------|-----------|
 | **Framework** | [Next.js 16](https://nextjs.org/) (App Router, Turbopack) |
 | **Language** | [TypeScript 5.7](https://www.typescriptlang.org/) (strict mode) |
-| **UI** | [React 19.2](https://react.dev/) |
+| **UI** | [React 19](https://react.dev/) + [Radix UI](https://www.radix-ui.com/) + [shadcn/ui](https://ui.shadcn.com/) |
 | **Styling** | [Tailwind CSS 3.4](https://tailwindcss.com/) |
-| **Components** | [Radix UI](https://www.radix-ui.com/) + [shadcn/ui](https://ui.shadcn.com/) pattern |
-| **Icons** | [Lucide React](https://lucide.dev/) |
-| **Charts** | [Recharts 2](https://recharts.org/) |
+| **Icons** | [Lucide React](https://lucide.dev/) + [Remix Icons](https://remixicon.com/) |
+| **Charts** | [ApexCharts](https://apexcharts.com/) + [Recharts](https://recharts.org/) |
+| **Calendar** | [FullCalendar 6](https://fullcalendar.io/) |
+| **Rich Text** | [TipTap](https://tiptap.dev/) |
 | **Database** | [Firebase Firestore](https://firebase.google.com/products/firestore) |
 | **Auth** | [Firebase Authentication](https://firebase.google.com/products/auth) |
 | **Storage** | [Firebase Storage](https://firebase.google.com/products/storage) |
-| **State** | [Zustand 5](https://zustand-demo.pmnd.rs/) (timer persistence) |
+| **State** | [Zustand 5](https://zustand-demo.pmnd.rs/) |
 | **AI** | [Google Generative AI](https://ai.google.dev/) (Gemini) |
 | **Dates** | [date-fns 4](https://date-fns.org/) |
-
----
-
-## Project Structure
-
-```
-workhub/
-├── .github/                     # Issue templates, PR template
-├── firebase/
-│   ├── firestore.rules          # Firestore security rules
-│   ├── firestore.indexes.json   # Composite index definitions
-│   ├── storage.rules            # Storage security rules
-│   └── migrations/              # Database migration scripts
-├── public/                      # Static assets
-├── src/
-│   ├── app/
-│   │   ├── (auth)/login/        # Login page
-│   │   ├── (dashboard)/         # Protected routes
-│   │   │   ├── page.tsx         # Dashboard home
-│   │   │   ├── assistant/       # AI assistant
-│   │   │   ├── finances/        # Financial management
-│   │   │   ├── media/           # Media library
-│   │   │   ├── projects/        # Projects + detail view
-│   │   │   ├── settings/        # App settings
-│   │   │   ├── systems/         # System management
-│   │   │   └── time/            # Time tracking
-│   │   └── api/
-│   │       ├── ai/              # Gemini AI endpoint
-│   │       └── web/             # Search & URL fetch
-│   ├── components/
-│   │   ├── ai/                  # AI suggestion components
-│   │   ├── charts/              # Income & analytics charts
-│   │   ├── features/            # Feature list management
-│   │   ├── finances/            # Milestone & payment UI
-│   │   ├── layout/              # Navbar, Sidebar, ThemeProvider
-│   │   ├── media/               # Media library UI
-│   │   ├── projects/            # Project tabs & image picker
-│   │   ├── systems/             # System CRUD dialogs
-│   │   ├── tasks/               # Kanban board, cards, detail modal
-│   │   ├── time/                # Timer widget
-│   │   └── ui/                  # 30+ shared UI primitives
-│   ├── hooks/                   # 13 custom React hooks
-│   ├── lib/                     # Firebase, Firestore, Gemini, Storage, utils
-│   ├── store/                   # Zustand timer store
-│   └── types/                   # TypeScript interfaces & types
-├── CONTRIBUTING.md
-├── LICENSE
-└── README.md
-```
+| **Slider** | [keen-slider](https://keen-slider.io/) |
 
 ---
 
@@ -219,25 +192,20 @@ workhub/
 
 ### Prerequisites
 
-- **Node.js** 18 or later
-- **npm** (comes with Node.js)
+- **Node.js** 18+
+- **npm** or **yarn**
 - A **Firebase project** with Firestore, Authentication, and Storage enabled
-- A **Google AI Studio** API key (for Gemini features — optional)
+- A **Google AI Studio** API key (optional — for AI features)
 
 ### Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/AhmedSayedSk/workhub.git
 cd workhub
-
-# Install dependencies
 npm install
 ```
 
 ### Environment Variables
-
-Copy the example file and fill in your values:
 
 ```bash
 cp .env.local.example .env.local
@@ -245,70 +213,57 @@ cp .env.local.example .env.local
 
 ```env
 # Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
-# Gemini AI (optional — AI features will be disabled without this)
-GEMINI_API_KEY=your_gemini_api_key_here
+# Gemini AI (optional)
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-**Where to get these values:**
-- **Firebase**: [Firebase Console](https://console.firebase.google.com/) > Project Settings > General > Your Apps
+**Where to get these:**
+- **Firebase**: [Firebase Console](https://console.firebase.google.com/) → Project Settings → General → Your Apps
 - **Gemini**: [Google AI Studio](https://aistudio.google.com/apikey)
 
 ### Firebase Setup
 
 1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
-2. Enable **Firestore Database** (start in production mode)
-3. Enable **Authentication** > Sign-in method > **Email/Password**
+2. Enable **Firestore Database** (production mode)
+3. Enable **Authentication** → Email/Password
 4. Enable **Storage**
 5. Update `.firebaserc` with your project ID
-6. Deploy security rules and indexes:
+6. Deploy rules:
 
 ```bash
 npm run firebase:deploy:rules
 npm run firebase:deploy:indexes
 ```
 
-7. **(Optional)** For database migrations, download a service account key from Firebase Console > Project Settings > Service Accounts > Generate New Private Key, save it as `firebase-service-account.json` in the project root, then run:
+### Run
 
 ```bash
-npm run migrate
+npm run dev          # Development → http://localhost:3090
+npm run build        # Production build
+npm start            # Start production server
 ```
-
-### Running the App
-
-```bash
-# Development server (port 3090)
-npm run dev
-
-# Production build
-npm run build
-npm start
-```
-
-Open [http://localhost:3090](http://localhost:3090) in your browser.
 
 ---
 
 ## Available Scripts
 
 | Command | Description |
-|---|---|
-| `npm run dev` | Start development server on port 3090 |
-| `npm run build` | Create optimized production build |
-| `npm start` | Start production server |
-| `npm run lint` | Run ESLint checks |
-| `npm run migrate` | Run Firestore database migrations |
-| `npm run migrate:reset` | Reset the database (destructive) |
-| `npm run db:clear` | Clear sample/seed data |
+|---------|-------------|
+| `npm run dev` | Development server (port 3090) |
+| `npm run build` | Production build |
+| `npm start` | Production server |
+| `npm run lint` | ESLint checks |
+| `npm run migrate` | Run Firestore migrations |
 | `npm run firebase:deploy` | Deploy all Firebase configs |
-| `npm run firebase:deploy:rules` | Deploy Firestore security rules only |
-| `npm run firebase:deploy:indexes` | Deploy Firestore indexes only |
+| `npm run firebase:deploy:rules` | Deploy Firestore rules |
+| `npm run firebase:deploy:indexes` | Deploy Firestore indexes |
 
 ---
 
@@ -325,6 +280,7 @@ Organization
               │           ├── Subtask (granular work units)
               │           ├── TaskComment (discussion threads)
               │           └── TimeEntry (tracked work sessions)
+              ├── CalendarEvent (scheduled events)
               ├── Milestone (payment milestones)
               ├── MonthlyPayment (recurring payments)
               └── VaultEntry (sensitive project data)
@@ -333,85 +289,86 @@ MediaFolder / MediaFile  (global media library, linkable to projects/tasks)
 AppSettings              (singleton for AI model configuration)
 ```
 
-### Key Design Decisions
-
-- **Optional boolean flags** (`archived`, `waiting`) are orthogonal to task status — tasks keep their kanban column position
-- **Optimistic updates** on all CRUD operations for instant UI feedback with automatic rollback on error
-- **Soft-delete via archive** — tasks can be archived and restored, or permanently deleted
-- **All timestamps** use Firestore `Timestamp` for consistency
-
 ### API Routes
 
 | Endpoint | Method | Description |
-|---|---|---|
-| `/api/ai` | `POST` | AI operations: task breakdown, time estimates, insights, Q&A |
+|----------|--------|-------------|
+| `/api/ai` | `POST` | AI: task breakdown, time estimates, insights, Q&A |
 | `/api/ai` | `GET` | Fetch current AI settings |
-| `/api/web/search` | `POST` | DuckDuckGo web search (no API key needed) |
-| `/api/web/fetch` | `POST` | Fetch and extract content from URLs |
+| `/api/web/search` | `POST` | DuckDuckGo web search |
+| `/api/web/fetch` | `POST` | Extract content from URLs |
 
----
+### Key Design Decisions
 
-## AI Integration
-
-WorkHub integrates with **Google Gemini** for intelligent assistance:
-
-| Feature | Description |
-|---|---|
-| **Task Breakdown** | Generate subtask suggestions from a feature description |
-| **Time Estimation** | AI-powered effort estimates based on task details |
-| **Insights** | Productivity and project health analysis |
-| **Chat Assistant** | General-purpose Q&A with optional web search |
-
-**Available models** (configurable in Settings):
-- Gemini 3 Pro — Most capable, 1M token context
-- Gemini 3 Flash — Recommended balance of speed and quality
-- Gemini 2.5 Pro — Advanced reasoning
-- Gemini 2.5 Flash — Fastest performance
-
-AI features are **optional** and gracefully disabled when no `GEMINI_API_KEY` is configured.
+- **Optimistic updates** on all CRUD — instant UI with automatic rollback on error
+- **Optional flags** (`archived`, `waiting`) are orthogonal to task status
+- **Firestore Timestamps** everywhere for consistency
+- **Background sync** for calendar events — dialog closes immediately
+- **URL-based tab state** for deep linking and refresh persistence
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Whether it's a bug fix, new feature, or documentation improvement — we appreciate the help.
-
-Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
-
-### Quick Start for Contributors
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
 
 ```bash
-# Fork the repo, then:
+# Fork, then:
 git clone https://github.com/YOUR_USERNAME/workhub.git
 cd workhub
 npm install
 cp .env.local.example .env.local
-# Add your Firebase config to .env.local
 npm run dev
 ```
 
 ### Areas Where Help is Needed
 
-- **Testing** — Unit and integration tests (currently none)
+- **Testing** — Unit and integration tests
 - **Accessibility** — Keyboard navigation, screen reader support, ARIA labels
-- **Internationalization** — Multi-language support (currently English only)
-- **Mobile experience** — Responsive improvements for small screens
-- **Documentation** — Tutorials, guides, and API documentation
+- **Internationalization** — Multi-language support
+- **Mobile** — Responsive improvements for phones
 - **Performance** — Firestore query optimization, bundle size reduction
-- **New features** — Check the [open issues](https://github.com/AhmedSayedSk/workhub/issues) for ideas
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE) — free for personal and commercial use.
+This project is licensed under the [Sikasio Source Available License](LICENSE).
+
+**Free for personal use.** Commercial use requires a license from Sikasio. See [LICENSE](LICENSE) for full terms.
+
+---
+
+## FAQ
+
+<details>
+<summary><strong>Is WorkHub free?</strong></summary>
+Yes — free for personal use, learning, and non-commercial projects. Commercial use requires a license from Sikasio.
+</details>
+
+<details>
+<summary><strong>Can I self-host WorkHub?</strong></summary>
+Absolutely. WorkHub is designed to be self-hosted on your own Firebase project. Your data stays yours.
+</details>
+
+<details>
+<summary><strong>Do I need the AI features?</strong></summary>
+No. AI features are optional and gracefully disabled without a Gemini API key. Everything else works perfectly without it.
+</details>
+
+<details>
+<summary><strong>What's the difference between WorkHub and Jira/Asana/Monday?</strong></summary>
+WorkHub is built for small teams and freelancers, not enterprises. It combines project management, time tracking, finances, and AI in one place — no per-seat pricing, no feature-gating, no vendor lock-in.
+</details>
 
 ---
 
 <div align="center">
 
-Built by [Ahmed Sayed](https://github.com/AhmedSayedSk)
+<img src="public/logo.png" alt="WorkHub" width="48" />
 
-If you find WorkHub useful, consider giving it a star!
+**Built by [Sikasio](https://sikasio.com)** — From Chaos to Clarity
+
+[Report Bug](https://github.com/AhmedSayedSk/workhub/issues) &bull; [Request Feature](https://github.com/AhmedSayedSk/workhub/issues) &bull; [Star on GitHub](https://github.com/AhmedSayedSk/workhub)
 
 </div>
