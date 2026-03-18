@@ -13,9 +13,9 @@ Stop juggling Trello, Toggl, and spreadsheets. WorkHub combines **Kanban boards*
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Firebase](https://img.shields.io/badge/Firebase-11-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.md)
 
-[Live Demo](#) &bull; [Getting Started](#-getting-started) &bull; [Features](#-features) &bull; [Screenshots](#-screenshots) &bull; [Docs](#-architecture) &bull; [Contributing](#-contributing)
+[Live Demo](#) &bull; [Getting Started](#-getting-started) &bull; [Features](#-features) &bull; [Screenshots](#-screenshots) &bull; [Docs](#-architecture) &bull; [Contributing](#-contributing) &bull; [Changelog](docs/CHANGELOG.md)
 
 </div>
 
@@ -234,7 +234,7 @@ GEMINI_API_KEY=your_gemini_api_key
 2. Enable **Firestore Database** (production mode)
 3. Enable **Authentication** → Email/Password
 4. Enable **Storage**
-5. Update `.firebaserc` with your project ID
+5. Copy `.firebaserc.example` to `.firebaserc` and update with your project ID
 6. Deploy rules:
 
 ```bash
@@ -310,7 +310,9 @@ AppSettings              (singleton for AI model configuration)
 
 ## Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
+Contributions are welcome! Please read our [Contributing Guide](docs/CONTRIBUTING.md) before submitting a PR.
+
+We follow the [Contributor Covenant Code of Conduct](docs/CODE_OF_CONDUCT.md). By participating, you agree to uphold it.
 
 ```bash
 # Fork, then:
@@ -318,6 +320,7 @@ git clone https://github.com/YOUR_USERNAME/workhub.git
 cd workhub
 npm install
 cp .env.local.example .env.local
+cp .firebaserc.example .firebaserc  # Add your Firebase project ID
 npm run dev
 ```
 
@@ -328,6 +331,10 @@ npm run dev
 - **Internationalization** — Multi-language support
 - **Mobile** — Responsive improvements for phones
 - **Performance** — Firestore query optimization, bundle size reduction
+
+### Security
+
+Found a vulnerability? Please see our [Security Policy](docs/SECURITY.md) for responsible disclosure guidelines.
 
 ---
 
