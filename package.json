@@ -1,7 +1,33 @@
 {
   "name": "workhub",
   "version": "1.0.0",
-  "private": true,
+  "private": false,
+  "description": "Open-source project management, time tracking, and invoicing platform for freelancers and small teams",
+  "author": "Sikasio <info@sikasio.com> (https://sikasio.com)",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/AhmedSayedSk/workhub#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AhmedSayedSk/workhub.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AhmedSayedSk/workhub/issues"
+  },
+  "keywords": [
+    "project-management",
+    "time-tracking",
+    "kanban-board",
+    "freelancer-tools",
+    "invoicing",
+    "task-management",
+    "firebase",
+    "nextjs",
+    "react",
+    "typescript",
+    "ai-assistant",
+    "gemini",
+    "self-hosted"
+  ],
   "scripts": {
     "dev": "docker compose up --build",
     "dev:local": "next dev --webpack -p 3090",
