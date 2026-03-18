@@ -28,9 +28,10 @@ export function VaultPasskeyDialog({ open, storedHash, onVerified, onCancel }: V
   const [verifying, setVerifying] = useState(false)
   const [showPasskey, setShowPasskey] = useState(false)
   const autoVerifyRef = useRef(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleVerify = useCallback(async (value?: string) => {
-    const key = value ?? passkey
+  const handleVerify = useCallback(async (value?: string | unknown) => {
+    const key = typeof value === 'string' ? value : passkey
     if (!key.trim()) {
       setError('Please enter the passkey')
       return
@@ -63,12 +64,12 @@ export function VaultPasskeyDialog({ open, storedHash, onVerified, onCancel }: V
   const handleChange = (value: string) => {
     setPasskey(value)
     setError('')
+    // Clear previous debounce
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     // Auto-verify when passkey reaches a reasonable length (4+ chars)
     if (value.trim().length >= 4) {
       autoVerifyRef.current = true
-      // Small debounce to avoid verifying on every keystroke
-      setTimeout(async () => {
-        if (!autoVerifyRef.current) return
+      debounceRef.current = setTimeout(async () => {
         try {
           const valid = await verifyPasskey(value, storedHash)
           if (valid) {
