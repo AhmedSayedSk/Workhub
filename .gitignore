@@ -38,6 +38,7 @@ next-env.d.ts
 *-firebase-adminsdk*.json
 firebase-service-account.json
 .firebase/
+.firebaserc
 firebase-debug.log
 
 # MCP Server
