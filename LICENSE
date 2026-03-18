@@ -1,21 +1,71 @@
-MIT License
+Sikasio Source Available License
+Version 1.0
 
-Copyright (c) 2025-2026 Sikasio
+Copyright (c) 2025-2026 Sikasio (https://sikasio.com)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+TERMS AND CONDITIONS
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. DEFINITIONS
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   "Software" refers to WorkHub and all associated source code, documentation,
+   and assets in this repository.
+
+   "Personal Use" means use by an individual for personal, educational, or
+   non-commercial purposes, including learning, experimentation, portfolio
+   projects, and contributions to this project.
+
+   "Commercial Use" means any use of the Software that is primarily intended
+   for or directed toward commercial advantage or monetary compensation. This
+   includes, but is not limited to: using the Software to provide paid services,
+   deploying the Software for a business, incorporating the Software into a
+   commercial product, or using the Software on behalf of a for-profit entity.
+
+2. GRANT OF RIGHTS
+
+   Subject to the terms of this License:
+
+   a) PERSONAL USE: Permission is hereby granted, free of charge, to any person
+      obtaining a copy of this Software to use, copy, modify, and distribute the
+      Software for Personal Use, subject to the following conditions:
+
+      - The above copyright notice and this license shall be included in all
+        copies or substantial portions of the Software.
+      - Attribution to Sikasio must be maintained in any derivative works.
+
+   b) COMMERCIAL USE: Commercial Use of this Software requires a separate
+      commercial license from Sikasio. To obtain a commercial license, contact:
+
+      Email: info@sikasio.com
+      Website: https://sikasio.com
+
+3. CONTRIBUTIONS
+
+   By submitting a pull request or other contribution to this repository, you
+   grant Sikasio a perpetual, worldwide, non-exclusive, royalty-free license to
+   use, reproduce, modify, and distribute your contribution as part of the
+   Software under the terms of this License.
+
+4. RESTRICTIONS
+
+   You may NOT:
+   - Remove or alter any copyright notices, license text, or attribution.
+   - Use the Sikasio or WorkHub name, logo, or branding to endorse or promote
+     derivative products without prior written permission.
+   - Sell, sublicense, or redistribute the Software as a standalone commercial
+     product without a commercial license.
+
+5. DISCLAIMER
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+   SIKASIO OR THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+   IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+6. TERMINATION
+
+   This License is effective until terminated. Your rights under this License
+   will terminate automatically if you fail to comply with any of its terms.
+   Upon termination, you must destroy all copies of the Software in your
+   possession.
