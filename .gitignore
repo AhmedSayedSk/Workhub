@@ -41,6 +41,9 @@ firebase-service-account.json
 .firebaserc
 firebase-debug.log
 
+# Scripts (seeds, one-off data scripts)
+/scripts/
+
 # MCP Server
 mcp-server/node_modules/
 mcp-server/dist/
