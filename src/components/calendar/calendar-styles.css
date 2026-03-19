@@ -29,10 +29,17 @@
   margin-bottom: 1.25rem;
 }
 
+.app-calendar .fc .fc-toolbar-chunk {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .app-calendar .fc .fc-toolbar-title {
-  margin-inline: 1rem;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0.5rem;
+  white-space: nowrap;
 }
 
 .app-calendar .fc .fc-button {
@@ -49,8 +56,10 @@
 .app-calendar .fc .fc-prev-button,
 .app-calendar .fc .fc-next-button {
   display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: transparent;
-  padding: 0.5rem;
+  padding: 0.35rem;
   border: 1px solid hsl(var(--border));
   border-radius: 0.375rem !important;
   color: hsl(var(--muted-foreground));

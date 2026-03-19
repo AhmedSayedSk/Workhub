@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, forwardRef } from 'react'
+import { useState, useEffect, useRef, useMemo, forwardRef } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -33,10 +33,13 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Calendar as MiniCalendar } from '@/components/ui/calendar'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 import { useCalendarEvents } from '@/hooks/useCalendarEvents'
 import { useProjects } from '@/hooks/useProjects'
-import { CalendarEvent, CalendarEventStatus, CalendarCategory } from '@/types'
+import { projects as projectsApi } from '@/lib/firestore'
+import { CalendarEvent, CalendarEventStatus, CalendarCategory, Project } from '@/types'
 import { toast } from 'react-toastify'
 import {
   Plus,
@@ -44,6 +47,10 @@ import {
   Trash2,
   Filter,
   ChevronLeft,
+  ChevronRight,
+  Briefcase,
+  FolderTree,
+  ChevronsUpDown,
   CalendarDays,
   Clock,
 } from 'lucide-react'
@@ -153,10 +160,17 @@ export default function CalendarPage() {
   const [form, setForm] = useState<EventFormState>(defaultFormState)
   const [selectedStatuses, setSelectedStatuses] = useState<CalendarEventStatus[]>([...ALL_STATUSES])
   const [selectedCategories, setSelectedCategories] = useState<CalendarCategory[]>([...ALL_CATEGORIES])
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
   const [miniCalDate, setMiniCalDate] = useState<Date | undefined>(new Date())
   const [savingDate, setSavingDate] = useState<string | null>(null)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; event: CalendarEvent } | null>(null)
   const tooltipTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [allProjects, setAllProjects] = useState<Project[]>([])
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    projectsApi.getAll().then(setAllProjects)
+  }, [])
 
   useEffect(() => {
     if (calendarRef.current && !calendarApi) {
@@ -164,11 +178,38 @@ export default function CalendarPage() {
     }
   }, [calendarApi])
 
+  const parentProjects = useMemo(() => {
+    return allProjects.filter(p => !p.parentProjectId)
+  }, [allProjects])
+
+  const subProjectsByParent = useMemo(() => {
+    const map: Record<string, Project[]> = {}
+    allProjects.forEach(p => {
+      if (p.parentProjectId) {
+        if (!map[p.parentProjectId]) map[p.parentProjectId] = []
+        map[p.parentProjectId].push(p)
+      }
+    })
+    return map
+  }, [allProjects])
+
+  const getProjectName = (projectId: string): string => {
+    const project = allProjects.find(p => p.id === projectId)
+    return project?.name || ''
+  }
+
+  const handleProjectFilterToggle = (projectId: string) => {
+    setSelectedProjectIds(prev =>
+      prev.includes(projectId) ? prev.filter(id => id !== projectId) : [...prev, projectId]
+    )
+  }
+
   // Convert Firestore events to FullCalendar format
   // Note: FullCalendar treats allDay end dates as exclusive,
   // so we add one day to make multi-day events span correctly
   const calendarEvents: EventInput[] = events
     .filter(e => selectedStatuses.includes(e.status) && selectedCategories.includes(e.category))
+    .filter(e => selectedProjectIds.length === 0 || selectedProjectIds.includes(e.projectId || ''))
     .map(event => {
       const end = event.end.toDate()
       if (event.allDay) {
@@ -190,6 +231,14 @@ export default function CalendarPage() {
         }
       }
     })
+
+  const eventProjectIds = useMemo(() => {
+    const ids = new Set<string>()
+    events.forEach(e => {
+      if (e.projectId) ids.add(e.projectId)
+    })
+    return Array.from(ids)
+  }, [events])
 
   const handleDateClick = (info: any) => {
     const d = dateToInputs(info.date)
@@ -327,7 +376,7 @@ export default function CalendarPage() {
     plugins: [interactionPlugin, dayGridPlugin, timeGridPlugin, listPlugin],
     initialView: 'dayGridMonth',
     headerToolbar: {
-      start: 'sidebarToggle, prev, next, title',
+      start: 'sidebarToggle, prev, title, next',
       end: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
     },
     views: {
@@ -402,62 +451,122 @@ export default function CalendarPage() {
 
               <Separator />
 
-              {/* Status Filters */}
-              <div>
-                <h3 className="text-sm font-semibold mb-2">Status</h3>
-                <div className="flex items-center gap-2 mb-2">
-                  <Checkbox
-                    id="all-statuses"
-                    checked={selectedStatuses.length === ALL_STATUSES.length}
-                    onCheckedChange={(checked) =>
-                      setSelectedStatuses(checked ? [...ALL_STATUSES] : [])
-                    }
-                  />
-                  <label htmlFor="all-statuses" className="text-sm cursor-pointer">View All</label>
-                </div>
-                {ALL_STATUSES.map(status => (
-                  <div key={status} className="flex items-center gap-2 mb-1.5">
-                    <Checkbox
-                      id={`status-${status}`}
-                      checked={selectedStatuses.includes(status)}
-                      onCheckedChange={() => handleStatusFilterToggle(status)}
-                    />
-                    <div className={cn('w-2.5 h-2.5 rounded-full', STATUS_DOT_COLORS[status])} />
-                    <label htmlFor={`status-${status}`} className="text-sm cursor-pointer">
-                      {STATUS_LABELS[status]}
-                    </label>
-                  </div>
-                ))}
-              </div>
+              {/* Filters */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold">Filters</h3>
 
-              <Separator />
+                {/* Status Filter Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-full justify-between text-sm">
+                      {selectedStatuses.length === ALL_STATUSES.length
+                        ? 'All Statuses'
+                        : `${selectedStatuses.length} Status${selectedStatuses.length !== 1 ? 'es' : ''}`}
+                      <ChevronsUpDown className="h-3.5 w-3.5 ml-2 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="start">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <Checkbox
+                        id="pop-all-statuses"
+                        checked={selectedStatuses.length === ALL_STATUSES.length}
+                        onCheckedChange={(checked) =>
+                          setSelectedStatuses(checked ? [...ALL_STATUSES] : [])
+                        }
+                      />
+                      <label htmlFor="pop-all-statuses" className="text-sm cursor-pointer">View All</label>
+                    </div>
+                    {ALL_STATUSES.map(status => (
+                      <div key={status} className="flex items-center gap-2 mb-1.5 px-1">
+                        <Checkbox
+                          id={`pop-status-${status}`}
+                          checked={selectedStatuses.includes(status)}
+                          onCheckedChange={() => handleStatusFilterToggle(status)}
+                        />
+                        <div className={cn('w-2.5 h-2.5 rounded-full', STATUS_DOT_COLORS[status])} />
+                        <label htmlFor={`pop-status-${status}`} className="text-sm cursor-pointer">
+                          {STATUS_LABELS[status]}
+                        </label>
+                      </div>
+                    ))}
+                  </PopoverContent>
+                </Popover>
 
-              {/* Category Filters */}
-              <div>
-                <h3 className="text-sm font-semibold mb-2">Category</h3>
-                <div className="flex items-center gap-2 mb-2">
-                  <Checkbox
-                    id="all-categories"
-                    checked={selectedCategories.length === ALL_CATEGORIES.length}
-                    onCheckedChange={(checked) =>
-                      setSelectedCategories(checked ? [...ALL_CATEGORIES] : [])
-                    }
-                  />
-                  <label htmlFor="all-categories" className="text-sm cursor-pointer">View All</label>
-                </div>
-                {ALL_CATEGORIES.map(category => (
-                  <div key={category} className="flex items-center gap-2 mb-1.5">
-                    <Checkbox
-                      id={`cat-${category}`}
-                      checked={selectedCategories.includes(category)}
-                      onCheckedChange={() => handleCategoryFilterToggle(category)}
-                    />
-                    <div className={cn('w-2.5 h-2.5 rounded-full', CATEGORY_DOT_COLORS[category])} />
-                    <label htmlFor={`cat-${category}`} className="text-sm cursor-pointer">
-                      {CATEGORY_LABELS[category]}
-                    </label>
-                  </div>
-                ))}
+                {/* Category Filter Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-full justify-between text-sm">
+                      {selectedCategories.length === ALL_CATEGORIES.length
+                        ? 'All Categories'
+                        : `${selectedCategories.length} Categor${selectedCategories.length !== 1 ? 'ies' : 'y'}`}
+                      <ChevronsUpDown className="h-3.5 w-3.5 ml-2 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="start">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <Checkbox
+                        id="pop-all-categories"
+                        checked={selectedCategories.length === ALL_CATEGORIES.length}
+                        onCheckedChange={(checked) =>
+                          setSelectedCategories(checked ? [...ALL_CATEGORIES] : [])
+                        }
+                      />
+                      <label htmlFor="pop-all-categories" className="text-sm cursor-pointer">View All</label>
+                    </div>
+                    {ALL_CATEGORIES.map(category => (
+                      <div key={category} className="flex items-center gap-2 mb-1.5 px-1">
+                        <Checkbox
+                          id={`pop-cat-${category}`}
+                          checked={selectedCategories.includes(category)}
+                          onCheckedChange={() => handleCategoryFilterToggle(category)}
+                        />
+                        <div className={cn('w-2.5 h-2.5 rounded-full', CATEGORY_DOT_COLORS[category])} />
+                        <label htmlFor={`pop-cat-${category}`} className="text-sm cursor-pointer">
+                          {CATEGORY_LABELS[category]}
+                        </label>
+                      </div>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+
+                {/* Project Filter Popover */}
+                {eventProjectIds.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full justify-between text-sm">
+                        {selectedProjectIds.length === 0
+                          ? 'All Projects'
+                          : `${selectedProjectIds.length} Project${selectedProjectIds.length !== 1 ? 's' : ''}`}
+                        <ChevronsUpDown className="h-3.5 w-3.5 ml-2 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-2" align="start">
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <Checkbox
+                          id="pop-all-projects"
+                          checked={selectedProjectIds.length === 0}
+                          onCheckedChange={(checked) =>
+                            setSelectedProjectIds(checked ? [] : [...eventProjectIds])
+                          }
+                        />
+                        <label htmlFor="pop-all-projects" className="text-sm cursor-pointer">View All</label>
+                      </div>
+                      {eventProjectIds.map(pid => (
+                        <div key={pid} className="flex items-center gap-2 mb-1.5 px-1">
+                          <Checkbox
+                            id={`pop-proj-${pid}`}
+                            checked={selectedProjectIds.includes(pid)}
+                            onCheckedChange={() => handleProjectFilterToggle(pid)}
+                          />
+                          <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                          <label htmlFor={`pop-proj-${pid}`} className="text-sm cursor-pointer truncate">
+                            {getProjectName(pid) || 'Unknown'}
+                          </label>
+                        </div>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                )}
               </div>
             </div>
           </div>
@@ -471,181 +580,248 @@ export default function CalendarPage() {
 
       {/* Event Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>{selectedEvent ? 'Update Event' : 'Add Event'}</DialogTitle>
-              {selectedEvent && (
-                <Button variant="ghost" size="icon" onClick={handleDelete} className="text-destructive hover:text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </DialogHeader>
+        <DialogContent className="max-w-5xl p-0 gap-0 overflow-hidden">
+          {/* Header bar */}
+          <div className="flex items-center justify-between px-6 py-4 bg-muted/30 border-b">
+            <DialogTitle className="text-lg font-semibold">
+              {selectedEvent ? 'Update Event' : 'Add Event'}
+            </DialogTitle>
+            {selectedEvent && (
+              <Button variant="ghost" size="icon" onClick={handleDelete} className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
 
-          <div className="space-y-4 py-2">
-            {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="event-title">Title *</Label>
-              <Input
-                id="event-title"
-                placeholder="Event title..."
-                value={form.title}
-                onChange={e => setForm({ ...form, title: e.target.value })}
-                autoFocus
-              />
-            </div>
-
-            {/* Category & Status */}
-            <div className="grid grid-cols-2 gap-4">
+          {/* Two-column layout */}
+          <div className="flex max-h-[70vh] overflow-y-auto">
+            {/* LEFT column - 3/5 */}
+            <div className="w-3/5 p-6 space-y-4">
+              {/* Title */}
               <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as CalendarCategory })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ALL_CATEGORIES.map(cat => (
-                      <SelectItem key={cat} value={cat}>
-                        <span className="flex items-center gap-2">
-                          <span className={cn('w-2 h-2 rounded-full', CATEGORY_DOT_COLORS[cat])} />
-                          {CATEGORY_LABELS[cat]}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="event-title" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Title *</Label>
+                <Input
+                  id="event-title"
+                  placeholder="Event title..."
+                  className="h-10 text-base"
+                  value={form.title}
+                  onChange={e => setForm({ ...form, title: e.target.value })}
+                  autoFocus
+                />
               </div>
 
+              {/* Description */}
               <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as CalendarEventStatus })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ALL_STATUSES.map(status => (
-                      <SelectItem key={status} value={status}>
-                        <span className="flex items-center gap-2">
-                          <span className={cn('w-2 h-2 rounded-full', STATUS_DOT_COLORS[status])} />
-                          {STATUS_LABELS[status]}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</Label>
+                <RichTextEditor
+                  content={form.description}
+                  onChange={(markdown) => setForm({ ...form, description: markdown })}
+                  placeholder="Event description..."
+                  minHeight="180px"
+                />
               </div>
             </div>
 
-            {/* All Day Toggle */}
-            <div className="flex items-center gap-3">
-              <Switch
-                id="all-day"
-                checked={form.allDay}
-                onCheckedChange={(checked) => setForm({ ...form, allDay: checked })}
-              />
-              <Label htmlFor="all-day" className="cursor-pointer">All Day</Label>
-            </div>
+            {/* RIGHT column - 2/5 */}
+            <div className="w-2/5 bg-muted/10 border-l p-6 space-y-5">
+              {/* Schedule */}
+              <div className="space-y-3">
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Schedule</Label>
 
-            {/* Start & End Date/Time */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start-date">Start</Label>
-                <div className="relative">
-                  <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    id="start-date"
-                    type="date"
-                    className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                    value={form.startDate}
-                    onChange={e => {
-                      const newStart = e.target.value
-                      setForm(prev => ({
-                        ...prev,
-                        startDate: newStart,
-                        endDate: newStart > prev.endDate ? newStart : prev.endDate,
-                      }))
-                    }}
+                {/* All Day Toggle */}
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="all-day"
+                    checked={form.allDay}
+                    onCheckedChange={(checked) => setForm({ ...form, allDay: checked })}
                   />
+                  <Label htmlFor="all-day" className="cursor-pointer text-sm">All Day</Label>
                 </div>
-                {!form.allDay && (
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      id="start-time"
-                      type="time"
-                      className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                      value={form.startTime}
-                      onChange={e => setForm({ ...form, startTime: e.target.value })}
-                    />
+
+                {/* Start */}
+                <div className="space-y-1.5">
+                  <span className="text-xs text-muted-foreground">Start</span>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        type="date"
+                        className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        value={form.startDate}
+                        onChange={e => {
+                          const newStart = e.target.value
+                          setForm(prev => ({
+                            ...prev,
+                            startDate: newStart,
+                            endDate: newStart > prev.endDate ? newStart : prev.endDate,
+                          }))
+                        }}
+                      />
+                    </div>
+                    {!form.allDay && (
+                      <div className="relative w-28">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <Input
+                          type="time"
+                          className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                          value={form.startTime}
+                          onChange={e => setForm({ ...form, startTime: e.target.value })}
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* End */}
+                <div className="space-y-1.5">
+                  <span className="text-xs text-muted-foreground">End</span>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        type="date"
+                        className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        value={form.endDate}
+                        min={form.startDate}
+                        onChange={e => setForm({ ...form, endDate: e.target.value })}
+                      />
+                    </div>
+                    {!form.allDay && (
+                      <div className="relative w-28">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <Input
+                          type="time"
+                          className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                          value={form.endTime}
+                          onChange={e => setForm({ ...form, endTime: e.target.value })}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
+              <Separator />
+
+              {/* Category & Status */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category</Label>
+                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as CalendarCategory })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_CATEGORIES.map(cat => (
+                        <SelectItem key={cat} value={cat}>
+                          <span className="flex items-center gap-2">
+                            <span className={cn('w-2 h-2 rounded-full', CATEGORY_DOT_COLORS[cat])} />
+                            {CATEGORY_LABELS[cat]}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</Label>
+                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as CalendarEventStatus })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_STATUSES.map(status => (
+                        <SelectItem key={status} value={status}>
+                          <span className="flex items-center gap-2">
+                            <span className={cn('w-2 h-2 rounded-full', STATUS_DOT_COLORS[status])} />
+                            {STATUS_LABELS[status]}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Project tree selector */}
               <div className="space-y-2">
-                <Label htmlFor="end-date">End</Label>
-                <div className="relative">
-                  <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    id="end-date"
-                    type="date"
-                    className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                    value={form.endDate}
-                    min={form.startDate}
-                    onChange={e => setForm({ ...form, endDate: e.target.value })}
-                  />
-                </div>
-                {!form.allDay && (
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      id="end-time"
-                      type="time"
-                      className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                      value={form.endTime}
-                      onChange={e => setForm({ ...form, endTime: e.target.value })}
-                    />
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Project</Label>
+                <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-0.5">
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-sm hover:bg-muted/50',
+                      !form.projectId && 'bg-muted'
+                    )}
+                    onClick={() => setForm({ ...form, projectId: '' })}
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>None</span>
                   </div>
-                )}
+                  {parentProjects.map(parent => {
+                    const subs = subProjectsByParent[parent.id] || []
+                    const isExpanded = expandedParents.has(parent.id)
+                    return (
+                      <div key={parent.id}>
+                        <div className="flex items-center">
+                          {subs.length > 0 && (
+                            <button
+                              type="button"
+                              className="p-0.5 hover:bg-muted rounded"
+                              onClick={() => {
+                                setExpandedParents(prev => {
+                                  const next = new Set(prev)
+                                  if (next.has(parent.id)) next.delete(parent.id)
+                                  else next.add(parent.id)
+                                  return next
+                                })
+                              }}
+                            >
+                              <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-90')} />
+                            </button>
+                          )}
+                          {subs.length === 0 && <span className="w-[22px]" />}
+                          <div
+                            className={cn(
+                              'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-sm hover:bg-muted/50 flex-1',
+                              form.projectId === parent.id && 'bg-muted'
+                            )}
+                            onClick={() => setForm({ ...form, projectId: parent.id })}
+                          >
+                            <FolderTree className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="truncate">{parent.name}</span>
+                          </div>
+                        </div>
+                        {isExpanded && subs.map(sub => (
+                          <div
+                            key={sub.id}
+                            className={cn(
+                              'flex items-center gap-2 px-2 py-1.5 ml-7 rounded-md cursor-pointer text-sm hover:bg-muted/50',
+                              form.projectId === sub.id && 'bg-muted'
+                            )}
+                            onClick={() => setForm({ ...form, projectId: sub.id })}
+                          >
+                            <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="truncate">{sub.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-
-            {/* Project (optional) */}
-            <div className="space-y-2">
-              <Label>Project (optional)</Label>
-              <Select value={form.projectId || '_none'} onValueChange={(v) => setForm({ ...form, projectId: v === '_none' ? '' : v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">None</SelectItem>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="event-desc">Description</Label>
-              <textarea
-                id="event-desc"
-                rows={3}
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                placeholder="Event description..."
-                value={form.description}
-                onChange={e => setForm({ ...form, description: e.target.value })}
-              />
             </div>
           </div>
 
-          <DialogFooter>
+          {/* Footer bar */}
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t bg-muted/30">
             <Button variant="outline" onClick={handleClose}>Cancel</Button>
             <Button onClick={handleSubmit}>
-              {selectedEvent ? 'Update' : 'Add Event'}
+              {selectedEvent ? 'Update' : 'Create'}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -688,6 +864,12 @@ export default function CalendarPage() {
             </div>
             {tooltip.event.description && (
               <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{tooltip.event.description}</p>
+            )}
+            {tooltip.event.projectId && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1.5">
+                <Briefcase className="h-3 w-3" />
+                {getProjectName(tooltip.event.projectId)}
+              </div>
             )}
           </div>
         </div>
