@@ -35,5 +35,12 @@ service firebase.storage {
       allow write: if isAuthenticated() && isOwner(userId) && isValidSize();
       allow delete: if isAuthenticated() && isOwner(userId);
     }
+
+    // Calendar event images
+    match /calendar-events/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isOwner(userId) && isValidSize();
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
   }
 }

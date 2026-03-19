@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, forwardRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo, forwardRef } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -36,9 +36,11 @@ import { Calendar as MiniCalendar } from '@/components/ui/calendar'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
+import { useAuth } from '@/hooks/useAuth'
 import { useCalendarEvents } from '@/hooks/useCalendarEvents'
 import { useProjects } from '@/hooks/useProjects'
 import { projects as projectsApi } from '@/lib/firestore'
+import { uploadFile } from '@/lib/storage'
 import { CalendarEvent, CalendarEventStatus, CalendarCategory, Project } from '@/types'
 import { toast } from 'react-toastify'
 import {
@@ -53,6 +55,7 @@ import {
   ChevronsUpDown,
   CalendarDays,
   Clock,
+  ImagePlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -119,6 +122,8 @@ interface EventFormState {
   category: CalendarCategory
   status: CalendarEventStatus
   projectId: string
+  imageUrl: string
+  imageFile: File | null
 }
 
 function dateToInputs(d: Date) {
@@ -146,9 +151,12 @@ const defaultFormState: EventFormState = {
   category: 'work',
   status: 'todo',
   projectId: '',
+  imageUrl: '',
+  imageFile: null,
 }
 
 export default function CalendarPage() {
+  const { user } = useAuth()
   const { events, loading, createEvent, updateEvent, deleteEvent } = useCalendarEvents()
   const { projects } = useProjects()
 
@@ -165,6 +173,7 @@ export default function CalendarPage() {
   const [savingDate, setSavingDate] = useState<string | null>(null)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; event: CalendarEvent } | null>(null)
   const tooltipTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set())
 
@@ -273,6 +282,8 @@ export default function CalendarPage() {
       category: original.category,
       status: original.status,
       projectId: original.projectId || '',
+      imageUrl: original.imageUrl || '',
+      imageFile: null,
     })
     setDialogOpen(true)
   }
@@ -292,10 +303,26 @@ export default function CalendarPage() {
     })
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.title.trim()) {
       toast.error('Title is required')
       return
+    }
+
+    // Close dialog immediately
+    setDialogOpen(false)
+    setSavingDate(form.startDate)
+
+    // Upload image if a new file was selected
+    let imageUrl = form.imageUrl || undefined
+    if (form.imageFile) {
+      try {
+        const path = `calendar-events/${user?.uid}/${Date.now()}-${form.imageFile.name}`
+        const result = await uploadFile(form.imageFile, path)
+        imageUrl = result.url
+      } catch {
+        toast.error('Failed to upload image')
+      }
     }
 
     const data = {
@@ -311,11 +338,8 @@ export default function CalendarPage() {
       category: form.category,
       status: form.status,
       projectId: form.projectId || undefined,
+      imageUrl,
     }
-
-    // Close dialog immediately
-    setDialogOpen(false)
-    setSavingDate(form.startDate)
 
     // Sync in background
     const syncPromise = selectedEvent
@@ -620,33 +644,34 @@ export default function CalendarPage() {
                   minHeight="180px"
                 />
               </div>
+
             </div>
 
             {/* RIGHT column - 2/5 */}
             <div className="w-2/5 bg-muted/10 border-l p-6 space-y-5">
               {/* Schedule */}
               <div className="space-y-3">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Schedule</Label>
-
-                {/* All Day Toggle */}
-                <div className="flex items-center gap-3">
-                  <Switch
-                    id="all-day"
-                    checked={form.allDay}
-                    onCheckedChange={(checked) => setForm({ ...form, allDay: checked })}
-                  />
-                  <Label htmlFor="all-day" className="cursor-pointer text-sm">All Day</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Schedule</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="all-day" className="text-xs cursor-pointer text-muted-foreground">All Day</Label>
+                    <Switch
+                      id="all-day"
+                      checked={form.allDay}
+                      onCheckedChange={(checked) => setForm({ ...form, allDay: checked })}
+                    />
+                  </div>
                 </div>
 
-                {/* Start */}
-                <div className="space-y-1.5">
-                  <span className="text-xs text-muted-foreground">Start</span>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                {/* Start & End in same row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground uppercase">Start</span>
+                    <div className="relative">
+                      <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                       <Input
                         type="date"
-                        className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        className="pl-8 h-9 text-xs [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                         value={form.startDate}
                         onChange={e => {
                           const newStart = e.target.value
@@ -659,39 +684,35 @@ export default function CalendarPage() {
                       />
                     </div>
                     {!form.allDay && (
-                      <div className="relative w-28">
-                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <div className="relative">
+                        <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                         <Input
                           type="time"
-                          className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                          className="pl-8 h-9 text-xs [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                           value={form.startTime}
                           onChange={e => setForm({ ...form, startTime: e.target.value })}
                         />
                       </div>
                     )}
                   </div>
-                </div>
-
-                {/* End */}
-                <div className="space-y-1.5">
-                  <span className="text-xs text-muted-foreground">End</span>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground uppercase">End</span>
+                    <div className="relative">
+                      <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                       <Input
                         type="date"
-                        className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        className="pl-8 h-9 text-xs [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                         value={form.endDate}
                         min={form.startDate}
                         onChange={e => setForm({ ...form, endDate: e.target.value })}
                       />
                     </div>
                     {!form.allDay && (
-                      <div className="relative w-28">
-                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <div className="relative">
+                        <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                         <Input
                           type="time"
-                          className="pl-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                          className="pl-8 h-9 text-xs [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                           value={form.endTime}
                           onChange={e => setForm({ ...form, endTime: e.target.value })}
                         />
@@ -700,8 +721,6 @@ export default function CalendarPage() {
                   </div>
                 </div>
               </div>
-
-              <Separator />
 
               {/* Category & Status */}
               <div className="grid grid-cols-2 gap-4">
@@ -744,73 +763,102 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <Separator />
-
-              {/* Project tree selector */}
-              <div className="space-y-2">
+              {/* Project Select */}
+              <div className="space-y-1.5">
                 <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Project</Label>
-                <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-0.5">
-                  <div
-                    className={cn(
-                      'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-sm hover:bg-muted/50',
-                      !form.projectId && 'bg-muted'
-                    )}
-                    onClick={() => setForm({ ...form, projectId: '' })}
-                  >
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>None</span>
-                  </div>
-                  {parentProjects.map(parent => {
-                    const subs = subProjectsByParent[parent.id] || []
-                    const isExpanded = expandedParents.has(parent.id)
-                    return (
-                      <div key={parent.id}>
-                        <div className="flex items-center">
-                          {subs.length > 0 && (
-                            <button
-                              type="button"
-                              className="p-0.5 hover:bg-muted rounded"
-                              onClick={() => {
-                                setExpandedParents(prev => {
-                                  const next = new Set(prev)
-                                  if (next.has(parent.id)) next.delete(parent.id)
-                                  else next.add(parent.id)
-                                  return next
-                                })
-                              }}
-                            >
-                              <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-90')} />
-                            </button>
-                          )}
-                          {subs.length === 0 && <span className="w-[22px]" />}
-                          <div
-                            className={cn(
-                              'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-sm hover:bg-muted/50 flex-1',
-                              form.projectId === parent.id && 'bg-muted'
-                            )}
-                            onClick={() => setForm({ ...form, projectId: parent.id })}
-                          >
-                            <FolderTree className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="truncate">{parent.name}</span>
-                          </div>
-                        </div>
-                        {isExpanded && subs.map(sub => (
-                          <div
-                            key={sub.id}
-                            className={cn(
-                              'flex items-center gap-2 px-2 py-1.5 ml-7 rounded-md cursor-pointer text-sm hover:bg-muted/50',
-                              form.projectId === sub.id && 'bg-muted'
-                            )}
-                            onClick={() => setForm({ ...form, projectId: sub.id })}
-                          >
-                            <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="truncate">{sub.name}</span>
-                          </div>
-                        ))}
+                <Select value={form.projectId || '_none'} onValueChange={(v) => setForm({ ...form, projectId: v === '_none' ? '' : v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">None</SelectItem>
+                    {parentProjects.map(parent => {
+                      const subs = subProjectsByParent[parent.id] || []
+                      return (
+                        <React.Fragment key={parent.id}>
+                          <SelectItem value={parent.id}>
+                            <span className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: parent.color || '#8b5cf6' }} />
+                              {parent.name}
+                            </span>
+                          </SelectItem>
+                          {subs.map(sub => (
+                            <SelectItem key={sub.id} value={sub.id}>
+                              <span className="flex items-center gap-2 pl-4">
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: sub.color || '#8b5cf6' }} />
+                                {sub.name}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </React.Fragment>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Image Upload */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  Image
+                </Label>
+                {(form.imageUrl || form.imageFile) ? (
+                  <div className="space-y-2">
+                    <div
+                      className="relative rounded-lg overflow-hidden border bg-muted/20 cursor-pointer h-40"
+                      onClick={() => setImagePreview(form.imageFile ? URL.createObjectURL(form.imageFile) : form.imageUrl)}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center bg-muted/30" id="img-loader">
+                        <div className="h-5 w-5 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
                       </div>
-                    )
-                  })}
-                </div>
+                      <img
+                        src={form.imageFile ? URL.createObjectURL(form.imageFile) : form.imageUrl}
+                        alt="Event image"
+                        className="w-full h-full object-contain relative z-[1]"
+                        onLoad={(e) => {
+                          const loader = (e.target as HTMLElement).previousElementSibling
+                          if (loader) (loader as HTMLElement).style.display = 'none'
+                        }}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <label className="flex-1 cursor-pointer rounded-md border px-3 py-1.5 text-xs text-center hover:bg-accent transition-colors">
+                        Replace
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) setForm({ ...form, imageFile: file })
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, imageUrl: '', imageFile: null })}
+                        className="flex-1 rounded-md border px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center h-24 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 cursor-pointer transition-colors bg-muted/5 hover:bg-muted/10">
+                    <ImagePlus className="h-6 w-6 text-muted-foreground/40 mb-1" />
+                    <span className="text-xs text-muted-foreground">Upload image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) setForm({ ...form, imageFile: file })
+                      }}
+                    />
+                  </label>
+                )}
               </div>
             </div>
           </div>
@@ -874,6 +922,30 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
+      {/* Image Lightbox */}
+      <Dialog open={!!imagePreview} onOpenChange={(open) => { if (!open) setImagePreview(null) }}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 border-0 bg-transparent shadow-none overflow-hidden [&>button]:hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Image Preview</DialogTitle>
+          </DialogHeader>
+          <div className="relative flex items-center justify-center">
+            <button
+              className="absolute top-2 right-2 z-10 rounded-full bg-black/50 p-2 text-white/80 hover:text-white hover:bg-black/70 transition-colors"
+              onClick={() => setImagePreview(null)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {imagePreview && (
+              <img
+                src={imagePreview}
+                alt="Full size preview"
+                className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

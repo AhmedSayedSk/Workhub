@@ -676,6 +676,7 @@ export interface CalendarEvent {
   status: CalendarEventStatus
   projectId?: string
   taskId?: string
+  imageUrl?: string
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -690,4 +691,5 @@ export interface CalendarEventInput {
   status: CalendarEventStatus
   projectId?: string
   taskId?: string
+  imageUrl?: string
 }
