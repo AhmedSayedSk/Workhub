@@ -56,6 +56,10 @@ import {
   ProjectNoteInput,
   CalendarEvent,
   CalendarEventInput,
+  ImageGeneration,
+  ImageAsset,
+  ImageAssetFolder,
+  ImageAssetFolderInput,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -1185,5 +1189,96 @@ export const calendarEvents = {
 
   async delete(id: string): Promise<void> {
     return remove('calendarEvents', id)
+  },
+}
+
+// Image Generations
+export const imageGenerations = {
+  async getAll(userId: string): Promise<ImageGeneration[]> {
+    const results = await getAll<ImageGeneration>(
+      'imageGenerations',
+      where('userId', '==', userId)
+    )
+    return results.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
+  async create(data: Omit<ImageGeneration, 'id' | 'createdAt'>): Promise<string> {
+    return create('imageGenerations', data)
+  },
+
+  async update(id: string, data: Partial<ImageGeneration>): Promise<void> {
+    return update('imageGenerations', id, data)
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('imageGenerations', id)
+  },
+}
+
+// Image Assets (uploaded reference images)
+export const imageAssets = {
+  async getAll(userId: string, folderId?: string | null): Promise<ImageAsset[]> {
+    const results = await getAll<ImageAsset>(
+      'imageAssets',
+      where('userId', '==', userId)
+    )
+    // Client-side folder filtering: undefined = all, null = root only, string = specific folder
+    let filtered = results
+    if (folderId !== undefined) {
+      filtered = results.filter(a => (a.folderId ?? null) === folderId)
+    }
+    return filtered.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
+  async create(data: Omit<ImageAsset, 'id' | 'createdAt'>): Promise<string> {
+    return create('imageAssets', { ...data, folderId: data.folderId ?? null })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('imageAssets', id)
+  },
+}
+
+// Image Asset Folders
+export const imageAssetFolders = {
+  async getAll(userId: string): Promise<ImageAssetFolder[]> {
+    const results = await getAll<ImageAssetFolder>(
+      'imageAssetFolders',
+      where('userId', '==', userId)
+    )
+    return results.sort((a, b) => a.name.localeCompare(b.name))
+  },
+
+  async create(data: ImageAssetFolderInput): Promise<string> {
+    const docRef = await addDoc(collection(db, 'imageAssetFolders'), {
+      ...data,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    })
+    return docRef.id
+  },
+
+  async update(id: string, data: Partial<ImageAssetFolderInput>): Promise<void> {
+    const docRef = doc(db, 'imageAssetFolders', id)
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: Timestamp.now(),
+    })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('imageAssetFolders', id)
+  },
+
+  async deleteCascade(id: string, userId: string): Promise<string[]> {
+    const deletedPaths: string[] = []
+    const folderAssets = await imageAssets.getAll(userId, id)
+    for (const asset of folderAssets) {
+      if (asset.storagePath) deletedPaths.push(asset.storagePath)
+      if (asset.fullStoragePath) deletedPaths.push(asset.fullStoragePath)
+      await imageAssets.delete(asset.id)
+    }
+    await remove('imageAssetFolders', id)
+    return deletedPaths
   },
 }

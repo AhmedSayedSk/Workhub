@@ -17,6 +17,7 @@ import {
   Users,
   ExternalLink,
   CalendarDays,
+  Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -33,6 +34,7 @@ const mainNavItems = [
 const secondaryNavItems = [
   { href: '/media', label: 'Media Library', icon: FolderOpen },
   { href: '/assistant', label: 'AI Assistant', icon: Sparkles },
+  { href: '/image-generator', label: 'Image Generator', icon: Wand2 },
 ]
 
 interface SidebarProps {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { appSettings } from '@/lib/firestore'
-import { AppSettings, AppSettingsInput, GeminiModel } from '@/types'
+import { AppSettings, AppSettingsInput, GeminiModel, ImageGenModel } from '@/types'
 import { hashPasskey } from '@/lib/passkey'
 
 export function useSettings() {
@@ -199,6 +199,22 @@ export function useSettings() {
     setTaskDueHoursBefore,
     setNotifyBreakReminder,
     setBreakReminderMinutes,
+    setImageGenApiToken: useCallback(
+      async (token: string | null) => { await updateSettings({ imageGenApiToken: token }) },
+      [updateSettings]
+    ),
+    setImageGenModel: useCallback(
+      async (model: ImageGenModel) => { await updateSettings({ imageGenModel: model }) },
+      [updateSettings]
+    ),
+    setImageGenEnabled: useCallback(
+      async (enabled: boolean) => { await updateSettings({ imageGenEnabled: enabled }) },
+      [updateSettings]
+    ),
+    setImageGenStandingPrompt: useCallback(
+      async (prompt: string | null) => { await updateSettings({ imageGenStandingPrompt: prompt }) },
+      [updateSettings]
+    ),
     refreshSettings: loadSettings,
   }
 }

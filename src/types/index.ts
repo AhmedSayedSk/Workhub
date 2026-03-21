@@ -401,12 +401,55 @@ export interface TimeFilters {
   endDate?: Date
 }
 
-// AI Model types
-export type GeminiModel =
-  | 'gemini-3-pro-preview'
-  | 'gemini-3-flash-preview'
-  | 'gemini-2.5-pro-preview-05-06'
-  | 'gemini-2.5-flash-preview-05-20'
+// AI Image Assets (useapi.net reference images)
+export interface ImageAsset {
+  id: string
+  mediaGenerationId: string
+  name: string
+  fullUrl: string
+  fullStoragePath: string
+  thumbnailUrl: string
+  storagePath: string
+  folderId: string | null
+  userId: string
+  createdAt: Timestamp
+}
+
+export interface ImageAssetFolder {
+  id: string
+  name: string
+  color: string
+  userId: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export interface ImageAssetFolderInput {
+  name: string
+  color: string
+  userId: string
+}
+
+// AI Image Generation types (useapi.net)
+export type ImageGenModel = 'imagen-4' | 'nano-banana' | 'nano-banana-2' | 'nano-banana-pro'
+
+export type ImageGenAspectRatio = 'landscape' | 'portrait' | 'square'
+
+export interface ImageGeneration {
+  id: string
+  prompt: string
+  aspectRatio: ImageGenAspectRatio
+  model: ImageGenModel
+  imageUrl: string
+  storagePath: string
+  mimeType: string
+  seed?: number
+  fileSize?: number
+  savedToMedia: boolean
+  mediaFileId?: string
+  userId: string
+  createdAt: Timestamp
+}
 
 export interface AppSettings {
   id: string
@@ -427,6 +470,12 @@ export interface AppSettings {
   taskDueHoursBefore: number
   notifyBreakReminder: boolean
   breakReminderMinutes: number
+  imageGenApiToken?: string | null
+  imageGenModel?: ImageGenModel
+  imageGenEnabled?: boolean
+  imageGenDisabledEmails?: string[]
+  imageGenPreferredEmail?: string | null
+  imageGenStandingPrompt?: string | null
   updatedAt: Timestamp
 }
 
@@ -448,7 +497,20 @@ export interface AppSettingsInput {
   taskDueHoursBefore?: number
   notifyBreakReminder?: boolean
   breakReminderMinutes?: number
+  imageGenApiToken?: string | null
+  imageGenModel?: ImageGenModel
+  imageGenEnabled?: boolean
+  imageGenDisabledEmails?: string[]
+  imageGenPreferredEmail?: string | null
+  imageGenStandingPrompt?: string | null
 }
+
+// AI Model types
+export type GeminiModel =
+  | 'gemini-3-pro-preview'
+  | 'gemini-3-flash-preview'
+  | 'gemini-2.5-pro-preview-05-06'
+  | 'gemini-2.5-flash-preview-05-20'
 
 // Media Library types
 export type FileCategory = 'image' | 'video' | 'audio' | 'document' | 'archive' | 'other'

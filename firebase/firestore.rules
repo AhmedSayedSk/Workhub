@@ -110,5 +110,20 @@ service cloud.firestore {
     match /calendarEvents/{eventId} {
       allow read, write: if isAuthenticated();
     }
+
+    // AI Image Generations collection
+    match /imageGenerations/{generationId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // AI Image Assets (uploaded reference images)
+    match /imageAssets/{assetId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // AI Image Asset Folders
+    match /imageAssetFolders/{folderId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }
