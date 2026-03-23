@@ -163,8 +163,7 @@ function ImageCard({ gen, onPreview, onDownload, onDelete, onAssignEvent }: {
 
           {/* Bottom info overlay */}
           <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2 pt-6 opacity-0 group-hover:opacity-100 transition-opacity">
-            <p className="text-[11px] text-white line-clamp-2 leading-snug">{gen.prompt}</p>
-            <div className="flex items-center gap-1 mt-1 text-[10px] text-white/70">
+            <div className="flex items-center gap-1 text-[10px] text-white/70">
               <span className="font-medium">{IMAGE_GEN_MODELS.find(m => m.value === gen.model)?.label || gen.model}</span>
               <span className="opacity-40">·</span>
               <span>{timeAgo(gen.createdAt)}</span>
@@ -311,6 +310,34 @@ export default function ImageGeneratorPage() {
   const [eventPopoverOpen, setEventPopoverOpen] = useState(false)
   const [assignEventOpen, setAssignEventOpen] = useState<string | null>(null)
   const [eventSearchQuery, setEventSearchQuery] = useState('')
+
+  // Resizable prompt panel
+  const [promptPanelWidth, setPromptPanelWidth] = useState(320)
+  const isResizingPrompt = useRef(false)
+
+  const handlePromptResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizingPrompt.current = true
+    const startX = e.clientX
+    const startWidth = promptPanelWidth
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizingPrompt.current) return
+      const newWidth = Math.min(Math.max(startWidth + (ev.clientX - startX), 240), 600)
+      setPromptPanelWidth(newWidth)
+    }
+    const onMouseUp = () => {
+      isResizingPrompt.current = false
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
 
   const filteredCalendarEvents = calendarEvents
     .filter(e => {
@@ -795,14 +822,13 @@ export default function ImageGeneratorPage() {
 
   const handleImportEventDescription = (event: CalendarEvent) => {
     const text = event.description || event.title
-    setPrompt(prev => prev ? `${prev}\n\n${text}` : text)
+    setPrompt(text)
     setEventPopoverOpen(false)
     setEventSearchQuery('')
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus()
-        textareaRef.current.style.height = 'auto'
-        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 300) + 'px'
+        textareaRef.current.scrollTop = 0
       }
     }, 100)
   }
@@ -845,6 +871,15 @@ export default function ImageGeneratorPage() {
       else setPreviewImage(null)
     }
     deleteGeneration(id)
+  }
+
+  // Grid columns per row
+  const [gridCols, setGridCols] = useState(() => {
+    try { return parseInt(localStorage.getItem('imageGenGridCols') || '5') || 5 } catch { return 5 }
+  })
+  const handleSetGridCols = (n: number) => {
+    setGridCols(n)
+    try { localStorage.setItem('imageGenGridCols', String(n)) } catch {}
   }
 
   const hasToken = !!settings?.imageGenApiToken
@@ -933,163 +968,192 @@ export default function ImageGeneratorPage() {
       {/* Main Content Area */}
       {activeTab === 'generate' ? (
         <div className="flex-1 flex min-h-0 relative">
-          {/* Center — Scrollable Image Grid */}
-          <div className="flex-1 overflow-y-auto min-h-0 px-1 pt-2 pb-48">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : generations.length === 0 && !isGenerating ? (
-              <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-                <div className="relative mb-6">
-                  <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 flex items-center justify-center">
-                    <Wand2 className="h-10 w-10 text-primary/70" />
-                  </div>
-                </div>
-                <p className="text-lg font-medium text-foreground">Create something amazing</p>
-                <p className="text-sm mt-1">Describe the image you want to generate below</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 items-start">
-                {/* Image cards */}
-                {generations.map(gen => (
-                  <ImageCard key={gen.id} gen={gen} onPreview={openPreview} onDownload={handleDownload} onDelete={handleDelete} onAssignEvent={g => setAssignEventOpen(g.id)} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Floating Prompt Bar */}
-          <div className="absolute bottom-[2%] left-0 right-0 flex justify-center px-6 pointer-events-none z-10">
-            <div className="w-full max-w-3xl pointer-events-auto">
-              <div className="relative rounded-2xl border bg-background/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/30">
-                {/* Generating overlay */}
-                {(isGenerating || uploadingAssets) && (
-                  <div className="absolute inset-0 z-20 rounded-2xl bg-background/70 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
-                    <div className="relative h-8 w-8">
+          {/* Left Panel — Prompt */}
+          <div className="flex-shrink-0 bg-background flex flex-col relative" style={{ width: promptPanelWidth }}>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Generating overlay */}
+              {(isGenerating || uploadingAssets) && (
+                <div className="px-3 py-3 border-b bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <div className="relative h-5 w-5 flex-shrink-0">
                       <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
                       <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
                     </div>
-                    <p className="text-xs font-medium text-primary">
+                    <p className="text-xs font-medium text-primary flex-1">
                       {uploadingAssets ? 'Uploading assets...' : `Generating ${imageCount} image${imageCount > 1 ? 's' : ''}...`}
                     </p>
-                    <Button onClick={cancelGeneration} variant="outline" size="sm" className="h-7 px-3 text-xs text-red-500 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30">
+                    <Button onClick={cancelGeneration} variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-500 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30">
                       Cancel
                     </Button>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Selected assets preview */}
-                {selectedRefs.length > 0 && (
-                  <div className="flex items-center gap-1.5 px-4 pt-3 pb-0.5 overflow-x-auto">
-                    {selectedRefs.map((id) => {
-                      const asset = allAssets.find(a => a.id === id)
-                      if (!asset) return null
-                      return (
-                        <div key={id} className="relative flex-shrink-0 group/att">
-                          <img src={asset.thumbnailUrl} alt={asset.name} className="h-16 w-16 rounded-lg object-cover border border-primary/20" />
-                          <button
-                            onClick={() => setSelectedRefs(prev => prev.filter(r => r !== id))}
-                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-foreground/80 text-background flex items-center justify-center opacity-0 group-hover/att:opacity-100 transition-opacity"
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                      )
-                    })}
+              {/* Selected assets preview */}
+              {selectedRefs.length > 0 && (
+                <div className="flex items-center gap-1.5 px-3 pt-3 pb-1 overflow-x-auto flex-shrink-0">
+                  {selectedRefs.map((id) => {
+                    const asset = allAssets.find(a => a.id === id)
+                    if (!asset) return null
+                    return (
+                      <div key={id} className="relative flex-shrink-0 group/att">
+                        <img src={asset.thumbnailUrl} alt={asset.name} className="h-14 w-14 rounded-lg object-cover border border-primary/20" />
+                        <button
+                          onClick={() => setSelectedRefs(prev => prev.filter(r => r !== id))}
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-foreground/80 text-background flex items-center justify-center opacity-0 group-hover/att:opacity-100 transition-opacity"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Textarea */}
+              <div className="flex-1 px-3 pt-3 pb-1 overflow-y-auto min-h-0 flex flex-col">
+                <textarea
+                  ref={textareaRef}
+                  placeholder={selectedRefs.length > 0 ? "Describe how to use the reference image..." : "Describe the image you want to create..."}
+                  value={prompt}
+                  onChange={e => {
+                    setPrompt(e.target.value)
+                  }}
+                  onKeyDown={handleKeyDown}
+                  rows={4}
+                  disabled={isGenerating}
+                  className="w-full flex-1 resize-none bg-transparent border rounded-lg outline-none text-sm placeholder:text-muted-foreground/40 p-2.5 leading-relaxed focus:ring-1 focus:ring-primary/30 focus:border-primary/40 min-h-[100px]"
+                />
+              </div>
+
+              {/* Options */}
+              <div className="px-3 py-2.5 space-y-2.5 flex-shrink-0">
+                {/* Aspect ratio + count */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                    {([['landscape', RectangleHorizontal], ['square', Square], ['portrait', RectangleVertical]] as const).map(([val, Icon]) => (
+                      <Button
+                        key={val}
+                        variant={aspectRatio === val ? 'default' : 'ghost'}
+                        size="sm" className="h-7 w-7 rounded-md p-0"
+                        onClick={() => setAspectRatio(val)}
+                        disabled={isGenerating}
+                        title={val}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </Button>
+                    ))}
                   </div>
-                )}
-
-                {/* Input + controls row */}
-                <div className="flex items-center gap-2 p-3">
-                  {/* Textarea */}
-                  <div className="flex-1 min-w-0">
-                    <textarea
-                      ref={textareaRef}
-                      placeholder={selectedRefs.length > 0 ? "Describe how to use the reference image..." : "Describe the image you want to create..."}
-                      value={prompt}
-                      onChange={e => {
-                        setPrompt(e.target.value)
-                        const el = e.target
-                        el.style.height = 'auto'
-                        el.style.height = Math.min(el.scrollHeight, 300) + 'px'
-                      }}
-                      onKeyDown={handleKeyDown}
-                      rows={1}
-                      disabled={isGenerating}
-                      className="w-full resize-none bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/40 min-h-[2.25rem] max-h-[300px] py-1.5 leading-relaxed"
-                    />
+                  <div className="w-px h-5 bg-border" />
+                  <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                    {[2, 4, 6, 8].map(n => (
+                      <Button
+                        key={n}
+                        variant={imageCount === n ? 'default' : 'ghost'}
+                        size="sm" className="h-7 w-7 rounded-md text-[11px] font-medium p-0"
+                        onClick={() => setImageCount(n)}
+                        disabled={isGenerating}
+                      >
+                        {n}
+                      </Button>
+                    ))}
                   </div>
+                </div>
 
-                  {/* Send / Stop */}
+                {/* Standing prompt + Event */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    className={cn(
+                      "flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium transition-colors flex-1 min-w-0",
+                      settings?.imageGenStandingPrompt
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => {
+                      setStandingPromptDraft(settings?.imageGenStandingPrompt || '')
+                      setStandingPromptOpen(true)
+                    }}
+                  >
+                    <Sparkles className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">
+                      {settings?.imageGenStandingPrompt || 'Default Prompt'}
+                    </span>
+                  </button>
+                  <button
+                    className="flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setEventPopoverOpen(true)}
+                  >
+                    <CalendarDays className="h-3 w-3" />
+                    Event
+                  </button>
+                </div>
+
+                {/* Generate button */}
+                <div className="pt-0.5">
                   {isGenerating || uploadingAssets ? (
-                    <Button onClick={cancelGeneration} size="icon" className="h-9 w-9 flex-shrink-0 rounded-lg bg-red-500 hover:bg-red-600 text-white">
-                      {uploadingAssets ? <Loader2 className="h-4 w-4 animate-spin" /> : <CircleStop className="h-4 w-4" />}
+                    <Button onClick={cancelGeneration} className="w-full h-9 bg-red-500 hover:bg-red-600 text-white">
+                      {uploadingAssets ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <CircleStop className="h-4 w-4 mr-1.5" />}
+                      Cancel
                     </Button>
                   ) : (
-                    <Button onClick={handleGenerate} disabled={!prompt.trim()} size="icon" className="h-9 w-9 flex-shrink-0 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground">
-                      <Send className="h-4 w-4" />
+                    <Button onClick={handleGenerate} disabled={!prompt.trim()} className="w-full h-9">
+                      <Send className="h-4 w-4 mr-1.5" />
+                      Generate
                     </Button>
                   )}
                 </div>
+              </div>
+            </div>
+            {/* Resize handle */}
+            <div
+              className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
+              onMouseDown={handlePromptResizeStart}
+            />
+          </div>
 
-                {/* Inline options */}
-                <div className="flex items-center gap-2 px-3 pb-3 pt-0">
-                    <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                      {([['landscape', RectangleHorizontal], ['square', Square], ['portrait', RectangleVertical]] as const).map(([val, Icon]) => (
-                        <Button
-                          key={val}
-                          variant={aspectRatio === val ? 'default' : 'ghost'}
-                          size="sm" className="h-7 w-7 rounded-md p-0"
-                          onClick={() => setAspectRatio(val)}
-                          disabled={isGenerating}
-                          title={val}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                        </Button>
-                      ))}
+          {/* Center — Scrollable Image Grid */}
+          <div className="flex-1 min-h-0 relative flex flex-col">
+            <div className="flex-1 overflow-y-auto px-1 pt-2 pb-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-24">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : generations.length === 0 && !isGenerating ? (
+                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                  <div className="relative mb-6">
+                    <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 flex items-center justify-center">
+                      <Wand2 className="h-10 w-10 text-primary/70" />
                     </div>
-                    <div className="w-px h-5 bg-border" />
-                    <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                      {[2, 4, 6, 8].map(n => (
-                        <Button
-                          key={n}
-                          variant={imageCount === n ? 'default' : 'ghost'}
-                          size="sm" className="h-7 w-7 rounded-md text-[11px] font-medium p-0"
-                          onClick={() => setImageCount(n)}
-                          disabled={isGenerating}
-                        >
-                          {n}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="w-px h-5 bg-border" />
-                    <button
-                      className={cn(
-                        "flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium transition-colors",
-                        settings?.imageGenStandingPrompt
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : "bg-muted text-muted-foreground hover:text-foreground"
-                      )}
-                      onClick={() => {
-                        setStandingPromptDraft(settings?.imageGenStandingPrompt || '')
-                        setStandingPromptOpen(true)
-                      }}
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      <span className="max-w-[120px] truncate">
-                        {settings?.imageGenStandingPrompt || 'Default Prompt'}
-                      </span>
-                    </button>
-                    <div className="w-px h-5 bg-border" />
-                    <button
-                      className="flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setEventPopoverOpen(true)}
-                    >
-                      <CalendarDays className="h-3 w-3" />
-                      Event
-                    </button>
                   </div>
+                  <p className="text-lg font-medium text-foreground">Create something amazing</p>
+                  <p className="text-sm mt-1">Describe the image you want to generate below</p>
+                </div>
+              ) : (
+                <div className="grid gap-3 items-start" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
+                  {/* Image cards */}
+                  {generations.map(gen => (
+                    <ImageCard key={gen.id} gen={gen} onPreview={openPreview} onDownload={handleDownload} onDelete={handleDelete} onAssignEvent={g => setAssignEventOpen(g.id)} />
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Grid columns selector */}
+            <div className="absolute bottom-3 right-3 z-10">
+              <div className="flex items-center gap-0.5 bg-background/90 backdrop-blur-sm border rounded-lg p-0.5 shadow-sm">
+                {[3, 4, 5, 6, 8].map(n => (
+                  <button
+                    key={n}
+                    className={cn(
+                      "h-6 w-6 rounded text-[10px] font-medium transition-colors",
+                      gridCols === n
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                    onClick={() => handleSetGridCols(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
