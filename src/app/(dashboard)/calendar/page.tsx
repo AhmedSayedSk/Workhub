@@ -56,6 +56,8 @@ import {
   CalendarDays,
   Clock,
   ImagePlus,
+  Table2,
+  ArrowUpDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -176,6 +178,9 @@ export default function CalendarPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar')
+  const [tableSortField, setTableSortField] = useState<'start' | 'title' | 'status' | 'category'>('start')
+  const [tableSortDir, setTableSortDir] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
     projectsApi.getAll().then(setAllProjects)
@@ -240,6 +245,49 @@ export default function CalendarPage() {
         }
       }
     })
+
+  const filteredTableEvents = useMemo(() => {
+    const filtered = events
+      .filter(e => selectedStatuses.includes(e.status) && selectedCategories.includes(e.category))
+      .filter(e => selectedProjectIds.length === 0 || selectedProjectIds.includes(e.projectId || ''))
+    filtered.sort((a, b) => {
+      let cmp = 0
+      switch (tableSortField) {
+        case 'start': cmp = (a.start?.toMillis?.() || 0) - (b.start?.toMillis?.() || 0); break
+        case 'title': cmp = a.title.localeCompare(b.title); break
+        case 'status': cmp = a.status.localeCompare(b.status); break
+        case 'category': cmp = a.category.localeCompare(b.category); break
+      }
+      return tableSortDir === 'asc' ? cmp : -cmp
+    })
+    return filtered
+  }, [events, selectedStatuses, selectedCategories, selectedProjectIds, tableSortField, tableSortDir])
+
+  const handleTableSort = (field: typeof tableSortField) => {
+    if (tableSortField === field) setTableSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setTableSortField(field); setTableSortDir('asc') }
+  }
+
+  const openEventFromTable = (event: CalendarEvent) => {
+    const startD = dateToInputs(event.start.toDate())
+    const endD = dateToInputs(event.end.toDate())
+    setSelectedEvent(event)
+    setForm({
+      title: event.title,
+      description: event.description,
+      startDate: startD.date,
+      startTime: startD.time,
+      endDate: endD.date,
+      endTime: endD.time,
+      allDay: event.allDay,
+      category: event.category,
+      status: event.status,
+      projectId: event.projectId || '',
+      imageUrl: event.imageUrl || '',
+      imageFile: null,
+    })
+    setDialogOpen(true)
+  }
 
   const eventProjectIds = useMemo(() => {
     const ids = new Set<string>()
@@ -446,13 +494,36 @@ export default function CalendarPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Calendar</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Calendar</h1>
+          <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+            <Button
+              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-7 px-2.5 rounded-md text-xs"
+              onClick={() => setViewMode('calendar')}
+            >
+              <CalendarDays className="h-3.5 w-3.5 mr-1" />
+              Calendar
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-7 px-2.5 rounded-md text-xs"
+              onClick={() => setViewMode('table')}
+            >
+              <Table2 className="h-3.5 w-3.5 mr-1" />
+              Table
+            </Button>
+          </div>
+        </div>
         <Button onClick={() => { setSelectedEvent(null); setForm(defaultFormState); setDialogOpen(true) }}>
           <Plus className="h-4 w-4 mr-2" />
           Add Event
         </Button>
       </div>
 
+      {viewMode === 'calendar' ? (
       <Card className="overflow-visible">
         <div className="app-calendar">
           {/* Left Sidebar - Filters */}
@@ -601,6 +672,96 @@ export default function CalendarPage() {
           </div>
         </div>
       </Card>
+      ) : (
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                {([
+                  ['title', 'Title'],
+                  ['start', 'Date'],
+                  ['category', 'Category'],
+                  ['status', 'Status'],
+                ] as const).map(([field, label]) => (
+                  <th
+                    key={field}
+                    className="text-left text-xs font-medium text-muted-foreground px-4 py-3 cursor-pointer hover:text-foreground transition-colors select-none"
+                    onClick={() => handleTableSort(field)}
+                  >
+                    <div className="flex items-center gap-1">
+                      {label}
+                      <ArrowUpDown className={cn("h-3 w-3", tableSortField === field ? "text-foreground" : "opacity-30")} />
+                    </div>
+                  </th>
+                ))}
+                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Project</th>
+                <th className="w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTableEvents.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-sm text-muted-foreground">No events found</td>
+                </tr>
+              ) : (
+                filteredTableEvents.map(evt => {
+                  const project = allProjects.find(p => p.id === evt.projectId)
+                  const startDate = evt.start?.toDate?.()
+                  return (
+                    <tr
+                      key={evt.id}
+                      className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                      onClick={() => openEventFromTable(evt)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          {evt.imageUrl && (
+                            <img src={evt.imageUrl} alt="" className="h-8 w-8 rounded-md object-cover flex-shrink-0" />
+                          )}
+                          <span className="text-sm font-medium">{evt.title}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                        {startDate ? startDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                        {!evt.allDay && startDate && (
+                          <span className="ml-1 text-xs opacity-60">{startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn("h-2 w-2 rounded-full", CATEGORY_DOT_COLORS[evt.category])} />
+                          <span className="text-xs">{CATEGORY_LABELS[evt.category]}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn("h-2 w-2 rounded-full", STATUS_DOT_COLORS[evt.status])} />
+                          <span className="text-xs">{STATUS_LABELS[evt.status]}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {project?.name || '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={e => { e.stopPropagation(); deleteEvent(evt.id) }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      )}
 
       {/* Event Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
