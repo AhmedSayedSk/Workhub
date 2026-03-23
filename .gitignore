@@ -47,3 +47,8 @@ firebase-debug.log
 # MCP Server
 mcp-server/node_modules/
 mcp-server/dist/
+
+# Image Gen MCP
+image-gen-mcp/node_modules/
+image-gen-mcp/dist/
+image-gen-mcp/package-lock.json
