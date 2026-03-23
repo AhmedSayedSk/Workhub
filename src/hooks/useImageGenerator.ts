@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ImageGeneration, ImageGenAspectRatio, AppSettings } from '@/types'
-import { imageGenerations, mediaFiles } from '@/lib/firestore'
+import { imageGenerations, mediaFiles, imageGenLogs } from '@/lib/firestore'
 import { uploadBlob, deleteFile } from '@/lib/storage'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'react-toastify'
@@ -44,6 +44,13 @@ function parseError(status: number, message: string): GenerationError {
     return {
       title: 'Account blocked by Google',
       message: 'Google is rejecting this account. Auto-switching to another account if available. If all accounts are blocked, disable the flagged account and wait a few hours or register a fresh one.',
+      type: 'quota',
+    }
+  }
+  if (message.includes('Resource has been exhausted') || message.includes('check quota')) {
+    return {
+      title: 'Google quota exhausted',
+      message: 'This Google account has used up its daily quota for this model. Switch to a different model or wait for the quota to reset (usually a few hours).',
       type: 'quota',
     }
   }
@@ -186,7 +193,10 @@ export function useImageGenerator() {
           signal: controller.signal,
         })
         const result = await res.json()
-        if (!result.success) throw new Error(result.error)
+        if (!result.success) {
+          const emailInfo = result.usedEmail ? ` (${result.usedEmail})` : ''
+          throw new Error(`${result.error}${emailInfo}`)
+        }
         allImages.push(...(result.data.images as { url: string; seed?: number; mediaGenerationId?: string }[]))
       }
 
@@ -209,6 +219,17 @@ export function useImageGenerator() {
 
       setGenerations(prev => [...tempGenerations, ...prev])
       toast.success(`${tempGenerations.length} image${tempGenerations.length > 1 ? 's' : ''} generated`)
+
+      // Log generation for persistent stats
+      imageGenLogs.create({
+        userId: user.uid,
+        prompt,
+        model: settings.imageGenModel!,
+        aspectRatio,
+        imageCount: generatedImages.length,
+        status: 'success',
+        email: settings.imageGenPreferredEmail || '',
+      }).catch(() => {})
 
       // Persist to Firebase Storage + Firestore in background
       // (useapi.net URLs expire in ~24h, so we re-upload)
@@ -262,7 +283,20 @@ export function useImageGenerator() {
         return null
       }
       const raw = err instanceof Error ? err.message : 'Failed to generate image'
-      setError({ title: 'Generation failed', message: raw, type: 'generic' })
+      setError(parseError(0, raw))
+
+      // Log failure for persistent stats
+      imageGenLogs.create({
+        userId: user.uid,
+        prompt,
+        model: settings.imageGenModel!,
+        aspectRatio,
+        imageCount: 0,
+        status: 'failed',
+        error: raw,
+        email: settings.imageGenPreferredEmail || '',
+      }).catch(() => {})
+
       return null
     } finally {
       abortRef.current = null

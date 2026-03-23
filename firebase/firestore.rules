@@ -125,5 +125,10 @@ service cloud.firestore {
     match /imageAssetFolders/{folderId} {
       allow read, write: if isAuthenticated();
     }
+
+    // AI Image Generation Logs (persistent stats)
+    match /imageGenLogs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

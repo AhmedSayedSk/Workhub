@@ -32,6 +32,7 @@ export interface JobStats {
 
 export interface UploadedAsset {
   mediaGenerationId: string
+  mediaGenerationIds: Record<string, string> // email → mediaGenerationId
   thumbnailDataUrl: string
   name: string
   uploadedAt: number
@@ -236,6 +237,7 @@ export function useImageApi(apiToken: string | null | undefined) {
       }
       return {
         mediaGenerationId: mediaGenId as string,
+        mediaGenerationIds: (result.perAccount || {}) as Record<string, string>,
         thumbnailDataUrl: dataUrl,
         name: fileName,
         uploadedAt: Date.now(),

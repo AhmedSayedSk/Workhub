@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
         const reqBody: Record<string, unknown> = {
           prompt, model,
           count: count || 1,
+          captchaRetry: 5,
         }
         if (aspectRatio && aspectRatio !== 'square') {
           reqBody.aspectRatio = aspectRatio
@@ -135,12 +136,23 @@ export async function POST(request: NextRequest) {
         return reqBody
       }
 
-      // Use preferred email, but skip when references are attached (they're tied to a specific account)
-      const hasReferences = body.references && Array.isArray(body.references) && body.references.length > 0
-      let initialEmail: string | undefined = email || (!hasReferences ? body.preferredEmail : undefined) || undefined
+      const parseImages = (responseData: Record<string, unknown>) => {
+        return ((responseData.media || []) as Record<string, unknown>[])
+          .filter((item) => item?.image)
+          .map((item: unknown) => {
+            const typed = item as { image: { generatedImage: { fifeUrl: string; seed?: number; mediaGenerationId?: string } } }
+            return {
+              url: typed.image.generatedImage.fifeUrl,
+              seed: typed.image.generatedImage.seed,
+              mediaGenerationId: typed.image.generatedImage.mediaGenerationId,
+            }
+          })
+      }
+
+      // Always use preferred email when set
+      let initialEmail: string | undefined = email || body.preferredEmail || undefined
 
       // If no email chosen yet, and there are disabled emails, we must pick an enabled one
-      // to prevent useapi.net from auto-selecting a disabled account
       if (!initialEmail && disabledEmails.length > 0) {
         try {
           const accsRes = await fetch(`${USEAPI_BASE}/accounts`, { headers: authHeader(apiToken) })
@@ -154,92 +166,27 @@ export async function POST(request: NextRequest) {
         } catch {}
       }
 
-      // First attempt
+      const reqPayload = buildReqBody(initialEmail)
+      console.log('useapi.net request:', { email: reqPayload.email, model: reqPayload.model, count: reqPayload.count, preferredEmail: body.preferredEmail, disabledEmails })
+
       const res = await fetch(`${USEAPI_BASE}/images`, {
         method: 'POST',
         headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildReqBody(initialEmail)),
+        body: JSON.stringify(reqPayload),
       })
 
       const data = await res.json()
 
-      // On 403 (captcha/blocked) or 429 (rate limit), try switching to another account
-      if ((res.status === 403 || res.status === 429) && !email) {
-        const failedEmail = data?.email || data?.jobId?.match(/email:([^-]+)/)?.[1] || ''
-        console.log(`Account ${failedEmail} failed (${res.status}), trying fallback...`)
-
-        try {
-          // Fetch all accounts and find a healthy alternative
-          const accountsRes = await fetch(`${USEAPI_BASE}/accounts`, {
-            headers: authHeader(apiToken),
-          })
-          if (accountsRes.ok) {
-            const accountsData = await accountsRes.json()
-            const emails = Object.entries(accountsData)
-              .filter(([acctEmail, info]) => {
-                const acc = info as Record<string, unknown>
-                return acctEmail !== failedEmail && acc.health === 'OK' && !disabledEmails.includes(acctEmail)
-              })
-              .map(([acctEmail]) => acctEmail)
-
-            if (emails.length > 0) {
-              console.log(`Retrying with fallback account: ${emails[0]}`)
-              const retryRes = await fetch(`${USEAPI_BASE}/images`, {
-                method: 'POST',
-                headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
-                body: JSON.stringify(buildReqBody(emails[0])),
-              })
-              const retryData = await retryRes.json()
-              if (retryRes.ok) {
-                // Fallback succeeded — return this instead
-                const images = (retryData.media || [])
-                  .filter((item: Record<string, unknown>) => item?.image)
-                  .map((item: { image: { generatedImage: { fifeUrl: string; seed?: number; mediaGenerationId?: string } } }) => ({
-                    url: item.image.generatedImage.fifeUrl,
-                    seed: item.image.generatedImage.seed,
-                    mediaGenerationId: item.image.generatedImage.mediaGenerationId,
-                  }))
-                if (images.length > 0) {
-                  return NextResponse.json({
-                    success: true,
-                    data: { images, jobId: retryData.jobId, fallbackEmail: emails[0] },
-                  })
-                }
-              }
-              console.log(`Fallback account ${emails[0]} also failed (${retryRes.status})`)
-            }
-          }
-        } catch (err) {
-          console.error('Fallback account lookup failed:', err)
-        }
-
-        // Both accounts failed — return original error with helpful message
-        const errMsg = data?.error?.message || data?.error || ''
-        const isReCaptcha = typeof errMsg === 'string' && errMsg.includes('reCAPTCHA')
-        const is429 = res.status === 429
-        return NextResponse.json({
-          success: false,
-          error: isReCaptcha
-            ? 'All accounts blocked by Google reCAPTCHA. Try again later or register a fresh Google account.'
-            : is429
-              ? 'All accounts are rate limited. Wait a few minutes or try a different model.'
-              : errMsg || `Request failed (${res.status})`,
-          failedEmail,
-        }, { status: res.status })
-      }
-
       if (!res.ok) {
-        console.error('useapi.net generate error:', res.status, data)
-        return errorResponse(res.status, data)
+        console.error('useapi.net generate error:', res.status, JSON.stringify(data))
+        // Include the email that was actually used in the error response
+        const usedEmail = data?.email || reqPayload.email || ''
+        const baseError = errorResponse(res.status, data)
+        const errorBody = await baseError.json()
+        return NextResponse.json({ ...errorBody, usedEmail }, { status: baseError.status })
       }
 
-      const images = (data.media || [])
-        .filter((item: Record<string, unknown>) => item?.image)
-        .map((item: { image: { generatedImage: { fifeUrl: string; seed?: number; mediaGenerationId?: string } } }) => ({
-          url: item.image.generatedImage.fifeUrl,
-          seed: item.image.generatedImage.seed,
-          mediaGenerationId: item.image.generatedImage.mediaGenerationId,
-        }))
+      const images = parseImages(data)
 
       if (images.length === 0) {
         return NextResponse.json({ success: false, error: 'No images generated. Try a different prompt.' }, { status: 422 })
@@ -327,14 +274,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data })
     }
 
-    // Upload asset (reference image)
+    // Upload asset (reference image) — uploads to ALL registered accounts
     if (action === 'upload_asset') {
-      const { asset, email } = body // asset: base64 data URL, email: optional account
+      const { asset } = body
       if (!asset) {
         return NextResponse.json({ success: false, error: 'Asset data is required' }, { status: 400 })
       }
 
-      // Parse data URL → binary buffer + content type
       const match = (asset as string).match(/^data:(image\/[\w+]+);base64,(.+)$/)
       if (!match) {
         return NextResponse.json({ success: false, error: 'Invalid image data. Expected base64 data URL.' }, { status: 400 })
@@ -342,23 +288,61 @@ export async function POST(request: NextRequest) {
       const mimeType = match[1]
       const buffer = Buffer.from(match[2], 'base64')
 
-      // POST /assets/{email} — email is optional for auto-selection
-      const assetUrl = email
-        ? `${USEAPI_BASE}/assets/${encodeURIComponent(email)}`
-        : `${USEAPI_BASE}/assets/`
+      // Fetch all accounts to upload to each one
+      let emails: string[] = []
+      try {
+        const accsRes = await fetch(`${USEAPI_BASE}/accounts`, { headers: authHeader(apiToken) })
+        if (accsRes.ok) {
+          const accsData = await accsRes.json()
+          emails = Object.keys(accsData)
+        }
+      } catch {}
 
-      const res = await fetch(assetUrl, {
-        method: 'POST',
-        headers: { ...authHeader(apiToken), 'Content-Type': mimeType },
-        body: buffer,
-      })
-
-      const data = await res.json()
-      if (!res.ok) {
-        console.error('useapi.net asset upload error:', res.status, data)
-        return errorResponse(res.status, data)
+      if (emails.length === 0) {
+        // Fallback: upload without specifying email (auto-select)
+        const res = await fetch(`${USEAPI_BASE}/assets/`, {
+          method: 'POST',
+          headers: { ...authHeader(apiToken), 'Content-Type': mimeType },
+          body: buffer,
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          console.error('useapi.net asset upload error:', res.status, data)
+          return errorResponse(res.status, data)
+        }
+        return NextResponse.json({ success: true, data })
       }
-      return NextResponse.json({ success: true, data })
+
+      // Upload to all accounts in parallel
+      const results = await Promise.allSettled(
+        emails.map(async (email) => {
+          const res = await fetch(`${USEAPI_BASE}/assets/${encodeURIComponent(email)}`, {
+            method: 'POST',
+            headers: { ...authHeader(apiToken), 'Content-Type': mimeType },
+            body: buffer,
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data?.error || `Upload failed for ${email}`)
+          return { email, data }
+        })
+      )
+
+      // Find at least one success
+      const successes = results.filter((r): r is PromiseFulfilledResult<{ email: string; data: Record<string, unknown> }> => r.status === 'fulfilled')
+      if (successes.length === 0) {
+        const firstErr = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+        return NextResponse.json({ success: false, error: firstErr?.reason?.message || 'Failed to upload to any account' }, { status: 500 })
+      }
+
+      // Return per-account mediaGenerationIds
+      const perAccount: Record<string, string> = {}
+      for (const s of successes) {
+        const mgId = s.value.data?.mediaGenerationId?.mediaGenerationId
+          || s.value.data?.mediaGenerationId
+        if (mgId) perAccount[s.value.email] = mgId as string
+      }
+      console.log(`Asset uploaded to ${successes.length}/${emails.length} accounts:`, perAccount)
+      return NextResponse.json({ success: true, data: successes[0].value.data, perAccount })
     }
 
     return NextResponse.json({ success: false, error: `Unknown action: ${action}` }, { status: 400 })

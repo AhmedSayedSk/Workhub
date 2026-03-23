@@ -60,6 +60,7 @@ import {
   ImageAsset,
   ImageAssetFolder,
   ImageAssetFolderInput,
+  ImageGenLog,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -1280,5 +1281,20 @@ export const imageAssetFolders = {
     }
     await remove('imageAssetFolders', id)
     return deletedPaths
+  },
+}
+
+// Image Generation Logs (persistent stats, never deleted with images)
+export const imageGenLogs = {
+  async getAll(userId: string): Promise<ImageGenLog[]> {
+    const results = await getAll<ImageGenLog>(
+      'imageGenLogs',
+      where('userId', '==', userId)
+    )
+    return results.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
+  async create(data: Omit<ImageGenLog, 'id' | 'createdAt'>): Promise<string> {
+    return create('imageGenLogs', data)
   },
 }

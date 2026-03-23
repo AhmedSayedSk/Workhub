@@ -5,9 +5,11 @@ import { useAuth } from '@/hooks/useAuth'
 import { useImageGenerator } from '@/hooks/useImageGenerator'
 import { useImageApi } from '@/hooks/useImageApi'
 import { useSettings } from '@/hooks/useSettings'
-import { ImageGeneration, ImageGenModel, ImageGenAspectRatio, ImageAsset, ImageAssetFolder } from '@/types'
-import { imageAssets, imageAssetFolders } from '@/lib/firestore'
+import { ImageGeneration, ImageGenModel, ImageGenAspectRatio, ImageAsset, ImageAssetFolder, ImageGenLog, CalendarEvent } from '@/types'
+import { imageAssets, imageAssetFolders, imageGenLogs } from '@/lib/firestore'
 import { uploadBlob } from '@/lib/storage'
+import { useCalendarEvents } from '@/hooks/useCalendarEvents'
+import { toast } from 'react-toastify'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -73,6 +75,8 @@ import {
   FolderPlus,
   ArrowLeft,
   Pencil,
+  CalendarDays,
+  CalendarPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -103,11 +107,12 @@ function timeAgo(ts: { toMillis: () => number } | undefined) {
   return new Date(ts.toMillis()).toLocaleDateString()
 }
 
-function ImageCard({ gen, onPreview, onDownload, onDelete }: {
+function ImageCard({ gen, onPreview, onDownload, onDelete, onAssignEvent }: {
   gen: ImageGeneration
   onPreview: (g: ImageGeneration) => void
   onDownload: (g: ImageGeneration) => void
   onDelete: (id: string) => void
+  onAssignEvent?: (g: ImageGeneration) => void
 }) {
   const [loaded, setLoaded] = useState(false)
 
@@ -142,6 +147,11 @@ function ImageCard({ gen, onPreview, onDownload, onDelete }: {
             <Button variant="secondary" size="icon" className="h-7 w-7 shadow-sm" onClick={e => { e.stopPropagation(); onDelete(gen.id) }}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
+            {onAssignEvent && (
+              <Button variant="secondary" size="icon" className="h-7 w-7 shadow-sm" onClick={e => { e.stopPropagation(); onAssignEvent(gen) }}>
+                <CalendarPlus className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
 
           {/* Saved badge */}
@@ -169,6 +179,48 @@ function ImageCard({ gen, onPreview, onDownload, onDelete }: {
 }
 
 
+function EventCardGrid({ events, onSelect, disabled }: {
+  events: CalendarEvent[]
+  onSelect: (evt: CalendarEvent) => void
+  disabled?: boolean
+}) {
+  if (events.length === 0) {
+    return <p className="text-sm text-muted-foreground text-center py-10">No events found</p>
+  }
+  return (
+    <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {events.map(evt => (
+          <button
+            key={evt.id}
+            className="text-left rounded-xl border bg-card overflow-hidden hover:ring-2 hover:ring-primary hover:shadow-md transition-all disabled:opacity-50 flex flex-col"
+            disabled={disabled}
+            onClick={() => onSelect(evt)}
+          >
+            {evt.imageUrl && (
+              <div className="w-full h-24 bg-muted flex-shrink-0">
+                <img src={evt.imageUrl} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="p-3">
+              <div className="flex items-start justify-between gap-1 mb-1.5">
+                <CalendarDays className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {evt.start?.toDate?.() ? evt.start.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                </span>
+              </div>
+              <p className="text-sm font-semibold line-clamp-2 leading-snug">{evt.title}</p>
+              {evt.description && (
+                <p className="text-xs text-muted-foreground line-clamp-3 mt-1.5 leading-relaxed">{evt.description}</p>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function ImageGeneratorPage() {
   const { user } = useAuth()
   const {
@@ -188,6 +240,9 @@ export default function ImageGeneratorPage() {
   } = useImageApi(settings?.imageGenApiToken)
 
   const [prompt, setPrompt] = useState('')
+  const promptHistoryRef = useRef<string[]>([])
+  const historyIndexRef = useRef(-1)
+  const draftRef = useRef('')
   const [aspectRatio, setAspectRatio] = useState<ImageGenAspectRatio>('landscape')
   const [imageCount, setImageCount] = useState(2)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -245,8 +300,33 @@ export default function ImageGeneratorPage() {
   const [captchaLoading, setCaptchaLoading] = useState(false)
   const [captchaCurrent, setCaptchaCurrent] = useState<Record<string, string> | null>(null)
 
+  // Generation logs (persistent stats)
+  const [genLogs, setGenLogs] = useState<ImageGenLog[]>([])
+
   // Active tab
   const [activeTab, setActiveTab] = useState('generate')
+
+  // Calendar events integration
+  const { events: calendarEvents, updateEvent } = useCalendarEvents()
+  const [eventPopoverOpen, setEventPopoverOpen] = useState(false)
+  const [assignEventOpen, setAssignEventOpen] = useState<string | null>(null)
+  const [eventSearchQuery, setEventSearchQuery] = useState('')
+
+  const filteredCalendarEvents = calendarEvents
+    .filter(e => {
+      if (!eventSearchQuery.trim()) return true
+      const q = eventSearchQuery.toLowerCase()
+      return e.title.toLowerCase().includes(q) || (e.description || '').toLowerCase().includes(q)
+    })
+    .sort((a, b) => (a.start?.toMillis?.() || 0) - (b.start?.toMillis?.() || 0))
+
+  // Load prompt history from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('imageGenPromptHistory')
+      if (saved) promptHistoryRef.current = JSON.parse(saved)
+    } catch {}
+  }, [])
 
   useEffect(() => {
     if (settings) {
@@ -259,7 +339,15 @@ export default function ImageGeneratorPage() {
   useEffect(() => {
     if (activeTab === 'accounts' && settings?.imageGenApiToken) fetchAccounts()
     if (activeTab === 'jobs' && settings?.imageGenApiToken) fetchJobs()
-  }, [activeTab, settings?.imageGenApiToken, fetchAccounts, fetchJobs])
+    if (activeTab === 'jobs' && user) {
+      imageGenLogs.getAll(user.uid).then(setGenLogs).catch(() => {})
+    }
+  }, [activeTab, settings?.imageGenApiToken, fetchAccounts, fetchJobs, user])
+
+  // Auto-fetch jobs stats when quota error appears
+  useEffect(() => {
+    if (generationError?.type === 'quota' && settings?.imageGenApiToken) fetchJobs()
+  }, [generationError?.type]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadSavedAssets = async () => {
     if (!user) return
@@ -553,13 +641,32 @@ export default function ImageGeneratorPage() {
   const handleGenerate = async () => {
     if (!prompt.trim()) return
 
+    // Save prompt to history
+    const trimmed = prompt.trim()
+    const history = promptHistoryRef.current
+    // Remove duplicate if exists, then prepend
+    const idx = history.indexOf(trimmed)
+    if (idx !== -1) history.splice(idx, 1)
+    history.unshift(trimmed)
+    // Cap at 50 entries
+    if (history.length > 50) history.length = 50
+    promptHistoryRef.current = history
+    historyIndexRef.current = -1
+    draftRef.current = ''
+    try { localStorage.setItem('imageGenPromptHistory', JSON.stringify(history)) } catch {}
+
     let references: string[] | undefined
 
     // Upload selected assets to useapi.net if they don't have a mediaGenerationId yet
     if (selectedRefs.length > 0) {
       const selected = allAssets.filter(a => selectedRefs.includes(a.id))
+      const targetEmail = settings?.imageGenPreferredEmail || ''
       const needsUpload = selected.filter(a => !a.mediaGenerationId)
-      const alreadyUploaded = selected.filter(a => a.mediaGenerationId).map(a => a.mediaGenerationId)
+      const alreadyUploaded = selected.filter(a => a.mediaGenerationId).map(a => {
+        // Use the per-account ID for the target email if available
+        if (targetEmail && a.mediaGenerationIds?.[targetEmail]) return a.mediaGenerationIds[targetEmail]
+        return a.mediaGenerationId
+      })
 
       if (needsUpload.length > 0) {
         setUploadingAssets(true)
@@ -578,10 +685,11 @@ export default function ImageGeneratorPage() {
               })
               const result = await uploadAsset(dataUrl, asset.name)
               if (result) {
-                // Save mediaGenerationId back to Firestore for future reuse
+                // Save mediaGenerationId(s) back to Firestore for future reuse
                 imageAssets.delete(asset.id).catch(() => {})
                 const newId = await imageAssets.create({
                   mediaGenerationId: result.mediaGenerationId,
+                  mediaGenerationIds: result.mediaGenerationIds || {},
                   name: asset.name,
                   fullUrl: asset.fullUrl || asset.thumbnailUrl,
                   fullStoragePath: asset.fullStoragePath || asset.storagePath,
@@ -590,7 +698,7 @@ export default function ImageGeneratorPage() {
                   folderId: asset.folderId ?? null,
                   userId: user!.uid,
                 })
-                const updater = (a: ImageAsset) => a.id === asset.id ? { ...a, id: newId, mediaGenerationId: result.mediaGenerationId } : a
+                const updater = (a: ImageAsset) => a.id === asset.id ? { ...a, id: newId, mediaGenerationId: result.mediaGenerationId, mediaGenerationIds: result.mediaGenerationIds || {} } : a
                 setSavedAssets(prev => prev.map(updater))
                 setAllAssets(prev => prev.map(updater))
                 return result.mediaGenerationId
@@ -613,8 +721,50 @@ export default function ImageGeneratorPage() {
     await generate(fullPrompt, aspectRatio, imageCount, settings, references?.length ? references : undefined)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  // Auto-resize textarea when tab switches back or prompt is pre-filled
+  useEffect(() => {
+    const el = textareaRef.current
+    if (el && prompt) {
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 300) + 'px'
+    }
+  }, [activeTab, prompt])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !isGenerating) handleGenerate()
+
+    const history = promptHistoryRef.current
+    if (history.length === 0) return
+
+    if (e.key === 'ArrowUp') {
+      // Only navigate when cursor is at the start (no multiline selection)
+      const el = e.currentTarget
+      if (el.selectionStart !== 0 || el.selectionStart !== el.selectionEnd) return
+
+      e.preventDefault()
+      if (historyIndexRef.current === -1) {
+        // Save current draft before navigating
+        draftRef.current = prompt
+      }
+      const next = Math.min(historyIndexRef.current + 1, history.length - 1)
+      historyIndexRef.current = next
+      setPrompt(history[next])
+    }
+
+    if (e.key === 'ArrowDown') {
+      if (historyIndexRef.current === -1) return
+      const el = e.currentTarget
+      if (el.selectionStart !== el.value.length || el.selectionStart !== el.selectionEnd) return
+
+      e.preventDefault()
+      const next = historyIndexRef.current - 1
+      historyIndexRef.current = next
+      if (next < 0) {
+        setPrompt(draftRef.current)
+      } else {
+        setPrompt(history[next])
+      }
+    }
   }
 
   const handleDownload = async (generation: ImageGeneration) => {
@@ -641,6 +791,50 @@ export default function ImageGeneratorPage() {
     navigator.clipboard.writeText(generation.prompt)
     setCopiedId(generation.id)
     setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const handleImportEventDescription = (event: CalendarEvent) => {
+    const text = event.description || event.title
+    setPrompt(prev => prev ? `${prev}\n\n${text}` : text)
+    setEventPopoverOpen(false)
+    setEventSearchQuery('')
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        textareaRef.current.style.height = 'auto'
+        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 300) + 'px'
+      }
+    }, 100)
+  }
+
+  const [confirmAssignEvent, setConfirmAssignEvent] = useState<{ generation: ImageGeneration; event: CalendarEvent } | null>(null)
+
+  const handleAssignToEvent = (generation: ImageGeneration, event: CalendarEvent) => {
+    // Close dialogs immediately and process in background
+    setConfirmAssignEvent(null)
+    setAssignEventOpen(null)
+    setEventSearchQuery('')
+    toast.info(`Assigning image to "${event.title}"...`)
+
+    const doAssign = async () => {
+      try {
+        const isFirebaseUrl = generation.imageUrl.includes('firebasestorage.googleapis.com')
+        const fetchUrl = isFirebaseUrl
+          ? `/api/image-proxy?url=${encodeURIComponent(generation.imageUrl)}`
+          : generation.imageUrl
+        const response = await fetch(fetchUrl)
+        const blob = await response.blob()
+        const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'
+        const storagePath = `calendar-events/${user!.uid}/${event.id}/${Date.now()}.${ext}`
+        const permanentUrl = await uploadBlob(blob, storagePath)
+        await updateEvent(event.id, { imageUrl: permanentUrl })
+        toast.success(`Image assigned to "${event.title}"`)
+      } catch (err) {
+        console.error('Failed to assign image to event:', err)
+        toast.error('Failed to assign image to event')
+      }
+    }
+    doAssign()
   }
 
   const handleDelete = (id: string) => {
@@ -696,6 +890,35 @@ export default function ImageGeneratorPage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">{generationError.title}: <span className="font-normal text-muted-foreground">{generationError.message}</span></p>
+              {generationError.type === 'quota' && jobs?.images?.summary && (() => {
+                const entries = Object.entries(jobs.images.summary)
+                if (entries.length === 0) return null
+                return (
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <span className="text-[10px] text-muted-foreground">Stats (last 15 min):</span>
+                    {entries.map(([email, stats]) => (
+                      <div key={email} className="flex items-center gap-1">
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal">
+                          {email.split('@')[0]}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal text-green-600">
+                          {stats.completed} done
+                        </Badge>
+                        {stats.rateLimited > 0 && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal text-yellow-600">
+                            {stats.rateLimited} limited
+                          </Badge>
+                        )}
+                        {stats.failed > 0 && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal text-red-600">
+                            {stats.failed} failed
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {generationError.type !== 'generic' && generationError.type !== 'moderation' && (
@@ -730,7 +953,7 @@ export default function ImageGeneratorPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 items-start">
                 {/* Image cards */}
                 {generations.map(gen => (
-                  <ImageCard key={gen.id} gen={gen} onPreview={openPreview} onDownload={handleDownload} onDelete={handleDelete} />
+                  <ImageCard key={gen.id} gen={gen} onPreview={openPreview} onDownload={handleDownload} onDelete={handleDelete} onAssignEvent={g => setAssignEventOpen(g.id)} />
                 ))}
               </div>
             )}
@@ -757,7 +980,7 @@ export default function ImageGeneratorPage() {
                 )}
 
                 {/* Selected assets preview */}
-                {selectedRefs.length > 0 && !isGenerating && (
+                {selectedRefs.length > 0 && (
                   <div className="flex items-center gap-1.5 px-4 pt-3 pb-0.5 overflow-x-auto">
                     {selectedRefs.map((id) => {
                       const asset = allAssets.find(a => a.id === id)
@@ -789,12 +1012,12 @@ export default function ImageGeneratorPage() {
                         setPrompt(e.target.value)
                         const el = e.target
                         el.style.height = 'auto'
-                        el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+                        el.style.height = Math.min(el.scrollHeight, 300) + 'px'
                       }}
                       onKeyDown={handleKeyDown}
                       rows={1}
                       disabled={isGenerating}
-                      className="w-full resize-none bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/40 min-h-[2.25rem] max-h-[120px] py-1.5 leading-relaxed"
+                      className="w-full resize-none bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/40 min-h-[2.25rem] max-h-[300px] py-1.5 leading-relaxed"
                     />
                   </div>
 
@@ -857,6 +1080,14 @@ export default function ImageGeneratorPage() {
                       <span className="max-w-[120px] truncate">
                         {settings?.imageGenStandingPrompt || 'Default Prompt'}
                       </span>
+                    </button>
+                    <div className="w-px h-5 bg-border" />
+                    <button
+                      className="flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => setEventPopoverOpen(true)}
+                    >
+                      <CalendarDays className="h-3 w-3" />
+                      Event
                     </button>
                   </div>
               </div>
@@ -1329,89 +1560,119 @@ export default function ImageGeneratorPage() {
             </TabsContent>
 
             <TabsContent value="jobs" className="space-y-4 mt-0">
-              {!hasToken ? (
-                <Card><CardContent className="pt-6">
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Settings className="h-12 w-12 mb-3 opacity-40" /><p>No API token configured</p>
-                    <Button variant="outline" className="mt-4" onClick={handleOpenSettings}><Settings className="h-4 w-4 mr-1.5" />Open Settings</Button>
-                  </div>
-                </CardContent></Card>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">Job Statistics</h2>
-                    <Button variant="outline" size="sm" onClick={fetchJobs} disabled={loadingJobs}>
-                      <RefreshCw className={cn("h-4 w-4 mr-1.5", loadingJobs && "animate-spin")} />Refresh
-                    </Button>
-                  </div>
+              {(() => {
+                // Build stats from persistent generation logs
+                const successLogs = genLogs.filter(l => l.status === 'success')
+                const failedLogs = genLogs.filter(l => l.status === 'failed')
+                const totalImages = successLogs.reduce((sum, l) => sum + l.imageCount, 0)
+                const byModel: Record<string, number> = {}
+                const byDay: Record<string, number> = {}
+                genLogs.forEach(l => {
+                  const imgCount = l.status === 'success' ? l.imageCount : 0
+                  byModel[l.model] = (byModel[l.model] || 0) + imgCount
+                  const day = l.createdAt?.toMillis ? new Date(l.createdAt.toMillis()).toLocaleDateString() : 'Unknown'
+                  byDay[day] = (byDay[day] || 0) + (l.status === 'success' ? l.imageCount : 0)
+                })
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+                const todayCount = successLogs
+                  .filter(l => l.createdAt?.toMillis?.() >= today.getTime())
+                  .reduce((sum, l) => sum + l.imageCount, 0)
+                const successRate = genLogs.length > 0 ? Math.round((successLogs.length / genLogs.length) * 100) : 0
 
-                  {loadingJobs ? (
-                    <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                  ) : !jobs ? (
-                    <Card><CardContent className="pt-6">
-                      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                        <Activity className="h-12 w-12 mb-3 opacity-40" /><p>No job data yet</p><p className="text-sm">Stats appear after generating images</p>
-                      </div>
-                    </CardContent></Card>
-                  ) : (
-                    <div className="space-y-4">
-                      {jobs.images?.summary && Object.entries(jobs.images.summary).map(([email, stats]) => (
-                        <Card key={email}>
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-sm flex items-center gap-2"><Mail className="h-4 w-4" />{email}</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                              <div className="text-center p-2 rounded-lg bg-muted">
-                                <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-                                <p className="text-xs text-muted-foreground">Completed</p>
-                              </div>
-                              <div className="text-center p-2 rounded-lg bg-muted">
-                                <p className="text-2xl font-bold text-blue-600">{stats.executing}</p>
-                                <p className="text-xs text-muted-foreground">Running</p>
-                              </div>
-                              <div className="text-center p-2 rounded-lg bg-muted">
-                                <p className="text-2xl font-bold text-red-600">{stats.failed}</p>
-                                <p className="text-xs text-muted-foreground">Failed</p>
-                              </div>
-                              <div className="text-center p-2 rounded-lg bg-muted">
-                                <p className="text-2xl font-bold text-yellow-600">{stats.rateLimited}</p>
-                                <p className="text-xs text-muted-foreground">Rate Limited</p>
-                              </div>
-                              <div className="text-center p-2 rounded-lg bg-muted">
-                                <p className="text-2xl font-bold">{stats.avgResponseTime ? `${Math.round(stats.avgResponseTime / 1000)}s` : '-'}</p>
-                                <p className="text-xs text-muted-foreground">Avg Time</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-
-                      {jobs.images?.history && Object.keys(jobs.images.history).length > 0 && (
-                        <Card>
-                          <CardHeader className="pb-3"><CardTitle className="text-sm">Recent Jobs (last 15 min)</CardTitle></CardHeader>
-                          <CardContent>
-                            <div className="space-y-2">
-                              {Object.entries(jobs.images.history).map(([jobId, job]) => (
-                                <div key={jobId} className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant={job.httpStatus === 200 ? 'default' : 'destructive'} className={cn("text-xs", job.httpStatus === 200 && "bg-green-500")}>{job.httpStatus}</Badge>
-                                    <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">{jobId}</span>
-                                  </div>
-                                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                    <span>{Math.round(job.responseTime / 1000)}s</span>
-                                    <span>{job.email}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
+                return genLogs.length === 0 ? (
+                  <Card><CardContent className="pt-6">
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <Activity className="h-12 w-12 mb-3 opacity-40" /><p>No generations yet</p>
                     </div>
-                  )}
-                </>
-              )}
+                  </CardContent></Card>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Summary stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <Card>
+                        <CardContent className="pt-4 pb-4 text-center">
+                          <p className="text-3xl font-bold">{totalImages}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Total Images</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4 pb-4 text-center">
+                          <p className="text-3xl font-bold text-primary">{todayCount}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Today</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4 pb-4 text-center">
+                          <p className="text-3xl font-bold">{genLogs.length}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Total Requests</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4 pb-4 text-center">
+                          <p className="text-3xl font-bold text-green-500">{successRate}%</p>
+                          <p className="text-xs text-muted-foreground mt-1">Success Rate</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <Card>
+                        <CardContent className="pt-4 pb-4 text-center">
+                          <p className="text-2xl font-bold text-destructive">{failedLogs.length}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Failed</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4 pb-4 text-center">
+                          <p className="text-2xl font-bold">{Object.keys(byModel).length}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Models Used</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4 pb-4 text-center">
+                          <p className="text-2xl font-bold">{Object.keys(byDay).length}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Active Days</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Per-model breakdown */}
+                    <Card>
+                      <CardHeader className="pb-3"><CardTitle className="text-sm">Usage by Model</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {Object.entries(byModel).sort((a, b) => b[1] - a[1]).map(([model, count]) => (
+                            <div key={model} className="flex items-center justify-between p-2 rounded-lg bg-muted">
+                              <span className="text-sm font-medium">{IMAGE_GEN_MODELS.find(m => m.value === model)?.label || model}</span>
+                              <Badge variant="secondary">{count} images</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Daily breakdown */}
+                    <Card>
+                      <CardHeader className="pb-3"><CardTitle className="text-sm">Daily Usage</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                          {Object.entries(byDay).sort((a, b) => {
+                            const da = new Date(a[0]).getTime()
+                            const db = new Date(b[0]).getTime()
+                            return db - da
+                          }).map(([day, count]) => (
+                            <div key={day} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50">
+                              <span className="text-sm text-muted-foreground">{day}</span>
+                              <Badge variant="outline" className="font-normal">{count}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )
+              })()}
             </TabsContent>
           </Tabs>
         </div>
@@ -1510,12 +1771,81 @@ export default function ImageGeneratorPage() {
                   {copiedId === previewImage.id ? <><Check className="h-4 w-4 mr-1.5" />Copied</> : <><Copy className="h-4 w-4 mr-1.5" />Copy Prompt</>}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => { setPrompt(previewImage.prompt); setPreviewImage(null) }}><Sparkles className="h-4 w-4 mr-1.5" />Reuse Prompt</Button>
+                <Button variant="outline" size="sm" onClick={() => { setPreviewImage(null); setAssignEventOpen(previewImage!.id) }}>
+                  <CalendarPlus className="h-4 w-4 mr-1.5" />Assign to Event
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => handleDelete(previewImage.id)} className="text-destructive hover:text-destructive">
                   <Trash2 className="h-4 w-4 mr-1.5" />Delete
                 </Button>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Import from Event Dialog */}
+      <Dialog open={eventPopoverOpen} onOpenChange={open => { if (!open) { setEventPopoverOpen(false); setEventSearchQuery('') } }}>
+        <DialogContent className="sm:max-w-7xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5" />Import from Event</DialogTitle>
+            <DialogDescription>Select an event to import its description into the prompt.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2 flex-1 min-h-0 flex flex-col">
+            <Input
+              placeholder="Search events..."
+              value={eventSearchQuery}
+              onChange={e => setEventSearchQuery(e.target.value)}
+              className="h-10 text-sm flex-shrink-0"
+            />
+            <EventCardGrid
+              events={filteredCalendarEvents}
+              onSelect={handleImportEventDescription}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign to Event Dialog */}
+      <Dialog open={!!assignEventOpen} onOpenChange={open => { if (!open) { setAssignEventOpen(null); setEventSearchQuery('') } }}>
+        <DialogContent className="sm:max-w-7xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CalendarPlus className="h-5 w-5" />Assign to Event</DialogTitle>
+            <DialogDescription>Choose a calendar event to assign this image to.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2 flex-1 min-h-0 flex flex-col">
+            <Input
+              placeholder="Search events..."
+              value={eventSearchQuery}
+              onChange={e => setEventSearchQuery(e.target.value)}
+              className="h-10 text-sm flex-shrink-0"
+            />
+            <EventCardGrid
+              events={filteredCalendarEvents}
+              onSelect={evt => {
+                const gen = generations.find(g => g.id === assignEventOpen)
+                if (gen) setConfirmAssignEvent({ generation: gen, event: evt })
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Assign Dialog */}
+      <Dialog open={!!confirmAssignEvent} onOpenChange={open => { if (!open) setConfirmAssignEvent(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Assign image to event?</DialogTitle>
+            <DialogDescription>
+              This will set the generated image as the image for <strong>&quot;{confirmAssignEvent?.event.title}&quot;</strong>.
+              {confirmAssignEvent?.event.imageUrl && ' This event already has an image — it will be replaced.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmAssignEvent(null)}>Cancel</Button>
+            <Button onClick={() => confirmAssignEvent && handleAssignToEvent(confirmAssignEvent.generation, confirmAssignEvent.event)}>
+              Assign
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

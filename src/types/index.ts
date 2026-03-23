@@ -405,6 +405,7 @@ export interface TimeFilters {
 export interface ImageAsset {
   id: string
   mediaGenerationId: string
+  mediaGenerationIds?: Record<string, string> // email → mediaGenerationId mapping
   name: string
   fullUrl: string
   fullStoragePath: string
@@ -448,6 +449,20 @@ export interface ImageGeneration {
   savedToMedia: boolean
   mediaFileId?: string
   userId: string
+  createdAt: Timestamp
+}
+
+// AI Image Generation Log (persistent, never deleted with images)
+export interface ImageGenLog {
+  id: string
+  userId: string
+  prompt: string
+  model: ImageGenModel
+  aspectRatio: ImageGenAspectRatio
+  imageCount: number
+  status: 'success' | 'failed'
+  error?: string
+  email?: string
   createdAt: Timestamp
 }
 
