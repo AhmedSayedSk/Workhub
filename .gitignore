@@ -1,5 +1,5 @@
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -44,11 +44,10 @@ firebase-debug.log
 # Scripts (seeds, one-off data scripts)
 /scripts/
 
-# MCP Server
-mcp-server/node_modules/
+# MCP Servers
 mcp-server/dist/
-
-# Image Gen MCP
-image-gen-mcp/node_modules/
 image-gen-mcp/dist/
 image-gen-mcp/package-lock.json
+tts-mcp/dist/
+tts-mcp/package-lock.json
+tts-mcp/generation-log.json
