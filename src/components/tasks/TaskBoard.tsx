@@ -25,7 +25,7 @@ import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Plus, Loader2, Bot, UserX } from 'lucide-react'
+import { Plus, Loader2, Bot, UserX, LayoutList, Signal, Puzzle, CalendarDays, Clock } from 'lucide-react'
 import { format, isToday, isYesterday } from 'date-fns'
 import { Switch } from '@/components/ui/switch'
 import { TaskCard } from './TaskCard'
@@ -148,7 +148,7 @@ function CreateTaskDialog({
           </div>
           <div className="w-64 shrink-0 border-l bg-muted/20 overflow-y-auto p-5 space-y-5">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><LayoutList className="h-3.5 w-3.5" />Type</Label>
               <Select value={taskType} onValueChange={(value) => setTaskType(value as TaskType)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -159,7 +159,7 @@ function CreateTaskDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Priority</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Signal className="h-3.5 w-3.5" />Priority</Label>
               <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -171,7 +171,7 @@ function CreateTaskDialog({
             </div>
             {features.length > 0 && (
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feature</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Puzzle className="h-3.5 w-3.5" />Feature</Label>
                 <Select value={featureId || 'none'} onValueChange={(value) => setFeatureId(value === 'none' ? '' : value)}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="None" /></SelectTrigger>
                   <SelectContent>
@@ -184,11 +184,11 @@ function CreateTaskDialog({
               </div>
             )}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deadline</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" />Deadline</Label>
               <DatePicker value={deadline} onChange={setDeadline} placeholder="No deadline" className="h-9" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Est. Hours</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Est. Hours</Label>
               <Input type="number" placeholder="0" value={estimatedHours} onChange={(e) => setEstimatedHours(e.target.value)} className="h-9" />
             </div>
             {allMembers && allMembers.length > 0 && !skipAutoAssign && (

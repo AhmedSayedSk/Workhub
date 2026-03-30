@@ -51,6 +51,11 @@ import {
   UserX,
   MoreVertical,
   Pencil,
+  LayoutList,
+  Signal,
+  Puzzle,
+  CalendarDays,
+  Clock,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -578,7 +583,7 @@ export function TaskDetail({
     <>
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent
-          className="max-w-5xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
+          className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
           onEscapeKeyDown={(e) => {
             if (isEditing) {
               e.preventDefault()
@@ -778,29 +783,9 @@ export function TaskDetail({
 
             {/* Right Column - Properties sidebar */}
             <div className="w-72 shrink-0 border-l bg-muted/20 overflow-y-auto p-5 space-y-5">
-              {/* Status */}
-              <div>
-                <Select
-                  value={task.status}
-                  onValueChange={(value) =>
-                    onUpdateTask(task.id, { status: value as TaskStatus })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todo">To Do</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="review">Review</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Type */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><LayoutList className="h-3.5 w-3.5" />Type</Label>
                 {isEditing ? (
                   <Select
                     value={editForm.taskType}
@@ -842,7 +827,7 @@ export function TaskDetail({
 
               {/* Priority */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Priority</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Signal className="h-3.5 w-3.5" />Priority</Label>
                 {isEditing ? (
                   <Select
                     value={editForm.priority}
@@ -881,7 +866,7 @@ export function TaskDetail({
               {/* Feature */}
               {features.length > 0 && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feature</Label>
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Puzzle className="h-3.5 w-3.5" />Feature</Label>
                   {isEditing ? (
                     <Select
                       value={editForm.featureId || 'none'}
@@ -929,7 +914,7 @@ export function TaskDetail({
 
               {/* Deadline */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deadline</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" />Deadline</Label>
                 <DatePicker
                   value={task.deadline ? task.deadline.toDate() : null}
                   onChange={(date) =>
@@ -992,7 +977,7 @@ export function TaskDetail({
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Estimated Time</span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />Estimated Time</span>
                     {isEditing ? (
                       <div className="flex items-center gap-1">
                         <Input
