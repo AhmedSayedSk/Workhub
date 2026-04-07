@@ -24,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { colorPresets } from '@/lib/utils'
-import { Plus, Loader2, MoreVertical, Edit, Trash2, Mail, Phone, Search, ShieldAlert, Eye, EyeOff, KeyRound } from 'lucide-react'
+import { Plus, Loader2, MoreVertical, Edit, Trash2, Mail, Phone, Search, ShieldAlert, Eye, EyeOff, KeyRound, RefreshCw, Copy, Check } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
@@ -51,6 +52,8 @@ export default function TeamPage() {
   const [form, setForm] = useState<MemberInput>(defaultForm)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [passwordCopied, setPasswordCopied] = useState(false)
+  const [resettingPassword, setResettingPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [fetchingAvatar, setFetchingAvatar] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
@@ -92,6 +95,45 @@ export default function TeamPage() {
     }
   }
 
+  const generatePassword = () => {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$'
+    let pwd = ''
+    for (let i = 0; i < 12; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+    setPassword(pwd)
+    setShowPassword(true)
+    setPasswordCopied(false)
+  }
+
+  const copyPassword = async () => {
+    await navigator.clipboard.writeText(password)
+    setPasswordCopied(true)
+    setTimeout(() => setPasswordCopied(false), 2000)
+  }
+
+  const handleResetPassword = async () => {
+    if (!editingMember?.email || !password || password.length < 6) return
+    setResettingPassword(true)
+    try {
+      const res = await authFetch('/api/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: editingMember.email, newPassword: password }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ title: 'Error', description: data.error, variant: 'destructive' })
+        return
+      }
+      toast({ description: `Password updated for ${editingMember.name}` })
+      setPassword('')
+      setShowPassword(false)
+    } catch {
+      toast({ title: 'Error', description: 'Failed to reset password', variant: 'destructive' })
+    } finally {
+      setResettingPassword(false)
+    }
+  }
+
   const openCreate = () => {
     setEditingMember(null)
     setForm(defaultForm)
@@ -110,6 +152,9 @@ export default function TeamPage() {
       avatarUrl: member.avatarUrl,
       color: member.color,
     })
+    setPassword('')
+    setShowPassword(false)
+    setPasswordCopied(false)
     setDialogOpen(true)
   }
 
@@ -343,19 +388,21 @@ export default function TeamPage() {
                 onChange={(value) => setForm({ ...form, phone: value })}
               />
             </div>
-            {/* Password field — only for new members */}
-            {!editingMember && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <KeyRound className="h-3.5 w-3.5" />
-                  Login Password *
-                </Label>
-                <div className="relative">
+            <Separator />
+
+            {/* Password section */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <KeyRound className="h-3.5 w-3.5" />
+                {editingMember ? 'Reset Password' : 'Login Password *'}
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
                   <Input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Min. 6 characters"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setPasswordCopied(false) }}
                     className="pr-10"
                   />
                   <button
@@ -367,11 +414,48 @@ export default function TeamPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  This password will be used by the member to log into WorkHub
-                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={generatePassword}
+                  title="Generate password"
+                  className="shrink-0"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+                {password && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={copyPassword}
+                    title="Copy password"
+                    className="shrink-0"
+                  >
+                    {passwordCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                )}
               </div>
-            )}
+              <p className="text-xs text-muted-foreground">
+                {editingMember
+                  ? 'Set a new password for this member. Leave empty to keep current.'
+                  : 'This password will be used by the member to log into WorkHub.'}
+              </p>
+              {editingMember && password.length >= 6 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleResetPassword}
+                  disabled={resettingPassword}
+                  className="w-full"
+                >
+                  {resettingPassword ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <KeyRound className="h-4 w-4 mr-2" />}
+                  Update Password
+                </Button>
+              )}
+            </div>
             <div className="space-y-2">
               <Label>Avatar URL</Label>
               <Input
