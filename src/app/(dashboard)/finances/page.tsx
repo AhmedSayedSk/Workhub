@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useAuth } from '@/hooks/useAuth'
 import { projects, milestones, monthlyPayments } from '@/lib/firestore'
 import { Project, Milestone, MonthlyPayment } from '@/types'
 import {
@@ -42,6 +43,7 @@ import {
 // Using soft chart colors from utils for dark mode comfort
 
 export default function FinancesPage() {
+  const { user } = useAuth()
   const [allProjects, setProjects] = useState<Project[]>([])
   const [allMilestones, setMilestones] = useState<Milestone[]>([])
   const [allPayments, setPayments] = useState<MonthlyPayment[]>([])
@@ -50,20 +52,21 @@ export default function FinancesPage() {
 
   useEffect(() => {
     loadFinanceData()
-  }, [])
+  }, [user])
 
   const loadFinanceData = async () => {
     try {
       const [projectsData, milestonesData, paymentsData] =
         await Promise.all([
-          projects.getAll(),
+          projects.getAll(user?.uid),
           milestones.getAll(),
           monthlyPayments.getAll(),
         ])
 
+      const accessibleIds = new Set(projectsData.map((p: any) => p.id))
       setProjects(projectsData)
-      setMilestones(milestonesData)
-      setPayments(paymentsData)
+      setMilestones(milestonesData.filter((m: any) => accessibleIds.has(m.projectId)))
+      setPayments(paymentsData.filter((p: any) => accessibleIds.has(p.projectId)))
     } catch (error) {
       console.error('Error loading finance data:', error)
     } finally {

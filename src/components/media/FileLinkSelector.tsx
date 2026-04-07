@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { projects, tasks } from '@/lib/firestore'
+import { useAuth } from '@/hooks/useAuth'
 import { Project, Task } from '@/types'
 import { Loader2, FolderKanban, ListTodo } from 'lucide-react'
 
@@ -32,6 +33,7 @@ export function FileLinkSelector({
   currentTaskLinks,
   onLink,
 }: FileLinkSelectorProps) {
+  const { user } = useAuth()
   const [projectList, setProjectList] = useState<Project[]>([])
   const [taskList, setTaskList] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +53,7 @@ export function FileLinkSelector({
     setLoading(true)
     try {
       const [projectsData, tasksData] = await Promise.all([
-        projects.getAll(),
+        projects.getAll(user?.uid),
         tasks.getAll(),
       ])
       setProjectList(projectsData)

@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useEffect, useRef, useCallback } from 'react'
+import { useAuth } from './useAuth'
 import { useSettings } from './useSettings'
 import { useTimerStore } from '@/store/timerStore'
-import { projects, monthlyPayments } from '@/lib/firestore'
+import { projects, monthlyPayments, calendarEvents } from '@/lib/firestore'
 import { sendBrowserNotification, getNotificationPermission } from '@/lib/notifications'
 import { toast } from './useToast'
 import { ToastAction } from '@/components/ui/toast'
@@ -32,6 +33,7 @@ function isNotificationDismissed(tag: string): boolean {
 
 export function useNotifications() {
   const { settings } = useSettings()
+  const { user } = useAuth()
   const timerReminderFired = useRef(false)
   const notifiedDeadlines = useRef(new Set<string>())
   const notifiedPayments = useRef(new Set<string>())
@@ -39,6 +41,7 @@ export function useNotifications() {
   const dailySummaryFired = useRef(false)
   const idleReminderFired = useRef(false)
   const breakReminderFired = useRef(false)
+  const notifiedCalendarEvents = useRef(new Set<string>())
   const lastActivityTime = useRef<number>(Date.now())
 
   const notifyDismissable = useCallback((title: string, body: string, tag: string) => {
@@ -106,7 +109,7 @@ export function useNotifications() {
     if (!settings?.notifyDeadlineAlerts) return
 
     try {
-      const activeProjects = await projects.getByStatus('active')
+      const activeProjects = await projects.getByStatus('active', user?.uid)
       const now = new Date()
       const alertDays = settings.deadlineAlertDays ?? 3
 
@@ -136,7 +139,7 @@ export function useNotifications() {
     } catch (err) {
       console.error('Deadline check failed:', err)
     }
-  }, [settings, notifyDismissable])
+  }, [settings, user, notifyDismissable])
 
   const checkPaymentReminders = useCallback(async () => {
     if (!settings?.notifyPaymentReminders) return
@@ -238,6 +241,46 @@ export function useNotifications() {
     }
   }, [settings, notifyDismissable])
 
+  const checkCalendarEventReminders = useCallback(async () => {
+    if (!settings?.notifyCalendarEvents) return
+
+    try {
+      const now = new Date()
+      const hoursBefore = settings.calendarEventHoursBefore ?? 1
+      const lookAheadEnd = new Date(now.getTime() + hoursBefore * 3_600_000)
+
+      const upcoming = await calendarEvents.getUpcoming(now, lookAheadEnd)
+
+      for (const event of upcoming) {
+        if (event.allDay) continue
+        if (event.status === 'cancelled' || event.status === 'done') continue
+        if (notifiedCalendarEvents.current.has(event.id)) continue
+
+        notifiedCalendarEvents.current.add(event.id)
+
+        const startTime = event.start.toDate()
+        const hoursUntil = (startTime.getTime() - now.getTime()) / 3_600_000
+        const timeLabel =
+          hoursUntil < 0.05
+            ? 'starting now'
+            : hoursUntil < 1
+              ? `in ${Math.round(hoursUntil * 60)} minutes`
+              : hoursUntil < 2
+                ? 'in 1 hour'
+                : `in ${Math.round(hoursUntil)} hours`
+
+        const tag = `calendar-event-${event.id}`
+        notifyDismissable(
+          'Upcoming Event',
+          `"${event.title}" ${timeLabel}.`,
+          tag
+        )
+      }
+    } catch (err) {
+      console.error('Calendar event reminder check failed:', err)
+    }
+  }, [settings, notifyDismissable])
+
   useEffect(() => {
     if (!settings) return
     if (getNotificationPermission() === 'unsupported') return
@@ -249,6 +292,7 @@ export function useNotifications() {
     checkDailySummary()
     checkIdleReminder()
     checkBreakReminder()
+    checkCalendarEventReminders()
 
     const interval = setInterval(() => {
       checkTimerReminder()
@@ -257,9 +301,10 @@ export function useNotifications() {
       checkDailySummary()
       checkIdleReminder()
       checkBreakReminder()
+      checkCalendarEventReminders()
     }, CHECK_INTERVAL_MS)
 
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, checkTimerReminder, checkDeadlineAlerts, checkPaymentReminders, checkDailySummary, checkIdleReminder, checkBreakReminder])
+  }, [settings, checkTimerReminder, checkDeadlineAlerts, checkPaymentReminders, checkDailySummary, checkIdleReminder, checkBreakReminder, checkCalendarEventReminders])
 }

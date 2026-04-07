@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { Task, ClaudeSessionTaskResult, ClaudeSessionFileChange, ClaudeSessionFileEdit } from '@/types'
 import { claudeSessions } from '@/lib/firestore'
 import { Button } from '@/components/ui/button'
@@ -476,7 +477,7 @@ export function ProcessingPanel({
 
     try {
       // The /respond endpoint returns a stream (it spawns a new --resume process)
-      const res = await fetch('/api/process-tasks/respond', {
+      const res = await authFetch('/api/process-tasks/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ processId: processIdRef.current, message: msg }),
@@ -568,7 +569,7 @@ export function ProcessingPanel({
       }
 
       try {
-        const res = await fetch('/api/process-tasks', {
+        const res = await authFetch('/api/process-tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

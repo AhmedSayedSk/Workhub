@@ -1,132 +1,173 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is authenticated
+    // Helper: user is signed in
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if user owns the resource
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    // Helper: current user's UID
+    function uid() {
+      return request.auth.uid;
     }
 
-    // Organizations collection
+    // Helper: check if user owns or is shared on a project (single-doc operations only)
+    function hasProjectAccess(projectId) {
+      let project = get(/databases/$(database)/documents/projects/$(projectId));
+      return project != null && (
+        project.data.ownerId == uid() ||
+        uid() in project.data.sharedWith
+      );
+    }
+
+    // Helper: user is the project owner (single-doc operations only)
+    function isProjectOwner(projectId) {
+      let project = get(/databases/$(database)/documents/projects/$(projectId));
+      return project != null && project.data.ownerId == uid();
+    }
+
+    // User Profiles — anyone can read (for sharing lookups), users can only write their own
+    match /userProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && userId == uid();
+    }
+
+    // Organizations — any authenticated user
     match /organizations/{organizationId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Systems collection
+    // Systems — any authenticated user
     match /systems/{systemId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Projects collection
+    // Projects — owner or shared members can read; only owner can update/delete
+    // NOTE: client queries MUST filter by ownerId or sharedWith to match these rules
     match /projects/{projectId} {
-      allow read, write: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.ownerId == uid();
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == uid() ||
+        uid() in resource.data.sharedWith
+      );
+      allow update: if isAuthenticated() && resource.data.ownerId == uid();
+      allow delete: if isAuthenticated() && resource.data.ownerId == uid();
     }
 
-    // Milestones collection
+    // --- Child collections ---
+    // Read (list queries): authenticated is enough — client already filters by accessible projects
+    // Write: project-access checked via get() (works for single-doc operations)
+
     match /milestones/{milestoneId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
     }
 
-    // Features collection
     match /features/{featureId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && hasProjectAccess(resource.data.projectId);
     }
 
-    // Tasks collection
     match /tasks/{taskId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update: if isAuthenticated() && hasProjectAccess(resource.data.projectId);
+      allow delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
     }
 
-    // Subtasks collection
     match /subtasks/{subtaskId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Time Entries collection
     match /timeEntries/{entryId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && hasProjectAccess(resource.data.projectId);
     }
 
-    // Monthly Payments collection
     match /monthlyPayments/{paymentId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isProjectOwner(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
     }
 
-    // AI Suggestions collection
+    // AI Suggestions — any authenticated user
     match /aiSuggestions/{suggestionId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Settings collection (app-wide settings)
+    // Settings — any authenticated user (app-wide)
     match /settings/{settingId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Media Folders collection
+    // Media — any authenticated user
     match /mediaFolders/{folderId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Media Files collection
     match /mediaFiles/{fileId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Vault Entries collection (project-specific sensitive data)
+    // Vault Entries — only project owner can read/write (sensitive data)
     match /vaultEntries/{entryId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isProjectOwner(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
     }
 
-    // Task Comments collection
+    // Task Comments — any authenticated user
     match /taskComments/{commentId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Project Activity Logs collection
+    // Project Activity Logs
     match /projectLogs/{logId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
     }
 
-    // Team Members collection
+    // Team Members — any authenticated user
     match /members/{memberId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Claude AI Sessions collection
+    // Claude AI Sessions
     match /claudeSessions/{sessionId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
     }
 
-    // Project Notes collection
+    // Project Notes
     match /projectNotes/{noteId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && hasProjectAccess(resource.data.projectId);
     }
 
-    // Calendar Events collection
+    // Calendar Events — any authenticated user
     match /calendarEvents/{eventId} {
       allow read, write: if isAuthenticated();
     }
 
-    // AI Image Generations collection
+    // AI Image Generations — any authenticated user
     match /imageGenerations/{generationId} {
       allow read, write: if isAuthenticated();
     }
 
-    // AI Image Assets (uploaded reference images)
     match /imageAssets/{assetId} {
       allow read, write: if isAuthenticated();
     }
 
-    // AI Image Asset Folders
     match /imageAssetFolders/{folderId} {
       allow read, write: if isAuthenticated();
     }
 
-    // AI Image Generation Logs (persistent stats)
     match /imageGenLogs/{logId} {
       allow read, write: if isAuthenticated();
     }

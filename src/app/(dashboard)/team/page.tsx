@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { useMembers } from '@/hooks/useMembers'
 import { Member, MemberInput } from '@/types'
 import { MemberAvatar } from '@/components/members/MemberAvatar'
@@ -23,8 +24,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { colorPresets } from '@/lib/utils'
-import { Plus, Loader2, MoreVertical, Edit, Trash2, Mail, Phone, Search } from 'lucide-react'
+import { Plus, Loader2, MoreVertical, Edit, Trash2, Mail, Phone, Search, ShieldAlert } from 'lucide-react'
 import { Timestamp } from 'firebase/firestore'
+import { useAuth } from '@/hooks/useAuth'
+import { useSettings } from '@/hooks/useSettings'
 
 const defaultForm: MemberInput = {
   name: '',
@@ -36,6 +39,9 @@ const defaultForm: MemberInput = {
 }
 
 export default function TeamPage() {
+  const { user } = useAuth()
+  const { settings } = useSettings()
+  const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
   const { members, loading, createMember, updateMember, deleteMember } = useMembers()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<Member | null>(null)
@@ -49,7 +55,7 @@ export default function TeamPage() {
     if (!email || !email.includes('@') || !email.includes('.')) return
     setFetchingAvatar(true)
     try {
-      const res = await fetch(`/api/avatar-lookup?email=${encodeURIComponent(email)}`)
+      const res = await authFetch(`/api/avatar-lookup?email=${encodeURIComponent(email)}`)
       const data = await res.json()
       if (data.avatarUrl) {
         setForm((prev) => ({ ...prev, avatarUrl: data.avatarUrl }))
@@ -122,10 +128,20 @@ export default function TeamPage() {
     setDeleteTarget(null)
   }
 
-  if (loading) {
+  if (loading || !settings) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!isAppOwner) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <ShieldAlert className="h-12 w-12 mb-3 opacity-40" />
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p className="text-sm">Only the workspace owner can manage team members.</p>
       </div>
     )
   }

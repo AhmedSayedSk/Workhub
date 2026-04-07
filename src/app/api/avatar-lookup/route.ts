@@ -1,7 +1,11 @@
 import { createHash } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth(request)
+  if (authError) return authError
+
   const email = request.nextUrl.searchParams.get('email')
   if (!email) {
     return NextResponse.json({ avatarUrl: null })

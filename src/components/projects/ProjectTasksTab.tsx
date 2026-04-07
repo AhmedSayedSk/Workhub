@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { useFeatures, useTasks } from '@/hooks/useTasks'
 import { useMembers } from '@/hooks/useMembers'
 import { useClaudeSessions } from '@/hooks/useClaudeSessions'
@@ -336,7 +337,7 @@ function BackgroundProcessor({ projectId, projectName, repoPath, submittedTaskId
       }
 
       try {
-        const res = await fetch('/api/process-tasks', {
+        const res = await authFetch('/api/process-tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ projectId, projectName, repoPath, taskIds: submittedTaskIds }),

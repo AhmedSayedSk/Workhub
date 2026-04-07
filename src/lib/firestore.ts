@@ -61,6 +61,7 @@ import {
   ImageAssetFolder,
   ImageAssetFolderInput,
   ImageGenLog,
+  UserProfile,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -125,6 +126,37 @@ async function remove(collectionName: string, id: string): Promise<void> {
   await deleteDoc(docRef)
 }
 
+// User Profiles (for sharing lookups)
+export const userProfiles = {
+  async upsert(user: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }): Promise<void> {
+    if (!user.email) return
+    const docRef = doc(db, 'userProfiles', user.uid)
+    const { setDoc } = await import('firebase/firestore')
+    await setDoc(docRef, {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      lastLoginAt: Timestamp.now(),
+    }, { merge: true })
+  },
+
+  async findByEmail(email: string): Promise<UserProfile | null> {
+    const results = await getAll<UserProfile>('userProfiles', where('email', '==', email))
+    return results[0] || null
+  },
+
+  async getByUids(uids: string[]): Promise<UserProfile[]> {
+    if (uids.length === 0) return []
+    const results: UserProfile[] = []
+    for (const uid of uids) {
+      const profile = await getById<UserProfile>('userProfiles', uid)
+      if (profile) results.push(profile)
+    }
+    return results
+  },
+}
+
 // Organizations
 export const organizations = {
   async getAll(): Promise<Organization[]> {
@@ -150,31 +182,41 @@ export const organizations = {
 
 // Projects
 export const projects = {
-  async getAll(): Promise<Project[]> {
-    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')]
-    return getAll<Project>('projects', ...constraints)
+  async getAll(userId?: string): Promise<Project[]> {
+    if (!userId) return []
+    // Fetch projects the user owns + projects shared with them, then merge
+    const [owned, shared] = await Promise.all([
+      getAll<Project>('projects', where('ownerId', '==', userId)),
+      getAll<Project>('projects', where('sharedWith', 'array-contains', userId)),
+    ])
+    const merged = new Map<string, Project>()
+    for (const p of [...owned, ...shared]) merged.set(p.id, p)
+    return [...merged.values()].sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
   },
 
   async getById(id: string): Promise<Project | null> {
     return getById<Project>('projects', id)
   },
 
-  async getSubProjects(parentProjectId: string): Promise<Project[]> {
-    // Query by parentProjectId only, sort client-side to avoid needing a composite index
-    const results = await getAll<Project>(
-      'projects',
-      where('parentProjectId', '==', parentProjectId)
-    )
-    return results.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  async getSubProjects(parentProjectId: string, userId?: string): Promise<Project[]> {
+    if (!userId) return []
+    // Get all accessible projects, then filter for sub-projects of the given parent
+    const all = await this.getAll(userId)
+    return all
+      .filter((p) => p.parentProjectId === parentProjectId)
+      .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
   },
 
-  async create(data: ProjectInput): Promise<string> {
+  async create(data: ProjectInput & { ownerId: string }): Promise<string> {
     return create('projects', {
       ...data,
       parentProjectId: data.parentProjectId ?? null,
       hasOwnFinances: data.hasOwnFinances ?? true,
       startDate: Timestamp.fromDate(data.startDate),
       deadline: toTimestamp(data.deadline),
+      ownerId: data.ownerId,
+      sharedWith: data.sharedWith ?? [],
+      pendingSharedEmails: data.pendingSharedEmails ?? [],
     })
   },
 
@@ -193,8 +235,33 @@ export const projects = {
     return remove('projects', id)
   },
 
-  async getByStatus(status: string): Promise<Project[]> {
-    return getAll<Project>('projects', where('status', '==', status), orderBy('createdAt', 'desc'))
+  /** Resolve pending invites for a user who just logged in */
+  async resolvePendingInvites(uid: string, email: string): Promise<void> {
+    const emailLower = email.toLowerCase()
+    const pending = await getAll<Project>('projects', where('pendingSharedEmails', 'array-contains', emailLower))
+    for (const project of pending) {
+      const newSharedWith = project.sharedWith?.includes(uid)
+        ? project.sharedWith
+        : [...(project.sharedWith || []), uid]
+      const newPending = (project.pendingSharedEmails || []).filter((e) => e.toLowerCase() !== emailLower)
+      await update('projects', project.id, { sharedWith: newSharedWith, pendingSharedEmails: newPending })
+    }
+  },
+
+  /** Update sharedWith on a project and all its sub-projects */
+  async updateSharing(projectId: string, sharedWith: string[], ownerId: string): Promise<void> {
+    await update('projects', projectId, { sharedWith })
+    // Propagate to sub-projects
+    const subs = await getAll<Project>('projects', where('parentProjectId', '==', projectId), where('ownerId', '==', ownerId))
+    for (const sub of subs) {
+      await this.updateSharing(sub.id, sharedWith, ownerId)
+    }
+  },
+
+  async getByStatus(status: string, userId?: string): Promise<Project[]> {
+    if (!userId) return []
+    const all = await this.getAll(userId)
+    return all.filter((p) => p.status === status)
   },
 }
 
@@ -676,11 +743,11 @@ export const members = {
 
 // Batch operations
 export const batch = {
-  async deleteProjectCascade(projectId: string): Promise<void> {
+  async deleteProjectCascade(projectId: string, userId?: string): Promise<void> {
     // Recursively delete sub-projects first
-    const subProjects = await projects.getSubProjects(projectId)
+    const subProjects = await projects.getSubProjects(projectId, userId)
     for (const sub of subProjects) {
-      await this.deleteProjectCascade(sub.id)
+      await this.deleteProjectCascade(sub.id, userId)
     }
 
     const batchOp = writeBatch(db)
@@ -1190,6 +1257,16 @@ export const calendarEvents = {
 
   async delete(id: string): Promise<void> {
     return remove('calendarEvents', id)
+  },
+
+  async getUpcoming(fromTime: Date, toTime: Date): Promise<CalendarEvent[]> {
+    const from = Timestamp.fromDate(fromTime)
+    const to = Timestamp.fromDate(toTime)
+    return getAll<CalendarEvent>(
+      'calendarEvents',
+      where('start', '>=', from),
+      where('start', '<=', to)
+    )
   },
 }
 

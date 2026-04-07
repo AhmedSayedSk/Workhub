@@ -22,6 +22,7 @@ import { PhoneInput } from '@/components/ui/phone-input'
 import { projects } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus, ProjectType, Project } from '@/types'
 import { useToast } from '@/hooks/useToast'
+import { useAuth } from '@/hooks/useAuth'
 import { cn, colorPresets, projectTypes } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -92,6 +93,7 @@ function NewProjectContent() {
   const searchParams = useSearchParams()
   const parentId = searchParams.get('parent')
   const { toast } = useToast()
+  const { user } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [parentProject, setParentProject] = useState<Project | null>(null)
@@ -189,6 +191,7 @@ function NewProjectContent() {
         projectType: formData.projectType || null,
         parentProjectId: parentId || null,
         hasOwnFinances: formData.hasOwnFinances,
+        ownerId: user!.uid,
         ...(isInternal && formData.estimatedValue ? { estimatedValue: parseFloat(formData.estimatedValue) } : {}),
       })
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { useClaudeSessions } from '@/hooks/useClaudeSessions'
 import { ClaudeSession, ClaudeSessionTaskResult } from '@/types'
 import { Card, CardContent } from '@/components/ui/card'
@@ -107,7 +108,7 @@ function SessionCard({ session, repoPath, onRefresh }: { session: ClaudeSession;
 
     try {
       // The /respond endpoint returns a stream (spawns --resume process)
-      const res = await fetch('/api/process-tasks/respond', {
+      const res = await authFetch('/api/process-tasks/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ processId: session.processId, message: msg }),
@@ -181,7 +182,7 @@ function SessionCard({ session, repoPath, onRefresh }: { session: ClaudeSession;
           .map((tr) => tr.branchName)
           .filter((b): b is string => !!b)
         if (branches.length > 0) {
-          await fetch('/api/cleanup-worktrees', {
+          await authFetch('/api/cleanup-worktrees', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ repoPath, branches }),

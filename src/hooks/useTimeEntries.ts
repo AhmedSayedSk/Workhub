@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { timeEntries, projects, tasks } from '@/lib/firestore'
 import { TimeEntry, TimeEntryInput, Project, Task } from '@/types'
+import { useAuth } from './useAuth'
 import { useToast } from './useToast'
 
 export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: Date) {
@@ -10,6 +11,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
   const [projectsMap, setProjectsMap] = useState<Record<string, Project>>({})
   const [tasksMap, setTasksMap] = useState<Record<string, Task>>({})
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
   const { toast } = useToast()
 
   // Convert dates to timestamps for stable dependency comparison
@@ -35,7 +37,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
 
       // Fetch related projects and tasks
       const [allProjects, allTasks] = await Promise.all([
-        projects.getAll(),
+        projects.getAll(user?.uid),
         tasks.getAll(),
       ])
 
@@ -47,7 +49,9 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
       allTasks.forEach((t) => (tMap[t.id] = t))
       setTasksMap(tMap)
 
-      setData(entries)
+      // Filter entries to only accessible projects
+      const accessibleIds = new Set(allProjects.map((p) => p.id))
+      setData(entries.filter((e) => accessibleIds.has(e.projectId)))
     } catch {
       toast({
         title: 'Error',
@@ -57,7 +61,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
     } finally {
       setLoading(false)
     }
-  }, [projectId, startTimestamp, endTimestamp, toast])
+  }, [projectId, startTimestamp, endTimestamp, user, toast])
 
   useEffect(() => {
     fetchTimeEntries()

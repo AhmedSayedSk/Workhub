@@ -41,6 +41,7 @@ import {
   Shield,
   Eye,
   EyeOff,
+  CalendarDays,
 } from 'lucide-react'
 import { clearImageCache, getImageCacheInfo } from '@/lib/image-cache'
 import { verifyPasskey } from '@/lib/passkey'
@@ -61,6 +62,7 @@ export default function SettingsPage() {
     setNotifyIdleReminder, setIdleReminderMinutes,
     setNotifyTaskDue, setTaskDueHoursBefore,
     setNotifyBreakReminder, setBreakReminderMinutes,
+    setNotifyCalendarEvents, setCalendarEventHoursBefore,
   } = useSettings()
 
   const [isEditingProfile, setIsEditingProfile] = useState(false)
@@ -87,12 +89,14 @@ export default function SettingsPage() {
   const [idleReminderMinutesLocal, setIdleReminderMinutesLocal] = useState(30)
   const [taskDueHoursLocal, setTaskDueHoursLocal] = useState(24)
   const [breakReminderMinutesLocal, setBreakReminderMinutesLocal] = useState(90)
+  const [calendarHoursLocal, setCalendarHoursLocal] = useState(1)
   const timerMinutesTimer = useRef<NodeJS.Timeout | null>(null)
   const deadlineDaysTimer = useRef<NodeJS.Timeout | null>(null)
   const dailySummaryHourTimer = useRef<NodeJS.Timeout | null>(null)
   const idleReminderTimer = useRef<NodeJS.Timeout | null>(null)
   const taskDueHoursTimer = useRef<NodeJS.Timeout | null>(null)
   const breakReminderTimer = useRef<NodeJS.Timeout | null>(null)
+  const calendarHoursTimer = useRef<NodeJS.Timeout | null>(null)
 
   const refreshCacheInfo = useCallback(async () => {
     const info = await getImageCacheInfo()
@@ -119,6 +123,7 @@ export default function SettingsPage() {
       setIdleReminderMinutesLocal(settings.idleReminderMinutes ?? 30)
       setTaskDueHoursLocal(settings.taskDueHoursBefore ?? 24)
       setBreakReminderMinutesLocal(settings.breakReminderMinutes ?? 90)
+      setCalendarHoursLocal(settings.calendarEventHoursBefore ?? 1)
     }
   }, [settings])
 
@@ -1217,6 +1222,48 @@ export default function SettingsPage() {
                         disabled={saving}
                       />
                       <span className="text-sm text-muted-foreground">minutes of work</span>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Calendar Event Reminders */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                        <Label>Calendar Event Reminders</Label>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified before upcoming calendar events
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.notifyCalendarEvents ?? false}
+                      onCheckedChange={(checked) => setNotifyCalendarEvents(checked)}
+                      disabled={saving}
+                    />
+                  </div>
+                  {settings?.notifyCalendarEvents && (
+                    <div className="ml-0 flex items-center gap-3 pl-1">
+                      <Label className="text-sm text-muted-foreground whitespace-nowrap">Remind</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="72"
+                        className="w-20"
+                        value={calendarHoursLocal}
+                        onChange={(e) => {
+                          const val = Math.max(1, Math.min(72, parseInt(e.target.value) || 1))
+                          setCalendarHoursLocal(val)
+                          if (calendarHoursTimer.current) clearTimeout(calendarHoursTimer.current)
+                          calendarHoursTimer.current = setTimeout(() => {
+                            setCalendarEventHoursBefore(val)
+                          }, 800)
+                        }}
+                        disabled={saving}
+                      />
+                      <span className="text-sm text-muted-foreground">hours before</span>
                     </div>
                   )}
                 </>

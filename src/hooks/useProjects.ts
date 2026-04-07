@@ -5,6 +5,7 @@ import { Timestamp } from 'firebase/firestore'
 import { projects, milestones, monthlyPayments, batch, projectLogs } from '@/lib/firestore'
 import { Project, ProjectInput, Milestone, MilestoneInput, MonthlyPayment, MonthlyPaymentInput, ProjectLogChange } from '@/types'
 import { useToast } from './useToast'
+import { useAuth } from './useAuth'
 import { formatCurrency, formatDate, projectFieldLabels } from '@/lib/utils'
 
 // Helper to create a mock Timestamp from Date for optimistic updates
@@ -85,11 +86,12 @@ export function useProjects() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchProjects = useCallback(async () => {
     try {
       setLoading(true)
-      const result = await projects.getAll()
+      const result = await projects.getAll(user?.uid)
       setData(result.filter(p => !p.parentProjectId))
       setError(null)
     } catch (err) {
@@ -102,13 +104,13 @@ export function useProjects() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [toast, user?.uid])
 
   useEffect(() => {
     fetchProjects()
   }, [fetchProjects])
 
-  const createProject = async (input: ProjectInput) => {
+  const createProject = async (input: ProjectInput & { ownerId: string }) => {
     try {
       const id = await projects.create(input)
 
@@ -203,6 +205,7 @@ export function useProject(projectId: string) {
   const [payments, setPayments] = useState<MonthlyPayment[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchProject = useCallback(async () => {
     try {
@@ -211,7 +214,7 @@ export function useProject(projectId: string) {
         projects.getById(projectId),
         milestones.getAll(projectId),
         monthlyPayments.getAll(projectId),
-        projects.getSubProjects(projectId),
+        projects.getSubProjects(projectId, user?.uid),
       ])
       setProject(projectData)
       setMilestones(milestonesData)
@@ -462,7 +465,7 @@ export function useProject(projectId: string) {
   // Delete project with all related data
   const deleteProject = async () => {
     try {
-      await batch.deleteProjectCascade(projectId)
+      await batch.deleteProjectCascade(projectId, user?.uid)
       toast({
         description: 'Project and all related data deleted',
         variant: 'success',

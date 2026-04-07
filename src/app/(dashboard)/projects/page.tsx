@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useProjects } from '@/hooks/useProjects'
+import { useAuth } from '@/hooks/useAuth'
 import { projects as projectsApi, tasks as tasksApi } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus, Project } from '@/types'
 import {
@@ -77,13 +78,14 @@ const statusOrder: ProjectStatus[] = ['active', 'paused', 'completed', 'cancelle
 
 export default function ProjectsPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const { projects, loading } = useProjects()
   const [subProjectsByParent, setSubProjectsByParent] = useState<Record<string, Project[]>>({})
   const [subTaskCounts, setSubTaskCounts] = useState<Record<string, number>>({})
 
   // Fetch all projects (including sub-projects) and their active task counts
   useEffect(() => {
-    projectsApi.getAll().then(async (allProjects) => {
+    projectsApi.getAll(user?.uid).then(async (allProjects) => {
       const map: Record<string, Project[]> = {}
       const subIds: string[] = []
       allProjects.forEach((p) => {
@@ -109,7 +111,7 @@ export default function ProjectsPage() {
         setSubTaskCounts(counts)
       }
     })
-  }, [projects]) // re-compute when top-level projects change
+  }, [projects, user?.uid]) // re-compute when top-level projects change
 
   // Group projects by status and sort by start date (oldest first)
   const groupedProjects = useMemo(() => {

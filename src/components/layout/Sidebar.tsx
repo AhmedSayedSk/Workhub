@@ -1,9 +1,12 @@
 'use client'
 
+import { useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
+import { useSettings } from '@/hooks/useSettings'
 import {
   LayoutDashboard,
   FolderKanban,
@@ -22,17 +25,20 @@ import {
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-const mainNavItems = [
+const allMainNavItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
-  { href: '/team', label: 'Team', icon: Users },
-  { href: '/time', label: 'Time Tracking', icon: Clock },
+  { href: '/team', label: 'Team', icon: Users, ownerOnly: true },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/finances', label: 'Finances', icon: Wallet },
+  { href: '/media', label: 'Media Library', icon: FolderOpen },
 ]
 
-const secondaryNavItems = [
-  { href: '/media', label: 'Media Library', icon: FolderOpen },
+const trackingNavItems = [
+  { href: '/time', label: 'Timesheets', icon: Clock },
+  { href: '/finances', label: 'Invoices & Payments', icon: Wallet },
+]
+
+const aiNavItems = [
   { href: '/assistant', label: 'AI Assistant', icon: Sparkles },
   { href: '/image-generator', label: 'Image Generator', icon: Wand2 },
 ]
@@ -44,6 +50,14 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname()
+  const { user } = useAuth()
+  const { settings } = useSettings()
+  const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
+
+  const mainNavItems = useMemo(() =>
+    allMainNavItems.filter((item) => !item.ownerOnly || isAppOwner),
+    [isAppOwner]
+  )
 
   return (
     <aside
@@ -120,17 +134,21 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             })}
           </div>
 
-          {/* Separator */}
+          {/* Tracking Section */}
           <div className="my-3 px-3">
             <div className="h-px bg-border" />
           </div>
-
-          {/* Secondary Navigation */}
           <div className="space-y-1">
-            {secondaryNavItems.map((item) => {
+            {!collapsed && (
+              <div className="px-3 pb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Tracking
+                </span>
+              </div>
+            )}
+            {trackingNavItems.map((item) => {
               const isActive = pathname === item.href ||
                 (item.href !== '/' && pathname.startsWith(item.href))
-              const isAI = item.href === '/assistant'
 
               const navLink = (
                 <Link
@@ -138,13 +156,63 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   href={item.href}
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isAI
-                      ? isActive
-                        ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
-                        : 'text-purple-600 dark:text-purple-400 hover:bg-gradient-to-r hover:from-purple-500/10 hover:to-blue-500/10'
-                      : isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <span
+                    className={cn(
+                      'whitespace-nowrap transition-opacity duration-200',
+                      collapsed ? 'opacity-0' : 'opacity-100 delay-100'
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                </Link>
+              )
+
+              if (collapsed) {
+                return (
+                  <Tooltip key={item.href} delayDuration={0}>
+                    <TooltipTrigger asChild>{navLink}</TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={10}>
+                      {item.label}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              }
+
+              return navLink
+            })}
+          </div>
+
+          {/* AI Studio Section */}
+          <div className="my-3 px-3">
+            <div className="h-px bg-border" />
+          </div>
+          <div className="space-y-1">
+            {!collapsed && (
+              <div className="px-3 pb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  AI Studio
+                </span>
+              </div>
+            )}
+            {aiNavItems.map((item) => {
+              const isActive = pathname === item.href ||
+                (item.href !== '/' && pathname.startsWith(item.href))
+
+              const navLink = (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />

@@ -4,14 +4,21 @@ import { useState, useEffect, useCallback } from 'react'
 import { appSettings } from '@/lib/firestore'
 import { AppSettings, AppSettingsInput, GeminiModel, ImageGenModel } from '@/types'
 import { hashPasskey } from '@/lib/passkey'
+import { useAuth } from './useAuth'
 
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { user } = useAuth()
 
   const loadSettings = useCallback(async () => {
+    if (!user) {
+      setSettings(null)
+      setLoading(false)
+      return
+    }
     try {
       setLoading(true)
       setError(null)
@@ -23,7 +30,7 @@ export function useSettings() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
     loadSettings()
@@ -175,6 +182,20 @@ export function useSettings() {
     [updateSettings]
   )
 
+  const setNotifyCalendarEvents = useCallback(
+    async (enabled: boolean) => {
+      await updateSettings({ notifyCalendarEvents: enabled })
+    },
+    [updateSettings]
+  )
+
+  const setCalendarEventHoursBefore = useCallback(
+    async (hours: number) => {
+      await updateSettings({ calendarEventHoursBefore: hours })
+    },
+    [updateSettings]
+  )
+
   return {
     settings,
     loading,
@@ -199,6 +220,8 @@ export function useSettings() {
     setTaskDueHoursBefore,
     setNotifyBreakReminder,
     setBreakReminderMinutes,
+    setNotifyCalendarEvents,
+    setCalendarEventHoursBefore,
     setImageGenApiToken: useCallback(
       async (token: string | null) => { await updateSettings({ imageGenApiToken: token }) },
       [updateSettings]

@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { User } from '@/types'
+import { userProfiles, projects as projectsApi } from '@/lib/firestore'
 
 interface AuthContextType {
   user: User | null
@@ -40,8 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(mapFirebaseUser(firebaseUser))
+      const mapped = mapFirebaseUser(firebaseUser)
+      setUser(mapped)
       setLoading(false)
+      // Store/update user profile and resolve pending invites
+      if (mapped) {
+        userProfiles.upsert(mapped).catch(() => {})
+        // Resolve pending project invites for this email
+        if (mapped.email) {
+          projectsApi.resolvePendingInvites(mapped.uid, mapped.email).catch(() => {})
+        }
+      }
     })
 
     return () => unsubscribe()

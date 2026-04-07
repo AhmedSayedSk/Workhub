@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/hooks/useAuth'
 import { projects, tasks, timeEntries, milestones, monthlyPayments, members as membersApi } from '@/lib/firestore'
 import { Project, Task, TimeEntry, Milestone, MonthlyPayment, TaskType, Member } from '@/types'
 import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime } from '@/lib/utils'
@@ -84,20 +85,21 @@ export default function DashboardPage() {
   const [membersMap, setMembersMap] = useState<Record<string, Member>>({})
   const [showIncomeChart, setShowIncomeChart] = useState(false)
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
   const { settings } = useSettings()
   const thinkingPercent = settings?.thinkingTimePercent ?? 0
 
   useEffect(() => {
     loadDashboardData()
-  }, [])
+  }, [user])
 
   const loadDashboardData = async () => {
     try {
       const [projectsData, todoData, inProgressData, allProjects, milestonesData, paymentsData, membersData] = await Promise.all([
-        projects.getByStatus('active'),
+        projects.getByStatus('active', user?.uid),
         tasks.getByStatus('todo'),
         tasks.getByStatus('in_progress'),
-        projects.getAll(),
+        projects.getAll(user?.uid),
         milestones.getAll(),
         monthlyPayments.getAll(),
         membersApi.getAll(),
@@ -145,11 +147,13 @@ export default function DashboardPage() {
       setAllInProgressTasks(filteredInProgress)
       setTodoTasks(sortByPriorityAndDeadline(filteredTodo, projMap).slice(0, 5))
       setInProgressTasks(sortByPriorityAndDeadline(filteredInProgress, projMap).slice(0, 5))
-      setTodayEntries(todayData)
-      setWeekEntries(weekData)
-      setMonthEntries(monthData)
-      setAllMilestones(milestonesData)
-      setAllPayments(paymentsData)
+      // Filter time entries, milestones, payments by accessible projects
+      const accessibleIds = new Set(allProjects.map((p: Project) => p.id))
+      setTodayEntries(todayData.filter((e: any) => accessibleIds.has(e.projectId)))
+      setWeekEntries(weekData.filter((e: any) => accessibleIds.has(e.projectId)))
+      setMonthEntries(monthData.filter((e: any) => accessibleIds.has(e.projectId)))
+      setAllMilestones(milestonesData.filter((m: any) => accessibleIds.has(m.projectId)))
+      setAllPayments(paymentsData.filter((p: any) => accessibleIds.has(p.projectId)))
     } catch (error) {
       console.error('Error loading dashboard data:', error)
     } finally {

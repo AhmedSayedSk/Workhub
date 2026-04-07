@@ -102,6 +102,9 @@ export interface Project {
   mediaFolderId: string | null
   hasOwnFinances: boolean
   repoPath?: string | null
+  ownerId: string
+  sharedWith: string[] // UIDs of users who can access this project
+  pendingSharedEmails: string[] // Emails of users invited but not yet signed up
   createdAt: Timestamp
 }
 
@@ -234,6 +237,9 @@ export interface ProjectInput {
   mediaFolderId?: string | null
   hasOwnFinances?: boolean
   repoPath?: string | null
+  ownerId?: string
+  sharedWith?: string[]
+  pendingSharedEmails?: string[]
 }
 
 export interface MilestoneInput {
@@ -352,6 +358,16 @@ export interface User {
   photoURL: string | null
 }
 
+// User profile stored in Firestore (for lookups by email)
+export interface UserProfile {
+  id: string
+  uid: string
+  email: string
+  displayName: string | null
+  photoURL: string | null
+  lastLoginAt: Timestamp
+}
+
 // API Response types
 export interface AIResponse {
   success: boolean
@@ -468,6 +484,7 @@ export interface ImageGenLog {
 
 export interface AppSettings {
   id: string
+  appOwnerUid?: string
   aiModel: GeminiModel
   aiEnabled: boolean
   thinkingTimePercent: number
@@ -485,6 +502,8 @@ export interface AppSettings {
   taskDueHoursBefore: number
   notifyBreakReminder: boolean
   breakReminderMinutes: number
+  notifyCalendarEvents: boolean
+  calendarEventHoursBefore: number
   imageGenApiToken?: string | null
   imageGenModel?: ImageGenModel
   imageGenEnabled?: boolean
@@ -512,6 +531,8 @@ export interface AppSettingsInput {
   taskDueHoursBefore?: number
   notifyBreakReminder?: boolean
   breakReminderMinutes?: number
+  notifyCalendarEvents?: boolean
+  calendarEventHoursBefore?: number
   imageGenApiToken?: string | null
   imageGenModel?: ImageGenModel
   imageGenEnabled?: boolean

@@ -84,6 +84,7 @@ import {
   Check,
   ChevronsUpDown,
   StickyNote,
+  Users,
 } from 'lucide-react'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
@@ -91,13 +92,14 @@ import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
 import { ClaudeSessionsTab } from '@/components/projects/ClaudeSessionsTab'
 import { ProjectNotesTab } from '@/components/projects/ProjectNotesTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
+import { ProjectSharingTab } from '@/components/projects/ProjectSharingTab'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'activity', 'ai-sessions']
+  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'activity', 'ai-sessions', 'sharing']
   const {
     project,
     parentProject,
@@ -112,6 +114,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     updatePayment,
     updateProject,
     deleteProject,
+    refetch: refetchProject,
   } = useProject(id)
   const { logs: activityLogs, loading: logsLoading, refetch: refetchLogs, deleteLog } = useProjectLogs(id)
   const { reauthenticate } = useAuth()
@@ -794,6 +797,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <Bot className="h-4 w-4" />
             AI Sessions
           </TabsTriggerBoxed>
+          <TabsTriggerBoxed value="sharing" className="gap-2">
+            <Users className="h-4 w-4" />
+            Sharing
+          </TabsTriggerBoxed>
         </TabsListBoxed>
 
         <TabsContentBoxed value="tasks" className="lg:flex-1 lg:min-h-0">
@@ -1339,6 +1346,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         <TabsContentBoxed value="ai-sessions" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           <ClaudeSessionsTab projectId={id} repoPath={project.repoPath || null} />
+        </TabsContentBoxed>
+
+        <TabsContentBoxed value="sharing" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <ProjectSharingTab project={project} onUpdate={refetchProject} />
         </TabsContentBoxed>
 
       </Tabs>
