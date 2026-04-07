@@ -35,6 +35,7 @@ import { Separator } from '@/components/ui/separator'
 import { Calendar as MiniCalendar } from '@/components/ui/calendar'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 import { useAuth } from '@/hooks/useAuth'
 import { useCalendarEvents } from '@/hooks/useCalendarEvents'
@@ -58,6 +59,7 @@ import {
   ImagePlus,
   Table2,
   ArrowUpDown,
+  Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -166,6 +168,7 @@ export default function CalendarPage() {
   const [calendarApi, setCalendarApi] = useState<any>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [form, setForm] = useState<EventFormState>(defaultFormState)
   const [selectedStatuses, setSelectedStatuses] = useState<CalendarEventStatus[]>([...ALL_STATUSES])
@@ -183,8 +186,8 @@ export default function CalendarPage() {
   const [tableSortDir, setTableSortDir] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
-    projectsApi.getAll().then(setAllProjects)
-  }, [])
+    projectsApi.getAll(user?.uid).then(setAllProjects)
+  }, [user?.uid])
 
   useEffect(() => {
     if (calendarRef.current && !calendarApi) {
@@ -771,11 +774,6 @@ export default function CalendarPage() {
             <DialogTitle className="text-lg font-semibold">
               {selectedEvent ? 'Update Event' : 'Add Event'}
             </DialogTitle>
-            {selectedEvent && (
-              <Button variant="ghost" size="icon" onClick={handleDelete} className="text-destructive hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
           </div>
 
           {/* Two-column layout */}
@@ -998,6 +996,18 @@ export default function CalendarPage() {
                       </label>
                       <button
                         type="button"
+                        onClick={() => {
+                          const url = form.imageFile ? URL.createObjectURL(form.imageFile) : form.imageUrl
+                          if (!url) return
+                          window.open(url, '_blank')
+                        }}
+                        className="flex-1 rounded-md border px-3 py-1.5 text-xs flex items-center justify-center gap-1 hover:bg-accent transition-colors"
+                      >
+                        <Download className="h-3 w-3" />
+                        Download
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setForm({ ...form, imageUrl: '', imageFile: null })}
                         className="flex-1 rounded-md border px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
                       >
@@ -1025,14 +1035,46 @@ export default function CalendarPage() {
           </div>
 
           {/* Footer bar */}
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t bg-muted/30">
-            <Button variant="outline" onClick={handleClose}>Cancel</Button>
-            <Button onClick={handleSubmit}>
-              {selectedEvent ? 'Update' : 'Create'}
-            </Button>
+          <div className="flex items-center justify-between gap-2 px-6 py-4 border-t bg-muted/30">
+            <div>
+              {selectedEvent && (
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button onClick={handleSubmit}>
+                {selectedEvent ? 'Update' : 'Create'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete Event"
+        description={
+          selectedEvent
+            ? `Are you sure you want to delete "${selectedEvent.title}"? This action cannot be undone.`
+            : 'Are you sure you want to delete this event? This action cannot be undone.'
+        }
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={async () => {
+          await handleDelete()
+          setDeleteConfirmOpen(false)
+        }}
+      />
 
       {/* Event Hover Tooltip */}
       {tooltip && (
