@@ -7,4 +7,6 @@ firebase-service-account.json
 Dockerfile.dev
 docker-compose.yml
 mcp-server
+image-gen-mcp
+tts-mcp
 docs
