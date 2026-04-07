@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
 
 // Account registration can take 30-60s+ (Google session setup)
 export const maxDuration = 120
@@ -48,6 +49,9 @@ async function proxyError(res: Response) {
 // GET — list accounts or jobs
 export async function GET(request: NextRequest) {
   try {
+    const authError = await requireAuth(request)
+    if (authError) return authError
+
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
     const apiToken = searchParams.get('token')
@@ -94,6 +98,9 @@ export async function GET(request: NextRequest) {
 // POST — generate, register account, delete account, upload asset, upscale
 export async function POST(request: NextRequest) {
   try {
+    const authError = await requireAuth(request)
+    if (authError) return authError
+
     const body = await request.json()
     const { action, apiToken } = body
 
@@ -167,8 +174,6 @@ export async function POST(request: NextRequest) {
       }
 
       const reqPayload = buildReqBody(initialEmail)
-      console.log('useapi.net request:', { email: reqPayload.email, model: reqPayload.model, count: reqPayload.count, preferredEmail: body.preferredEmail, disabledEmails })
-
       const res = await fetch(`${USEAPI_BASE}/images`, {
         method: 'POST',
         headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
@@ -341,7 +346,6 @@ export async function POST(request: NextRequest) {
           || s.value.data?.mediaGenerationId
         if (mgId) perAccount[s.value.email] = mgId as string
       }
-      console.log(`Asset uploaded to ${successes.length}/${emails.length} accounts:`, perAccount)
       return NextResponse.json({ success: true, data: successes[0].value.data, perAccount })
     }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
 import { execSync } from 'child_process'
 
 export const dynamic = 'force-dynamic'
@@ -18,6 +19,13 @@ function normalizePath(raw: string): string {
  * Removes git worktrees and branches associated with AI sessions.
  */
 export async function POST(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production.' }, { status: 403 })
+  }
+
+  const authError = await requireAuth(req)
+  if (authError) return authError
+
   try {
     const { repoPath: rawPath, branches } = await req.json()
     const repoPath = rawPath ? normalizePath(String(rawPath)) : null

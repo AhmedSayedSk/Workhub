@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
 import { processRegistry, spawnClaudeStream } from '../route'
 
 export const dynamic = 'force-dynamic'
@@ -9,6 +10,13 @@ export const maxDuration = 900 // 15 minutes max
  * Spawns a new `claude -p --resume <session_id>` process and streams the output back.
  */
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return new Response(JSON.stringify({ error: 'Not available in production.' }), { status: 403 })
+  }
+
+  const authError = await requireAuth(request)
+  if (authError) return authError
+
   const { processId, message } = await request.json()
 
   if (!processId || !message) {

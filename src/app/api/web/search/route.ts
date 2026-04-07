@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth, verifyAuth } from '@/lib/api-auth'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // DuckDuckGo search - completely free, no API key, no limits
 async function searchDuckDuckGo(query: string, num: number = 5): Promise<{
@@ -119,6 +121,12 @@ async function searchDuckDuckGo(query: string, num: number = 5): Promise<{
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = await requireAuth(request)
+    if (authError) return authError
+    const decoded = await verifyAuth(request)
+    const rateLimited = checkRateLimit(`web:${decoded?.uid}`, 20, 60_000) // 20 req/min
+    if (rateLimited) return rateLimited
+
     const { query, num = 5 } = await request.json()
 
     if (!query) {

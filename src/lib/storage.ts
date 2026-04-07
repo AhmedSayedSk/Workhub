@@ -318,24 +318,17 @@ async function getOptimizedFile(
     // Only fall back to original if optimized is somehow larger
     if (blob.size < originalSize) {
       const reduction = Math.round((1 - blob.size / originalSize) * 100)
-      console.log(
-        `Image optimized: ${formatFileSize(originalSize)} → ${formatFileSize(blob.size)} (${reduction}% reduction)`
-      )
       return { file: blob, optimized: true, originalSize, newSize: blob.size }
     } else {
       // Even if sizes are similar, prefer the compressed version for consistency
       // unless it's significantly larger (more than 10% bigger)
       if (blob.size <= originalSize * 1.1) {
-        console.log(
-          `Image compressed: ${formatFileSize(originalSize)} → ${formatFileSize(blob.size)} (quality normalized)`
-        )
         return { file: blob, optimized: true, originalSize, newSize: blob.size }
       }
-      console.log('Optimized image is larger, using original')
       return { file, optimized: false, originalSize, newSize: originalSize }
     }
   } catch (error) {
-    console.warn('Image optimization failed, using original:', error)
+    // Optimization failed, using original
     return { file, optimized: false, originalSize, newSize: originalSize }
   }
 }
@@ -357,14 +350,12 @@ export async function uploadFile(
   const originalSize = file.size
 
   if (!options?.skipOptimization && isOptimizableImage(file.type)) {
-    console.log(`[Upload] Optimizing image: ${file.name} (${formatFileSize(originalSize)})`)
     try {
       const result = await getOptimizedFile(file)
       fileToUpload = result.file
       optimized = result.optimized
-      console.log(`[Upload] Optimization complete: ${formatFileSize(originalSize)} → ${formatFileSize(result.newSize)}`)
-    } catch (error) {
-      console.warn('[Upload] Optimization failed, uploading original:', error)
+    } catch {
+      // Optimization failed, upload original
     }
   }
 
@@ -417,7 +408,7 @@ export async function uploadFileWithOptimization(
       optimized = result.optimized
       newSize = result.newSize
     } catch (error) {
-      console.warn('Optimization failed, uploading original:', error)
+      // Optimization failed, uploading original
     }
   }
 

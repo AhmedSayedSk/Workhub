@@ -6,11 +6,18 @@ import {
   askAI,
   suggestTaskIcon,
 } from '@/lib/gemini'
+import { requireAuth, verifyAuth } from '@/lib/api-auth'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { appSettings } from '@/lib/firestore'
 import { GeminiModel } from '@/types'
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = await requireAuth(request)
+    if (authError) return authError
+    const decoded = await verifyAuth(request)
+    const rateLimited = checkRateLimit(`ai:${decoded?.uid}`, 30, 60_000) // 30 req/min
+    if (rateLimited) return rateLimited
     const body = await request.json()
     const { action, data, model: requestModel } = body
 
@@ -99,8 +106,10 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to fetch current AI settings
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = await requireAuth(request)
+    if (authError) return authError
     const settings = await appSettings.getOrCreate()
     return NextResponse.json({
       success: true,

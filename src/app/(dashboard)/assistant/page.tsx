@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAI } from '@/hooks/useAI'
@@ -619,7 +620,7 @@ export default function AssistantPage() {
   // Web search function (DuckDuckGo - free, no API key, unlimited)
   const searchWeb = async (query: string): Promise<string> => {
     try {
-      const response = await fetch('/api/web/search', {
+      const response = await authFetch('/api/web/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, num: 5 }),
@@ -661,7 +662,7 @@ export default function AssistantPage() {
   // URL fetch function
   const fetchUrl = async (url: string): Promise<string> => {
     try {
-      const response = await fetch('/api/web/fetch', {
+      const response = await authFetch('/api/web/fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),

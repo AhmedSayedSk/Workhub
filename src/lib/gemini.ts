@@ -259,8 +259,6 @@ Icons: ${candidates.join(', ')}`
     // Strip quotes, backticks, markdown, newlines
     const response = raw.replace(/[`"'*\n\r]/g, '').trim()
 
-    console.log('[suggestTaskIcon] raw:', JSON.stringify(raw), '→ cleaned:', response, '| candidates:', candidates.length)
-
     // Exact match
     if (VALID_ICON_NAMES.includes(response)) {
       return response

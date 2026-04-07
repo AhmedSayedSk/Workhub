@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { useToast } from './useToast'
 import { tasks, projects } from '@/lib/firestore'
 import { TaskStatus, Priority, TaskType } from '@/types'
@@ -32,7 +33,7 @@ export function useAI() {
   const callAI = async (action: string, data: Record<string, unknown>): Promise<AIResponse | null> => {
     setLoading(true)
     try {
-      const response = await fetch('/api/ai', {
+      const response = await authFetch('/api/ai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +119,7 @@ export function useAI() {
     taskType?: string
   ): Promise<string | null> => {
     try {
-      const response = await fetch('/api/ai', {
+      const response = await authFetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { ImageGeneration, ImageGenAspectRatio, AppSettings } from '@/types'
 import { imageGenerations, mediaFiles, imageGenLogs } from '@/lib/firestore'
 import { uploadBlob, deleteFile } from '@/lib/storage'
@@ -176,7 +177,7 @@ export function useImageGenerator() {
       // Send batches sequentially
       const allImages: { url: string; seed?: number; mediaGenerationId?: string }[] = []
       for (const batchCount of batches) {
-        const res = await fetch('/api/ai/image', {
+        const res = await authFetch('/api/ai/image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

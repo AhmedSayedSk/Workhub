@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { toast } from 'react-toastify'
 
 export interface ConnectedAccount {
@@ -50,7 +51,7 @@ export function useImageApi(apiToken: string | null | undefined) {
     if (!apiToken) return
     setLoadingAccounts(true)
     try {
-      const res = await fetch(`/api/ai/image?action=accounts&token=${encodeURIComponent(apiToken)}`)
+      const res = await authFetch(`/api/ai/image?action=accounts&token=${encodeURIComponent(apiToken)}`)
       const result = await res.json()
       if (!result.success) throw new Error(result.error)
 
@@ -83,7 +84,7 @@ export function useImageApi(apiToken: string | null | undefined) {
     if (!apiToken) return { success: false, error: 'No API token' }
     setRegistering(true)
     try {
-      const res = await fetch('/api/ai/image', {
+      const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'register_account', apiToken, cookies }),
@@ -125,7 +126,7 @@ export function useImageApi(apiToken: string | null | undefined) {
     if (!apiToken) return false
     setDeletingEmail(email)
     try {
-      const res = await fetch('/api/ai/image', {
+      const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete_account', apiToken, email }),
@@ -149,7 +150,7 @@ export function useImageApi(apiToken: string | null | undefined) {
   const fetchCaptchaProviders = useCallback(async () => {
     if (!apiToken) return null
     try {
-      const res = await fetch(`/api/ai/image?action=captcha-providers&token=${encodeURIComponent(apiToken)}`)
+      const res = await authFetch(`/api/ai/image?action=captcha-providers&token=${encodeURIComponent(apiToken)}`)
       const result = await res.json()
       if (!result.success) return null
       return result.data as Record<string, string>
@@ -161,7 +162,7 @@ export function useImageApi(apiToken: string | null | undefined) {
   const setCaptchaProviders = useCallback(async (providers: Record<string, string>) => {
     if (!apiToken) return false
     try {
-      const res = await fetch('/api/ai/image', {
+      const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'set_captcha_providers', apiToken, providers }),
@@ -183,7 +184,7 @@ export function useImageApi(apiToken: string | null | undefined) {
     if (!apiToken) return
     setLoadingJobs(true)
     try {
-      const res = await fetch(`/api/ai/image?action=jobs&token=${encodeURIComponent(apiToken)}&options=history`)
+      const res = await authFetch(`/api/ai/image?action=jobs&token=${encodeURIComponent(apiToken)}&options=history`)
       const result = await res.json()
       if (!result.success) throw new Error(result.error)
       setJobs(result.data)
@@ -197,7 +198,7 @@ export function useImageApi(apiToken: string | null | undefined) {
   const upscaleImage = useCallback(async (mediaGenerationId: string, resolution: '2k' | '4k' = '2k') => {
     if (!apiToken) return null
     try {
-      const res = await fetch('/api/ai/image', {
+      const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'upscale', apiToken, mediaGenerationId, resolution }),
@@ -218,7 +219,7 @@ export function useImageApi(apiToken: string | null | undefined) {
   const uploadAsset = useCallback(async (dataUrl: string, fileName: string): Promise<UploadedAsset | null> => {
     if (!apiToken) return null
     try {
-      const res = await fetch('/api/ai/image', {
+      const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'upload_asset', apiToken, asset: dataUrl }),

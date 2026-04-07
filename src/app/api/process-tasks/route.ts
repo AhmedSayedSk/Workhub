@@ -1,4 +1,5 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
 import { spawn, ChildProcess, execSync } from 'child_process'
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
@@ -7,6 +8,8 @@ import { randomUUID } from 'crypto'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 900 // 15 minutes max
+
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 
 /**
  * Global registry: processId → session info.
@@ -189,6 +192,13 @@ export function spawnClaudeStream(
 }
 
 export async function POST(request: NextRequest) {
+  if (IS_PRODUCTION) {
+    return new Response(JSON.stringify({ error: 'Claude task processing is only available in local development.' }), { status: 403 })
+  }
+
+  const authError = await requireAuth(request)
+  if (authError) return authError
+
   const { projectId, projectName, repoPath: rawRepoPath, taskIds } = await request.json()
 
   if (!projectId || !projectName || !taskIds?.length) {
@@ -200,8 +210,6 @@ export async function POST(request: NextRequest) {
 
   // Normalize path for WSL2 environment
   const repoPath = rawRepoPath ? normalizePath(String(rawRepoPath)) : null
-  console.log('[process-tasks] rawRepoPath:', rawRepoPath, '→ resolved:', repoPath, '| HOME:', process.env.HOME)
-
   if (!repoPath) {
     return new Response(JSON.stringify({
       error: `Project "${projectName}" has no repository path configured. Go to Project Settings → Edit and set the Repository Path.`,

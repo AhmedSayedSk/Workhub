@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth, verifyAuth } from '@/lib/api-auth'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Simple HTML to text converter
 function htmlToText(html: string): string {
@@ -42,6 +44,12 @@ function extractMetadata(html: string): { title: string; description: string } {
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = await requireAuth(request)
+    if (authError) return authError
+    const decoded = await verifyAuth(request)
+    const rateLimited = checkRateLimit(`web:${decoded?.uid}`, 20, 60_000)
+    if (rateLimited) return rateLimited
+
     const { url } = await request.json()
 
     if (!url) {
