@@ -1,6 +1,8 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     ports:
       - "3090:3090"
     volumes:
