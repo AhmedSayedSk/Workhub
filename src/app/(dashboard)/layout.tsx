@@ -8,6 +8,8 @@ import { Header } from '@/components/layout/Header'
 import { TimerWidget } from '@/components/time/TimerWidget'
 import { cn } from '@/lib/utils'
 import { useNotifications } from '@/hooks/useNotifications'
+import { useOfflineDetector } from '@/hooks/useOfflineDetector'
+import { WifiOff } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
@@ -32,6 +34,7 @@ export default function DashboardLayout({
   }
 
   useNotifications()
+  const isOffline = useOfflineDetector()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -59,6 +62,12 @@ export default function DashboardLayout({
         style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}
       >
         <Header />
+        {isOffline && (
+          <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center gap-2 text-sm font-medium">
+            <WifiOff className="h-4 w-4 shrink-0" />
+            You are offline. Some features may not work until your connection is restored.
+          </div>
+        )}
         <main className="p-6 min-w-0">
           {children}
         </main>
