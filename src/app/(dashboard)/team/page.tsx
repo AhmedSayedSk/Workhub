@@ -24,10 +24,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { colorPresets } from '@/lib/utils'
-import { Plus, Loader2, MoreVertical, Edit, Trash2, Mail, Phone, Search, ShieldAlert } from 'lucide-react'
+import { Plus, Loader2, MoreVertical, Edit, Trash2, Mail, Phone, Search, ShieldAlert, Eye, EyeOff, KeyRound } from 'lucide-react'
 import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
+import { useToast } from '@/hooks/useToast'
 
 const defaultForm: MemberInput = {
   name: '',
@@ -42,11 +43,14 @@ export default function TeamPage() {
   const { user } = useAuth()
   const { settings } = useSettings()
   const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
+  const { toast } = useToast()
   const { members, loading, createMember, updateMember, deleteMember } = useMembers()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null)
   const [form, setForm] = useState<MemberInput>(defaultForm)
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [fetchingAvatar, setFetchingAvatar] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
@@ -91,6 +95,8 @@ export default function TeamPage() {
   const openCreate = () => {
     setEditingMember(null)
     setForm(defaultForm)
+    setPassword('')
+    setShowPassword(false)
     setDialogOpen(true)
   }
 
@@ -109,14 +115,47 @@ export default function TeamPage() {
 
   const handleSave = async () => {
     if (!form.name.trim()) return
+
+    // Validate password for new members
+    if (!editingMember) {
+      if (!form.email.trim()) {
+        toast({ title: 'Email required', description: 'Team members need an email to log in.', variant: 'destructive' })
+        return
+      }
+      if (!password || password.length < 6) {
+        toast({ title: 'Password too short', description: 'Password must be at least 6 characters.', variant: 'destructive' })
+        return
+      }
+    }
+
     setSaving(true)
     try {
       if (editingMember) {
         await updateMember(editingMember.id, form)
       } else {
+        // Create Firebase Auth account first
+        const res = await authFetch('/api/create-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: form.email,
+            password,
+            displayName: form.name,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          toast({ title: 'Error', description: data.error || 'Failed to create account', variant: 'destructive' })
+          return
+        }
+
+        // Then create the member record
         await createMember(form)
+        toast({ description: `${form.name} added with login access.` })
       }
       setDialogOpen(false)
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save member', variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -304,6 +343,35 @@ export default function TeamPage() {
                 onChange={(value) => setForm({ ...form, phone: value })}
               />
             </div>
+            {/* Password field — only for new members */}
+            {!editingMember && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Login Password *
+                </Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Min. 6 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This password will be used by the member to log into WorkHub
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Avatar URL</Label>
               <Input
