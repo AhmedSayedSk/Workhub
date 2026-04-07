@@ -1,3 +1,10 @@
 node_modules
 .next
 .git
+*.md
+.env*.local
+firebase-service-account.json
+Dockerfile.dev
+docker-compose.yml
+mcp-server
+docs

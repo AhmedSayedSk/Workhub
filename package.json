@@ -41,6 +41,9 @@
     "migrate:reset": "npx ts-node --project tsconfig.migration.json firebase/migrations/reset-database.ts",
     "db:clear": "npx ts-node --project tsconfig.migration.json firebase/migrations/clear-sample-data.ts"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
     "@fullcalendar/daygrid": "^6.1.20",
