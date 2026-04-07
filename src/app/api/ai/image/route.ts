@@ -342,8 +342,8 @@ export async function POST(request: NextRequest) {
       // Return per-account mediaGenerationIds
       const perAccount: Record<string, string> = {}
       for (const s of successes) {
-        const mgId = s.value.data?.mediaGenerationId?.mediaGenerationId
-          || s.value.data?.mediaGenerationId
+        const mgId = (s.value.data as any)?.mediaGenerationId?.mediaGenerationId
+          || (s.value.data as any)?.mediaGenerationId
         if (mgId) perAccount[s.value.email] = mgId as string
       }
       return NextResponse.json({ success: true, data: successes[0].value.data, perAccount })
