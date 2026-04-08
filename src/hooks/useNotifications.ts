@@ -106,7 +106,7 @@ export function useNotifications() {
   }, [settings, notifyDismissable])
 
   const checkDeadlineAlerts = useCallback(async () => {
-    if (!settings?.notifyDeadlineAlerts) return
+    if (!settings?.notifyDeadlineAlerts || !user?.uid) return
 
     try {
       const activeProjects = await projects.getByStatus('active', user?.uid)
@@ -142,11 +142,15 @@ export function useNotifications() {
   }, [settings, user, notifyDismissable])
 
   const checkPaymentReminders = useCallback(async () => {
-    if (!settings?.notifyPaymentReminders) return
+    if (!settings?.notifyPaymentReminders || !user?.uid) return
 
     try {
-      const payments = await monthlyPayments.getAll()
-      const pending = payments.filter((p) => p.status === 'pending')
+      const [allPayments, accessibleProjects] = await Promise.all([
+        monthlyPayments.getAll(),
+        projects.getAll(user.uid),
+      ])
+      const accessibleIds = new Set(accessibleProjects.map((p) => p.id))
+      const pending = allPayments.filter((p) => p.status === 'pending' && accessibleIds.has(p.projectId))
 
       for (const payment of pending) {
         if (notifiedPayments.current.has(payment.id)) continue
@@ -242,7 +246,7 @@ export function useNotifications() {
   }, [settings, notifyDismissable])
 
   const checkCalendarEventReminders = useCallback(async () => {
-    if (!settings?.notifyCalendarEvents) return
+    if (!settings?.notifyCalendarEvents || !user?.uid) return
 
     try {
       const now = new Date()
@@ -282,7 +286,7 @@ export function useNotifications() {
   }, [settings, notifyDismissable])
 
   useEffect(() => {
-    if (!settings) return
+    if (!settings || !user?.uid) return
     if (getNotificationPermission() === 'unsupported') return
 
     // Run initial checks
@@ -306,5 +310,5 @@ export function useNotifications() {
 
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, checkTimerReminder, checkDeadlineAlerts, checkPaymentReminders, checkDailySummary, checkIdleReminder, checkBreakReminder, checkCalendarEventReminders])
+  }, [settings, user, checkTimerReminder, checkDeadlineAlerts, checkPaymentReminders, checkDailySummary, checkIdleReminder, checkBreakReminder, checkCalendarEventReminders])
 }
