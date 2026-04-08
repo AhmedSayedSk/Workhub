@@ -304,7 +304,7 @@ export default function AuditLogsPage() {
                         className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground mb-1"
                       >
                         <Checkbox
-                          checked={allChecked ? true : someChecked ? 'indeterminate' : false}
+                          checked={allChecked}
                           className="h-3 w-3"
                           tabIndex={-1}
                         />
