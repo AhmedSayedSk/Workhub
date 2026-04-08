@@ -298,7 +298,7 @@ export function MemberPermissionsEditor({ member, memberUid, ownerUid, buffered,
       } else {
         const project = allProjects.find((p) => p.id === projectId)
         if (project) {
-          const newShared = [...(project.sharedWith || []), memberUid]
+          const newShared = [...(project.sharedWith || []), memberUid!]
           await projectsApi.update(projectId, { sharedWith: newShared })
         }
         await memberPermsApi.setProjectPermissions(member.id, memberUid!, projectId, DEFAULT_PROJECT_PERMISSIONS)
