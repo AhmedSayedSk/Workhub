@@ -59,6 +59,7 @@ import {
   colorPresets,
   projectFieldLabels,
   projectTypes,
+  getEffectiveTotal,
 } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -253,7 +254,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   // Internal projects have no payment tracking
   const isMonthly = project.paymentModel === 'monthly'
   const isInternal = project.paymentModel === 'internal'
-  const progress = (isMonthly || isInternal) ? 0 : calculateProgress(project.paidAmount, project.totalAmount)
+  const isMilestone = project.paymentModel === 'milestone'
+
+  const effectiveTotal = getEffectiveTotal(project)
+  const progress = (isMonthly || isInternal) ? 0 : calculateProgress(project.paidAmount, effectiveTotal)
 
   // For non-monthly: owed = total - paid
   // For monthly: owed = sum of pending monthly payments
@@ -261,7 +265,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const pendingPaymentsTotal = payments
     .filter(p => p.status === 'pending')
     .reduce((sum, p) => sum + p.amount, 0)
-  const owedAmount = isInternal ? 0 : (isMonthly ? pendingPaymentsTotal : Math.max(0, project.totalAmount - project.paidAmount))
+  const owedAmount = isInternal ? 0 : (isMonthly ? pendingPaymentsTotal : Math.max(0, effectiveTotal - project.paidAmount))
 
   const handleCreateMilestone = async () => {
     if (!milestoneForm.name || !milestoneForm.amount || !milestoneForm.dueDate) return
@@ -560,7 +564,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <div className="flex items-center gap-1.5">
                   <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">{isMonthly ? 'Rate' : 'Total'}</span>
-                  <span className="text-sm font-semibold">{formatCurrency(project.totalAmount)}</span>
+                  <span className="text-sm font-semibold">{formatCurrency(effectiveTotal)}</span>
                 </div>
                 <Separator orientation="vertical" className="h-4" />
                 <div className="flex items-center gap-1.5">
@@ -1182,17 +1186,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   <div>
                     <p className="font-medium">Total Project Value</p>
                     <p className="text-2xl font-bold">
-                      {formatCurrency(project.totalAmount)}
+                      {formatCurrency(effectiveTotal)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground mb-2">
                       {project.paidAmount > 0 ? 'Partially Paid' : 'Pending Payment'}
                     </p>
-                    {project.paidAmount < project.totalAmount ? (
+                    {project.paidAmount < effectiveTotal ? (
                       <Button
                         onClick={async () => {
-                          await updateProject({ paidAmount: project.totalAmount })
+                          await updateProject({ paidAmount: effectiveTotal })
                           refetchLogs()
                         }}
                       >

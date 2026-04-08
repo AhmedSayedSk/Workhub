@@ -20,6 +20,7 @@ import {
   formatRemainingTime,
   formatTimeSince,
   projectTypes,
+  getEffectiveTotal,
 } from '@/lib/utils'
 import {
   Plus,
@@ -215,7 +216,7 @@ export default function ProjectsPage() {
                 {/* Projects Grid */}
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {projectsInGroup.map((project) => {
-                    const progress = calculateProgress(project.paidAmount, project.totalAmount)
+                    const progress = calculateProgress(project.paidAmount, getEffectiveTotal(project))
                     const PaymentIcon = paymentModelIcons[project.paymentModel]
 
                     return (
@@ -282,7 +283,7 @@ export default function ProjectsPage() {
                                       {formatCurrency(project.paidAmount)}
                                     </span>
                                     <span className="font-medium">
-                                      {formatCurrency(project.totalAmount)}
+                                      {formatCurrency(getEffectiveTotal(project))}
                                     </span>
                                   </div>
                                 </div>

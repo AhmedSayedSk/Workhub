@@ -12,8 +12,7 @@ import { subtasks as subtasksApi } from '@/lib/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { useModulePermissions } from '@/hooks/usePermissions'
 import { Avatar, AvatarFallback, CachedAvatarImage } from '@/components/ui/avatar'
-import { cn } from '@/lib/utils'
-import { formatDate } from '@/lib/utils'
+import { cn, formatDate, getEffectiveTotal } from '@/lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -889,7 +888,7 @@ export default function AssistantPage() {
       paymentModel: p.paymentModel,
       startDate: p.startDate ? formatDate(p.startDate) : 'Not set',
       deadline: p.deadline ? formatDate(p.deadline) : 'No deadline',
-      totalAmount: p.totalAmount,
+      totalAmount: getEffectiveTotal(p),
       paidAmount: p.paidAmount,
     }))
 

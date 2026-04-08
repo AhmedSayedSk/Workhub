@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Timestamp } from 'firebase/firestore'
-import { taskComments, projectLogs } from '@/lib/firestore'
+import { taskComments, projectLogs, audit } from '@/lib/firestore'
 import { TaskComment, TaskCommentInput, CommentParentType } from '@/types'
 import { deleteFile } from '@/lib/storage'
 import { useToast } from './useToast'
+import { useAuth } from './useAuth'
 
 export function useComments(parentId?: string, parentType?: CommentParentType, projectId?: string, contextLabel?: string) {
   const [data, setData] = useState<TaskComment[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchComments = useCallback(async () => {
     if (!parentId || !parentType) {
@@ -57,6 +59,7 @@ export function useComments(parentId?: string, parentType?: CommentParentType, p
       setData((prev) =>
         prev.map((c) => (c.id === optimisticComment.id ? { ...c, id } : c))
       )
+      audit({ type: 'comment', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: projectId, targetId: id })
       if (projectId) {
         const commentPreview = input.text
           ? input.text.length > 120 ? input.text.slice(0, 120) + '...' : input.text
@@ -83,6 +86,7 @@ export function useComments(parentId?: string, parentType?: CommentParentType, p
 
     try {
       await taskComments.delete(id)
+      audit({ type: 'comment', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: projectId, targetId: id })
       if (audioStoragePath) {
         try {
           await deleteFile(audioStoragePath)

@@ -65,6 +65,9 @@ import {
   MemberPermission,
   ProjectPermissions,
   ModulePermissions,
+  AuditLog,
+  AuditLogInput,
+  AuditLogType,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -1455,4 +1458,46 @@ export const memberPermissions = {
     const all = await this.getForMember(memberUid)
     for (const p of all) await remove('memberPermissions', p.id)
   },
+}
+
+// Audit Logs
+const AUDIT_RETENTION_DAYS = 90
+
+export const auditLogs = {
+  async create(data: AuditLogInput): Promise<string> {
+    return create('auditLogs', data)
+  },
+
+  async getAll(filters?: {
+    type?: AuditLogType
+    actorUid?: string
+    projectId?: string
+    startDate?: Date
+    endDate?: Date
+  }): Promise<AuditLog[]> {
+    const constraints: QueryConstraint[] = []
+    if (filters?.type) constraints.push(where('type', '==', filters.type))
+    if (filters?.actorUid) constraints.push(where('actorUid', '==', filters.actorUid))
+    if (filters?.projectId) constraints.push(where('projectId', '==', filters.projectId))
+    if (filters?.startDate) constraints.push(where('createdAt', '>=', Timestamp.fromDate(filters.startDate)))
+    if (filters?.endDate) constraints.push(where('createdAt', '<=', Timestamp.fromDate(filters.endDate)))
+
+    const results = await getAll<AuditLog>('auditLogs', ...constraints)
+    return results.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+
+  async purgeOlderThan(days: number = AUDIT_RETENTION_DAYS): Promise<number> {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+    const old = await getAll<AuditLog>('auditLogs', where('createdAt', '<', Timestamp.fromDate(cutoff)))
+    const batch = writeBatch(db)
+    old.forEach((log) => batch.delete(doc(db, 'auditLogs', log.id)))
+    if (old.length > 0) await batch.commit()
+    return old.length
+  },
+}
+
+/** Fire-and-forget audit log helper */
+export function audit(data: AuditLogInput): void {
+  auditLogs.create(data).catch(() => {})
 }

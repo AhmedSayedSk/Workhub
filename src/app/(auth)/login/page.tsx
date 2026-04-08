@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/useToast'
+import { audit } from '@/lib/firestore'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { FirebaseError } from 'firebase/app'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -24,9 +26,12 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await signIn(email, password)
+      const cred = await signIn(email, password)
+      audit({ type: 'login', action: 'login_success', actorUid: cred.user.uid, actorEmail: cred.user.email || email })
       router.push('/')
     } catch (error: unknown) {
+      const errorCode = error instanceof FirebaseError ? error.code : 'unknown'
+      audit({ type: 'login_failed', action: 'login_failed', actorUid: null, actorEmail: email, details: { errorCode } })
       const errorMessage = error instanceof Error ? error.message : 'Failed to sign in'
       toast({
         title: 'Error',

@@ -17,6 +17,7 @@ import {
   statusColors,
   calculateProgress,
   chartColors,
+  getEffectiveTotal,
 } from '@/lib/utils'
 import { format, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, differenceInDays, isPast } from 'date-fns'
 import {
@@ -87,7 +88,7 @@ export default function FinancesPage() {
 
   // Owed from non-monthly projects (milestone/fixed) - excludes internal
   const nonMonthlyOwed = nonMonthlyProjects.reduce(
-    (sum, p) => sum + Math.max(0, p.totalAmount - p.paidAmount),
+    (sum, p) => sum + Math.max(0, getEffectiveTotal(p) - p.paidAmount),
     0
   )
 
@@ -188,10 +189,10 @@ export default function FinancesPage() {
   const projectDistribution = useMemo(() => {
     if (distributionPeriod === 'all') {
       return projectsWithPayments
-        .filter((p) => p.totalAmount > 0 || p.paidAmount > 0)
+        .filter((p) => getEffectiveTotal(p) > 0 || p.paidAmount > 0)
         .map((p) => ({
           name: p.name,
-          value: p.totalAmount || p.paidAmount,
+          value: getEffectiveTotal(p) || p.paidAmount,
           color: p.color,
         }))
         .sort((a, b) => b.value - a.value)
@@ -608,7 +609,7 @@ export default function FinancesPage() {
                 const isInternal = project.paymentModel === 'internal'
                 const progress = (isMonthly || isInternal) ? 0 : calculateProgress(
                   project.paidAmount,
-                  project.totalAmount
+                  getEffectiveTotal(project)
                 )
                 // For monthly: show pending payments as owed
                 // For internal: no owed
@@ -620,7 +621,7 @@ export default function FinancesPage() {
                   ? 0
                   : isMonthly
                   ? projectPendingPayments
-                  : Math.max(0, project.totalAmount - project.paidAmount)
+                  : Math.max(0, getEffectiveTotal(project) - project.paidAmount)
 
                 return (
                   <Link
@@ -704,7 +705,7 @@ export default function FinancesPage() {
                         ) : (
                           <p className="font-medium">
                             {formatCurrency(project.paidAmount)} /{' '}
-                            {formatCurrency(project.totalAmount)}
+                            {formatCurrency(getEffectiveTotal(project))}
                           </p>
                         )}
                         {owed > 0 && (

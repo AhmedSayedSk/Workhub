@@ -12,12 +12,12 @@ import {
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { User } from '@/types'
-import { userProfiles, projects as projectsApi } from '@/lib/firestore'
+import { userProfiles, projects as projectsApi, audit } from '@/lib/firestore'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string) => Promise<import('firebase/auth').UserCredential>
   signOut: () => Promise<void>
   updateUserProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>
   reauthenticate: (password: string) => Promise<void>
@@ -58,10 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password)
+    const cred = await signInWithEmailAndPassword(auth, email, password)
+    return cred
   }
 
   const signOut = async () => {
+    if (auth.currentUser) {
+      audit({ type: 'logout', action: 'logout', actorUid: auth.currentUser.uid, actorEmail: auth.currentUser.email || '' })
+    }
     await firebaseSignOut(auth)
   }
 

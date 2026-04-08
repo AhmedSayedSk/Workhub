@@ -177,5 +177,11 @@ service cloud.firestore {
     match /imageGenLogs/{logId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Audit Logs — any authenticated user can write (fire-and-forget), only owner reads
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
   }
 }

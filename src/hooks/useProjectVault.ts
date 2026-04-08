@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { vaultEntries, projectLogs } from '@/lib/firestore'
+import { vaultEntries, projectLogs, audit } from '@/lib/firestore'
 import { VaultEntry, VaultEntryInput, VaultEntryType } from '@/types'
 import { useToast } from './useToast'
+import { useAuth } from './useAuth'
 
 interface UseProjectVaultOptions {
   projectId: string
@@ -13,6 +14,7 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
   const [entries, setEntries] = useState<VaultEntry[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchEntries = useCallback(async () => {
     if (!projectId) return
@@ -44,6 +46,7 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
           ...data,
           projectId,
         })
+        audit({ type: 'vault', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, targetName: data.label })
         await fetchEntries()
         toast({
           description: 'Entry added to vault',
@@ -71,6 +74,7 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
     async (id: string, data: Partial<VaultEntryInput>) => {
       try {
         await vaultEntries.update(id, data)
+        audit({ type: 'vault', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, targetId: id })
         await fetchEntries()
         toast({
           description: 'Entry updated',
@@ -96,6 +100,7 @@ export function useProjectVault({ projectId }: UseProjectVaultOptions) {
         // If it's a file entry, we should also delete from storage
         // But we'll handle that in the component level
         await vaultEntries.delete(id)
+        audit({ type: 'vault', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, targetId: id, targetName: entry?.label })
         await fetchEntries()
         toast({
           description: 'Entry deleted',

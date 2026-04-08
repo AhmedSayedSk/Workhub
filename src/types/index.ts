@@ -90,6 +90,7 @@ export interface Project {
   paymentModel: PaymentModel
   totalAmount: number
   paidAmount: number
+  milestoneTotalAmount?: number
   currency: Currency
   startDate: Timestamp
   deadline: Timestamp | null
@@ -225,6 +226,7 @@ export interface ProjectInput {
   paymentModel: PaymentModel
   totalAmount: number
   paidAmount: number
+  milestoneTotalAmount?: number
   currency: Currency
   startDate: Date
   deadline: Date | null
@@ -848,3 +850,27 @@ export interface MemberPermission {
   createdAt: Timestamp
   updatedAt: Timestamp
 }
+
+// Audit Logs
+export type AuditLogType =
+  | 'login' | 'login_failed' | 'logout'
+  | 'project' | 'task' | 'comment' | 'feature' | 'vault'
+  | 'permission' | 'member' | 'sharing'
+  | 'settings' | 'media' | 'payment' | 'calendar'
+  | 'attachment'
+
+export interface AuditLog {
+  id: string
+  type: AuditLogType
+  action: string
+  actorUid: string | null
+  actorEmail: string
+  projectId?: string
+  projectName?: string
+  targetId?: string
+  targetName?: string
+  details?: Record<string, any>
+  createdAt: Timestamp
+}
+
+export type AuditLogInput = Omit<AuditLog, 'id' | 'createdAt'>

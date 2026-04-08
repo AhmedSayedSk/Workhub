@@ -11,7 +11,7 @@ import {
   Cell,
   LabelList,
 } from 'recharts'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, getEffectiveTotal } from '@/lib/utils'
 import { Project, MonthlyPayment } from '@/types'
 import { isWeekend, eachDayOfInterval } from 'date-fns'
 
@@ -114,8 +114,8 @@ export function ProjectIncomeChart({ projects, payments }: ProjectIncomeChartPro
         name: project.name,
         fullName: project.name,
         paid: project.paidAmount,
-        remaining: Math.max(0, project.totalAmount - project.paidAmount),
-        total: project.totalAmount,
+        remaining: Math.max(0, getEffectiveTotal(project) - project.paidAmount),
+        total: getEffectiveTotal(project),
         isMonthly: project.paymentModel === 'monthly',
         isInternal,
         estimatedValue: project.estimatedValue || 0,

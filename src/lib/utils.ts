@@ -154,7 +154,15 @@ export const colorPresets = [
 ]
 
 // Project type labels for display
-import { ProjectType } from '@/types'
+import { ProjectType, Project } from '@/types'
+
+/** For milestone projects with no manual totalAmount, use the sum of milestone amounts */
+export function getEffectiveTotal(project: Project): number {
+  if (project.paymentModel === 'milestone' && !project.totalAmount && project.milestoneTotalAmount) {
+    return project.milestoneTotalAmount
+  }
+  return project.totalAmount
+}
 
 export const projectTypes: { value: ProjectType; label: string }[] = [
   { value: 'website', label: 'Website' },

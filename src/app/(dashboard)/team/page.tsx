@@ -30,7 +30,7 @@ import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
 import { useToast } from '@/hooks/useToast'
-import { userProfiles } from '@/lib/firestore'
+import { userProfiles, audit } from '@/lib/firestore'
 import { MemberPermissionsEditor, BufferedPermissions } from '@/components/members/MemberPermissionsEditor'
 import { memberPermissions as memberPermsApi, projects as projectsApi } from '@/lib/firestore'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
@@ -133,6 +133,7 @@ export default function TeamPage() {
         return
       }
       toast({ description: `Password updated for ${editingMember.name}` })
+      audit({ type: 'member', action: 'password_reset', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: editingMember.id, targetName: editingMember.name })
       setPassword('')
       setShowPassword(false)
     } catch {
@@ -193,6 +194,7 @@ export default function TeamPage() {
     try {
       if (editingMember) {
         await updateMember(editingMember.id, form)
+        audit({ type: 'member', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: editingMember.id, targetName: form.name })
       } else {
         // Create Firebase Auth account first
         const res = await authFetch('/api/create-user', {
@@ -238,6 +240,7 @@ export default function TeamPage() {
         }
 
         toast({ description: `${form.name} added with login access.` })
+        audit({ type: 'member', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', targetName: form.name })
       }
       setDialogOpen(false)
     } catch {
@@ -250,6 +253,7 @@ export default function TeamPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     await deleteMember(deleteTarget.id)
+    audit({ type: 'member', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: deleteTarget.id, targetName: deleteTarget.name })
     setDeleteTarget(null)
   }
 

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/hooks/useAuth'
 import { projects, tasks, timeEntries, milestones, monthlyPayments, members as membersApi } from '@/lib/firestore'
 import { Project, Task, TimeEntry, Milestone, MonthlyPayment, TaskType, Member } from '@/types'
-import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime } from '@/lib/utils'
+import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime, getEffectiveTotal } from '@/lib/utils'
 
 const taskTypeBorderColors: Record<TaskType, string> = {
   task: '#64748b',       // slate-500
@@ -169,7 +169,7 @@ export default function DashboardPage() {
   // Non-monthly, non-internal active projects owed
   const nonMonthlyOwed = activeProjects
     .filter(p => p.paymentModel !== 'monthly' && p.paymentModel !== 'internal')
-    .reduce((sum, p) => sum + Math.max(0, p.totalAmount - p.paidAmount), 0)
+    .reduce((sum, p) => sum + Math.max(0, getEffectiveTotal(p) - p.paidAmount), 0)
 
   // Monthly projects owed = pending payments (exclude internal projects)
   const monthlyOwed = allPayments
@@ -374,7 +374,7 @@ export default function DashboardPage() {
                 {showIncomeChart && (
                   <div className="mb-4 pb-4 border-b">
                     <ProjectIncomeChart
-                      projects={activeProjects.filter((p) => p.totalAmount > 0 || p.paidAmount > 0)}
+                      projects={activeProjects.filter((p) => getEffectiveTotal(p) > 0 || p.paidAmount > 0)}
                       payments={allPayments}
                     />
                     <div className="flex items-center justify-center gap-6 mt-3 text-xs text-muted-foreground">
@@ -392,10 +392,10 @@ export default function DashboardPage() {
 
                 {/* Project List — only show projects with payment setup */}
                 <div className="space-y-4">
-                  {activeProjects.filter((p) => p.totalAmount > 0 || p.paidAmount > 0).map((project) => {
+                  {activeProjects.filter((p) => getEffectiveTotal(p) > 0 || p.paidAmount > 0).map((project) => {
                     const isMonthly = project.paymentModel === 'monthly'
                     const isInternal = project.paymentModel === 'internal'
-                    const progress = (isMonthly || isInternal) ? 0 : calculateProgress(project.paidAmount, project.totalAmount)
+                    const progress = (isMonthly || isInternal) ? 0 : calculateProgress(project.paidAmount, getEffectiveTotal(project))
 
                     return (
                       <Link
@@ -446,7 +446,7 @@ export default function DashboardPage() {
                               </div>
                             ) : (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>{formatCurrency(project.paidAmount)} / {formatCurrency(project.totalAmount)}</span>
+                                <span>{formatCurrency(project.paidAmount)} / {formatCurrency(getEffectiveTotal(project))}</span>
                                 <span>•</span>
                                 <span className="font-medium">{progress}%</span>
                               </div>

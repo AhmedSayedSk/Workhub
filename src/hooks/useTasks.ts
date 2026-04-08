@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Timestamp } from 'firebase/firestore'
-import { tasks, subtasks, features, projectLogs } from '@/lib/firestore'
+import { tasks, subtasks, features, projectLogs, audit } from '@/lib/firestore'
 import { Task, TaskInput, Subtask, SubtaskInput, Feature, FeatureInput } from '@/types'
 import { useToast } from './useToast'
+import { useAuth } from './useAuth'
 
 export function useFeatures(projectId?: string) {
   const [data, setData] = useState<Feature[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchFeatures = useCallback(async () => {
     try {
@@ -34,6 +36,7 @@ export function useFeatures(projectId?: string) {
   const createFeature = async (input: FeatureInput) => {
     try {
       const id = await features.create(input)
+      audit({ type: 'feature', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: input.projectId, targetId: id, targetName: input.name })
       await fetchFeatures()
       toast({ description: 'Feature created', variant: 'success' })
       projectLogs.create({
@@ -63,6 +66,7 @@ export function useFeatures(projectId?: string) {
     const feature = data.find((f) => f.id === id)
     try {
       await features.delete(id)
+      audit({ type: 'feature', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: feature?.projectId, targetId: id, targetName: feature?.name })
       await fetchFeatures()
       toast({ description: 'Feature deleted', variant: 'success' })
       if (feature) {
@@ -92,6 +96,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
   const [data, setData] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -136,6 +141,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
       setData((prev) =>
         prev.map((t) => (t.id === optimisticTask.id ? { ...t, id } : t))
       )
+      audit({ type: 'task', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: input.projectId, targetId: id, targetName: input.name })
       toast({ description: `Task created${projectName ? ` in ${projectName}` : ''}`, variant: 'success' })
       projectLogs.create({
         projectId: input.projectId,
@@ -162,6 +168,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
 
     try {
       await tasks.update(id, input)
+      audit({ type: 'task', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: existingTask?.projectId, targetId: id, targetName: existingTask?.name })
       if (input.status && existingTask && input.status !== existingTask.status) {
         projectLogs.create({
           projectId: existingTask.projectId,
@@ -203,6 +210,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
 
     try {
       await tasks.update(id, { archived: true, archivedAt: Timestamp.now() } as Partial<TaskInput>)
+      audit({ type: 'task', action: 'archived', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: task?.projectId, targetId: id, targetName: task?.name })
       toast({ description: 'Task archived', variant: 'success' })
       if (task) {
         projectLogs.create({
@@ -229,6 +237,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
 
     try {
       await tasks.update(id, { archived: false, archivedAt: null } as Partial<TaskInput>)
+      audit({ type: 'task', action: 'unarchived', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: task?.projectId, targetId: id, targetName: task?.name })
       toast({ description: 'Task restored', variant: 'success' })
       if (task) {
         projectLogs.create({
@@ -252,6 +261,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
 
     try {
       await tasks.delete(id)
+      audit({ type: 'task', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: task?.projectId, targetId: id, targetName: task?.name })
       toast({ description: 'Task permanently deleted', variant: 'success' })
       if (task) {
         projectLogs.create({
@@ -320,6 +330,7 @@ export function useTasks(projectId?: string, featureId?: string, projectName?: s
     try {
       await tasks.reorder(id, newStatus, newSortOrder)
       if (existingTask && newStatus !== existingTask.status) {
+        audit({ type: 'task', action: 'status_changed', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: existingTask.projectId, targetId: id, targetName: existingTask.name, details: { from: existingTask.status, to: newStatus } })
         projectLogs.create({
           projectId: existingTask.projectId,
           action: 'task_status_changed',

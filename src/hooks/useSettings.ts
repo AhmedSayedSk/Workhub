@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { appSettings } from '@/lib/firestore'
+import { appSettings, audit } from '@/lib/firestore'
 import { AppSettings, AppSettingsInput, GeminiModel, ImageGenModel } from '@/types'
 import { hashPasskey } from '@/lib/passkey'
 import { useAuth } from './useAuth'
@@ -61,15 +61,17 @@ export function useSettings() {
   const setAIModel = useCallback(
     async (model: GeminiModel) => {
       await updateSettings({ aiModel: model })
+      audit({ type: 'settings', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', details: { field: 'aiModel', value: model } })
     },
-    [updateSettings]
+    [updateSettings, user]
   )
 
   const setAIEnabled = useCallback(
     async (enabled: boolean) => {
       await updateSettings({ aiEnabled: enabled })
+      audit({ type: 'settings', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', details: { field: 'aiEnabled', value: enabled } })
     },
-    [updateSettings]
+    [updateSettings, user]
   )
 
   const setThinkingTimePercent = useCallback(
@@ -83,13 +85,15 @@ export function useSettings() {
     async (passkey: string) => {
       const hashed = await hashPasskey(passkey)
       await updateSettings({ vaultPasskey: hashed })
+      audit({ type: 'settings', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', details: { field: 'vaultPasskey', value: 'set' } })
     },
-    [updateSettings]
+    [updateSettings, user]
   )
 
   const removeVaultPasskey = useCallback(async () => {
     await updateSettings({ vaultPasskey: null })
-  }, [updateSettings])
+    audit({ type: 'settings', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', details: { field: 'vaultPasskey', value: 'removed' } })
+  }, [updateSettings, user])
 
   const setNotifyTimerReminder = useCallback(
     async (enabled: boolean) => {

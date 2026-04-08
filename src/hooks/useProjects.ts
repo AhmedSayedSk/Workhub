@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Timestamp } from 'firebase/firestore'
-import { projects, milestones, monthlyPayments, batch, projectLogs } from '@/lib/firestore'
+import { projects, milestones, monthlyPayments, batch, projectLogs, audit } from '@/lib/firestore'
 import { Project, ProjectInput, Milestone, MilestoneInput, MonthlyPayment, MonthlyPaymentInput, ProjectLogChange } from '@/types'
 import { useToast } from './useToast'
 import { useAuth } from './useAuth'
@@ -136,6 +136,8 @@ export function useProjects() {
         }).catch(() => {}) // Non-blocking
       }
 
+      audit({ type: 'project', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: id, projectName: input.name })
+
       await fetchProjects()
       toast({
         description: 'Project created successfully',
@@ -155,6 +157,7 @@ export function useProjects() {
   const updateProject = async (id: string, input: Partial<ProjectInput>) => {
     try {
       await projects.update(id, input)
+      audit({ type: 'project', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: id })
       await fetchProjects()
       toast({
         description: 'Project updated successfully',
@@ -173,6 +176,7 @@ export function useProjects() {
   const deleteProject = async (id: string) => {
     try {
       await projects.delete(id)
+      audit({ type: 'project', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: id })
       await fetchProjects()
       toast({
         description: 'Project deleted successfully',
@@ -272,6 +276,7 @@ export function useProject(projectId: string) {
 
     try {
       await projects.update(projectId, input)
+      audit({ type: 'project', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name })
 
       // Log changes if any fields actually changed
       if (changes.length > 0) {
@@ -301,6 +306,13 @@ export function useProject(projectId: string) {
     }
   }
 
+  // Recompute stored milestoneTotalAmount on the project doc
+  const syncMilestoneTotal = async (updatedMilestones: Milestone[]) => {
+    const total = updatedMilestones.reduce((sum, m) => sum + m.amount, 0)
+    await projects.update(projectId, { milestoneTotalAmount: total }).catch(() => {})
+    if (project) setProject({ ...project, milestoneTotalAmount: total })
+  }
+
   // Milestone operations with optimistic updates
   const createMilestone = async (input: Omit<MilestoneInput, 'projectId'>) => {
     try {
@@ -317,6 +329,7 @@ export function useProject(projectId: string) {
         paidAt: toTimestamp(input.paidAt),
       }
       setMilestones(prev => [...prev, newMilestone])
+      syncMilestoneTotal([...projectMilestones, newMilestone])
       toast({
         description: 'Milestone created',
         variant: 'success',
@@ -356,6 +369,10 @@ export function useProject(projectId: string) {
 
     try {
       await milestones.update(id, input)
+      if (input.amount !== undefined) {
+        const updated = projectMilestones.map(m => m.id === id ? { ...m, amount: input.amount! } : m)
+        syncMilestoneTotal(updated)
+      }
       toast({
         description: 'Milestone updated',
         variant: 'success',
@@ -381,6 +398,7 @@ export function useProject(projectId: string) {
 
     try {
       await milestones.delete(id)
+      syncMilestoneTotal(projectMilestones.filter(m => m.id !== id))
       toast({
         description: 'Milestone deleted',
         variant: 'success',
@@ -468,6 +486,7 @@ export function useProject(projectId: string) {
   const deleteProject = async () => {
     try {
       await batch.deleteProjectCascade(projectId, user?.uid)
+      audit({ type: 'project', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name })
       toast({
         description: 'Project and all related data deleted',
         variant: 'success',

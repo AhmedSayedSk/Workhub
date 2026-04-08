@@ -17,6 +17,7 @@ import {
   projects as projectsApi,
   DEFAULT_PROJECT_PERMISSIONS,
   DEFAULT_MODULE_PERMISSIONS,
+  audit,
 } from '@/lib/firestore'
 import {
   Project,
@@ -295,6 +296,8 @@ export function MemberPermissionsEditor({ member, memberUid, ownerUid, buffered,
         await memberPermsApi.removeForProject(memberUid!, projectId)
         setEnabledProjects((prev) => { const s = new Set(prev); s.delete(projectId); return s })
         setProjectPerms((prev) => { const p = { ...prev }; delete p[projectId]; return p })
+        const removedProject = allProjects.find((p) => p.id === projectId)
+        audit({ type: 'permission', action: 'updated', actorUid: ownerUid, actorEmail: '', targetName: member.name, projectId, projectName: removedProject?.name, details: { change: 'project_access_revoked' } })
       } else {
         const project = allProjects.find((p) => p.id === projectId)
         if (project) {
@@ -304,6 +307,8 @@ export function MemberPermissionsEditor({ member, memberUid, ownerUid, buffered,
         await memberPermsApi.setProjectPermissions(member.id, memberUid!, projectId, DEFAULT_PROJECT_PERMISSIONS)
         setEnabledProjects((prev) => new Set(prev).add(projectId))
         setProjectPerms((prev) => ({ ...prev, [projectId]: { ...DEFAULT_PROJECT_PERMISSIONS } }))
+        const addedProject = allProjects.find((p) => p.id === projectId)
+        audit({ type: 'permission', action: 'updated', actorUid: ownerUid, actorEmail: '', targetName: member.name, projectId, projectName: addedProject?.name, details: { change: 'project_access_granted' } })
       }
     } catch {
       toast({ title: 'Error', description: 'Failed to update project access', variant: 'destructive' })
@@ -372,6 +377,7 @@ export function MemberPermissionsEditor({ member, memberUid, ownerUid, buffered,
 
     try {
       await memberPermsApi.setModulePermissions(member.id, memberUid!, updated)
+      audit({ type: 'permission', action: 'updated', actorUid: ownerUid, actorEmail: '', targetName: member.name, details: { change: on ? 'all_modules_enabled' : 'all_modules_disabled' } })
     } catch {
       toast({ title: 'Error', description: 'Failed to save permissions', variant: 'destructive' })
     }
