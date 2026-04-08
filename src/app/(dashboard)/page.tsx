@@ -134,15 +134,12 @@ export default function DashboardPage() {
       // Filter out sub-projects from dashboard display
       const topLevelActive = projectsData.filter((p: Project) => !p.parentProjectId)
       setActiveProjects(topLevelActive.slice(0, 5))
-      const activeProjectIdSet = new Set(projectsData.map((p: Project) => p.id))
-      // Include tasks from both active and completed projects
-      const completedProjects = allProjects.filter((p: Project) => p.status === 'completed')
-      const relevantProjectIdSet = new Set([
-        ...activeProjectIdSet,
-        ...completedProjects.map((p: Project) => p.id),
-      ])
-      const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && relevantProjectIdSet.has(t.projectId))
-      const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && relevantProjectIdSet.has(t.projectId))
+      // Only show tasks from non-completed projects
+      const activeProjectIds = new Set(
+        allProjects.filter((p: Project) => p.status !== 'completed' && p.status !== 'cancelled').map((p: Project) => p.id)
+      )
+      const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
+      const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
       setAllTodoTasks(filteredTodo)
       setAllInProgressTasks(filteredInProgress)
       setTodoTasks(sortByPriorityAndDeadline(filteredTodo, projMap).slice(0, 5))
