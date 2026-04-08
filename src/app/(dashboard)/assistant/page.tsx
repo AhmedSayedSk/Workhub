@@ -7,9 +7,10 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAI } from '@/hooks/useAI'
 import { useProjects } from '@/hooks/useProjects'
 import { useTasks } from '@/hooks/useTasks'
-import { Sparkles, Loader2, Bot, Trash2, CheckCircle2, XCircle, AlertCircle, Plus, MessageSquare, MoreHorizontal, Check, X, ListTodo, Clock, Search, Globe, GitBranch, Pencil, Copy, Eye, Code2, FileCode, Maximize2, Minimize2 } from 'lucide-react'
+import { Sparkles, Loader2, Bot, Trash2, CheckCircle2, XCircle, AlertCircle, Plus, MessageSquare, MoreHorizontal, Check, X, ListTodo, Clock, Search, Globe, GitBranch, Pencil, Copy, Eye, Code2, FileCode, Maximize2, Minimize2, ShieldAlert } from 'lucide-react'
 import { subtasks as subtasksApi } from '@/lib/firestore'
 import { useAuth } from '@/hooks/useAuth'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { Avatar, AvatarFallback, CachedAvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
@@ -567,6 +568,7 @@ const PROMPT_HISTORY_KEY = 'workhub-ai-prompt-history'
 const MAX_HISTORY = 10
 
 export default function AssistantPage() {
+  const { canModule, loading: permsLoading } = useModulePermissions()
   const [sessions, setSessions] = useState<Session[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -1389,6 +1391,16 @@ ${webContext ? '\nYou have access to web search results above. Use this informat
   const sortedSessions = useMemo(() => {
     return [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
   }, [sessions])
+
+  if (!permsLoading && !canModule('accessAiAssistant')) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <ShieldAlert className="h-12 w-12 mb-3 opacity-40" />
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p className="text-sm">You don&apos;t have permission to access this module.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="h-[calc(100vh-4rem)] flex -m-6">

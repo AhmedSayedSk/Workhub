@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { useThemeContext } from '@/components/layout/ThemeProvider'
 import { useAuth } from '@/hooks/useAuth'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { useSettings } from '@/hooks/useSettings'
 import { GEMINI_MODELS } from '@/lib/gemini'
 import { GeminiModel } from '@/types'
@@ -48,6 +49,7 @@ import { verifyPasskey } from '@/lib/passkey'
 import { getNotificationPermission, requestNotificationPermission } from '@/lib/notifications'
 
 export default function SettingsPage() {
+  const { canModule, loading: permsLoading } = useModulePermissions()
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get('tab') || 'account'
   const { theme, setTheme } = useThemeContext()
@@ -258,12 +260,14 @@ export default function SettingsPage() {
     }
   }
 
+  const hasFullSettings = !permsLoading && canModule('accessSettings')
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
+        <h1 className="text-3xl font-bold tracking-tight">{hasFullSettings ? 'Settings' : 'Profile'}</h1>
+        <p className="text-muted-foreground">{hasFullSettings ? 'Manage your account and preferences' : 'Manage your profile and appearance'}</p>
       </div>
 
       <Tabs defaultValue={defaultTab} orientation="vertical" className="flex gap-6">
@@ -276,22 +280,26 @@ export default function SettingsPage() {
             <Sun className="h-4 w-4" />
             Appearance
           </TabsTrigger>
-          <TabsTrigger value="security" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
-            <Shield className="h-4 w-4" />
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="time" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
-            <Clock className="h-4 w-4" />
-            Time Tracking
-          </TabsTrigger>
-          <TabsTrigger value="ai" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
-            <Sparkles className="h-4 w-4" />
-            AI
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
-            <Bell className="h-4 w-4" />
-            Notifications
-          </TabsTrigger>
+          {hasFullSettings && (
+            <>
+              <TabsTrigger value="security" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
+                <Shield className="h-4 w-4" />
+                Security
+              </TabsTrigger>
+              <TabsTrigger value="time" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
+                <Clock className="h-4 w-4" />
+                Time Tracking
+              </TabsTrigger>
+              <TabsTrigger value="ai" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
+                <Sparkles className="h-4 w-4" />
+                AI
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
+                <Bell className="h-4 w-4" />
+                Notifications
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         <div className="flex-1 min-w-0">
@@ -547,7 +555,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Security Tab */}
-        <TabsContent value="security" className="space-y-6">
+        {hasFullSettings && <TabsContent value="security" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -679,10 +687,10 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
 
         {/* Time Tracking Tab */}
-        <TabsContent value="time" className="space-y-6">
+        {hasFullSettings && <TabsContent value="time" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -749,10 +757,10 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
 
         {/* AI Tab */}
-        <TabsContent value="ai" className="space-y-6">
+        {hasFullSettings && <TabsContent value="ai" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -919,10 +927,10 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
 
         {/* Notifications Tab */}
-        <TabsContent value="notifications" className="space-y-6">
+        {hasFullSettings && <TabsContent value="notifications" className="space-y-6">
           {/* Browser Permission Banner */}
           {notifPermission !== 'granted' && notifPermission !== 'unsupported' && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 flex items-center justify-between">
@@ -1270,7 +1278,7 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
         </div>
       </Tabs>
     </div>

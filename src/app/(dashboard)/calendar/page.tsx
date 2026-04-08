@@ -38,6 +38,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 import { useAuth } from '@/hooks/useAuth'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { useCalendarEvents } from '@/hooks/useCalendarEvents'
 import { useProjects } from '@/hooks/useProjects'
 import { projects as projectsApi } from '@/lib/firestore'
@@ -60,6 +61,7 @@ import {
   Table2,
   ArrowUpDown,
   Download,
+  ShieldAlert,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -160,6 +162,7 @@ const defaultFormState: EventFormState = {
 }
 
 export default function CalendarPage() {
+  const { canModule, loading: permsLoading, isAppOwner } = useModulePermissions()
   const { user } = useAuth()
   const { events, loading, createEvent, updateEvent, deleteEvent } = useCalendarEvents()
   const { projects } = useProjects()
@@ -188,6 +191,13 @@ export default function CalendarPage() {
   useEffect(() => {
     projectsApi.getAll(user?.uid).then(setAllProjects)
   }, [user?.uid])
+
+  // Filter events: owner sees all, members only see events linked to their accessible projects
+  const accessibleProjectIds = useMemo(() => new Set(allProjects.map(p => p.id)), [allProjects])
+  const accessibleEvents = useMemo(() => {
+    if (isAppOwner) return events
+    return events.filter(e => e.projectId && accessibleProjectIds.has(e.projectId))
+  }, [events, accessibleProjectIds, isAppOwner])
 
   useEffect(() => {
     if (calendarRef.current && !calendarApi) {
@@ -224,7 +234,7 @@ export default function CalendarPage() {
   // Convert Firestore events to FullCalendar format
   // Note: FullCalendar treats allDay end dates as exclusive,
   // so we add one day to make multi-day events span correctly
-  const calendarEvents: EventInput[] = events
+  const calendarEvents: EventInput[] = accessibleEvents
     .filter(e => selectedStatuses.includes(e.status) && selectedCategories.includes(e.category))
     .filter(e => selectedProjectIds.length === 0 || selectedProjectIds.includes(e.projectId || ''))
     .map(event => {
@@ -250,7 +260,7 @@ export default function CalendarPage() {
     })
 
   const filteredTableEvents = useMemo(() => {
-    const filtered = events
+    const filtered = accessibleEvents
       .filter(e => selectedStatuses.includes(e.status) && selectedCategories.includes(e.category))
       .filter(e => selectedProjectIds.length === 0 || selectedProjectIds.includes(e.projectId || ''))
     filtered.sort((a, b) => {
@@ -264,7 +274,7 @@ export default function CalendarPage() {
       return tableSortDir === 'asc' ? cmp : -cmp
     })
     return filtered
-  }, [events, selectedStatuses, selectedCategories, selectedProjectIds, tableSortField, tableSortDir])
+  }, [accessibleEvents, selectedStatuses, selectedCategories, selectedProjectIds, tableSortField, tableSortDir])
 
   const handleTableSort = (field: typeof tableSortField) => {
     if (tableSortField === field) setTableSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -294,11 +304,11 @@ export default function CalendarPage() {
 
   const eventProjectIds = useMemo(() => {
     const ids = new Set<string>()
-    events.forEach(e => {
+    accessibleEvents.forEach(e => {
       if (e.projectId) ids.add(e.projectId)
     })
     return Array.from(ids)
-  }, [events])
+  }, [accessibleEvents])
 
   const handleDateClick = (info: any) => {
     const d = dateToInputs(info.date)
@@ -315,7 +325,7 @@ export default function CalendarPage() {
   }
 
   const handleEventClick = ({ event: clickedEvent }: any) => {
-    const original = events.find(e => e.id === clickedEvent.id)
+    const original = accessibleEvents.find(e => e.id === clickedEvent.id)
     if (!original) return
 
     const startD = dateToInputs(original.start.toDate())
@@ -431,7 +441,7 @@ export default function CalendarPage() {
   }
 
   const handleEventMouseEnter = (info: any) => {
-    const original = events.find(e => e.id === info.event.id)
+    const original = accessibleEvents.find(e => e.id === info.event.id)
     if (!original) return
     const rect = info.el.getBoundingClientRect()
     if (tooltipTimeout.current) clearTimeout(tooltipTimeout.current)
@@ -492,6 +502,16 @@ export default function CalendarPage() {
     },
     // @ts-expect-error - ref type
     ref: calendarRef,
+  }
+
+  if (!permsLoading && !canModule('viewCalendar')) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <ShieldAlert className="h-12 w-12 mb-3 opacity-40" />
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p className="text-sm">You don&apos;t have permission to access this module.</p>
+      </div>
+    )
   }
 
   return (

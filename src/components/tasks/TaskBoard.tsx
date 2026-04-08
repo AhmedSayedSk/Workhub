@@ -249,7 +249,7 @@ interface TaskBoardProps {
   onProcessingStarted?: (taskIds: string[]) => void
   onCreateTask: (task: TaskInput) => Promise<void>
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
-  onArchiveTask: (id: string) => Promise<void>
+  onArchiveTask?: (id: string) => Promise<void>
   onSetTaskWaiting?: (id: string) => Promise<void>
   onRemoveTaskWaiting?: (id: string) => Promise<void>
   onSelectTask: (task: Task) => void
@@ -580,7 +580,7 @@ export function TaskBoard({
                           isAiProcessing={aiProcessingTaskIds?.has(task.id)}
                           onAssigneeChange={allMembers ? (ids) => onUpdateTask(task.id, { assigneeIds: ids }) : undefined}
                           onClick={() => selectionMode ? toggleTaskSelection(task.id) : onSelectTask(task)}
-                          onArchive={() => onArchiveTask(task.id)}
+                          onArchive={onArchiveTask ? () => onArchiveTask(task.id) : undefined}
                           onSetWaiting={onSetTaskWaiting ? () => onSetTaskWaiting(task.id) : undefined}
                           onRemoveWaiting={onRemoveTaskWaiting ? () => onRemoveTaskWaiting(task.id) : undefined}
                           selectable={selectionMode}

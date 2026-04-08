@@ -791,3 +791,60 @@ export interface CalendarEventInput {
   taskId?: string
   imageUrl?: string
 }
+
+// Permission System
+export interface ProjectPermissions {
+  viewProject: boolean
+  editProject: boolean
+  deleteProject: boolean
+  viewTasks: boolean
+  createTasks: boolean
+  editTasks: boolean
+  deleteTasks: boolean
+  changeTaskStatus: boolean
+  archiveTasks: boolean
+  viewNotes: boolean
+  createEditNotes: boolean
+  deleteNotes: boolean
+  viewAttachments: boolean
+  uploadAttachments: boolean
+  deleteAttachments: boolean
+  viewVault: boolean
+  createEditVault: boolean
+  deleteVault: boolean
+  viewPayments: boolean
+  createEditPayments: boolean
+  deletePayments: boolean
+  viewActivity: boolean
+  viewAiSessions: boolean
+  runAiSessions: boolean
+  logTime: boolean
+  viewAllTimeEntries: boolean
+  editDeleteOthersTime: boolean
+}
+
+export interface ModulePermissions {
+  createProjects: boolean
+  viewCalendar: boolean
+  createEditCalendar: boolean
+  deleteCalendar: boolean
+  viewMedia: boolean
+  uploadMedia: boolean
+  deleteMedia: boolean
+  viewFinances: boolean
+  viewTimesheets: boolean
+  accessAiAssistant: boolean
+  accessImageGenerator: boolean
+  accessSettings: boolean
+}
+
+export interface MemberPermission {
+  id: string
+  memberId: string
+  memberUid: string
+  projectId: string // "__global__" for module permissions
+  permissions?: ProjectPermissions
+  modules?: ModulePermissions
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}

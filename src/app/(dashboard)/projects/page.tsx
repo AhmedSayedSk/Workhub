@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useProjects } from '@/hooks/useProjects'
 import { useAuth } from '@/hooks/useAuth'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { projects as projectsApi, tasks as tasksApi } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus, Project } from '@/types'
 import {
@@ -79,6 +80,7 @@ const statusOrder: ProjectStatus[] = ['active', 'paused', 'completed', 'cancelle
 export default function ProjectsPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { canModule } = useModulePermissions()
   const { projects, loading } = useProjects()
   const [subProjectsByParent, setSubProjectsByParent] = useState<Record<string, Project[]>>({})
   const [subTaskCounts, setSubTaskCounts] = useState<Record<string, number>>({})
@@ -156,12 +158,14 @@ export default function ProjectsPage() {
             Manage and track all your projects
           </p>
         </div>
+        {canModule('createProjects') && (
         <Link href="/projects/new">
           <Button>
             <Plus className="h-4 w-4 mr-2" />
             New Project
           </Button>
         </Link>
+        )}
       </div>
 
       {/* Projects Grid */}
@@ -171,14 +175,16 @@ export default function ProjectsPage() {
             <FolderKanban className="h-16 w-16 text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium mb-2">No projects found</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Create your first project to get started
+              {canModule('createProjects') ? 'Create your first project to get started' : 'No projects have been shared with you yet'}
             </p>
+            {canModule('createProjects') && (
             <Link href="/projects/new">
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Project
               </Button>
             </Link>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -261,9 +267,14 @@ export default function ProjectsPage() {
                             )}
                           </CardHeader>
                           <CardContent className="p-4 pt-3">
+                            {(() => {
+                              const hasFinancialContent =
+                                (project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && project.hasOwnFinances !== false) ||
+                                (project.paymentModel === 'internal' && (project.estimatedValue ?? 0) > 0)
+                              return (
                             <div className="space-y-4">
                               {/* Financial Progress - Only for milestone/fixed projects */}
-                              {project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && (
+                              {project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && project.hasOwnFinances !== false && (
                                 <div className="space-y-2">
                                   <Progress value={progress} className="h-2" />
                                   <div className="flex items-center justify-between text-sm">
@@ -284,8 +295,8 @@ export default function ProjectsPage() {
                                 </div>
                               )}
 
-                              {/* Separator - before sub-projects for normal, after for parents */}
-                              {!subProjectsByParent[project.id]?.length && (
+                              {/* Separator - only if there's financial content above */}
+                              {hasFinancialContent && !subProjectsByParent[project.id]?.length && (
                                 <hr className="border-border" />
                               )}
 
@@ -404,6 +415,8 @@ export default function ProjectsPage() {
                                 )}
                               </div>
                             </div>
+                              )
+                            })()}
                           </CardContent>
                         </Card>
                       </div>

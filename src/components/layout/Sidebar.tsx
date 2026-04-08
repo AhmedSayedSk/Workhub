@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import {
   LayoutDashboard,
   FolderKanban,
@@ -21,6 +22,7 @@ import {
   ExternalLink,
   CalendarDays,
   Wand2,
+  User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -29,18 +31,18 @@ const allMainNavItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/team', label: 'Team', icon: Users, ownerOnly: true },
-  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/media', label: 'Media Library', icon: FolderOpen },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays, moduleKey: 'viewCalendar' as const },
+  { href: '/media', label: 'Media Library', icon: FolderOpen, moduleKey: 'viewMedia' as const },
 ]
 
 const trackingNavItems = [
-  { href: '/time', label: 'Timesheets', icon: Clock },
-  { href: '/finances', label: 'Invoices & Payments', icon: Wallet },
+  { href: '/time', label: 'Timesheets', icon: Clock, moduleKey: 'viewTimesheets' as const },
+  { href: '/finances', label: 'Invoices & Payments', icon: Wallet, moduleKey: 'viewFinances' as const },
 ]
 
 const aiNavItems = [
-  { href: '/assistant', label: 'AI Assistant', icon: Sparkles },
-  { href: '/image-generator', label: 'Image Generator', icon: Wand2 },
+  { href: '/assistant', label: 'AI Assistant', icon: Sparkles, moduleKey: 'accessAiAssistant' as const },
+  { href: '/image-generator', label: 'Image Generator', icon: Wand2, moduleKey: 'accessImageGenerator' as const },
 ]
 
 interface SidebarProps {
@@ -52,12 +54,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const { user } = useAuth()
   const { settings } = useSettings()
+  const { canModule } = useModulePermissions()
   const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
 
   const mainNavItems = useMemo(() =>
-    allMainNavItems.filter((item) => !item.ownerOnly || isAppOwner),
-    [isAppOwner]
+    allMainNavItems.filter((item) => {
+      if (item.ownerOnly && !isAppOwner) return false
+      if (item.moduleKey && !canModule(item.moduleKey)) return false
+      return true
+    }),
+    [isAppOwner, canModule]
   )
+
+  const filteredTrackingNavItems = useMemo(() =>
+    trackingNavItems.filter((item) => !item.moduleKey || canModule(item.moduleKey)),
+    [canModule]
+  )
+
+  const filteredAiNavItems = useMemo(() =>
+    aiNavItems.filter((item) => !item.moduleKey || canModule(item.moduleKey)),
+    [canModule]
+  )
+
+  const hasFullSettings = canModule('accessSettings')
 
   return (
     <aside
@@ -135,6 +154,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
 
           {/* Tracking Section */}
+          {filteredTrackingNavItems.length > 0 && (
+          <>
           <div className="my-3 px-3">
             <div className="h-px bg-border" />
           </div>
@@ -146,7 +167,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 </span>
               </div>
             )}
-            {trackingNavItems.map((item) => {
+            {filteredTrackingNavItems.map((item) => {
               const isActive = pathname === item.href ||
                 (item.href !== '/' && pathname.startsWith(item.href))
 
@@ -187,8 +208,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               return navLink
             })}
           </div>
+          </>
+          )}
 
           {/* AI Studio Section */}
+          {filteredAiNavItems.length > 0 && (
+          <>
           <div className="my-3 px-3">
             <div className="h-px bg-border" />
           </div>
@@ -200,7 +225,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 </span>
               </div>
             )}
-            {aiNavItems.map((item) => {
+            {filteredAiNavItems.map((item) => {
               const isActive = pathname === item.href ||
                 (item.href !== '/' && pathname.startsWith(item.href))
 
@@ -241,6 +266,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               return navLink
             })}
           </div>
+          </>
+          )}
         </nav>
 
         {/* Settings & Collapse */}
@@ -252,12 +279,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   href="/settings"
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <Settings className="h-5 w-5 flex-shrink-0" />
-                  <span className="whitespace-nowrap opacity-0">Settings</span>
+                  {hasFullSettings ? <Settings className="h-5 w-5 flex-shrink-0" /> : <User className="h-5 w-5 flex-shrink-0" />}
+                  <span className="whitespace-nowrap opacity-0">{hasFullSettings ? 'Settings' : 'Profile'}</span>
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={10}>
-                Settings
+                {hasFullSettings ? 'Settings' : 'Profile'}
               </TooltipContent>
             </Tooltip>
           ) : (
@@ -265,14 +292,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               href="/settings"
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <Settings className="h-5 w-5 flex-shrink-0" />
+              {hasFullSettings ? <Settings className="h-5 w-5 flex-shrink-0" /> : <User className="h-5 w-5 flex-shrink-0" />}
               <span
                 className={cn(
                   'whitespace-nowrap transition-opacity duration-200',
                   collapsed ? 'opacity-0' : 'opacity-100 delay-100'
                 )}
               >
-                Settings
+                {hasFullSettings ? 'Settings' : 'Profile'}
               </span>
             </Link>
           )}

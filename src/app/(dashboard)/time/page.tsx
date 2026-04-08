@@ -43,8 +43,9 @@ import {
   format,
   eachDayOfInterval,
 } from 'date-fns'
-import { Clock, Plus, Loader2, Trash2, Calendar, ArrowRight } from 'lucide-react'
+import { Clock, Plus, Loader2, Trash2, Calendar, ArrowRight, ShieldAlert } from 'lucide-react'
 import { useSettings } from '@/hooks/useSettings'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import Link from 'next/link'
 import {
   BarChart,
@@ -58,6 +59,7 @@ import {
 } from 'recharts'
 
 export default function TimePage() {
+  const { canModule, loading: permsLoading } = useModulePermissions()
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('week')
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -235,6 +237,16 @@ export default function TimePage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (!permsLoading && !canModule('viewTimesheets')) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <ShieldAlert className="h-12 w-12 mb-3 opacity-40" />
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p className="text-sm">You don&apos;t have permission to access this module.</p>
+      </div>
+    )
   }
 
   return (

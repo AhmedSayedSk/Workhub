@@ -54,7 +54,7 @@ interface TaskCardProps {
   isAiProcessing?: boolean
   onAssigneeChange?: (ids: string[]) => void
   onClick: () => void
-  onArchive: () => void
+  onArchive?: () => void
   onSetWaiting?: () => void
   onRemoveWaiting?: () => void
   selectable?: boolean
@@ -196,6 +196,8 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
                         Set Waiting
                       </DropdownMenuItem>
                     )}
+                    {onArchive && (
+                    <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={(e) => {
@@ -206,6 +208,8 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
                       <Archive className="h-4 w-4 mr-2" />
                       Archive
                     </DropdownMenuItem>
+                    </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {/* AssigneeSelect popover anchored to the three-dot button */}

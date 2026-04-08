@@ -30,6 +30,12 @@ import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
 import { useToast } from '@/hooks/useToast'
+import { userProfiles } from '@/lib/firestore'
+import { MemberPermissionsEditor, BufferedPermissions } from '@/components/members/MemberPermissionsEditor'
+import { memberPermissions as memberPermsApi, projects as projectsApi } from '@/lib/firestore'
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const defaultForm: MemberInput = {
   name: '',
@@ -55,7 +61,9 @@ export default function TeamPage() {
   const [passwordCopied, setPasswordCopied] = useState(false)
   const [resettingPassword, setResettingPassword] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editMemberUid, setEditMemberUid] = useState<string | null>(null)
   const [fetchingAvatar, setFetchingAvatar] = useState(false)
+  const [bufferedPerms, setBufferedPerms] = useState<BufferedPermissions | null>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
   const lookupAvatar = useCallback(async (email: string) => {
@@ -139,10 +147,11 @@ export default function TeamPage() {
     setForm(defaultForm)
     setPassword('')
     setShowPassword(false)
+    setBufferedPerms(null)
     setDialogOpen(true)
   }
 
-  const openEdit = (member: Member) => {
+  const openEdit = async (member: Member) => {
     setEditingMember(member)
     setForm({
       name: member.name,
@@ -155,7 +164,14 @@ export default function TeamPage() {
     setPassword('')
     setShowPassword(false)
     setPasswordCopied(false)
+    setEditMemberUid(null)
     setDialogOpen(true)
+
+    // Look up Firebase UID for this member
+    if (member.email) {
+      const profile = await userProfiles.findByEmail(member.email).catch(() => null)
+      setEditMemberUid(profile?.uid || null)
+    }
   }
 
   const handleSave = async () => {
@@ -194,8 +210,33 @@ export default function TeamPage() {
           return
         }
 
-        // Then create the member record
-        await createMember(form)
+        // Create the member record
+        const newMemberId = await createMember(form)
+
+        // Apply buffered permissions if any were set
+        if (bufferedPerms && data.uid && newMemberId) {
+          const uid = data.uid as string
+          const mid = newMemberId as string
+
+          // Apply module permissions
+          const hasModuleChanges = Object.values(bufferedPerms.modulePerms).some(v => v)
+          if (hasModuleChanges) {
+            await memberPermsApi.setModulePermissions(mid, uid, bufferedPerms.modulePerms)
+          }
+
+          // Apply project permissions and sharing
+          for (const projectId of bufferedPerms.enabledProjects) {
+            const perms = bufferedPerms.projectPerms[projectId]
+            if (perms) {
+              await memberPermsApi.setProjectPermissions(mid, uid, projectId, perms)
+              // Add uid to project sharedWith
+              await updateDoc(doc(db, 'projects', projectId), {
+                sharedWith: arrayUnion(uid),
+              }).catch(() => {})
+            }
+          }
+        }
+
         toast({ description: `${form.name} added with login access.` })
       }
       setDialogOpen(false)
@@ -314,185 +355,48 @@ export default function TeamPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl max-h-[92vh] h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{editingMember ? 'Edit Member' : 'Add Member'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Avatar preview */}
-            <div className="flex justify-center">
-              <MemberAvatar
-                member={{
-                  id: '',
-                  name: form.name || 'M',
-                  role: form.role,
-                  email: form.email,
-                  phone: form.phone,
-                  avatarUrl: form.avatarUrl,
-                  color: form.color,
-                  createdAt: Timestamp.now(),
-                }}
-                size="lg"
-                className="h-16 w-16 text-xl"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Name *</Label>
-              <Input
-                placeholder="Full name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Input
-                placeholder="e.g. Frontend Developer"
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <div className="flex gap-2 items-stretch">
-                <Input
-                  type="email"
-                  placeholder="email@example.com"
-                  value={form.email}
-                  onChange={(e) => handleEmailChange(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shrink-0 px-3"
-                  disabled={fetchingAvatar || !form.email}
-                  onClick={() => lookupAvatar(form.email)}
-                  title="Look up avatar from email"
-                >
-                  {fetchingAvatar ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Avatar auto-detected from Gravatar when available
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Phone</Label>
-              <PhoneInput
-                value={form.phone}
-                onChange={(value) => setForm({ ...form, phone: value })}
-              />
-            </div>
-            <Separator />
 
-            {/* Password section */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <KeyRound className="h-3.5 w-3.5" />
-                {editingMember ? 'Reset Password' : 'Login Password *'}
-              </Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Min. 6 characters"
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setPasswordCopied(false) }}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={generatePassword}
-                  title="Generate password"
-                  className="shrink-0"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-                {password && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={copyPassword}
-                    title="Copy password"
-                    className="shrink-0"
-                  >
-                    {passwordCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {editingMember
-                  ? 'Set a new password for this member. Leave empty to keep current.'
-                  : 'This password will be used by the member to log into WorkHub.'}
-              </p>
-              {editingMember && password.length >= 6 && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleResetPassword}
-                  disabled={resettingPassword}
-                  className="w-full"
-                >
-                  {resettingPassword ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <KeyRound className="h-4 w-4 mr-2" />}
-                  Update Password
-                </Button>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Avatar URL</Label>
-              <Input
-                placeholder="https://... (auto-filled from email if found)"
-                value={form.avatarUrl || ''}
-                onChange={(e) => setForm({ ...form, avatarUrl: e.target.value || null })}
+          <Tabs defaultValue="details" className="flex-1 min-h-0 flex flex-col">
+            <TabsList className="w-full">
+              <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+              <TabsTrigger value="permissions" className="flex-1">Permissions</TabsTrigger>
+            </TabsList>
+            <TabsContent value="details" className="flex-1 overflow-y-auto mt-4">
+              <MemberFormFields
+                form={form} setForm={setForm} editingMember={editingMember}
+                handleEmailChange={handleEmailChange} lookupAvatar={lookupAvatar}
+                fetchingAvatar={fetchingAvatar}
+                password={password} setPassword={setPassword}
+                showPassword={showPassword} setShowPassword={setShowPassword}
+                passwordCopied={passwordCopied}
+                generatePassword={generatePassword} copyPassword={copyPassword}
+                handleResetPassword={handleResetPassword} resettingPassword={resettingPassword}
+                saving={saving} handleSave={handleSave}
+                onClose={() => setDialogOpen(false)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {colorPresets.map((preset) => (
-                  <button
-                    key={preset.value}
-                    type="button"
-                    className="h-8 w-8 rounded-full border-2 transition-all"
-                    style={{
-                      backgroundColor: preset.value,
-                      borderColor: form.color === preset.value ? 'white' : 'transparent',
-                      boxShadow: form.color === preset.value ? `0 0 0 2px ${preset.value}` : 'none',
-                    }}
-                    onClick={() => setForm({ ...form, color: preset.value })}
-                    title={preset.name}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
-                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {editingMember ? 'Save' : 'Add'}
-              </Button>
-            </div>
-          </div>
+            </TabsContent>
+            <TabsContent value="permissions" className="flex-1 overflow-y-auto mt-4">
+              {editingMember ? (
+                <MemberPermissionsEditor
+                  member={editingMember}
+                  memberUid={editMemberUid}
+                  ownerUid={user!.uid}
+                />
+              ) : (
+                <MemberPermissionsEditor
+                  member={{ id: '', name: form.name || 'New Member', role: form.role, email: form.email, phone: form.phone, avatarUrl: form.avatarUrl, color: form.color, createdAt: Timestamp.now() }}
+                  memberUid={null}
+                  ownerUid={user!.uid}
+                  buffered
+                  onBufferedChange={setBufferedPerms}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
@@ -505,6 +409,148 @@ export default function TeamPage() {
         confirmLabel="Delete"
         onConfirm={handleDelete}
       />
+    </div>
+  )
+}
+
+/* Extracted form fields component */
+function MemberFormFields({
+  form, setForm, editingMember,
+  handleEmailChange, lookupAvatar, fetchingAvatar,
+  password, setPassword, showPassword, setShowPassword,
+  passwordCopied, generatePassword, copyPassword,
+  handleResetPassword, resettingPassword,
+  saving, handleSave, onClose,
+}: {
+  form: MemberInput
+  setForm: (f: MemberInput) => void
+  editingMember: Member | null
+  handleEmailChange: (email: string) => void
+  lookupAvatar: (email: string) => void
+  fetchingAvatar: boolean
+  password: string
+  setPassword: (p: string) => void
+  showPassword: boolean
+  setShowPassword: (s: boolean) => void
+  passwordCopied: boolean
+  generatePassword: () => void
+  copyPassword: () => void
+  handleResetPassword: () => void
+  resettingPassword: boolean
+  saving: boolean
+  handleSave: () => void
+  onClose: () => void
+}) {
+  return (
+    <div className="space-y-5">
+      {/* Avatar banner with color background */}
+      <div
+        className="relative rounded-lg overflow-hidden"
+        style={{ backgroundColor: form.color + '20' }}
+      >
+        <div className="flex items-center gap-5 px-5 py-4">
+          <MemberAvatar
+            member={{
+              id: '', name: form.name || 'M', role: form.role, email: form.email,
+              phone: form.phone, avatarUrl: form.avatarUrl, color: form.color, createdAt: Timestamp.now(),
+            }}
+            size="lg"
+            className="h-20 w-20 text-2xl ring-4 ring-background shadow-lg"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-lg font-semibold truncate">{form.name || 'New Member'}</p>
+            {form.role && <p className="text-sm text-muted-foreground truncate">{form.role}</p>}
+            {/* Color picker inline */}
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {colorPresets.map((preset) => (
+                <button key={preset.value} type="button" className="h-6 w-6 rounded-full border-2 transition-all hover:scale-110"
+                  style={{ backgroundColor: preset.value, borderColor: form.color === preset.value ? 'white' : 'transparent', boxShadow: form.color === preset.value ? `0 0 0 2px ${preset.value}` : 'none' }}
+                  onClick={() => setForm({ ...form, color: preset.value })} title={preset.name}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Form fields in grid */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label>Name *</Label>
+          <Input placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Role</Label>
+          <Input placeholder="e.g. Frontend Developer" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Email</Label>
+          <div className="flex gap-2 items-stretch">
+            <Input type="email" placeholder="email@example.com" value={form.email} onChange={(e) => handleEmailChange(e.target.value)} className="flex-1" />
+            <Button type="button" variant="outline" className="shrink-0 px-3" disabled={fetchingAvatar || !form.email} onClick={() => lookupAvatar(form.email)} title="Look up avatar">
+              {fetchingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Phone</Label>
+          <PhoneInput value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Password & Avatar URL in grid */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <KeyRound className="h-3.5 w-3.5" />
+            {editingMember ? 'Reset Password' : 'Login Password *'}
+          </Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                type={showPassword ? 'text' : 'password'} placeholder="Min. 6 characters"
+                value={password} onChange={(e) => { setPassword(e.target.value) }} className="pr-10"
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <Button type="button" variant="outline" size="icon" onClick={generatePassword} title="Generate password" className="shrink-0">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            {password && (
+              <Button type="button" variant="outline" size="icon" onClick={copyPassword} title="Copy password" className="shrink-0">
+                {passwordCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {editingMember ? 'Leave empty to keep current password.' : 'Used by the member to log into WorkHub.'}
+          </p>
+          {editingMember && password.length >= 6 && (
+            <Button type="button" variant="secondary" size="sm" onClick={handleResetPassword} disabled={resettingPassword} className="w-full">
+              {resettingPassword ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <KeyRound className="h-4 w-4 mr-2" />}
+              Update Password
+            </Button>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label>Avatar URL</Label>
+          <Input placeholder="https://..." value={form.avatarUrl || ''} onChange={(e) => setForm({ ...form, avatarUrl: e.target.value || null })} />
+          <p className="text-xs text-muted-foreground">Auto-detected from Gravatar when available</p>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
+          {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {editingMember ? 'Save' : 'Add Member'}
+        </Button>
+      </div>
     </div>
   )
 }

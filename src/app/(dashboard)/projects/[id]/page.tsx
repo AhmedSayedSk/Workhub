@@ -84,7 +84,6 @@ import {
   Check,
   ChevronsUpDown,
   StickyNote,
-  Users,
 } from 'lucide-react'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
@@ -92,14 +91,14 @@ import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
 import { ClaudeSessionsTab } from '@/components/projects/ClaudeSessionsTab'
 import { ProjectNotesTab } from '@/components/projects/ProjectNotesTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
-import { ProjectSharingTab } from '@/components/projects/ProjectSharingTab'
+import { useProjectPermissions } from '@/hooks/usePermissions'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'activity', 'ai-sessions', 'sharing']
+  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'activity', 'ai-sessions']
   const {
     project,
     parentProject,
@@ -117,6 +116,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     refetch: refetchProject,
   } = useProject(id)
   const { logs: activityLogs, loading: logsLoading, refetch: refetchLogs, deleteLog } = useProjectLogs(id)
+  const { can, loading: permsLoading } = useProjectPermissions(id)
   const { reauthenticate } = useAuth()
 
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false)
@@ -579,7 +579,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             )}
 
             {/* Actions + Status */}
-            <Separator />
+            {!isInternal && project.hasOwnFinances !== false && <Separator />}
             <div className="flex items-center gap-2 flex-wrap">
               {!project.parentProjectId && (
               <Dialog>
@@ -669,11 +669,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </Dialog>
               )}
 
+              {can('editProject') && (
               <Button variant="outline" size="sm" className="h-8 text-xs" onClick={openEditDialog}>
                 <Edit className="h-3.5 w-3.5 mr-1" />
                 Edit
               </Button>
+              )}
 
+              {can('deleteProject') && (
               <AlertDialog onOpenChange={(open) => { if (!open) { setDeleteConfirmation(''); setDeletePassword(''); if (!deleteCooldown) { setDeletePasswordError(''); setDeleteAttempts(0) } } }}>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="icon" className="text-destructive hover:text-destructive h-8 w-8">
@@ -745,6 +748,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+              )}
 
               <div className="flex-1" />
               <Badge
@@ -767,44 +771,52 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
         <TabsListBoxed className="gap-1">
+          {can('viewTasks') && (
           <TabsTriggerBoxed value="tasks" className="gap-2">
             <ListTodo className="h-4 w-4" />
             Tasks
           </TabsTriggerBoxed>
+          )}
+          {can('viewNotes') && (
           <TabsTriggerBoxed value="notes" className="gap-2">
             <StickyNote className="h-4 w-4" />
             Notes
           </TabsTriggerBoxed>
+          )}
+          {can('viewAttachments') && (
           <TabsTriggerBoxed value="attachments" className="gap-2">
             <Paperclip className="h-4 w-4" />
             Attachments
           </TabsTriggerBoxed>
+          )}
+          {can('viewVault') && (
           <TabsTriggerBoxed value="vault" className="gap-2">
             <KeyRound className="h-4 w-4" />
             Vault
           </TabsTriggerBoxed>
-          {!isInternal && project.hasOwnFinances !== false && (
+          )}
+          {can('viewPayments') && !isInternal && project.hasOwnFinances !== false && (
             <TabsTriggerBoxed value="payments" className="gap-2">
               <Wallet className="h-4 w-4" />
               Payments
             </TabsTriggerBoxed>
           )}
+          {can('viewActivity') && (
           <TabsTriggerBoxed value="activity" className="gap-2">
             <History className="h-4 w-4" />
             Activity
           </TabsTriggerBoxed>
+          )}
+          {can('viewAiSessions') && (
           <TabsTriggerBoxed value="ai-sessions" className="gap-2">
             <Bot className="h-4 w-4" />
             AI Sessions
           </TabsTriggerBoxed>
-          <TabsTriggerBoxed value="sharing" className="gap-2">
-            <Users className="h-4 w-4" />
-            Sharing
-          </TabsTriggerBoxed>
+          )}
         </TabsListBoxed>
 
         <TabsContentBoxed value="tasks" className="lg:flex-1 lg:min-h-0">
-          <ProjectTasksTab projectId={id} projectName={project.name} repoPath={project.repoPath || null} onSwitchToAiTab={() => handleTabChange('ai-sessions')} />
+          <ProjectTasksTab projectId={id} projectName={project.name} repoPath={project.repoPath || null} onSwitchToAiTab={() => handleTabChange('ai-sessions')} canArchive={can('archiveTasks')} canRunAi={can('runAiSessions')} />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
@@ -1348,9 +1360,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <ClaudeSessionsTab projectId={id} repoPath={project.repoPath || null} />
         </TabsContentBoxed>
 
-        <TabsContentBoxed value="sharing" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-          <ProjectSharingTab project={project} onUpdate={refetchProject} />
-        </TabsContentBoxed>
 
       </Tabs>
 
@@ -1766,3 +1775,5 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     </div>
   )
 }
+
+

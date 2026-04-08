@@ -23,6 +23,7 @@ import { projects } from '@/lib/firestore'
 import { PaymentModel, ProjectStatus, ProjectType, Project } from '@/types'
 import { useToast } from '@/hooks/useToast'
 import { useAuth } from '@/hooks/useAuth'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { cn, colorPresets, projectTypes } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -94,6 +95,7 @@ function NewProjectContent() {
   const parentId = searchParams.get('parent')
   const { toast } = useToast()
   const { user } = useAuth()
+  const { canModule, loading: permsLoading } = useModulePermissions()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [parentProject, setParentProject] = useState<Project | null>(null)
@@ -210,6 +212,11 @@ function NewProjectContent() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (!permsLoading && !canModule('createProjects')) {
+    router.push('/projects')
+    return null
   }
 
   return (

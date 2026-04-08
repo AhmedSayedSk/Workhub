@@ -437,9 +437,11 @@ interface ProjectTasksTabProps {
   projectName: string
   repoPath: string | null
   onSwitchToAiTab?: () => void
+  canArchive?: boolean
+  canRunAi?: boolean
 }
 
-export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAiTab }: ProjectTasksTabProps) {
+export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAiTab, canArchive = true, canRunAi = true }: ProjectTasksTabProps) {
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [confetti, setConfetti] = useState<{ active: boolean; x?: number; y?: number }>({ active: false })
@@ -647,6 +649,7 @@ export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAi
           />
         </div>
         {/* Claude Code Selection Controls */}
+        {canRunAi && (
         <div className="shrink-0 border-t p-3">
           {selectionMode ? (
             <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectionMode(false)}>
@@ -660,11 +663,13 @@ export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAi
             </Button>
           )}
         </div>
+        )}
       </aside>
 
       {/* Task Board */}
       <div className="flex-1 min-w-0 relative">
         {/* Archive Button - floating card style */}
+        {canArchive && (
         <button
           onClick={() => setShowArchive(true)}
           className="absolute -top-11 right-0 z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-card text-muted-foreground hover:text-foreground hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all duration-200 text-sm"
@@ -677,6 +682,7 @@ export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAi
             </span>
           )}
         </button>
+        )}
         <TaskBoard
           tasks={filteredTasks}
           features={features}
@@ -689,7 +695,7 @@ export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAi
           onProcessingStarted={handleProcessingStarted}
           onCreateTask={handleCreateTask}
           onUpdateTask={handleUpdateTask}
-          onArchiveTask={handleArchiveTask}
+          onArchiveTask={canArchive ? handleArchiveTask : undefined}
           onSetTaskWaiting={handleSetTaskWaiting}
           onRemoveTaskWaiting={handleRemoveTaskWaiting}
           onSelectTask={handleSelectTask}
@@ -709,7 +715,7 @@ export function ProjectTasksTab({ projectId, projectName, repoPath, onSwitchToAi
         open={!!selectedTask}
         onOpenChange={handleCloseTaskDetail}
         onUpdateTask={handleUpdateTask}
-        onArchiveTask={handleArchiveTask}
+        onArchiveTask={canArchive ? handleArchiveTask : undefined}
         onSetTaskWaiting={handleSetTaskWaiting}
         onRemoveTaskWaiting={handleRemoveTaskWaiting}
         onDataChanged={handleBoardDataChanged}

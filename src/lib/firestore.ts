@@ -62,6 +62,9 @@ import {
   ImageAssetFolderInput,
   ImageGenLog,
   UserProfile,
+  MemberPermission,
+  ProjectPermissions,
+  ModulePermissions,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -1373,5 +1376,83 @@ export const imageGenLogs = {
 
   async create(data: Omit<ImageGenLog, 'id' | 'createdAt'>): Promise<string> {
     return create('imageGenLogs', data)
+  },
+}
+
+// Default permissions (all OFF)
+export const DEFAULT_PROJECT_PERMISSIONS: ProjectPermissions = {
+  viewProject: false, editProject: false, deleteProject: false,
+  viewTasks: false, createTasks: false, editTasks: false, deleteTasks: false, changeTaskStatus: false, archiveTasks: false,
+  viewNotes: false, createEditNotes: false, deleteNotes: false,
+  viewAttachments: false, uploadAttachments: false, deleteAttachments: false,
+  viewVault: false, createEditVault: false, deleteVault: false,
+  viewPayments: false, createEditPayments: false, deletePayments: false,
+  viewActivity: false,
+  viewAiSessions: false, runAiSessions: false,
+  logTime: false, viewAllTimeEntries: false, editDeleteOthersTime: false,
+}
+
+export const DEFAULT_MODULE_PERMISSIONS: ModulePermissions = {
+  createProjects: false,
+  viewCalendar: false, createEditCalendar: false, deleteCalendar: false,
+  viewMedia: false, uploadMedia: false, deleteMedia: false,
+  viewFinances: false, viewTimesheets: false,
+  accessAiAssistant: false, accessImageGenerator: false, accessSettings: false,
+}
+
+// Member Permissions
+export const memberPermissions = {
+  async getForMember(memberUid: string): Promise<MemberPermission[]> {
+    return getAll<MemberPermission>('memberPermissions', where('memberUid', '==', memberUid))
+  },
+
+  async getForProject(memberUid: string, projectId: string): Promise<MemberPermission | null> {
+    const results = await getAll<MemberPermission>(
+      'memberPermissions',
+      where('memberUid', '==', memberUid),
+      where('projectId', '==', projectId)
+    )
+    return results[0] || null
+  },
+
+  async getGlobal(memberUid: string): Promise<MemberPermission | null> {
+    return this.getForProject(memberUid, '__global__')
+  },
+
+  async setProjectPermissions(
+    memberId: string,
+    memberUid: string,
+    projectId: string,
+    permissions: ProjectPermissions
+  ): Promise<string> {
+    const existing = await this.getForProject(memberUid, projectId)
+    if (existing) {
+      await update('memberPermissions', existing.id, { permissions, updatedAt: Timestamp.now() })
+      return existing.id
+    }
+    return create('memberPermissions', { memberId, memberUid, projectId, permissions })
+  },
+
+  async setModulePermissions(
+    memberId: string,
+    memberUid: string,
+    modules: ModulePermissions
+  ): Promise<string> {
+    const existing = await this.getGlobal(memberUid)
+    if (existing) {
+      await update('memberPermissions', existing.id, { modules, updatedAt: Timestamp.now() })
+      return existing.id
+    }
+    return create('memberPermissions', { memberId, memberUid, projectId: '__global__', modules })
+  },
+
+  async removeForProject(memberUid: string, projectId: string): Promise<void> {
+    const existing = await this.getForProject(memberUid, projectId)
+    if (existing) await remove('memberPermissions', existing.id)
+  },
+
+  async removeAllForMember(memberUid: string): Promise<void> {
+    const all = await this.getForMember(memberUid)
+    for (const p of all) await remove('memberPermissions', p.id)
   },
 }

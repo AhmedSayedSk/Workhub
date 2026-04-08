@@ -422,7 +422,7 @@ interface TaskDetailProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
-  onArchiveTask: (id: string) => Promise<void>
+  onArchiveTask?: (id: string) => Promise<void>
   onSetTaskWaiting?: (id: string) => Promise<void>
   onRemoveTaskWaiting?: (id: string) => Promise<void>
   onDataChanged?: () => void
@@ -567,6 +567,7 @@ export function TaskDetail({
   }
 
   const handleArchive = async () => {
+    if (!onArchiveTask) return
     await onArchiveTask(task.id)
     setIsArchiving(false)
     onOpenChange(false)
@@ -1060,6 +1061,7 @@ export function TaskDetail({
                     Set Waiting
                   </Button>
                 )}
+                {onArchiveTask && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -1069,6 +1071,7 @@ export function TaskDetail({
                   <Archive className="h-4 w-4 mr-1" />
                   Archive
                 </Button>
+                )}
               </div>
             </div>
           </div>

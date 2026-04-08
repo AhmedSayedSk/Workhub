@@ -136,6 +136,12 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Member Permissions — any authenticated user can read; only owner writes
+    match /memberPermissions/{permId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
     // Claude AI Sessions
     match /claudeSessions/{sessionId} {
       allow read: if isAuthenticated();

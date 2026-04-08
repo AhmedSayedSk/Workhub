@@ -92,7 +92,9 @@ export function useProjects() {
     try {
       setLoading(true)
       const result = await projects.getAll(user?.uid)
-      setData(result.filter(p => !p.parentProjectId))
+      // Show as top-level if: no parent, OR parent not in accessible list
+      const accessibleIds = new Set(result.map(p => p.id))
+      setData(result.filter(p => !p.parentProjectId || !accessibleIds.has(p.parentProjectId)))
       setError(null)
     } catch (err) {
       setError(err as Error)

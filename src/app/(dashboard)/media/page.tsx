@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { useMediaLibrary } from '@/hooks/useMediaLibrary'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { mediaFiles } from '@/lib/firestore'
@@ -38,10 +39,12 @@ import {
   SortAsc,
   SortDesc,
   ArrowLeft,
+  ShieldAlert,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function MediaPage() {
+  const { canModule, loading: permsLoading } = useModulePermissions()
   const router = useRouter()
   const searchParams = useSearchParams()
   const folderId = searchParams.get('folder') || undefined
@@ -258,6 +261,16 @@ export default function MediaPage() {
     setSelectedFolder(folder)
     setSelectedFile(null)
     setIsDeleteDialogOpen(true)
+  }
+
+  if (!permsLoading && !canModule('viewMedia')) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <ShieldAlert className="h-12 w-12 mb-3 opacity-40" />
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p className="text-sm">You don&apos;t have permission to access this module.</p>
+      </div>
+    )
   }
 
   if (loading) {

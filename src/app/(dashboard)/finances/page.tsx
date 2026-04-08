@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { projects, milestones, monthlyPayments } from '@/lib/firestore'
 import { Project, Milestone, MonthlyPayment } from '@/types'
 import {
@@ -26,6 +27,7 @@ import {
   CheckCircle2,
   DollarSign,
   ArrowRight,
+  ShieldAlert,
 } from 'lucide-react'
 import {
   BarChart,
@@ -43,6 +45,7 @@ import {
 // Using soft chart colors from utils for dark mode comfort
 
 export default function FinancesPage() {
+  const { canModule, loading: permsLoading } = useModulePermissions()
   const { user } = useAuth()
   const [allProjects, setProjects] = useState<Project[]>([])
   const [allMilestones, setMilestones] = useState<Milestone[]>([])
@@ -243,6 +246,16 @@ export default function FinancesPage() {
       }))
       .sort((a, b) => b.value - a.value)
   }, [distributionPeriod, projectsWithPayments, allMilestones, allPayments, allProjects])
+
+  if (!permsLoading && !canModule('viewFinances')) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <ShieldAlert className="h-12 w-12 mb-3 opacity-40" />
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p className="text-sm">You don&apos;t have permission to access this module.</p>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
