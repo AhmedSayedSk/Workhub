@@ -48,6 +48,7 @@ firebase-debug.log
 mcp-server/dist/
 image-gen-mcp/dist/
 image-gen-mcp/package-lock.json
+image-gen-mcp/generation-log.json
 tts-mcp/dist/
 tts-mcp/package-lock.json
 tts-mcp/generation-log.json
