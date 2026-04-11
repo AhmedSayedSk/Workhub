@@ -663,8 +663,6 @@ export default function ImageGeneratorPage() {
     setRegisterOpen(true)
   }
 
-  if (!user) return null
-
   const handleGenerate = async () => {
     if (!prompt.trim()) return
 
@@ -883,6 +881,8 @@ export default function ImageGeneratorPage() {
   }
 
   const hasToken = !!settings?.imageGenApiToken
+
+  if (!user) return null
 
   return (
     <div className="flex flex-col h-[calc(100vh-7rem)] relative overflow-hidden">
