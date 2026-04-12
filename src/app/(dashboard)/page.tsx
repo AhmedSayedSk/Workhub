@@ -83,6 +83,7 @@ export default function DashboardPage() {
   const [allMilestones, setAllMilestones] = useState<Milestone[]>([])
   const [allPayments, setAllPayments] = useState<MonthlyPayment[]>([])
   const [membersMap, setMembersMap] = useState<Record<string, Member>>({})
+  const [showAllTasks, setShowAllTasks] = useState(false)
   const [showIncomeChart, setShowIncomeChart] = useState(false)
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
@@ -140,10 +141,12 @@ export default function DashboardPage() {
       )
       const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
       const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
-      setAllTodoTasks(filteredTodo)
-      setAllInProgressTasks(filteredInProgress)
-      setTodoTasks(sortByPriorityAndDeadline(filteredTodo, projMap).slice(0, 5))
-      setInProgressTasks(sortByPriorityAndDeadline(filteredInProgress, projMap).slice(0, 5))
+      const sortedTodo = sortByPriorityAndDeadline(filteredTodo, projMap)
+      const sortedInProgress = sortByPriorityAndDeadline(filteredInProgress, projMap)
+      setAllTodoTasks(sortedTodo)
+      setAllInProgressTasks(sortedInProgress)
+      setTodoTasks(sortedTodo.slice(0, 7))
+      setInProgressTasks(sortedInProgress.slice(0, 7))
       // Filter time entries, milestones, payments by accessible projects
       const accessibleIds = new Set(allProjects.map((p: Project) => p.id))
       setTodayEntries(todayData.filter((e: any) => accessibleIds.has(e.projectId)))
@@ -466,9 +469,18 @@ export default function DashboardPage() {
               <div>
                 <CardTitle>My Tasks</CardTitle>
                 <CardDescription>
-                  {todoTasks.length + inProgressTasks.length} tasks need attention
+                  {allTodoTasks.length + allInProgressTasks.length} tasks need attention
                 </CardDescription>
               </div>
+              {(allTodoTasks.length > 7 || allInProgressTasks.length > 7) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAllTasks(!showAllTasks)}
+                >
+                  {showAllTasks ? 'Show Less' : 'View All'}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -481,16 +493,16 @@ export default function DashboardPage() {
             ) : (
               <>
                 {/* In Progress Tasks */}
-                {inProgressTasks.length > 0 && (
+                {(showAllTasks ? allInProgressTasks : inProgressTasks).length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-2 h-2 rounded-full bg-blue-500" />
                       <h4 className="text-sm font-medium text-muted-foreground">
-                        In Progress ({inProgressTasks.length})
+                        In Progress ({allInProgressTasks.length})
                       </h4>
                     </div>
                     <div className="space-y-2">
-                      {inProgressTasks.map((task) => {
+                      {(showAllTasks ? allInProgressTasks : inProgressTasks).map((task) => {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
@@ -537,16 +549,16 @@ export default function DashboardPage() {
                 )}
 
                 {/* Todo Tasks */}
-                {todoTasks.length > 0 && (
+                {(showAllTasks ? allTodoTasks : todoTasks).length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-2 h-2 rounded-full bg-slate-400" />
                       <h4 className="text-sm font-medium text-muted-foreground">
-                        To Do ({todoTasks.length})
+                        To Do ({allTodoTasks.length})
                       </h4>
                     </div>
                     <div className="space-y-2">
-                      {todoTasks.map((task) => {
+                      {(showAllTasks ? allTodoTasks : todoTasks).map((task) => {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
