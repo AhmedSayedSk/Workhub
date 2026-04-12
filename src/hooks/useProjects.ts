@@ -429,7 +429,7 @@ export function useProject(projectId: string) {
         paidAt: toTimestamp(input.paidAt),
         notes: input.notes || '',
       }
-      setPayments(prev => [...prev, newPayment])
+      setPayments(prev => [newPayment, ...prev])
       toast({
         description: 'Payment record created',
         variant: 'success',
