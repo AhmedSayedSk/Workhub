@@ -70,7 +70,7 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
   const createTimeEntry = async (input: TimeEntryInput) => {
     try {
       const id = await timeEntries.create(input)
-      audit({ type: 'time_entry', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: input.projectId, targetId: id, details: { durationMinutes: input.durationMinutes } })
+      audit({ type: 'time_entry', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: input.projectId, targetId: id, details: { duration: input.duration } })
       await fetchTimeEntries()
       toast({ description: 'Time entry created', variant: 'success' })
     } catch {
