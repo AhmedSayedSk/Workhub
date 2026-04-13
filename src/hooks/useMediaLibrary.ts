@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { mediaFiles, mediaFolders, mediaBatch } from '@/lib/firestore'
+import { mediaFiles, mediaFolders, mediaBatch, audit } from '@/lib/firestore'
 import { deleteFile } from '@/lib/storage'
 import {
   MediaFile,
@@ -12,6 +12,7 @@ import {
   FileCategory,
 } from '@/types'
 import { useToast } from './useToast'
+import { useAuth } from './useAuth'
 
 interface UseMediaLibraryOptions {
   userId: string
@@ -29,6 +30,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const [sortOrder, setSortOrder] = useState<MediaSortOrder>('desc')
   const [categoryFilter, setCategoryFilter] = useState<FileCategory | null>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchData = useCallback(async () => {
     if (!userId) {
@@ -127,6 +129,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
         ...input,
         createdBy: userId,
       })
+      audit({ type: 'media', action: 'folder_created', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: input.name })
       await fetchData()
       toast({ description: 'Folder created', variant: 'success' })
       return id
@@ -139,6 +142,8 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const updateFolder = async (id: string, input: Partial<MediaFolderInput>) => {
     try {
       await mediaFolders.update(id, input)
+      const existing = folders.find((f) => f.id === id)
+      audit({ type: 'media', action: 'folder_updated', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: input.name || existing?.name })
       await fetchData()
       toast({ description: 'Folder updated', variant: 'success' })
     } catch {
@@ -149,12 +154,14 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
 
   const deleteFolder = async (id: string) => {
     const previousFolders = folders
+    const existing = previousFolders.find((f) => f.id === id)
     setFolders((prev) => prev.filter((f) => f.id !== id))
     toast({ description: 'Folder deleted', variant: 'success' })
 
     try {
       const storagePaths = await mediaBatch.deleteFolderCascade(id, userId)
       await Promise.all(storagePaths.map((path) => deleteFile(path).catch(() => {})))
+      audit({ type: 'media', action: 'folder_deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: existing?.name })
     } catch {
       setFolders(previousFolders)
       toast({ title: 'Error', description: 'Failed to delete folder', variant: 'destructive' })
@@ -172,6 +179,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
       if (fileToDelete) {
         await deleteFile(fileToDelete.storagePath).catch(() => {})
         await mediaFiles.delete(id)
+        audit({ type: 'media', action: 'file_deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: fileToDelete.displayName || fileToDelete.name })
       }
     } catch {
       setFiles(previousFiles)
@@ -188,6 +196,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
     try {
       const storagePaths = await mediaBatch.deleteFiles(ids)
       await Promise.all(storagePaths.map((path) => deleteFile(path).catch(() => {})))
+      audit({ type: 'media', action: 'files_deleted_batch', actorUid: user?.uid || null, actorEmail: user?.email || '', details: { count: ids.length } })
     } catch {
       setFiles(previousFiles)
       toast({ title: 'Error', description: 'Failed to delete files', variant: 'destructive' })
@@ -197,6 +206,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const moveFilesToFolder = async (fileIds: string[], targetFolderId: string | null) => {
     try {
       await mediaBatch.moveFiles(fileIds, targetFolderId)
+      audit({ type: 'media', action: 'files_moved', actorUid: user?.uid || null, actorEmail: user?.email || '', details: { count: fileIds.length, targetFolderId } })
       await fetchData()
       toast({
         description: `${fileIds.length} file(s) moved`,
@@ -211,6 +221,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const renameFile = async (id: string, newDisplayName: string) => {
     try {
       await mediaFiles.update(id, { displayName: newDisplayName })
+      audit({ type: 'media', action: 'file_renamed', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: newDisplayName })
       await fetchData()
       toast({ description: 'File renamed', variant: 'success' })
     } catch {
@@ -223,6 +234,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const linkFileToProject = async (fileId: string, projectId: string) => {
     try {
       await mediaFiles.linkToProject(fileId, projectId)
+      audit({ type: 'media', action: 'file_linked_to_project', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: fileId, projectId })
       await fetchData()
       toast({ description: 'File linked to project', variant: 'success' })
     } catch {
@@ -234,6 +246,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const unlinkFileFromProject = async (fileId: string, projectId: string) => {
     try {
       await mediaFiles.unlinkFromProject(fileId, projectId)
+      audit({ type: 'media', action: 'file_unlinked_from_project', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: fileId, projectId })
       await fetchData()
       toast({ description: 'File unlinked from project', variant: 'success' })
     } catch {
@@ -245,6 +258,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const linkFileToTask = async (fileId: string, taskId: string) => {
     try {
       await mediaFiles.linkToTask(fileId, taskId)
+      audit({ type: 'media', action: 'file_linked_to_task', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: fileId, details: { taskId } })
       await fetchData()
       toast({ description: 'File linked to task', variant: 'success' })
     } catch {
@@ -256,6 +270,7 @@ export function useMediaLibrary({ userId, folderId }: UseMediaLibraryOptions) {
   const unlinkFileFromTask = async (fileId: string, taskId: string) => {
     try {
       await mediaFiles.unlinkFromTask(fileId, taskId)
+      audit({ type: 'media', action: 'file_unlinked_from_task', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: fileId, details: { taskId } })
       await fetchData()
       toast({ description: 'File unlinked from task', variant: 'success' })
     } catch {

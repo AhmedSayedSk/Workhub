@@ -54,6 +54,8 @@ export function useFeatures(projectId?: string) {
   const updateFeature = async (id: string, input: Partial<FeatureInput>) => {
     try {
       await features.update(id, input)
+      const existing = data.find((f) => f.id === id)
+      audit({ type: 'feature', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: existing?.projectId, targetId: id, targetName: existing?.name })
       await fetchFeatures()
       toast({ description: 'Feature updated', variant: 'success' })
     } catch {
@@ -365,6 +367,7 @@ export function useSubtasks(taskId?: string) {
   const [data, setData] = useState<Subtask[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchSubtasks = useCallback(async () => {
     if (!taskId) {
@@ -395,6 +398,7 @@ export function useSubtasks(taskId?: string) {
   const createSubtask = async (input: SubtaskInput) => {
     try {
       const id = await subtasks.create(input)
+      audit({ type: 'subtask', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: input.name, details: { taskId: input.taskId } })
       await fetchSubtasks()
       toast({ description: 'Subtask created', variant: 'success' })
       return id
@@ -407,12 +411,14 @@ export function useSubtasks(taskId?: string) {
   const updateSubtask = async (id: string, input: Partial<SubtaskInput>) => {
     // Optimistic update - update local state immediately
     const previousData = data
+    const existing = previousData.find((s) => s.id === id)
     setData((prev) =>
       prev.map((s) => (s.id === id ? { ...s, ...input } as Subtask : s))
     )
 
     try {
       await subtasks.update(id, input)
+      audit({ type: 'subtask', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: existing?.name, details: { taskId: existing?.taskId } })
     } catch {
       // Revert on error
       setData(previousData)
@@ -424,10 +430,12 @@ export function useSubtasks(taskId?: string) {
   const deleteSubtask = async (id: string) => {
     // Optimistic delete - remove from local state immediately
     const previousData = data
+    const existing = previousData.find((s) => s.id === id)
     setData((prev) => prev.filter((s) => s.id !== id))
 
     try {
       await subtasks.delete(id)
+      audit({ type: 'subtask', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: existing?.name, details: { taskId: existing?.taskId } })
     } catch {
       // Revert on error
       setData(previousData)

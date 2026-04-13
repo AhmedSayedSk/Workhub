@@ -66,11 +66,13 @@ export function useCalendarEvents() {
   const updateEventStatus = useCallback(async (id: string, status: CalendarEventStatus) => {
     try {
       await calendarEvents.update(id, { status })
+      const existing = events.find((e) => e.id === id)
+      audit({ type: 'calendar', action: 'status_changed', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: id, targetName: existing?.title, details: { status } })
       await fetchEvents()
     } catch {
       toast.error('Failed to update status')
     }
-  }, [fetchEvents])
+  }, [fetchEvents, events, user])
 
   return {
     events,

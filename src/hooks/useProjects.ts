@@ -330,6 +330,7 @@ export function useProject(projectId: string) {
       }
       setMilestones(prev => [...prev, newMilestone])
       syncMilestoneTotal([...projectMilestones, newMilestone])
+      audit({ type: 'milestone', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, targetId: id, targetName: input.name })
       toast({
         description: 'Milestone created',
         variant: 'success',
@@ -373,6 +374,8 @@ export function useProject(projectId: string) {
         const updated = projectMilestones.map(m => m.id === id ? { ...m, amount: input.amount! } : m)
         syncMilestoneTotal(updated)
       }
+      const existing = previousMilestones.find(m => m.id === id)
+      audit({ type: 'milestone', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, targetId: id, targetName: existing?.name })
       toast({
         description: 'Milestone updated',
         variant: 'success',
@@ -392,6 +395,7 @@ export function useProject(projectId: string) {
   const deleteMilestone = async (id: string) => {
     // Store previous state for rollback
     const previousMilestones = projectMilestones
+    const existing = previousMilestones.find(m => m.id === id)
 
     // Optimistically remove the milestone from state
     setMilestones(prev => prev.filter(m => m.id !== id))
@@ -399,6 +403,7 @@ export function useProject(projectId: string) {
     try {
       await milestones.delete(id)
       syncMilestoneTotal(projectMilestones.filter(m => m.id !== id))
+      audit({ type: 'milestone', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, targetId: id, targetName: existing?.name })
       toast({
         description: 'Milestone deleted',
         variant: 'success',
@@ -430,6 +435,7 @@ export function useProject(projectId: string) {
         notes: input.notes || '',
       }
       setPayments(prev => [newPayment, ...prev])
+      audit({ type: 'payment', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, targetId: id, details: { month: input.month, amount: input.amount, status: input.status } })
       toast({
         description: 'Payment record created',
         variant: 'success',
@@ -466,6 +472,7 @@ export function useProject(projectId: string) {
 
     try {
       await monthlyPayments.update(id, input)
+      audit({ type: 'payment', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, targetId: id })
       toast({
         description: 'Payment updated',
         variant: 'success',

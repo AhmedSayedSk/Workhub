@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { mediaFiles } from '@/lib/firestore'
+import { mediaFiles, audit } from '@/lib/firestore'
+import { useAuth } from './useAuth'
 import {
   uploadFile,
   generateStoragePath,
@@ -27,6 +28,7 @@ export interface FileWithDisplayName {
 }
 
 export function useFileUpload({ userId, folderId, linkedProjectId, onUploadComplete }: UseFileUploadOptions) {
+  const { user } = useAuth()
   const [uploads, setUploads] = useState<UploadProgress[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const { toast } = useToast()
@@ -102,7 +104,7 @@ export function useFileUpload({ userId, folderId, linkedProjectId, onUploadCompl
 
           const mimeType = detectMimeType(file.name, file.type)
 
-          await mediaFiles.create({
+          const mediaFileId = await mediaFiles.create({
             name: file.name,
             displayName: item.displayName || file.name,
             mimeType,
@@ -117,6 +119,8 @@ export function useFileUpload({ userId, folderId, linkedProjectId, onUploadCompl
             uploadedBy: userId,
             metadata: {},
           })
+
+          audit({ type: 'media', action: 'file_uploaded', actorUid: user?.uid || null, actorEmail: user?.email || '', targetId: mediaFileId, targetName: item.displayName || file.name, projectId: linkedProjectIdRef.current ?? undefined, details: { size: result.size, mimeType } })
 
           updateUploadProgress(fileId, { status: 'complete' })
           return { success: true, fileName: file.name }

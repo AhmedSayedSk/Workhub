@@ -854,10 +854,10 @@ export interface MemberPermission {
 // Audit Logs
 export type AuditLogType =
   | 'login' | 'login_failed' | 'logout'
-  | 'project' | 'task' | 'comment' | 'feature' | 'vault'
+  | 'project' | 'task' | 'subtask' | 'comment' | 'feature' | 'vault'
   | 'permission' | 'member' | 'sharing'
   | 'settings' | 'media' | 'payment' | 'calendar'
-  | 'attachment'
+  | 'attachment' | 'note' | 'time_entry' | 'milestone'
 
 export interface AuditLog {
   id: string

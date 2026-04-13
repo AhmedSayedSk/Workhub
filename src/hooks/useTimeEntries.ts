@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { timeEntries, projects, tasks } from '@/lib/firestore'
+import { timeEntries, projects, tasks, audit } from '@/lib/firestore'
 import { TimeEntry, TimeEntryInput, Project, Task } from '@/types'
 import { useAuth } from './useAuth'
 import { useToast } from './useToast'
@@ -69,7 +69,8 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
 
   const createTimeEntry = async (input: TimeEntryInput) => {
     try {
-      await timeEntries.create(input)
+      const id = await timeEntries.create(input)
+      audit({ type: 'time_entry', action: 'created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: input.projectId, targetId: id, details: { durationMinutes: input.durationMinutes } })
       await fetchTimeEntries()
       toast({ description: 'Time entry created', variant: 'success' })
     } catch {
@@ -81,6 +82,8 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
   const updateTimeEntry = async (id: string, input: Partial<TimeEntryInput>) => {
     try {
       await timeEntries.update(id, input)
+      const existing = data.find((e) => e.id === id)
+      audit({ type: 'time_entry', action: 'updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: existing?.projectId, targetId: id })
       await fetchTimeEntries()
       toast({ description: 'Time entry updated', variant: 'success' })
     } catch {
@@ -91,12 +94,14 @@ export function useTimeEntries(projectId?: string, startDate?: Date, endDate?: D
 
   const deleteTimeEntry = async (id: string) => {
     const previousData = data
+    const existing = data.find((e) => e.id === id)
 
     // Optimistically remove from UI
     setData((prev) => prev.filter((e) => e.id !== id))
 
     try {
       await timeEntries.delete(id)
+      audit({ type: 'time_entry', action: 'deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId: existing?.projectId, targetId: id })
     } catch {
       // Rollback on error
       setData(previousData)

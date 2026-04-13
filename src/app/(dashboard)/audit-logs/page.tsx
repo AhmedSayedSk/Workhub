@@ -43,6 +43,10 @@ import {
   CalendarDays,
   Paperclip,
   Search,
+  FileText,
+  Clock,
+  Flag,
+  CheckSquare,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -67,15 +71,19 @@ const TYPE_CONFIG: Record<AuditLogType, { label: string; icon: any; color: strin
   payment:      { label: 'Payment',      icon: Wallet,        color: 'text-emerald-600 dark:text-emerald-400' },
   calendar:     { label: 'Calendar',     icon: CalendarDays,  color: 'text-rose-600 dark:text-rose-400' },
   attachment:   { label: 'Attachment',   icon: Paperclip,     color: 'text-violet-600 dark:text-violet-400' },
+  note:         { label: 'Note',         icon: FileText,      color: 'text-yellow-600 dark:text-yellow-400' },
+  subtask:      { label: 'Subtask',      icon: CheckSquare,   color: 'text-purple-500 dark:text-purple-300' },
+  time_entry:   { label: 'Time Entry',   icon: Clock,         color: 'text-lime-600 dark:text-lime-400' },
+  milestone:    { label: 'Milestone',    icon: Flag,          color: 'text-fuchsia-600 dark:text-fuchsia-400' },
 }
 
 const ALL_TYPES = Object.keys(TYPE_CONFIG) as AuditLogType[]
 
 const TYPE_GROUPS = [
   { label: 'Auth', types: ['login', 'login_failed', 'logout'] as AuditLogType[] },
-  { label: 'Projects', types: ['project', 'task', 'comment', 'feature', 'vault', 'attachment'] as AuditLogType[] },
+  { label: 'Projects', types: ['project', 'task', 'subtask', 'comment', 'feature', 'vault', 'attachment', 'note', 'milestone'] as AuditLogType[] },
   { label: 'Team', types: ['member', 'permission', 'sharing'] as AuditLogType[] },
-  { label: 'System', types: ['settings', 'calendar', 'media', 'payment'] as AuditLogType[] },
+  { label: 'System', types: ['settings', 'calendar', 'media', 'payment', 'time_entry'] as AuditLogType[] },
 ]
 
 const PAGE_SIZE = 50

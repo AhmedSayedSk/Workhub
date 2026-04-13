@@ -51,6 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mapped.email) {
           projectsApi.resolvePendingInvites(mapped.uid, mapped.email).catch(() => {})
         }
+        // Log session start once per browser tab session (skips noisy re-renders and page navigations)
+        if (typeof window !== 'undefined') {
+          const key = `audit_session_logged_${mapped.uid}`
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, '1')
+            audit({ type: 'login', action: 'session_restored', actorUid: mapped.uid, actorEmail: mapped.email || '' })
+          }
+        }
       }
     })
 
