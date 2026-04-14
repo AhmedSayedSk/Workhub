@@ -245,6 +245,47 @@ export const statusColors = {
   },
 }
 
+export type WarrantyState = 'none' | 'active' | 'expired'
+
+/**
+ * Returns the warranty state of a project based on its status and warranty fields.
+ * Pure and safe to call on any project — projects without warranty data return 'none'.
+ */
+export function getWarrantyState(project: Project): WarrantyState {
+  if (project.status !== 'completed') return 'none'
+  if (!project.warrantyDays || project.warrantyDays <= 0) return 'none'
+  if (!project.warrantyStartDate) return 'none'
+
+  const start = project.warrantyStartDate.toDate()
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  const end = new Date(startDay)
+  end.setDate(end.getDate() + project.warrantyDays)
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  return today <= end ? 'active' : 'expired'
+}
+
+/**
+ * Days remaining in the warranty window (ceil, floored at 0).
+ * Returns 0 if the project is not currently in an active warranty.
+ */
+export function getWarrantyDaysLeft(project: Project): number {
+  if (getWarrantyState(project) !== 'active') return 0
+
+  const start = project.warrantyStartDate!.toDate()
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  const end = new Date(startDay)
+  end.setDate(end.getDate() + project.warrantyDays!)
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  const msLeft = end.getTime() - today.getTime()
+  return Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000)))
+}
+
 // Project field labels for activity log
 export const projectFieldLabels: Record<string, string> = {
   name: 'Name',
