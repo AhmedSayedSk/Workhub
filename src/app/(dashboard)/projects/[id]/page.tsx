@@ -1713,6 +1713,40 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
+            {editForm.status === 'completed' && (
+              <div className="grid gap-4 md:grid-cols-2 rounded-md border border-dashed border-border/60 p-3 bg-muted/30">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-warranty-days">Warranty Days</Label>
+                  <Input
+                    id="edit-warranty-days"
+                    type="number"
+                    min={0}
+                    placeholder="0 (no warranty)"
+                    value={editForm.warrantyDays}
+                    onChange={(e) => setEditForm({ ...editForm, warrantyDays: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-warranty-start">Warranty Start Date</Label>
+                  <Input
+                    id="edit-warranty-start"
+                    type="date"
+                    value={
+                      editForm.warrantyStartDate
+                        ? editForm.warrantyStartDate.toISOString().slice(0, 10)
+                        : ''
+                    }
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        warrantyStartDate: e.target.value ? new Date(e.target.value) : null,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
             {editForm.paymentModel !== 'internal' ? (
               <div className="space-y-2">
                 <Label htmlFor="edit-totalAmount">
