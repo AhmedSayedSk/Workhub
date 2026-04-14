@@ -24,7 +24,7 @@ export function WarrantyBadge({ project, className }: WarrantyBadgeProps) {
         )}
       >
         <ShieldCheck className="h-3 w-3" />
-        Warranty · {daysLeft} day{daysLeft === 1 ? '' : 's'} left
+        {daysLeft} day{daysLeft === 1 ? '' : 's'} left
       </Badge>
     )
   }
@@ -38,7 +38,7 @@ export function WarrantyBadge({ project, className }: WarrantyBadgeProps) {
       )}
     >
       <ShieldOff className="h-3 w-3" />
-      Warranty expired
+      Expired
     </Badge>
   )
 }

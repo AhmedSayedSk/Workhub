@@ -245,7 +245,7 @@ export default function ProjectsPage() {
                                 size="lg"
                               />
                               <div className="flex-1 min-w-0">
-                                <CardTitle className="text-xl pr-40 !mt-0 truncate">{project.name}</CardTitle>
+                                <CardTitle className="text-xl pr-28 !mt-0 truncate">{project.name}</CardTitle>
                                 {project.paymentModel === 'internal' ? (
                                   <p className="text-sm text-muted-foreground">
                                     Internal Project
