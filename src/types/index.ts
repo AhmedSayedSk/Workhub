@@ -107,6 +107,8 @@ export interface Project {
   sharedWith: string[] // UIDs of users who can access this project
   pendingSharedEmails: string[] // Emails of users invited but not yet signed up
   createdAt: Timestamp
+  warrantyDays?: number
+  warrantyStartDate?: Timestamp | null
 }
 
 export interface Milestone {
@@ -242,6 +244,8 @@ export interface ProjectInput {
   ownerId?: string
   sharedWith?: string[]
   pendingSharedEmails?: string[]
+  warrantyDays?: number
+  warrantyStartDate?: Date | null
 }
 
 export interface MilestoneInput {
