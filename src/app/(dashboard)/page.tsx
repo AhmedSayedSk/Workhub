@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/hooks/useAuth'
 import { projects, tasks, timeEntries, milestones, monthlyPayments, members as membersApi } from '@/lib/firestore'
 import { Project, Task, TimeEntry, Milestone, MonthlyPayment, TaskType, Member } from '@/types'
-import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime, getEffectiveTotal } from '@/lib/utils'
+import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime, getEffectiveTotal, getWarrantyState, getWarrantyDaysLeft } from '@/lib/utils'
+import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
 
 const taskTypeBorderColors: Record<TaskType, string> = {
   task: '#64748b',       // slate-500
@@ -72,6 +73,7 @@ import { useSettings } from '@/hooks/useSettings'
 
 export default function DashboardPage() {
   const [activeProjects, setActiveProjects] = useState<Project[]>([])
+  const [warrantyProjects, setWarrantyProjects] = useState<Project[]>([])
   const [todoTasks, setTodoTasks] = useState<Task[]>([])
   const [inProgressTasks, setInProgressTasks] = useState<Task[]>([])
   const [allTodoTasks, setAllTodoTasks] = useState<Task[]>([])
@@ -135,6 +137,12 @@ export default function DashboardPage() {
       // Filter out sub-projects from dashboard display
       const topLevelActive = projectsData.filter((p: Project) => !p.parentProjectId)
       setActiveProjects(topLevelActive.slice(0, 5))
+
+      // Completed projects still in warranty period (top-level only, soonest expiring first)
+      const warrantyActive = allProjects
+        .filter((p: Project) => !p.parentProjectId && getWarrantyState(p) === 'active')
+        .sort((a: Project, b: Project) => getWarrantyDaysLeft(a) - getWarrantyDaysLeft(b))
+      setWarrantyProjects(warrantyActive)
       // Only show tasks from non-completed projects
       const activeProjectIds = new Set(
         allProjects.filter((p: Project) => p.status !== 'completed' && p.status !== 'cancelled').map((p: Project) => p.id)
@@ -333,6 +341,8 @@ export default function DashboardPage() {
 
       {/* Main Content Grid */}
       <div className="grid gap-6 md:grid-cols-2 items-start">
+        {/* Left column: Active Projects + In-Warranty Projects */}
+        <div className="space-y-6">
         {/* Active Projects */}
         <Card>
           <CardHeader>
@@ -461,6 +471,74 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* In-Warranty Projects */}
+        {warrantyProjects.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>In Warranty</CardTitle>
+                  <CardDescription>
+                    Completed projects still covered
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {warrantyProjects.length}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {warrantyProjects.map((project) => {
+                  const daysLeft = getWarrantyDaysLeft(project)
+                  return (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}`}
+                      className="block"
+                    >
+                      <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div
+                          className="w-2 h-10 rounded-full"
+                          style={{ backgroundColor: project.color || '#6366F1' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-base truncate">{project.name}</p>
+                            <WarrantyBadge project={project} className="shrink-0" />
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {project.clientName || 'Internal'}
+                            {project.warrantyStartDate && (
+                              <>
+                                <span> · </span>
+                                <span>
+                                  Expires {formatDate(
+                                    (() => {
+                                      const start = project.warrantyStartDate.toDate()
+                                      const end = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+                                      end.setDate(end.getDate() + (project.warrantyDays ?? 0))
+                                      return end
+                                    })(),
+                                  )}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <div className={`text-right text-sm font-medium ${daysLeft <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                          {daysLeft} day{daysLeft === 1 ? '' : 's'}
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        </div>
 
         {/* Tasks Overview */}
         <Card>
