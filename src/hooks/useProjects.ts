@@ -264,13 +264,14 @@ export function useProject(projectId: string) {
     // Optimistically update the project in state
     if (project) {
       // Extract non-date fields for safe spreading
-      const { startDate, deadline, ...nonDateFields } = input
+      const { startDate, deadline, warrantyStartDate, ...nonDateFields } = input
       setProject({
         ...project,
         ...nonDateFields,
         // Handle date fields - convert Date to Timestamp
         ...(startDate !== undefined && { startDate: toTimestamp(startDate)! }),
         ...(deadline !== undefined && { deadline: toTimestamp(deadline) }),
+        ...(warrantyStartDate !== undefined && { warrantyStartDate: toTimestamp(warrantyStartDate) }),
       })
     }
 
