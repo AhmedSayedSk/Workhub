@@ -37,6 +37,7 @@ import {
   ListTodo,
 } from 'lucide-react'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
+import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const paymentModelLabels: Record<PaymentModel, string> = {
@@ -241,7 +242,10 @@ export default function ProjectsPage() {
                                 size="lg"
                               />
                               <div className="flex-1 min-w-0">
-                                <CardTitle className="text-xl pr-16 !mt-0 truncate">{project.name}</CardTitle>
+                                <div className="flex items-center gap-2 pr-16">
+                                  <CardTitle className="text-xl !mt-0 truncate">{project.name}</CardTitle>
+                                  <WarrantyBadge project={project} className="shrink-0" />
+                                </div>
                                 {project.paymentModel === 'internal' ? (
                                   <p className="text-sm text-muted-foreground">
                                     Internal Project
