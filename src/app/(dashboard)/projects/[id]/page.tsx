@@ -86,6 +86,7 @@ import {
   ChevronsUpDown,
   StickyNote,
 } from 'lucide-react'
+import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
 import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
@@ -771,6 +772,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               >
                 {project.status}
               </Badge>
+              <WarrantyBadge project={project} />
               {isInternal && (
                 <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 border-0">
                   <Building2 className="h-3 w-3 mr-1" />
