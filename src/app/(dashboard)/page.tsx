@@ -143,9 +143,15 @@ export default function DashboardPage() {
         .filter((p: Project) => !p.parentProjectId && getWarrantyState(p) === 'active')
         .sort((a: Project, b: Project) => getWarrantyDaysLeft(a) - getWarrantyDaysLeft(b))
       setWarrantyProjects(warrantyActive)
-      // Only show tasks from non-completed projects
+      // Show tasks from non-completed projects, plus completed projects still in warranty
       const activeProjectIds = new Set(
-        allProjects.filter((p: Project) => p.status !== 'completed' && p.status !== 'cancelled').map((p: Project) => p.id)
+        allProjects
+          .filter((p: Project) => {
+            if (p.status === 'cancelled') return false
+            if (p.status !== 'completed') return true
+            return getWarrantyState(p) === 'active'
+          })
+          .map((p: Project) => p.id),
       )
       const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
       const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
