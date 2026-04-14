@@ -48,3 +48,6 @@ firebase-debug.log
 mcp-server/dist/
 /image-gen-mcp/
 /tts-mcp/
+
+# Superpowers specs and plans
+/docs/superpowers/
