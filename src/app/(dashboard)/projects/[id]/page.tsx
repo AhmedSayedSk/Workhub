@@ -215,6 +215,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     color: colorPresets[0].value,
     projectType: null as ProjectType | null,
     repoPath: '' as string,
+    warrantyDays: '' as string,
+    warrantyStartDate: null as Date | null,
   })
 
   const [paymentForm, setPaymentForm] = useState({
@@ -469,6 +471,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         color: project.color || colorPresets[0].value,
         projectType: project.projectType || null,
         repoPath: project.repoPath || '',
+        warrantyDays: project.warrantyDays ? project.warrantyDays.toString() : '',
+        warrantyStartDate: project.warrantyStartDate ? project.warrantyStartDate.toDate() : null,
       })
       setIsEditDialogOpen(true)
     }
@@ -480,6 +484,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     setIsSubmitting(true)
     try {
       const isEditInternal = editForm.paymentModel === 'internal'
+      const parsedWarrantyDays = parseInt(editForm.warrantyDays, 10)
+      const hasWarranty =
+        editForm.status === 'completed' && parsedWarrantyDays > 0 && editForm.warrantyStartDate !== null
+
       const updateData: Partial<ProjectInput> = {
         name: editForm.name,
         clientName: editForm.clientName,
@@ -495,6 +503,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         color: editForm.color,
         projectType: editForm.projectType || null,
         repoPath: editForm.repoPath.trim() || null,
+        warrantyDays: hasWarranty ? parsedWarrantyDays : 0,
+        warrantyStartDate: hasWarranty ? editForm.warrantyStartDate : null,
       }
       if (isEditInternal && editForm.estimatedValue) {
         updateData.estimatedValue = parseFloat(editForm.estimatedValue)
