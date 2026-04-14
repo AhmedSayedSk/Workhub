@@ -68,6 +68,7 @@ import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { MemberAvatar } from '@/components/members/MemberAvatar'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
+import { TaskAttachmentsSection } from '@/components/tasks/TaskAttachmentsSection'
 import { useAI } from '@/hooks/useAI'
 import { useSettings } from '@/hooks/useSettings'
 
@@ -698,6 +699,11 @@ export function TaskDetail({
                 <Label className="text-sm font-medium">Comments</Label>
                 <CommentSection parentId={task.id} parentType="task" projectId={projectId} contextLabel={task.name} onDataChanged={onDataChanged} />
               </div>
+
+              <Separator />
+
+              {/* Task Attachments */}
+              <TaskAttachmentsSection taskId={task.id} projectId={projectId} />
 
               <Separator />
 
