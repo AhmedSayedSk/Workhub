@@ -13,6 +13,7 @@ interface AIResponse {
     estimate?: number
     insight?: string
     response?: string
+    title?: string
   }
   error?: string
 }
@@ -113,6 +114,11 @@ export function useAI() {
     return result?.data?.response || null
   }
 
+  const generateTaskTitle = async (description: string): Promise<string | null> => {
+    const result = await callAI('generate_task_title', { description })
+    return result?.data?.title || null
+  }
+
   const suggestTaskIcon = async (
     taskName: string,
     description?: string,
@@ -188,6 +194,7 @@ export function useAI() {
     getInsight,
     askQuestion,
     suggestTaskIcon,
+    generateTaskTitle,
     createTask,
   }
 }

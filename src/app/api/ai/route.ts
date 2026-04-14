@@ -5,6 +5,7 @@ import {
   generateInsight,
   askAI,
   suggestTaskIcon,
+  generateTaskTitle,
 } from '@/lib/gemini'
 import { requireAuth, verifyAuth } from '@/lib/api-auth'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -88,6 +89,12 @@ export async function POST(request: NextRequest) {
         const { taskName, taskDescription, taskType } = data
         const iconName = await suggestTaskIcon({ taskName, taskDescription, taskType }, model)
         return NextResponse.json({ success: true, data: { iconName } })
+      }
+
+      case 'generate_task_title': {
+        const { description } = data
+        const title = await generateTaskTitle({ description }, model)
+        return NextResponse.json({ success: true, data: { title } })
       }
 
       default:

@@ -25,7 +25,9 @@ import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Plus, Loader2, Bot, UserX, LayoutList, Signal, Puzzle, CalendarDays, Clock } from 'lucide-react'
+import { Plus, Loader2, Bot, UserX, LayoutList, Signal, Puzzle, CalendarDays, Clock, Sparkles } from 'lucide-react'
+import { useAI } from '@/hooks/useAI'
+import { useSettings } from '@/hooks/useSettings'
 import { format, isToday, isYesterday } from 'date-fns'
 import { Switch } from '@/components/ui/switch'
 import { TaskCard } from './TaskCard'
@@ -72,6 +74,22 @@ function CreateTaskDialog({
   const [deadline, setDeadline] = useState<Date | null>(null)
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [skipAutoAssign, setSkipAutoAssign] = useState(true)
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
+  const { generateTaskTitle } = useAI()
+  const { settings } = useSettings()
+
+  const descriptionTooShort = description.trim().length < 20
+
+  const handleGenerateTitle = async () => {
+    if (descriptionTooShort) return
+    setIsGeneratingTitle(true)
+    try {
+      const title = await generateTaskTitle(description)
+      if (title) setName(title)
+    } finally {
+      setIsGeneratingTitle(false)
+    }
+  }
 
   const handleDescriptionChange = useCallback((md: string) => {
     setDescription(md)
@@ -135,7 +153,27 @@ function CreateTaskDialog({
               />
             </div>
             <div className="flex flex-col flex-1 min-h-0 space-y-2">
-              <Label className="shrink-0">Description</Label>
+              <div className="flex items-center justify-between shrink-0">
+                <Label>Description</Label>
+                {settings?.aiEnabled && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={handleGenerateTitle}
+                    disabled={isGeneratingTitle || descriptionTooShort}
+                    title={descriptionTooShort ? 'Write more description first' : 'Generate a title from the description'}
+                  >
+                    {isGeneratingTitle ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    Generate title
+                  </Button>
+                )}
+              </div>
               <div className="flex-1 min-h-0 [&>div]:h-full [&>div]:flex [&>div]:flex-col [&>div>div:last-of-type]:flex-1 [&>div>div:last-of-type]:overflow-y-auto [&_.ProseMirror]:min-h-full">
                 <RichTextEditor
                   content={description}

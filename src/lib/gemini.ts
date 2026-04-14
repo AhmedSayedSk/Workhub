@@ -283,6 +283,45 @@ Icons: ${candidates.join(', ')}`
   }
 }
 
+export async function generateTaskTitle(
+  { description }: { description: string },
+  model?: GeminiModel,
+): Promise<string | null> {
+  const trimmed = description.trim()
+  if (trimmed.length < 10) return null
+
+  const prompt = `Generate a concise task title from the following task description.
+
+Rules:
+- Maximum 80 characters
+- Use imperative mood (e.g., "Add", "Fix", "Implement", "Refactor", "Update")
+- Single line only
+- No quotes, no markdown, no trailing period
+- Match the language of the description
+- Focus on the core action or outcome, not details
+
+Description:
+${trimmed.slice(0, 2000)}
+
+Reply with ONLY the title, nothing else.`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    const raw = result.response.text()
+    const firstLine = raw.split(/\r?\n/).map((l) => l.trim()).find((l) => l.length > 0) || ''
+    const stripped = firstLine
+      .replace(/^["'`*_\s]+|["'`*_\s]+$/g, '')
+      .replace(/[.!?]+$/, '')
+      .trim()
+    if (!stripped) return null
+    return stripped.length > 120 ? stripped.slice(0, 117).trimEnd() + '…' : stripped
+  } catch (error) {
+    console.error('Error generating task title:', error)
+    return null
+  }
+}
+
 export async function askAI(
   question: string,
   context?: string,

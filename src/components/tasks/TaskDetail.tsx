@@ -56,6 +56,7 @@ import {
   Puzzle,
   CalendarDays,
   Clock,
+  Sparkles,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -446,8 +447,9 @@ export function TaskDetail({
   const { subtasks, createSubtask, updateSubtask, deleteSubtask } = useSubtasks(
     task?.id
   )
-  const { suggestTaskIcon } = useAI()
+  const { suggestTaskIcon, generateTaskTitle } = useAI()
   const { settings } = useSettings()
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
   const [subtasksExpanded, setSubtasksExpanded] = useState(true)
@@ -462,6 +464,19 @@ export function TaskDetail({
     priority: 'medium' as Priority,
     estimatedHours: '',
   })
+
+  const descriptionTooShort = (editForm.description || '').trim().length < 20
+
+  const handleGenerateTitle = async () => {
+    if (descriptionTooShort) return
+    setIsGeneratingTitle(true)
+    try {
+      const title = await generateTaskTitle(editForm.description)
+      if (title) setEditForm((prev) => ({ ...prev, name: title }))
+    } finally {
+      setIsGeneratingTitle(false)
+    }
+  }
 
   const [isDiscardConfirm, setIsDiscardConfirm] = useState(false)
 
@@ -669,7 +684,27 @@ export function TaskDetail({
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Description */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Description</Label>
+                  {isEditing && settings?.aiEnabled && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5"
+                      onClick={handleGenerateTitle}
+                      disabled={isGeneratingTitle || descriptionTooShort}
+                      title={descriptionTooShort ? 'Write more description first' : 'Generate a title from the description'}
+                    >
+                      {isGeneratingTitle ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      Generate title
+                    </Button>
+                  )}
+                </div>
                 {isEditing ? (
                   <RichTextEditor
                     content={editForm.description}
