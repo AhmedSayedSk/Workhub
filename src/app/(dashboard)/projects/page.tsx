@@ -229,11 +229,14 @@ export default function ProjectsPage() {
                           }}
                         >
                           <CardHeader className="pb-1 pt-4 px-4 relative">
-                            <div className="absolute top-3 right-3 flex items-center gap-1 text-muted-foreground">
-                              <PaymentIcon className="h-4 w-4" />
-                              <span className="text-xs">
-                                {paymentModelLabels[project.paymentModel]}
-                              </span>
+                            <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <PaymentIcon className="h-4 w-4" />
+                                <span className="text-xs">
+                                  {paymentModelLabels[project.paymentModel]}
+                                </span>
+                              </div>
+                              <WarrantyBadge project={project} className="shrink-0" />
                             </div>
                             <div className="flex items-start gap-3">
                               <ProjectIcon
@@ -242,10 +245,7 @@ export default function ProjectsPage() {
                                 size="lg"
                               />
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 pr-16">
-                                  <CardTitle className="text-xl !mt-0 truncate">{project.name}</CardTitle>
-                                  <WarrantyBadge project={project} className="shrink-0" />
-                                </div>
+                                <CardTitle className="text-xl pr-40 !mt-0 truncate">{project.name}</CardTitle>
                                 {project.paymentModel === 'internal' ? (
                                   <p className="text-sm text-muted-foreground">
                                     Internal Project
