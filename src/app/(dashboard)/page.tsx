@@ -63,6 +63,7 @@ import {
   CircleDollarSign,
   BarChart3,
   CalendarDays,
+  Eye,
 } from 'lucide-react'
 import Link from 'next/link'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, differenceInDays, format } from 'date-fns'
@@ -78,6 +79,7 @@ export default function DashboardPage() {
   const [inProgressTasks, setInProgressTasks] = useState<Task[]>([])
   const [allTodoTasks, setAllTodoTasks] = useState<Task[]>([])
   const [allInProgressTasks, setAllInProgressTasks] = useState<Task[]>([])
+  const [reviewTasks, setReviewTasks] = useState<Task[]>([])
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([])
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([])
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([])
@@ -98,10 +100,11 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const [projectsData, todoData, inProgressData, allProjects, milestonesData, paymentsData, membersData] = await Promise.all([
+      const [projectsData, todoData, inProgressData, reviewData, allProjects, milestonesData, paymentsData, membersData] = await Promise.all([
         projects.getByStatus('active', user?.uid),
         tasks.getByStatus('todo'),
         tasks.getByStatus('in_progress'),
+        tasks.getByStatus('review'),
         projects.getAll(user?.uid),
         milestones.getAll(),
         monthlyPayments.getAll(),
@@ -155,12 +158,15 @@ export default function DashboardPage() {
       )
       const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
       const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
+      const filteredReview = reviewData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
       const sortedTodo = sortByPriorityAndDeadline(filteredTodo, projMap)
       const sortedInProgress = sortByPriorityAndDeadline(filteredInProgress, projMap)
+      const sortedReview = sortByPriorityAndDeadline(filteredReview, projMap)
       setAllTodoTasks(sortedTodo)
       setAllInProgressTasks(sortedInProgress)
       setTodoTasks(sortedTodo.slice(0, 7))
       setInProgressTasks(sortedInProgress.slice(0, 7))
+      setReviewTasks(sortedReview)
       // Filter time entries, milestones, payments by accessible projects
       const accessibleIds = new Set(allProjects.map((p: Project) => p.id))
       setTodayEntries(todayData.filter((e: any) => accessibleIds.has(e.projectId)))
@@ -546,6 +552,8 @@ export default function DashboardPage() {
         )}
         </div>
 
+        {/* Right column: My Tasks + In Review */}
+        <div className="space-y-6">
         {/* Tasks Overview */}
         <Card>
           <CardHeader>
@@ -632,6 +640,7 @@ export default function DashboardPage() {
                   </div>
                 )}
 
+
                 {/* Todo Tasks */}
                 {(showAllTasks ? allTodoTasks : todoTasks).length > 0 && (
                   <div>
@@ -691,6 +700,75 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* In Review */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>In Review</CardTitle>
+                <CardDescription>
+                  {reviewTasks.length} {reviewTasks.length === 1 ? 'task' : 'tasks'} waiting for review
+                </CardDescription>
+              </div>
+              <Eye className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {reviewTasks.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">No tasks awaiting review</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {reviewTasks.map((task) => {
+                  const project = projectsMap[task.projectId]
+                  const taskType = task.taskType || 'task'
+                  const borderColor = taskTypeBorderColors[taskType]
+                  const deadlineInfo = getDeadlineInfo(task, project)
+                  const assignees = (task.assigneeIds || []).map((id) => membersMap[id]).filter(Boolean)
+                  return (
+                    <Link
+                      key={task.id}
+                      href={`/projects/${task.projectId}`}
+                      className="block"
+                    >
+                      <div
+                        className="flex items-center gap-3 p-3 border border-l-[3px] bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
+                        style={{ borderLeftColor: borderColor }}
+                      >
+                        {project && (
+                          <ProjectIcon
+                            src={project.coverImageUrl}
+                            name={project.name}
+                            size="sm"
+                          />
+                        )}
+                        <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                        {assignees.length > 0 && (
+                          <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                        )}
+                        {deadlineInfo && (
+                          <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
+                            <CalendarDays className="h-3 w-3" />
+                            {deadlineInfo.label}
+                          </span>
+                        )}
+                        {task.estimatedHours > 0 && (
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {task.estimatedHours}h
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        </div>
       </div>
 
     </div>
