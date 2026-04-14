@@ -220,6 +220,7 @@ export const projects = {
       hasOwnFinances: data.hasOwnFinances ?? true,
       startDate: Timestamp.fromDate(data.startDate),
       deadline: toTimestamp(data.deadline),
+      warrantyStartDate: toTimestamp(data.warrantyStartDate ?? null),
       ownerId: data.ownerId,
       sharedWith: data.sharedWith ?? [],
       pendingSharedEmails: data.pendingSharedEmails ?? [],
@@ -233,6 +234,9 @@ export const projects = {
     }
     if (data.deadline !== undefined) {
       updateData.deadline = toTimestamp(data.deadline)
+    }
+    if (data.warrantyStartDate !== undefined) {
+      updateData.warrantyStartDate = toTimestamp(data.warrantyStartDate)
     }
     return update('projects', id, updateData)
   },
