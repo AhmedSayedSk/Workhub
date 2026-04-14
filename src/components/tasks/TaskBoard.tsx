@@ -75,7 +75,7 @@ function CreateTaskDialog({
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [skipAutoAssign, setSkipAutoAssign] = useState(true)
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
-  const { generateTaskTitle } = useAI()
+  const { generateTaskSuggestion } = useAI()
   const { settings } = useSettings()
 
   const descriptionTooShort = description.trim().length < 20
@@ -84,8 +84,11 @@ function CreateTaskDialog({
     if (descriptionTooShort) return
     setIsGeneratingTitle(true)
     try {
-      const title = await generateTaskTitle(description)
-      if (title) setName(title)
+      const suggestion = await generateTaskSuggestion(description)
+      if (suggestion) {
+        setName(suggestion.title)
+        setTaskType(suggestion.taskType)
+      }
     } finally {
       setIsGeneratingTitle(false)
     }
@@ -163,14 +166,14 @@ function CreateTaskDialog({
                     className="h-7 text-xs gap-1.5"
                     onClick={handleGenerateTitle}
                     disabled={isGeneratingTitle || descriptionTooShort}
-                    title={descriptionTooShort ? 'Write more description first' : 'Generate a title from the description'}
+                    title={descriptionTooShort ? 'Write more description first' : 'Suggest a title and type from the description'}
                   >
                     {isGeneratingTitle ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Sparkles className="h-3.5 w-3.5" />
                     )}
-                    Generate title
+                    Suggest from description
                   </Button>
                 )}
               </div>

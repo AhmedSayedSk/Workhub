@@ -6,6 +6,19 @@ import { useToast } from './useToast'
 import { tasks, projects } from '@/lib/firestore'
 import { TaskStatus, Priority, TaskType } from '@/types'
 
+export type GeneratedTaskType =
+  | 'task'
+  | 'bug'
+  | 'feature'
+  | 'improvement'
+  | 'documentation'
+  | 'research'
+
+export interface TaskSuggestion {
+  title: string
+  taskType: GeneratedTaskType
+}
+
 interface AIResponse {
   success: boolean
   data?: {
@@ -14,6 +27,7 @@ interface AIResponse {
     insight?: string
     response?: string
     title?: string
+    suggestion?: TaskSuggestion | null
   }
   error?: string
 }
@@ -114,9 +128,9 @@ export function useAI() {
     return result?.data?.response || null
   }
 
-  const generateTaskTitle = async (description: string): Promise<string | null> => {
-    const result = await callAI('generate_task_title', { description })
-    return result?.data?.title || null
+  const generateTaskSuggestion = async (description: string): Promise<TaskSuggestion | null> => {
+    const result = await callAI('generate_task_suggestion', { description })
+    return result?.data?.suggestion || null
   }
 
   const suggestTaskIcon = async (
@@ -194,7 +208,7 @@ export function useAI() {
     getInsight,
     askQuestion,
     suggestTaskIcon,
-    generateTaskTitle,
+    generateTaskSuggestion,
     createTask,
   }
 }

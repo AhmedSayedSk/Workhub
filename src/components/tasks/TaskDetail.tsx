@@ -447,7 +447,7 @@ export function TaskDetail({
   const { subtasks, createSubtask, updateSubtask, deleteSubtask } = useSubtasks(
     task?.id
   )
-  const { suggestTaskIcon, generateTaskTitle } = useAI()
+  const { suggestTaskIcon, generateTaskSuggestion } = useAI()
   const { settings } = useSettings()
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -471,8 +471,14 @@ export function TaskDetail({
     if (descriptionTooShort) return
     setIsGeneratingTitle(true)
     try {
-      const title = await generateTaskTitle(editForm.description)
-      if (title) setEditForm((prev) => ({ ...prev, name: title }))
+      const suggestion = await generateTaskSuggestion(editForm.description)
+      if (suggestion) {
+        setEditForm((prev) => ({
+          ...prev,
+          name: suggestion.title,
+          taskType: suggestion.taskType,
+        }))
+      }
     } finally {
       setIsGeneratingTitle(false)
     }
@@ -694,14 +700,14 @@ export function TaskDetail({
                       className="h-7 text-xs gap-1.5"
                       onClick={handleGenerateTitle}
                       disabled={isGeneratingTitle || descriptionTooShort}
-                      title={descriptionTooShort ? 'Write more description first' : 'Generate a title from the description'}
+                      title={descriptionTooShort ? 'Write more description first' : 'Suggest a title and type from the description'}
                     >
                       {isGeneratingTitle ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Sparkles className="h-3.5 w-3.5" />
                       )}
-                      Generate title
+                      Suggest from description
                     </Button>
                   )}
                 </div>

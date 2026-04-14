@@ -283,16 +283,24 @@ Icons: ${candidates.join(', ')}`
   }
 }
 
-export async function generateTaskTitle(
+const VALID_TASK_TYPES = ['task', 'bug', 'feature', 'improvement', 'documentation', 'research'] as const
+export type GeneratedTaskType = (typeof VALID_TASK_TYPES)[number]
+
+export interface GeneratedTaskSuggestion {
+  title: string
+  taskType: GeneratedTaskType
+}
+
+export async function generateTaskSuggestion(
   { description }: { description: string },
   model?: GeminiModel,
-): Promise<string | null> {
+): Promise<GeneratedTaskSuggestion | null> {
   const trimmed = description.trim()
   if (trimmed.length < 10) return null
 
-  const prompt = `Generate a concise task title from the following task description.
+  const prompt = `Analyze the following task description and return a concise title and the best-fitting task type.
 
-Rules:
+Rules for title:
 - Maximum 80 characters
 - Use imperative mood (e.g., "Add", "Fix", "Implement", "Refactor", "Update")
 - Single line only
@@ -300,24 +308,60 @@ Rules:
 - Match the language of the description
 - Focus on the core action or outcome, not details
 
+Valid task types (pick exactly one):
+- task: generic work item, chore, or setup
+- bug: fixing incorrect or broken behavior
+- feature: adding new user-facing functionality
+- improvement: enhancing existing functionality, refactoring, performance
+- documentation: writing or updating docs, READMEs, comments
+- research: investigation, spike, proof of concept, exploration
+
 Description:
 ${trimmed.slice(0, 2000)}
 
-Reply with ONLY the title, nothing else.`
+Reply with ONLY a compact JSON object on a single line, no markdown, no code fences, in this exact shape:
+{"title":"...","taskType":"..."}`
 
   try {
     const gemini = getGeminiModel(model)
     const result = await gemini.generateContent(prompt)
     const raw = result.response.text()
-    const firstLine = raw.split(/\r?\n/).map((l) => l.trim()).find((l) => l.length > 0) || ''
-    const stripped = firstLine
+
+    // Strip code fences if Gemini added any
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
+
+    // Find the first JSON object in the response
+    const match = cleaned.match(/\{[\s\S]*\}/)
+    if (!match) return null
+
+    let parsed: { title?: unknown; taskType?: unknown }
+    try {
+      parsed = JSON.parse(match[0])
+    } catch {
+      return null
+    }
+
+    if (typeof parsed.title !== 'string' || typeof parsed.taskType !== 'string') return null
+
+    // Clean title
+    const title = parsed.title
       .replace(/^["'`*_\s]+|["'`*_\s]+$/g, '')
       .replace(/[.!?]+$/, '')
       .trim()
-    if (!stripped) return null
-    return stripped.length > 120 ? stripped.slice(0, 117).trimEnd() + '…' : stripped
+    if (!title) return null
+
+    const safeTitle = title.length > 120 ? title.slice(0, 117).trimEnd() + '…' : title
+
+    // Validate taskType
+    const taskTypeCandidate = parsed.taskType.toLowerCase().trim() as GeneratedTaskType
+    const taskType = VALID_TASK_TYPES.includes(taskTypeCandidate) ? taskTypeCandidate : 'task'
+
+    return { title: safeTitle, taskType }
   } catch (error) {
-    console.error('Error generating task title:', error)
+    console.error('Error generating task suggestion:', error)
     return null
   }
 }
