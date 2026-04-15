@@ -88,6 +88,7 @@ export default function DashboardPage() {
   const [allPayments, setAllPayments] = useState<MonthlyPayment[]>([])
   const [membersMap, setMembersMap] = useState<Record<string, Member>>({})
   const [showAllTasks, setShowAllTasks] = useState(false)
+  const [showAllReview, setShowAllReview] = useState(false)
   const [showIncomeChart, setShowIncomeChart] = useState(false)
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
@@ -164,8 +165,8 @@ export default function DashboardPage() {
       const sortedReview = sortByPriorityAndDeadline(filteredReview, projMap)
       setAllTodoTasks(sortedTodo)
       setAllInProgressTasks(sortedInProgress)
-      setTodoTasks(sortedTodo.slice(0, 7))
-      setInProgressTasks(sortedInProgress.slice(0, 7))
+      setTodoTasks(sortedTodo.slice(0, 5))
+      setInProgressTasks(sortedInProgress.slice(0, 5))
       setReviewTasks(sortedReview)
       // Filter time entries, milestones, payments by accessible projects
       const accessibleIds = new Set(allProjects.map((p: Project) => p.id))
@@ -564,7 +565,7 @@ export default function DashboardPage() {
                   {allTodoTasks.length + allInProgressTasks.length} tasks need attention
                 </CardDescription>
               </div>
-              {(allTodoTasks.length > 7 || allInProgressTasks.length > 7) && (
+              {(allTodoTasks.length > 5 || allInProgressTasks.length > 5) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -711,7 +712,18 @@ export default function DashboardPage() {
                   {reviewTasks.length} {reviewTasks.length === 1 ? 'task' : 'tasks'} waiting for review
                 </CardDescription>
               </div>
-              <Eye className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                {reviewTasks.length > 5 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAllReview(!showAllReview)}
+                  >
+                    {showAllReview ? 'Show Less' : 'View All'}
+                  </Button>
+                )}
+                <Eye className="h-5 w-5 text-muted-foreground" />
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -722,7 +734,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {reviewTasks.map((task) => {
+                {(showAllReview ? reviewTasks : reviewTasks.slice(0, 5)).map((task) => {
                   const project = projectsMap[task.projectId]
                   const taskType = task.taskType || 'task'
                   const borderColor = taskTypeBorderColors[taskType]
