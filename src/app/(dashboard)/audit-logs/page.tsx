@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
-import { auditLogs } from '@/lib/firestore'
+import { auditLogs, userProfiles } from '@/lib/firestore'
 import { AuditLog, AuditLogType } from '@/types'
 import { formatRelativeTime, formatDateTime } from '@/lib/utils'
 import {
@@ -47,6 +47,9 @@ import {
   Clock,
   Flag,
   CheckSquare,
+  User,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -95,6 +98,8 @@ export default function AuditLogsPage() {
 
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map())
+  const [collapsedUsers, setCollapsedUsers] = useState<Set<string>>(new Set())
 
   // Filters
   const [filterOpen, setFilterOpen] = useState(true)
@@ -113,6 +118,16 @@ export default function AuditLogsPage() {
       if (dateTo) filters.endDate = new Date(dateTo + 'T23:59:59')
       const result = await auditLogs.getAll(filters)
       setLogs(result)
+
+      const uids = [...new Set(result.map((l) => l.actorUid).filter(Boolean))] as string[]
+      if (uids.length > 0) {
+        const profiles = await userProfiles.getByUids(uids)
+        const map = new Map<string, string>()
+        profiles.forEach((p) => {
+          if (p.displayName) map.set(p.uid, p.displayName)
+        })
+        setNameMap(map)
+      }
     } catch (err) {
       console.error('Failed to load audit logs:', err)
     } finally {
@@ -126,15 +141,25 @@ export default function AuditLogsPage() {
   }, [isAppOwner, fetchLogs])
 
 
-  // Extract unique actors from logs for user filter
+  const getDisplayName = useCallback((log: AuditLog) => {
+    if (log.actorUid && nameMap.has(log.actorUid)) return nameMap.get(log.actorUid)!
+    const email = log.actorEmail
+    if (!email) return 'Unknown'
+    return email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  }, [nameMap])
+
+  const getUserKey = (log: AuditLog) => log.actorUid || log.actorEmail || 'unknown'
+
   const actorOptions = useMemo(() => {
-    const map = new Map<string, string>()
+    const map = new Map<string, { uid: string; name: string }>()
     logs.forEach((l) => {
-      if (l.actorUid && l.actorEmail) map.set(l.actorUid, l.actorEmail)
-      else if (l.actorEmail) map.set(l.actorEmail, l.actorEmail)
+      const key = l.actorUid || l.actorEmail
+      if (key && !map.has(key)) {
+        map.set(key, { uid: key, name: getDisplayName(l) })
+      }
     })
-    return Array.from(map.entries()).map(([uid, email]) => ({ uid, email }))
-  }, [logs])
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [logs, getDisplayName])
 
   const filteredLogs = useMemo(() => {
     let result = logs
@@ -166,6 +191,37 @@ export default function AuditLogsPage() {
   }, [logs, selectedTypes, selectedUser, searchQuery])
 
   const visibleLogs = filteredLogs.slice(0, visibleCount)
+
+  const groupedByUser = useMemo(() => {
+    const groups: { userKey: string; displayName: string; logs: AuditLog[] }[] = []
+    const map = new Map<string, AuditLog[]>()
+    const orderKeys: string[] = []
+    visibleLogs.forEach((log) => {
+      const key = getUserKey(log)
+      if (!map.has(key)) {
+        map.set(key, [])
+        orderKeys.push(key)
+      }
+      map.get(key)!.push(log)
+    })
+    orderKeys.forEach((key) => {
+      const userLogs = map.get(key)!
+      groups.push({
+        userKey: key,
+        displayName: getDisplayName(userLogs[0]),
+        logs: userLogs,
+      })
+    })
+    return groups
+  }, [visibleLogs, getDisplayName])
+
+  const toggleUserCollapse = (userKey: string) => {
+    setCollapsedUsers((prev) => {
+      const next = new Set(prev)
+      next.has(userKey) ? next.delete(userKey) : next.add(userKey)
+      return next
+    })
+  }
 
   const toggleType = (type: AuditLogType) => {
     setSelectedTypes((prev) => {
@@ -271,7 +327,7 @@ export default function AuditLogsPage() {
                   <SelectContent>
                     <SelectItem value="_all">All users</SelectItem>
                     {actorOptions.map((a) => (
-                      <SelectItem key={a.uid} value={a.uid}>{a.email}</SelectItem>
+                      <SelectItem key={a.uid} value={a.uid}>{a.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -366,10 +422,45 @@ export default function AuditLogsPage() {
               <p className="text-sm">{hasActiveFilters ? 'Try adjusting your filters' : 'Events will appear here as they occur'}</p>
             </div>
           ) : (
-            <div className="space-y-1">
-              {visibleLogs.map((log, i) => (
-                <AuditLogRow key={log.id} log={log} showDate={i === 0 || !isSameDay(visibleLogs[i - 1].createdAt.toDate(), log.createdAt.toDate())} />
-              ))}
+            <div className="space-y-4">
+              {groupedByUser.map((group) => {
+                const isCollapsed = collapsedUsers.has(group.userKey)
+                return (
+                  <Card key={group.userKey}>
+                    <button
+                      onClick={() => toggleUserCollapse(group.userKey)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors rounded-t-lg"
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold">{group.displayName}</span>
+                      <Badge variant="secondary" className="text-[10px] ml-auto">
+                        {group.logs.length} event{group.logs.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </button>
+                    {!isCollapsed && (
+                      <CardContent className="px-4 pt-0 pb-2">
+                        <div className="space-y-1">
+                          {group.logs.map((log, i) => (
+                            <AuditLogRow
+                              key={log.id}
+                              log={log}
+                              displayName={group.displayName}
+                              showDate={i === 0 || !isSameDay(group.logs[i - 1].createdAt.toDate(), log.createdAt.toDate())}
+                            />
+                          ))}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                )
+              })}
               {filteredLogs.length > visibleCount && (
                 <div className="text-center pt-4">
                   <Button variant="outline" size="sm" onClick={() => setVisibleCount((p) => p + PAGE_SIZE)}>
@@ -389,7 +480,7 @@ function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-function AuditLogRow({ log, showDate }: { log: AuditLog; showDate: boolean }) {
+function AuditLogRow({ log, displayName, showDate }: { log: AuditLog; displayName: string; showDate: boolean }) {
   const config = TYPE_CONFIG[log.type] || TYPE_CONFIG.project
   const Icon = config.icon
   const time = log.createdAt.toDate()
@@ -407,18 +498,14 @@ function AuditLogRow({ log, showDate }: { log: AuditLog; showDate: boolean }) {
         </div>
       )}
       <div className="flex items-start gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
-        {/* Icon */}
         <div className={`mt-0.5 ${config.color}`}>
           <Icon className="h-4 w-4" />
         </div>
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium">{log.actorEmail || 'Unknown'}</span>
             <span className="text-sm text-muted-foreground">{description}</span>
           </div>
-          {/* Details */}
           {log.details && Object.keys(log.details).length > 0 && (
             <div className="mt-0.5 flex items-center gap-2 flex-wrap">
               {Object.entries(log.details).map(([key, value]) => (
@@ -430,7 +517,6 @@ function AuditLogRow({ log, showDate }: { log: AuditLog; showDate: boolean }) {
           )}
         </div>
 
-        {/* Meta */}
         <div className="text-right shrink-0">
           <Tooltip delayDuration={0}>
             <TooltipTrigger>
