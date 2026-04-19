@@ -63,7 +63,7 @@ import {
   CircleDollarSign,
   BarChart3,
   CalendarDays,
-  Eye,
+  Users,
 } from 'lucide-react'
 import Link from 'next/link'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, differenceInDays, format } from 'date-fns'
@@ -80,6 +80,9 @@ export default function DashboardPage() {
   const [allTodoTasks, setAllTodoTasks] = useState<Task[]>([])
   const [allInProgressTasks, setAllInProgressTasks] = useState<Task[]>([])
   const [reviewTasks, setReviewTasks] = useState<Task[]>([])
+  const [teamTodoTasks, setTeamTodoTasks] = useState<Task[]>([])
+  const [teamInProgressTasks, setTeamInProgressTasks] = useState<Task[]>([])
+  const [teamReviewTasks, setTeamReviewTasks] = useState<Task[]>([])
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([])
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([])
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([])
@@ -88,12 +91,13 @@ export default function DashboardPage() {
   const [allPayments, setAllPayments] = useState<MonthlyPayment[]>([])
   const [membersMap, setMembersMap] = useState<Record<string, Member>>({})
   const [showAllTasks, setShowAllTasks] = useState(false)
-  const [showAllReview, setShowAllReview] = useState(false)
+  const [showAllTeamTasks, setShowAllTeamTasks] = useState(false)
   const [showIncomeChart, setShowIncomeChart] = useState(false)
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
   const { settings } = useSettings()
   const thinkingPercent = settings?.thinkingTimePercent ?? 0
+  const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
 
   useEffect(() => {
     loadDashboardData()
@@ -138,6 +142,11 @@ export default function DashboardPage() {
       })
       setMembersMap(memMap)
 
+      const currentMember = user?.email
+        ? membersData.find((m) => m.email.toLowerCase() === user.email!.toLowerCase())
+        : undefined
+      const currentMemberId = currentMember?.id
+
       // Filter out sub-projects from dashboard display
       const topLevelActive = projectsData.filter((p: Project) => !p.parentProjectId)
       setActiveProjects(topLevelActive.slice(0, 5))
@@ -160,14 +169,33 @@ export default function DashboardPage() {
       const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
       const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
       const filteredReview = reviewData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
-      const sortedTodo = sortByPriorityAndDeadline(filteredTodo, projMap)
-      const sortedInProgress = sortByPriorityAndDeadline(filteredInProgress, projMap)
-      const sortedReview = sortByPriorityAndDeadline(filteredReview, projMap)
-      setAllTodoTasks(sortedTodo)
-      setAllInProgressTasks(sortedInProgress)
-      setTodoTasks(sortedTodo.slice(0, 5))
-      setInProgressTasks(sortedInProgress.slice(0, 5))
-      setReviewTasks(sortedReview)
+
+      const isMine = (t: Task) => {
+        const ids = t.assigneeIds || []
+        if (ids.length === 0) return true
+        return currentMemberId ? ids.includes(currentMemberId) : false
+      }
+      const isTeam = (t: Task) => {
+        const ids = t.assigneeIds || []
+        if (ids.length === 0) return false
+        return currentMemberId ? !ids.includes(currentMemberId) : true
+      }
+
+      const mineTodo = sortByPriorityAndDeadline(filteredTodo.filter(isMine), projMap)
+      const mineInProgress = sortByPriorityAndDeadline(filteredInProgress.filter(isMine), projMap)
+      const mineReview = sortByPriorityAndDeadline(filteredReview.filter(isMine), projMap)
+      const teamTodo = sortByPriorityAndDeadline(filteredTodo.filter(isTeam), projMap)
+      const teamInProgress = sortByPriorityAndDeadline(filteredInProgress.filter(isTeam), projMap)
+      const teamReview = sortByPriorityAndDeadline(filteredReview.filter(isTeam), projMap)
+
+      setAllTodoTasks(mineTodo)
+      setAllInProgressTasks(mineInProgress)
+      setTodoTasks(mineTodo.slice(0, 5))
+      setInProgressTasks(mineInProgress.slice(0, 5))
+      setReviewTasks(mineReview)
+      setTeamTodoTasks(teamTodo)
+      setTeamInProgressTasks(teamInProgress)
+      setTeamReviewTasks(teamReview)
       // Filter time entries, milestones, payments by accessible projects
       const accessibleIds = new Set(allProjects.map((p: Project) => p.id))
       setTodayEntries(todayData.filter((e: any) => accessibleIds.has(e.projectId)))
@@ -562,10 +590,10 @@ export default function DashboardPage() {
               <div>
                 <CardTitle>My Tasks</CardTitle>
                 <CardDescription>
-                  {allTodoTasks.length + allInProgressTasks.length} tasks need attention
+                  {allTodoTasks.length + allInProgressTasks.length + reviewTasks.length} tasks need attention
                 </CardDescription>
               </div>
-              {(allTodoTasks.length > 5 || allInProgressTasks.length > 5) && (
+              {(allTodoTasks.length > 5 || allInProgressTasks.length > 5 || reviewTasks.length > 5) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -577,7 +605,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {todoTasks.length === 0 && inProgressTasks.length === 0 ? (
+            {todoTasks.length === 0 && inProgressTasks.length === 0 && reviewTasks.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No pending tasks</p>
@@ -642,6 +670,62 @@ export default function DashboardPage() {
                 )}
 
 
+                {/* Review Tasks */}
+                {(showAllTasks ? reviewTasks : reviewTasks.slice(0, 5)).length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-purple-500" />
+                      <h4 className="text-sm font-medium text-muted-foreground">
+                        Waiting for Review ({reviewTasks.length})
+                      </h4>
+                    </div>
+                    <div className="space-y-2">
+                      {(showAllTasks ? reviewTasks : reviewTasks.slice(0, 5)).map((task) => {
+                        const project = projectsMap[task.projectId]
+                        const taskType = task.taskType || 'task'
+                        const borderColor = taskTypeBorderColors[taskType]
+                        const deadlineInfo = getDeadlineInfo(task, project)
+                        const assignees = (task.assigneeIds || []).map((id) => membersMap[id]).filter(Boolean)
+                        return (
+                          <Link
+                            key={task.id}
+                            href={`/projects/${task.projectId}`}
+                            className="block"
+                          >
+                            <div
+                              className="flex items-center gap-3 p-3 border border-l-[3px] bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
+                              style={{ borderLeftColor: borderColor }}
+                            >
+                              {project && (
+                                <ProjectIcon
+                                  src={project.coverImageUrl}
+                                  name={project.name}
+                                  size="sm"
+                                />
+                              )}
+                              <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                              {assignees.length > 0 && (
+                                <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                              )}
+                              {deadlineInfo && (
+                                <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
+                                  <CalendarDays className="h-3 w-3" />
+                                  {deadlineInfo.label}
+                                </span>
+                              )}
+                              {task.estimatedHours > 0 && (
+                                <span className="text-xs text-muted-foreground flex-shrink-0">
+                                  {task.estimatedHours}h
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Todo Tasks */}
                 {(showAllTasks ? allTodoTasks : todoTasks).length > 0 && (
                   <div>
@@ -702,84 +786,187 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* In Review */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>In Review</CardTitle>
-                <CardDescription>
-                  {reviewTasks.length} {reviewTasks.length === 1 ? 'task' : 'tasks'} waiting for review
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {reviewTasks.length > 5 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowAllReview(!showAllReview)}
-                  >
-                    {showAllReview ? 'Show Less' : 'View All'}
-                  </Button>
-                )}
-                <Eye className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {reviewTasks.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground">
-                <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">No tasks awaiting review</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {(showAllReview ? reviewTasks : reviewTasks.slice(0, 5)).map((task) => {
-                  const project = projectsMap[task.projectId]
-                  const taskType = task.taskType || 'task'
-                  const borderColor = taskTypeBorderColors[taskType]
-                  const deadlineInfo = getDeadlineInfo(task, project)
-                  const assignees = (task.assigneeIds || []).map((id) => membersMap[id]).filter(Boolean)
-                  return (
-                    <Link
-                      key={task.id}
-                      href={`/projects/${task.projectId}`}
-                      className="block"
-                    >
-                      <div
-                        className="flex items-center gap-3 p-3 border border-l-[3px] bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
-                        style={{ borderLeftColor: borderColor }}
+        {/* Team Tasks */}
+        {isAppOwner && (() => {
+          const teamTotal = teamTodoTasks.length + teamInProgressTasks.length + teamReviewTasks.length
+          if (teamTotal === 0) return null
+          const teamInProgressShown = showAllTeamTasks ? teamInProgressTasks : teamInProgressTasks.slice(0, 5)
+          const teamTodoShown = showAllTeamTasks ? teamTodoTasks : teamTodoTasks.slice(0, 5)
+          const teamReviewShown = showAllTeamTasks ? teamReviewTasks : teamReviewTasks.slice(0, 5)
+          const hasMoreTeam =
+            teamInProgressTasks.length > 5 ||
+            teamTodoTasks.length > 5 ||
+            teamReviewTasks.length > 5
+          return (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Team Tasks</CardTitle>
+                    <CardDescription>
+                      {teamTotal} {teamTotal === 1 ? 'task' : 'tasks'} assigned to other members
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {hasMoreTeam && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowAllTeamTasks(!showAllTeamTasks)}
                       >
-                        {project && (
-                          <ProjectIcon
-                            src={project.coverImageUrl}
-                            name={project.name}
-                            size="sm"
-                          />
-                        )}
-                        <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
-                        {assignees.length > 0 && (
-                          <MemberAvatarGroup members={assignees} max={3} size="sm" />
-                        )}
-                        {deadlineInfo && (
-                          <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
-                            <CalendarDays className="h-3 w-3" />
-                            {deadlineInfo.label}
-                          </span>
-                        )}
-                        {task.estimatedHours > 0 && (
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
-                            {task.estimatedHours}h
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        {showAllTeamTasks ? 'Show Less' : 'View All'}
+                      </Button>
+                    )}
+                    <Users className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {teamInProgressShown.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <h4 className="text-sm font-medium text-muted-foreground">
+                        In Progress ({teamInProgressTasks.length})
+                      </h4>
+                    </div>
+                    <div className="space-y-2">
+                      {teamInProgressShown.map((task) => {
+                        const project = projectsMap[task.projectId]
+                        const taskType = task.taskType || 'task'
+                        const borderColor = taskTypeBorderColors[taskType]
+                        const deadlineInfo = getDeadlineInfo(task, project)
+                        const assignees = (task.assigneeIds || []).map((id) => membersMap[id]).filter(Boolean)
+                        return (
+                          <Link key={task.id} href={`/projects/${task.projectId}`} className="block">
+                            <div
+                              className="flex items-center gap-3 p-3 border border-l-[3px] bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10 transition-colors"
+                              style={{ borderLeftColor: borderColor }}
+                            >
+                              {project && (
+                                <ProjectIcon src={project.coverImageUrl} name={project.name} size="sm" />
+                              )}
+                              <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                              {assignees.length > 0 && (
+                                <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                              )}
+                              {deadlineInfo && (
+                                <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
+                                  <CalendarDays className="h-3 w-3" />
+                                  {deadlineInfo.label}
+                                </span>
+                              )}
+                              {task.estimatedHours > 0 && (
+                                <span className="text-xs text-muted-foreground flex-shrink-0">
+                                  {task.estimatedHours}h
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {teamReviewShown.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-purple-500" />
+                      <h4 className="text-sm font-medium text-muted-foreground">
+                        In Review ({teamReviewTasks.length})
+                      </h4>
+                    </div>
+                    <div className="space-y-2">
+                      {teamReviewShown.map((task) => {
+                        const project = projectsMap[task.projectId]
+                        const taskType = task.taskType || 'task'
+                        const borderColor = taskTypeBorderColors[taskType]
+                        const deadlineInfo = getDeadlineInfo(task, project)
+                        const assignees = (task.assigneeIds || []).map((id) => membersMap[id]).filter(Boolean)
+                        return (
+                          <Link key={task.id} href={`/projects/${task.projectId}`} className="block">
+                            <div
+                              className="flex items-center gap-3 p-3 border border-l-[3px] bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
+                              style={{ borderLeftColor: borderColor }}
+                            >
+                              {project && (
+                                <ProjectIcon src={project.coverImageUrl} name={project.name} size="sm" />
+                              )}
+                              <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                              {assignees.length > 0 && (
+                                <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                              )}
+                              {deadlineInfo && (
+                                <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
+                                  <CalendarDays className="h-3 w-3" />
+                                  {deadlineInfo.label}
+                                </span>
+                              )}
+                              {task.estimatedHours > 0 && (
+                                <span className="text-xs text-muted-foreground flex-shrink-0">
+                                  {task.estimatedHours}h
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {teamTodoShown.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-slate-400" />
+                      <h4 className="text-sm font-medium text-muted-foreground">
+                        To Do ({teamTodoTasks.length})
+                      </h4>
+                    </div>
+                    <div className="space-y-2">
+                      {teamTodoShown.map((task) => {
+                        const project = projectsMap[task.projectId]
+                        const taskType = task.taskType || 'task'
+                        const borderColor = taskTypeBorderColors[taskType]
+                        const deadlineInfo = getDeadlineInfo(task, project)
+                        const assignees = (task.assigneeIds || []).map((id) => membersMap[id]).filter(Boolean)
+                        return (
+                          <Link key={task.id} href={`/projects/${task.projectId}`} className="block">
+                            <div
+                              className="flex items-center gap-3 p-3 border border-l-[3px] hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
+                              style={{ borderLeftColor: borderColor }}
+                            >
+                              {project && (
+                                <ProjectIcon src={project.coverImageUrl} name={project.name} size="sm" />
+                              )}
+                              <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
+                              {assignees.length > 0 && (
+                                <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                              )}
+                              {deadlineInfo && (
+                                <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
+                                  <CalendarDays className="h-3 w-3" />
+                                  {deadlineInfo.label}
+                                </span>
+                              )}
+                              {task.estimatedHours > 0 && (
+                                <span className="text-xs text-muted-foreground flex-shrink-0">
+                                  {task.estimatedHours}h
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })()}
+
         </div>
       </div>
 
