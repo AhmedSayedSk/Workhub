@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getDb } from '../firebase.js';
 import { Timestamp } from 'firebase-admin/firestore';
+import { getAuthor } from '../lib/author.js';
 
 export const addTaskCommentSchema = {
   taskId: z.string().describe('The task ID to comment on'),
@@ -29,12 +30,13 @@ export async function addTaskComment(args: {
   const parentData = parentDoc.data()!;
 
   // Create comment — matches TaskComment interface from src/types/index.ts
+  const { authorId, authorName } = getAuthor();
   const commentData = {
     parentId: args.taskId,
     parentType,
     text: args.text,
-    authorId: 'claude-code',
-    authorName: 'Claude Code',
+    authorId,
+    authorName,
     createdAt: Timestamp.now(),
   };
 

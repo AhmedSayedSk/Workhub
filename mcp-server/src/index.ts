@@ -15,6 +15,8 @@ import { deleteTimeEntrySchema, deleteTimeEntry } from './tools/delete-time-entr
 import { getTaskDetailsSchema, getTaskDetails } from './tools/get-task-details.js';
 import { updateTaskStatusSchema, updateTaskStatus } from './tools/update-task-status.js';
 import { addTaskCommentSchema, addTaskComment } from './tools/add-task-comment.js';
+import { updateTaskCommentSchema, updateTaskComment } from './tools/update-task-comment.js';
+import { deleteTaskCommentSchema, deleteTaskComment } from './tools/delete-task-comment.js';
 
 const server = new McpServer({
   name: 'workhub',
@@ -111,6 +113,20 @@ server.tool(
   'Add a comment to a task or subtask. Shows up in the WorkHub UI.',
   addTaskCommentSchema,
   async (args) => addTaskComment(args)
+);
+
+server.tool(
+  'update_task_comment',
+  'Edit the text of an existing task/subtask comment by its commentId. By default only comments authored by this MCP can be edited.',
+  updateTaskCommentSchema,
+  async (args) => updateTaskComment(args)
+);
+
+server.tool(
+  'delete_task_comment',
+  'Delete a task/subtask comment by its commentId. Pass force:true to override the same-author guard.',
+  deleteTaskCommentSchema,
+  async (args) => deleteTaskComment(args)
 );
 
 // Connect via stdio

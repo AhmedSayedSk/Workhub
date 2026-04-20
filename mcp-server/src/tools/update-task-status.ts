@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getDb } from '../firebase.js';
 import { Timestamp } from 'firebase-admin/firestore';
+import { getAuthor } from '../lib/author.js';
 
 export const updateTaskStatusSchema = {
   taskId: z.string().describe('The task ID to update'),
@@ -61,12 +62,13 @@ export async function updateTaskStatus(args: {
 
   // Optionally add a comment
   if (args.comment) {
+    const { authorId, authorName } = getAuthor();
     await db.collection('taskComments').add({
       parentId: args.taskId,
       parentType: 'task',
       text: args.comment,
-      authorId: 'claude-code',
-      authorName: 'Claude Code',
+      authorId,
+      authorName,
       createdAt: Timestamp.now(),
     });
   }
