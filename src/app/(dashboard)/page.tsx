@@ -75,8 +75,6 @@ import { useSettings } from '@/hooks/useSettings'
 export default function DashboardPage() {
   const [activeProjects, setActiveProjects] = useState<Project[]>([])
   const [warrantyProjects, setWarrantyProjects] = useState<Project[]>([])
-  const [todoTasks, setTodoTasks] = useState<Task[]>([])
-  const [inProgressTasks, setInProgressTasks] = useState<Task[]>([])
   const [allTodoTasks, setAllTodoTasks] = useState<Task[]>([])
   const [allInProgressTasks, setAllInProgressTasks] = useState<Task[]>([])
   const [reviewTasks, setReviewTasks] = useState<Task[]>([])
@@ -90,8 +88,12 @@ export default function DashboardPage() {
   const [allMilestones, setAllMilestones] = useState<Milestone[]>([])
   const [allPayments, setAllPayments] = useState<MonthlyPayment[]>([])
   const [membersMap, setMembersMap] = useState<Record<string, Member>>({})
-  const [showAllTasks, setShowAllTasks] = useState(false)
-  const [showAllTeamTasks, setShowAllTeamTasks] = useState(false)
+  const [showAllMyInProgress, setShowAllMyInProgress] = useState(false)
+  const [showAllMyReview, setShowAllMyReview] = useState(false)
+  const [showAllMyTodo, setShowAllMyTodo] = useState(false)
+  const [showAllTeamInProgress, setShowAllTeamInProgress] = useState(false)
+  const [showAllTeamReview, setShowAllTeamReview] = useState(false)
+  const [showAllTeamTodo, setShowAllTeamTodo] = useState(false)
   const [showIncomeChart, setShowIncomeChart] = useState(false)
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
@@ -190,8 +192,6 @@ export default function DashboardPage() {
 
       setAllTodoTasks(mineTodo)
       setAllInProgressTasks(mineInProgress)
-      setTodoTasks(mineTodo.slice(0, 5))
-      setInProgressTasks(mineInProgress.slice(0, 5))
       setReviewTasks(mineReview)
       setTeamTodoTasks(teamTodo)
       setTeamInProgressTasks(teamInProgress)
@@ -593,19 +593,10 @@ export default function DashboardPage() {
                   {allTodoTasks.length + allInProgressTasks.length + reviewTasks.length} tasks need attention
                 </CardDescription>
               </div>
-              {(allTodoTasks.length > 5 || allInProgressTasks.length > 5 || reviewTasks.length > 5) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAllTasks(!showAllTasks)}
-                >
-                  {showAllTasks ? 'Show Less' : 'View All'}
-                </Button>
-              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {todoTasks.length === 0 && inProgressTasks.length === 0 && reviewTasks.length === 0 ? (
+            {allTodoTasks.length === 0 && allInProgressTasks.length === 0 && reviewTasks.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No pending tasks</p>
@@ -614,16 +605,28 @@ export default function DashboardPage() {
             ) : (
               <>
                 {/* In Progress Tasks */}
-                {(showAllTasks ? allInProgressTasks : inProgressTasks).length > 0 && (
+                {allInProgressTasks.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        In Progress ({allInProgressTasks.length})
-                      </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                        <h4 className="text-sm font-medium text-muted-foreground">
+                          In Progress ({allInProgressTasks.length})
+                        </h4>
+                      </div>
+                      {allInProgressTasks.length > 5 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setShowAllMyInProgress(!showAllMyInProgress)}
+                        >
+                          {showAllMyInProgress ? 'Show Less' : 'View All'}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
-                      {(showAllTasks ? allInProgressTasks : inProgressTasks).map((task) => {
+                      {(showAllMyInProgress ? allInProgressTasks : allInProgressTasks.slice(0, 5)).map((task) => {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
@@ -670,17 +673,29 @@ export default function DashboardPage() {
                 )}
 
 
-                {/* Review Tasks */}
-                {(showAllTasks ? reviewTasks : reviewTasks.slice(0, 5)).length > 0 && (
+                {/* Todo Tasks */}
+                {allTodoTasks.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-purple-500" />
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        Waiting for Review ({reviewTasks.length})
-                      </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-slate-400" />
+                        <h4 className="text-sm font-medium text-muted-foreground">
+                          To Do ({allTodoTasks.length})
+                        </h4>
+                      </div>
+                      {allTodoTasks.length > 5 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setShowAllMyTodo(!showAllMyTodo)}
+                        >
+                          {showAllMyTodo ? 'Show Less' : 'View All'}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
-                      {(showAllTasks ? reviewTasks : reviewTasks.slice(0, 5)).map((task) => {
+                      {(showAllMyTodo ? allTodoTasks : allTodoTasks.slice(0, 5)).map((task) => {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
@@ -693,7 +708,7 @@ export default function DashboardPage() {
                             className="block"
                           >
                             <div
-                              className="flex items-center gap-3 p-3 border border-l-[3px] bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
+                              className="flex items-center gap-3 p-3 border border-l-[3px] hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
                               style={{ borderLeftColor: borderColor }}
                             >
                               {project && (
@@ -726,17 +741,29 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Todo Tasks */}
-                {(showAllTasks ? allTodoTasks : todoTasks).length > 0 && (
+                {/* Review Tasks */}
+                {reviewTasks.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-slate-400" />
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        To Do ({allTodoTasks.length})
-                      </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-purple-500" />
+                        <h4 className="text-sm font-medium text-muted-foreground">
+                          Waiting for Review ({reviewTasks.length})
+                        </h4>
+                      </div>
+                      {reviewTasks.length > 3 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setShowAllMyReview(!showAllMyReview)}
+                        >
+                          {showAllMyReview ? 'Show Less' : 'View All'}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
-                      {(showAllTasks ? allTodoTasks : todoTasks).map((task) => {
+                      {(showAllMyReview ? reviewTasks : reviewTasks.slice(0, 3)).map((task) => {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
@@ -749,7 +776,7 @@ export default function DashboardPage() {
                             className="block"
                           >
                             <div
-                              className="flex items-center gap-3 p-3 border border-l-[3px] hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
+                              className="flex items-center gap-3 p-3 border border-l-[3px] bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
                               style={{ borderLeftColor: borderColor }}
                             >
                               {project && (
@@ -790,13 +817,9 @@ export default function DashboardPage() {
         {isAppOwner && (() => {
           const teamTotal = teamTodoTasks.length + teamInProgressTasks.length + teamReviewTasks.length
           if (teamTotal === 0) return null
-          const teamInProgressShown = showAllTeamTasks ? teamInProgressTasks : teamInProgressTasks.slice(0, 5)
-          const teamTodoShown = showAllTeamTasks ? teamTodoTasks : teamTodoTasks.slice(0, 5)
-          const teamReviewShown = showAllTeamTasks ? teamReviewTasks : teamReviewTasks.slice(0, 5)
-          const hasMoreTeam =
-            teamInProgressTasks.length > 5 ||
-            teamTodoTasks.length > 5 ||
-            teamReviewTasks.length > 5
+          const teamInProgressShown = showAllTeamInProgress ? teamInProgressTasks : teamInProgressTasks.slice(0, 5)
+          const teamTodoShown = showAllTeamTodo ? teamTodoTasks : teamTodoTasks.slice(0, 5)
+          const teamReviewShown = showAllTeamReview ? teamReviewTasks : teamReviewTasks.slice(0, 3)
           return (
             <Card>
               <CardHeader>
@@ -807,28 +830,29 @@ export default function DashboardPage() {
                       {teamTotal} {teamTotal === 1 ? 'task' : 'tasks'} assigned to other members
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {hasMoreTeam && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowAllTeamTasks(!showAllTeamTasks)}
-                      >
-                        {showAllTeamTasks ? 'Show Less' : 'View All'}
-                      </Button>
-                    )}
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                  </div>
+                  <Users className="h-5 w-5 text-muted-foreground" />
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {teamInProgressShown.length > 0 && (
+                {teamInProgressTasks.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        In Progress ({teamInProgressTasks.length})
-                      </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                        <h4 className="text-sm font-medium text-muted-foreground">
+                          In Progress ({teamInProgressTasks.length})
+                        </h4>
+                      </div>
+                      {teamInProgressTasks.length > 5 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setShowAllTeamInProgress(!showAllTeamInProgress)}
+                        >
+                          {showAllTeamInProgress ? 'Show Less' : 'View All'}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
                       {teamInProgressShown.map((task) => {
@@ -869,16 +893,28 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {teamReviewShown.length > 0 && (
+                {teamTodoTasks.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-purple-500" />
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        In Review ({teamReviewTasks.length})
-                      </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-slate-400" />
+                        <h4 className="text-sm font-medium text-muted-foreground">
+                          To Do ({teamTodoTasks.length})
+                        </h4>
+                      </div>
+                      {teamTodoTasks.length > 5 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setShowAllTeamTodo(!showAllTeamTodo)}
+                        >
+                          {showAllTeamTodo ? 'Show Less' : 'View All'}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
-                      {teamReviewShown.map((task) => {
+                      {teamTodoShown.map((task) => {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
@@ -887,7 +923,7 @@ export default function DashboardPage() {
                         return (
                           <Link key={task.id} href={`/projects/${task.projectId}`} className="block">
                             <div
-                              className="flex items-center gap-3 p-3 border border-l-[3px] bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
+                              className="flex items-center gap-3 p-3 border border-l-[3px] hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
                               style={{ borderLeftColor: borderColor }}
                             >
                               {project && (
@@ -916,16 +952,28 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {teamTodoShown.length > 0 && (
+                {teamReviewTasks.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-slate-400" />
-                      <h4 className="text-sm font-medium text-muted-foreground">
-                        To Do ({teamTodoTasks.length})
-                      </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-purple-500" />
+                        <h4 className="text-sm font-medium text-muted-foreground">
+                          In Review ({teamReviewTasks.length})
+                        </h4>
+                      </div>
+                      {teamReviewTasks.length > 3 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setShowAllTeamReview(!showAllTeamReview)}
+                        >
+                          {showAllTeamReview ? 'Show Less' : 'View All'}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
-                      {teamTodoShown.map((task) => {
+                      {teamReviewShown.map((task) => {
                         const project = projectsMap[task.projectId]
                         const taskType = task.taskType || 'task'
                         const borderColor = taskTypeBorderColors[taskType]
@@ -934,7 +982,7 @@ export default function DashboardPage() {
                         return (
                           <Link key={task.id} href={`/projects/${task.projectId}`} className="block">
                             <div
-                              className="flex items-center gap-3 p-3 border border-l-[3px] hover:bg-muted/40 dark:hover:bg-muted/20 transition-colors"
+                              className="flex items-center gap-3 p-3 border border-l-[3px] bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
                               style={{ borderLeftColor: borderColor }}
                             >
                               {project && (
