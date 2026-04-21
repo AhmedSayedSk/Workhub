@@ -29,6 +29,7 @@ import { Separator } from '@/components/ui/separator'
 import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/useToast'
 import { userProfiles, audit } from '@/lib/firestore'
 import { MemberPermissionsEditor, BufferedPermissions } from '@/components/members/MemberPermissionsEditor'
@@ -50,6 +51,10 @@ export default function TeamPage() {
   const { user } = useAuth()
   const { settings } = useSettings()
   const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
+  const { canModule, loading: permsLoading } = useModulePermissions()
+  const canView = isAppOwner || canModule('viewTeam')
+  const canEdit = isAppOwner || canModule('createEditTeam')
+  const canDelete = isAppOwner || canModule('deleteTeam')
   const { toast } = useToast()
   const { members, loading, createMember, updateMember, deleteMember } = useMembers()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -257,7 +262,7 @@ export default function TeamPage() {
     setDeleteTarget(null)
   }
 
-  if (loading || !settings) {
+  if (loading || !settings || permsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -265,12 +270,12 @@ export default function TeamPage() {
     )
   }
 
-  if (!isAppOwner) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
         <ShieldAlert className="h-12 w-12 mb-3 opacity-40" />
         <p className="text-lg font-medium">Access Restricted</p>
-        <p className="text-sm">Only the workspace owner can manage team members.</p>
+        <p className="text-sm">You don&apos;t have permission to view the team page.</p>
       </div>
     )
   }
@@ -285,10 +290,12 @@ export default function TeamPage() {
             {members.length} member{members.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Member
-        </Button>
+        {canEdit && (
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Member
+          </Button>
+        )}
       </div>
 
       {/* Members Grid */}
@@ -308,28 +315,34 @@ export default function TeamPage() {
               >
                 <MemberAvatar member={member} size="lg" className="h-20 w-20 text-2xl" />
                 {/* Actions dropdown */}
-                <div className="absolute top-2 right-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-background/60 backdrop-blur-sm hover:bg-background/80">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(member)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => setDeleteTarget(member)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                {(canEdit || canDelete) && (
+                  <div className="absolute top-2 right-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-background/60 backdrop-blur-sm hover:bg-background/80">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => openEdit(member)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {canDelete && (
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeleteTarget(member)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
               </div>
               {/* Info below avatar */}
               <CardContent className="p-4 text-center">

@@ -842,6 +842,9 @@ export interface ModulePermissions {
   accessAiAssistant: boolean
   accessImageGenerator: boolean
   accessSettings: boolean
+  viewTeam: boolean
+  createEditTeam: boolean
+  deleteTeam: boolean
 }
 
 export interface MemberPermission {

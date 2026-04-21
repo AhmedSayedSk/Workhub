@@ -1405,6 +1405,7 @@ export const DEFAULT_MODULE_PERMISSIONS: ModulePermissions = {
   viewMedia: false, uploadMedia: false, deleteMedia: false,
   viewFinances: false, viewTimesheets: false,
   accessAiAssistant: false, accessImageGenerator: false, accessSettings: false,
+  viewTeam: false, createEditTeam: false, deleteTeam: false,
 }
 
 // Member Permissions

@@ -31,7 +31,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 const allMainNavItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
-  { href: '/team', label: 'Team', icon: Users, ownerOnly: true },
+  { href: '/team', label: 'Team', icon: Users, moduleKey: 'viewTeam' as const },
   { href: '/audit-logs', label: 'Audit Logs', icon: ScrollText, ownerOnly: true },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays, moduleKey: 'viewCalendar' as const },
   { href: '/media', label: 'Media Library', icon: FolderOpen, moduleKey: 'viewMedia' as const },

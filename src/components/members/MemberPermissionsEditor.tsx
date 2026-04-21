@@ -44,6 +44,7 @@ import {
   Bot,
   ToggleLeft,
   ToggleRight,
+  Users,
 } from 'lucide-react'
 
 export interface BufferedPermissions {
@@ -195,6 +196,15 @@ const MODULE_PERM_GROUPS: {
     keys: [
       { key: 'accessAiAssistant', label: 'AI Assistant' },
       { key: 'accessImageGenerator', label: 'Image Generator' },
+    ],
+  },
+  {
+    label: 'Team',
+    icon: Users,
+    keys: [
+      { key: 'viewTeam', label: 'View team page' },
+      { key: 'createEditTeam', label: 'Add & edit members' },
+      { key: 'deleteTeam', label: 'Delete members' },
     ],
   },
   {
