@@ -261,6 +261,7 @@ export default function SettingsPage() {
   }
 
   const hasFullSettings = !permsLoading && canModule('accessSettings')
+  const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -290,10 +291,12 @@ export default function SettingsPage() {
                 <Clock className="h-4 w-4" />
                 Time Tracking
               </TabsTrigger>
-              <TabsTrigger value="ai" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
-                <Sparkles className="h-4 w-4" />
-                AI
-              </TabsTrigger>
+              {isAppOwner && (
+                <TabsTrigger value="ai" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
+                  <Sparkles className="h-4 w-4" />
+                  AI
+                </TabsTrigger>
+              )}
               <TabsTrigger value="notifications" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
                 <Bell className="h-4 w-4" />
                 Notifications
@@ -760,7 +763,7 @@ export default function SettingsPage() {
         </TabsContent>}
 
         {/* AI Tab */}
-        {hasFullSettings && <TabsContent value="ai" className="space-y-6">
+        {hasFullSettings && isAppOwner && <TabsContent value="ai" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
