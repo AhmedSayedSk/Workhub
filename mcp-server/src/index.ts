@@ -14,6 +14,8 @@ import { updateTimeEntrySchema, updateTimeEntry } from './tools/update-time-entr
 import { deleteTimeEntrySchema, deleteTimeEntry } from './tools/delete-time-entry.js';
 import { getTaskDetailsSchema, getTaskDetails } from './tools/get-task-details.js';
 import { updateTaskStatusSchema, updateTaskStatus } from './tools/update-task-status.js';
+import { updateTaskAssigneesSchema, updateTaskAssignees } from './tools/update-task-assignees.js';
+import { listMembersSchema, listMembers } from './tools/list-members.js';
 import { addTaskCommentSchema, addTaskComment } from './tools/add-task-comment.js';
 import { updateTaskCommentSchema, updateTaskComment } from './tools/update-task-comment.js';
 import { deleteTaskCommentSchema, deleteTaskComment } from './tools/delete-task-comment.js';
@@ -106,6 +108,20 @@ server.tool(
   'Update a task status (todo, in_progress, review, done). Creates a project log entry and optionally adds a comment.',
   updateTaskStatusSchema,
   async (args) => updateTaskStatus(args)
+);
+
+server.tool(
+  'update_task_assignees',
+  "Update a task's assigneeIds. Accepts a list of member IDs plus a mode: 'set' (replace, default), 'add' (append), or 'remove'. Use list_members to resolve member names to IDs.",
+  updateTaskAssigneesSchema,
+  async (args) => updateTaskAssignees(args)
+);
+
+server.tool(
+  'list_members',
+  'List team members (id, name, role, email). Optionally filter by name/role/email.',
+  listMembersSchema,
+  async (args) => listMembers(args)
 );
 
 server.tool(
