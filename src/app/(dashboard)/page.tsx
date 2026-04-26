@@ -71,6 +71,7 @@ import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { ProjectIncomeChart } from '@/components/charts/ProjectIncomeChart'
 import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
 import { useSettings } from '@/hooks/useSettings'
+import { useModulePermissions } from '@/hooks/usePermissions'
 
 export default function DashboardPage() {
   const [activeProjects, setActiveProjects] = useState<Project[]>([])
@@ -100,6 +101,9 @@ export default function DashboardPage() {
   const { settings } = useSettings()
   const thinkingPercent = settings?.thinkingTimePercent ?? 0
   const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
+  const { canModule, loading: permsLoading } = useModulePermissions()
+  const canViewTimesheets = isAppOwner || (!permsLoading && canModule('viewTimesheets'))
+  const canViewFinances = isAppOwner || (!permsLoading && canModule('viewFinances'))
 
   useEffect(() => {
     loadDashboardData()
@@ -318,66 +322,72 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Time Tracked</CardTitle>
-            <Clock className="h-5 w-5 text-sky-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-3">
-              <div>
-                <div className="text-2xl font-bold">{Math.round(todayMinutes / 60 * 10) / 10}h</div>
-                <p className="text-xs text-muted-foreground">Today</p>
+        {canViewTimesheets && (
+          <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Time Tracked</CardTitle>
+              <Clock className="h-5 w-5 text-sky-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-3">
+                <div>
+                  <div className="text-2xl font-bold">{Math.round(todayMinutes / 60 * 10) / 10}h</div>
+                  <p className="text-xs text-muted-foreground">Today</p>
+                </div>
+                <div className="text-muted-foreground">/</div>
+                <div>
+                  <div className="text-xl font-semibold text-muted-foreground">{Math.round(weekMinutes / 60 * 10) / 10}h</div>
+                  <p className="text-xs text-muted-foreground">This week</p>
+                </div>
+                <div className="text-muted-foreground">/</div>
+                <div>
+                  <div className="text-lg font-semibold text-muted-foreground/70">{Math.round(monthMinutes / 60 * 10) / 10}h</div>
+                  <p className="text-xs text-muted-foreground">This month</p>
+                </div>
               </div>
-              <div className="text-muted-foreground">/</div>
-              <div>
-                <div className="text-xl font-semibold text-muted-foreground">{Math.round(weekMinutes / 60 * 10) / 10}h</div>
-                <p className="text-xs text-muted-foreground">This week</p>
-              </div>
-              <div className="text-muted-foreground">/</div>
-              <div>
-                <div className="text-lg font-semibold text-muted-foreground/70">{Math.round(monthMinutes / 60 * 10) / 10}h</div>
-                <p className="text-xs text-muted-foreground">This month</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Owed</CardTitle>
-            <Wallet className="h-5 w-5 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{formatCurrency(totalOwed)}</div>
-            <p className="text-xs text-muted-foreground">
-              {daysUntilDeadline !== null ? (
-                daysUntilDeadline < 0 ? (
-                  <span className="text-red-500">{Math.abs(daysUntilDeadline)} days overdue {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
-                ) : daysUntilDeadline === 0 ? (
-                  <span className="text-orange-500">Due today {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
+        {canViewFinances && (
+          <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Owed</CardTitle>
+              <Wallet className="h-5 w-5 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{formatCurrency(totalOwed)}</div>
+              <p className="text-xs text-muted-foreground">
+                {daysUntilDeadline !== null ? (
+                  daysUntilDeadline < 0 ? (
+                    <span className="text-red-500">{Math.abs(daysUntilDeadline)} days overdue {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
+                  ) : daysUntilDeadline === 0 ? (
+                    <span className="text-orange-500">Due today {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
+                  ) : (
+                    <span>{daysUntilDeadline} days until next payment {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
+                  )
                 ) : (
-                  <span>{daysUntilDeadline} days until next payment {nearestPaymentProject && <span className="text-muted-foreground">— {nearestPaymentProject}</span>}</span>
-                )
-              ) : (
-                'Pending from active projects'
-              )}
-            </p>
-          </CardContent>
-        </Card>
+                  'Pending from active projects'
+                )}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Received</CardTitle>
-            <CircleDollarSign className="h-5 w-5 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalReceived)}</div>
-            <p className="text-xs text-muted-foreground">
-              Paid from active projects
-            </p>
-          </CardContent>
-        </Card>
+        {canViewFinances && (
+          <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Received</CardTitle>
+              <CircleDollarSign className="h-5 w-5 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalReceived)}</div>
+              <p className="text-xs text-muted-foreground">
+                Paid from active projects
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Main Content Grid */}
