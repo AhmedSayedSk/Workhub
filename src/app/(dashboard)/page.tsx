@@ -107,6 +107,11 @@ export default function DashboardPage() {
   const canViewTimesheets = isAppOwner || (!permsLoading && canModule('viewTimesheets'))
   const canViewFinances = isAppOwner || (!permsLoading && canModule('viewFinances'))
   const { unansweredQuestions } = useUnansweredQuestions()
+  // Map of taskId → unanswered question count, used to render an indicator on each task row
+  const questionCountByTaskId = unansweredQuestions.reduce<Record<string, number>>((acc, q) => {
+    acc[q.taskId] = (acc[q.taskId] || 0) + 1
+    return acc
+  }, {})
 
   useEffect(() => {
     loadDashboardData()
@@ -393,66 +398,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Tasks waiting for the owner to answer Claude's questions */}
-      {isAppOwner && unansweredQuestions.length > 0 && (() => {
-        // Group by taskId so a task with multiple pending questions appears once
-        const grouped: Record<string, { taskId: string; taskName: string; projectId: string; projectName: string; count: number }> = {}
-        for (const q of unansweredQuestions) {
-          const key = q.taskId
-          if (!grouped[key]) {
-            grouped[key] = {
-              taskId: q.taskId,
-              taskName: q.taskName,
-              projectId: q.projectId,
-              projectName: q.projectName,
-              count: 0,
-            }
-          }
-          grouped[key].count += 1
-        }
-        const rows = Object.values(grouped)
-        return (
-          <Card className="border-amber-500/40 bg-amber-500/5">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <HelpCircle className="h-5 w-5 text-amber-500" />
-                    Tasks waiting for your answers
-                  </CardTitle>
-                  <CardDescription>
-                    {unansweredQuestions.length} unanswered question{unansweredQuestions.length === 1 ? '' : 's'} across {rows.length} task{rows.length === 1 ? '' : 's'}
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {rows.map((row) => {
-                  const project = projectsMap[row.projectId]
-                  return (
-                    <Link key={row.taskId} href={`/projects/${row.projectId}`} className="block">
-                      <div className="flex items-center gap-3 p-3 rounded-md border bg-background hover:bg-amber-500/10 transition-colors">
-                        {project && (
-                          <ProjectIcon src={project.coverImageUrl} name={project.name} size="sm" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{row.taskName}</p>
-                          <p className="text-xs text-muted-foreground truncate">{row.projectName}</p>
-                        </div>
-                        <Badge variant="destructive" className="shrink-0">
-                          {row.count} pending
-                        </Badge>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )
-      })()}
-
       {/* Main Content Grid */}
       <div className="grid gap-6 md:grid-cols-2 items-start">
         {/* Left column: Active Projects + In-Warranty Projects */}
@@ -726,6 +671,15 @@ export default function DashboardPage() {
                               {assignees.length > 0 && (
                                 <MemberAvatarGroup members={assignees} max={3} size="sm" />
                               )}
+                              {questionCountByTaskId[task.id] > 0 && isAppOwner && (
+                                <span
+                                  className="text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 font-medium"
+                                  title={`${questionCountByTaskId[task.id]} question${questionCountByTaskId[task.id] === 1 ? '' : 's'} need${questionCountByTaskId[task.id] === 1 ? 's' : ''} your answer`}
+                                >
+                                  <HelpCircle className="h-3 w-3" />
+                                  {questionCountByTaskId[task.id]}
+                                </span>
+                              )}
                               {deadlineInfo && (
                                 <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
                                   <CalendarDays className="h-3 w-3" />
@@ -795,6 +749,15 @@ export default function DashboardPage() {
                               {assignees.length > 0 && (
                                 <MemberAvatarGroup members={assignees} max={3} size="sm" />
                               )}
+                              {questionCountByTaskId[task.id] > 0 && isAppOwner && (
+                                <span
+                                  className="text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 font-medium"
+                                  title={`${questionCountByTaskId[task.id]} question${questionCountByTaskId[task.id] === 1 ? '' : 's'} need${questionCountByTaskId[task.id] === 1 ? 's' : ''} your answer`}
+                                >
+                                  <HelpCircle className="h-3 w-3" />
+                                  {questionCountByTaskId[task.id]}
+                                </span>
+                              )}
                               {deadlineInfo && (
                                 <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
                                   <CalendarDays className="h-3 w-3" />
@@ -862,6 +825,15 @@ export default function DashboardPage() {
                               <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
                               {assignees.length > 0 && (
                                 <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                              )}
+                              {questionCountByTaskId[task.id] > 0 && isAppOwner && (
+                                <span
+                                  className="text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 font-medium"
+                                  title={`${questionCountByTaskId[task.id]} question${questionCountByTaskId[task.id] === 1 ? '' : 's'} need${questionCountByTaskId[task.id] === 1 ? 's' : ''} your answer`}
+                                >
+                                  <HelpCircle className="h-3 w-3" />
+                                  {questionCountByTaskId[task.id]}
+                                </span>
                               )}
                               {deadlineInfo && (
                                 <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
@@ -947,6 +919,15 @@ export default function DashboardPage() {
                               {assignees.length > 0 && (
                                 <MemberAvatarGroup members={assignees} max={3} size="sm" />
                               )}
+                              {questionCountByTaskId[task.id] > 0 && isAppOwner && (
+                                <span
+                                  className="text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 font-medium"
+                                  title={`${questionCountByTaskId[task.id]} question${questionCountByTaskId[task.id] === 1 ? '' : 's'} need${questionCountByTaskId[task.id] === 1 ? 's' : ''} your answer`}
+                                >
+                                  <HelpCircle className="h-3 w-3" />
+                                  {questionCountByTaskId[task.id]}
+                                </span>
+                              )}
                               {deadlineInfo && (
                                 <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
                                   <CalendarDays className="h-3 w-3" />
@@ -1006,6 +987,15 @@ export default function DashboardPage() {
                               {assignees.length > 0 && (
                                 <MemberAvatarGroup members={assignees} max={3} size="sm" />
                               )}
+                              {questionCountByTaskId[task.id] > 0 && isAppOwner && (
+                                <span
+                                  className="text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 font-medium"
+                                  title={`${questionCountByTaskId[task.id]} question${questionCountByTaskId[task.id] === 1 ? '' : 's'} need${questionCountByTaskId[task.id] === 1 ? 's' : ''} your answer`}
+                                >
+                                  <HelpCircle className="h-3 w-3" />
+                                  {questionCountByTaskId[task.id]}
+                                </span>
+                              )}
                               {deadlineInfo && (
                                 <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
                                   <CalendarDays className="h-3 w-3" />
@@ -1064,6 +1054,15 @@ export default function DashboardPage() {
                               <p className="flex-1 min-w-0 font-medium truncate">{task.name}</p>
                               {assignees.length > 0 && (
                                 <MemberAvatarGroup members={assignees} max={3} size="sm" />
+                              )}
+                              {questionCountByTaskId[task.id] > 0 && isAppOwner && (
+                                <span
+                                  className="text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 font-medium"
+                                  title={`${questionCountByTaskId[task.id]} question${questionCountByTaskId[task.id] === 1 ? '' : 's'} need${questionCountByTaskId[task.id] === 1 ? 's' : ''} your answer`}
+                                >
+                                  <HelpCircle className="h-3 w-3" />
+                                  {questionCountByTaskId[task.id]}
+                                </span>
                               )}
                               {deadlineInfo && (
                                 <span className={`text-xs flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 ${deadlineInfo.color} ${deadlineInfo.bg}`}>
