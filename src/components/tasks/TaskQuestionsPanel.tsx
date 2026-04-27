@@ -158,12 +158,25 @@ function TaskQuestionsDialog({
 // recommendation in its own visually distinct block.
 // ─────────────────────────────────────────────────────────────────────────────
 
+interface ParsedOption {
+  label: string
+  text: string
+  recommended: boolean
+}
+
 interface ParsedQuestion {
   tag: string | null
   lead: string
-  options: { label: string; text: string }[]
+  options: ParsedOption[]
   recommendation: string | null
 }
+
+// Two option formats are supported:
+//   1. `**A)**` (older format) — bold-wrapped letter, no per-option recommend mark
+//   2. `A★)` or `A)` (newer inline format) — plain letter with optional ★ marking the option as recommended
+//
+// The `(?<=^|[\s,;:])` lookbehind requires a boundary before the marker so we don't match `B)` inside prose like "API (B) is preferred".
+const OPTION_REGEX = /(?<=^|[\s,;:])(\*\*)?([A-Z])(★*)\)(\*\*)?\s*/g
 
 function parseQuestion(text: string): ParsedQuestion {
   const original = text.trim()
@@ -173,26 +186,24 @@ function parseQuestion(text: string): ParsedQuestion {
   const tag = tagMatch ? tagMatch[1].trim() : null
   const afterTag = tagMatch ? original.slice(tagMatch[0].length) : original
 
-  // Trailing *(★ recommendation text)* — non-greedy, anchored to end
+  // Trailing *(★ recommendation text)* — non-greedy, anchored to end (still supported for older questions)
   const recMatch = afterTag.match(/\*\(★\s*(.+?)\s*\)\*\s*$/)
   const recommendation = recMatch ? recMatch[1] : null
   const body = recMatch ? afterTag.slice(0, recMatch.index).trim() : afterTag.trim()
 
-  // Multi-choice options: **A)** ... **B)** ... etc.
-  const optionRegex = /\*\*([A-Z])\)\*\*\s*/g
-  const matches = [...body.matchAll(optionRegex)]
-
+  const matches = [...body.matchAll(OPTION_REGEX)]
   if (matches.length === 0) {
     return { tag, lead: body, options: [], recommendation }
   }
 
   const lead = body.slice(0, matches[0].index).trim()
-  const options = matches.map((m, i) => {
+  const options: ParsedOption[] = matches.map((m, i) => {
     const start = m.index! + m[0].length
     const end = i + 1 < matches.length ? matches[i + 1].index! : body.length
     return {
-      label: m[1],
+      label: m[2],
       text: body.slice(start, end).trim().replace(/[,;.\s]+$/, ''),
+      recommended: (m[3] || '').length > 0,
     }
   })
 
@@ -263,6 +274,61 @@ function selectedLetters(draft: string): Set<string> {
   const trimmed = draft.trim()
   if (!/^[A-Z](\s*[,+]\s*[A-Z])*$/.test(trimmed)) return new Set()
   return new Set(trimmed.split(/\s*[,+]\s*/).filter(Boolean))
+}
+
+/**
+ * Renders a saved answer. If the answer text follows the same option-marker format as questions
+ * (e.g. lead text + `A) Foo, B★) Bar`), render it with the same structured layout. Otherwise,
+ * fall back to plain markdown rendering.
+ */
+function StructuredAnswer({ text }: { text: string }) {
+  const parsed = parseQuestion(text)
+  const hasStructure = parsed.options.length > 0
+
+  if (!hasStructure) {
+    return <MarkdownContent content={text} className="prose-viewer comment-markdown text-sm" />
+  }
+
+  return (
+    <div className="space-y-2 text-sm">
+      {parsed.lead && (
+        <div className="leading-relaxed">
+          <InlineMD text={parsed.lead} />
+        </div>
+      )}
+      <div className="space-y-1 pl-1">
+        {parsed.options.map((opt) => (
+          <div key={opt.label} className="flex items-start gap-2.5 leading-relaxed">
+            <span
+              className={`relative font-bold shrink-0 w-7 h-6 flex items-center justify-center rounded select-none ${
+                opt.recommended
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30'
+                  : 'text-primary'
+              }`}
+            >
+              {opt.label}
+              {opt.recommended && (
+                <span className="absolute -top-1 -right-1 text-[9px] leading-none text-amber-500" aria-hidden>
+                  ★
+                </span>
+              )}
+            </span>
+            <div className="flex-1 min-w-0 pt-0.5">
+              <InlineMD text={opt.text} />
+            </div>
+          </div>
+        ))}
+      </div>
+      {parsed.recommendation && (
+        <div className="flex items-start gap-2 text-amber-700 dark:text-amber-300 italic">
+          <Sparkles className="h-4 w-4 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <InlineMD text={parsed.recommendation} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function QuestionCard({
@@ -348,31 +414,49 @@ function QuestionCard({
           </div>
         )}
 
-        {/* Options — each on its own line, letter prominent. Click to toggle letter into the answer textarea. */}
+        {/* Options — each on its own line, letter prominent. Click to toggle letter into the answer textarea.
+            Options marked with ★ in the source (e.g. `A★)`) render as "recommended" with an amber tint + star marker. */}
         {parsed.options.length > 0 && (
           <div className="space-y-1 pl-1">
             {parsed.options.map((opt) => {
               const isSelected = selected.has(opt.label)
+              const tooltip = `Click to ${isSelected ? 'remove' : 'insert'} option ${opt.label} in your answer${
+                opt.recommended ? ' (recommended)' : ''
+              }`
               return (
                 <button
                   key={opt.label}
                   type="button"
                   onClick={() => handlePickOption(opt.label)}
-                  title={`Click to ${isSelected ? 'remove' : 'insert'} option ${opt.label} in your answer`}
+                  title={tooltip}
                   className={`group w-full flex items-start gap-2.5 text-left text-sm leading-relaxed rounded-md px-2 py-1.5 transition-colors ${
                     isSelected
                       ? 'bg-primary/15 ring-1 ring-primary/30'
-                      : 'hover:bg-muted/60'
+                      : opt.recommended
+                        ? 'hover:bg-amber-500/10'
+                        : 'hover:bg-muted/60'
                   }`}
                 >
                   <span
-                    className={`font-bold shrink-0 w-7 h-6 flex items-center justify-center rounded select-none transition-colors ${
+                    className={`relative font-bold shrink-0 w-7 h-6 flex items-center justify-center rounded select-none transition-colors ${
                       isSelected
                         ? 'bg-primary text-primary-foreground'
-                        : 'text-primary group-hover:bg-primary/10'
+                        : opt.recommended
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30 group-hover:bg-amber-500/25'
+                          : 'text-primary group-hover:bg-primary/10'
                     }`}
                   >
                     {opt.label}
+                    {opt.recommended && (
+                      <span
+                        className={`absolute -top-1 -right-1 text-[9px] leading-none ${
+                          isSelected ? 'text-amber-200' : 'text-amber-500'
+                        }`}
+                        aria-hidden
+                      >
+                        ★
+                      </span>
+                    )}
                   </span>
                   <div className="flex-1 min-w-0 pt-0.5">
                     <InlineMD text={opt.text} />
@@ -458,10 +542,7 @@ function QuestionCard({
                 Edit
               </Button>
             </div>
-            <MarkdownContent
-              content={question.answer ?? ''}
-              className="prose-viewer comment-markdown text-sm"
-            />
+            <StructuredAnswer text={question.answer ?? ''} />
           </div>
         )}
       </div>
