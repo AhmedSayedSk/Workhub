@@ -23,6 +23,7 @@ import {
   Play,
   UserPlus,
   Bot,
+  HelpCircle,
 } from 'lucide-react'
 import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
@@ -49,6 +50,7 @@ interface TaskCardProps {
   feature?: Feature
   subtaskCount?: { total: number; completed: number }
   commentCount?: number
+  questionCount?: { total: number; unanswered: number }
   assignees?: Member[]
   allMembers?: Member[]
   isAiProcessing?: boolean
@@ -62,7 +64,7 @@ interface TaskCardProps {
   onSelectionToggle?: (taskId: string) => void
 }
 
-export function TaskCard({ task, feature, subtaskCount, commentCount, assignees, allMembers, isAiProcessing, onAssigneeChange, onClick, onArchive, onSetWaiting, onRemoveWaiting, selectable, selected, onSelectionToggle }: TaskCardProps) {
+export function TaskCard({ task, feature, subtaskCount, commentCount, questionCount, assignees, allMembers, isAiProcessing, onAssigneeChange, onClick, onArchive, onSetWaiting, onRemoveWaiting, selectable, selected, onSelectionToggle }: TaskCardProps) {
   const [assignOpen, setAssignOpen] = useState(false)
   const taskType = task.taskType || 'task'
   const priority = task.priority || 'low'
@@ -72,6 +74,8 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
 
   const hasSubtasks = subtaskCount && subtaskCount.total > 0
   const hasComments = !!commentCount && commentCount > 0
+  const hasQuestions = !!questionCount && questionCount.total > 0
+  const unansweredQuestions = questionCount?.unanswered ?? 0
   const hasAssignees = assignees && assignees.length > 0
 
   const createdDate = task.createdAt?.toDate?.()
@@ -228,7 +232,7 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
               </div>
             </div>
 
-            {(task.estimatedHours > 0 || hasSubtasks || hasComments || hasAssignees) && (
+            {(task.estimatedHours > 0 || hasSubtasks || hasComments || hasQuestions || hasAssignees) && (
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <div className="flex items-center gap-3">
                   {task.estimatedHours > 0 && (
@@ -251,6 +255,23 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, assignees,
                     <div className="flex items-center text-blue-500" title={`${commentCount} comment${commentCount > 1 ? 's' : ''}`}>
                       <MessageSquare className="h-3 w-3 mr-1" />
                       {commentCount}
+                    </div>
+                  )}
+
+                  {hasQuestions && (
+                    <div
+                      className={`relative flex items-center ${unansweredQuestions > 0 ? 'text-amber-500' : 'text-muted-foreground/70'}`}
+                      title={
+                        unansweredQuestions > 0
+                          ? `${questionCount!.total} question${questionCount!.total > 1 ? 's' : ''} · ${unansweredQuestions} pending`
+                          : `${questionCount!.total} question${questionCount!.total > 1 ? 's' : ''} · all answered`
+                      }
+                    >
+                      <HelpCircle className="h-3 w-3 mr-1" />
+                      {questionCount!.total}
+                      {unansweredQuestions > 0 && (
+                        <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-background" />
+                      )}
                     </div>
                   )}
                 </div>

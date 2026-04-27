@@ -181,6 +181,29 @@ export interface TaskComment {
   createdAt: Timestamp
 }
 
+export interface TaskQuestion {
+  id: string
+  taskId: string
+  taskName: string
+  projectId: string
+  projectName: string
+  question: string
+  answer: string | null
+  askedBy: string
+  askedAt: Timestamp
+  answeredAt: Timestamp | null
+  answeredBy: string | null
+}
+
+export interface TaskQuestionInput {
+  taskId: string
+  taskName: string
+  projectId: string
+  projectName: string
+  question: string
+  askedBy: string
+}
+
 export interface TimeEntry {
   id: string
   subtaskId: string

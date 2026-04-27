@@ -124,6 +124,13 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Task Questions — created by Claude via MCP; answered by project members
+    match /taskQuestions/{questionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && hasProjectAccess(resource.data.projectId);
+    }
+
     // Project Activity Logs
     match /projectLogs/{logId} {
       allow read: if isAuthenticated();

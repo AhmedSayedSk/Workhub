@@ -44,6 +44,8 @@ import {
   VaultEntryInput,
   TaskComment,
   TaskCommentInput,
+  TaskQuestion,
+  TaskQuestionInput,
   CommentParentType,
   ProjectLog,
   ProjectLogAction,
@@ -509,6 +511,47 @@ export const taskComments = {
     for (const comment of comments) {
       await remove('taskComments', comment.id)
     }
+  },
+}
+
+// Task Questions — questions Claude asks on a task; the owner answers via UI
+export const taskQuestions = {
+  async getByTaskId(taskId: string): Promise<TaskQuestion[]> {
+    const all = await getAll<TaskQuestion>('taskQuestions', where('taskId', '==', taskId))
+    return all.sort((a, b) => (a.askedAt?.toMillis() ?? 0) - (b.askedAt?.toMillis() ?? 0))
+  },
+
+  async getAllUnanswered(): Promise<TaskQuestion[]> {
+    const all = await getAll<TaskQuestion>('taskQuestions', where('answer', '==', null))
+    return all.sort((a, b) => (a.askedAt?.toMillis() ?? 0) - (b.askedAt?.toMillis() ?? 0))
+  },
+
+  async create(input: TaskQuestionInput): Promise<string> {
+    const docRef = await addDoc(collection(db, 'taskQuestions'), {
+      taskId: input.taskId,
+      taskName: input.taskName,
+      projectId: input.projectId,
+      projectName: input.projectName,
+      question: input.question,
+      askedBy: input.askedBy,
+      askedAt: Timestamp.now(),
+      answer: null,
+      answeredAt: null,
+      answeredBy: null,
+    })
+    return docRef.id
+  },
+
+  async answer(id: string, answer: string, answeredBy: string): Promise<void> {
+    return update('taskQuestions', id, {
+      answer,
+      answeredBy,
+      answeredAt: Timestamp.now(),
+    })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('taskQuestions', id)
   },
 }
 

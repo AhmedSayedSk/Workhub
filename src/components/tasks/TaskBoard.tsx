@@ -33,6 +33,7 @@ import { Switch } from '@/components/ui/switch'
 import { TaskCard } from './TaskCard'
 import { useSubtaskCounts } from '@/hooks/useTasks'
 import { useCommentCounts } from '@/hooks/useComments'
+import { useTaskQuestionCounts } from '@/hooks/useTaskQuestions'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
 
 function getDoneDayLabel(task: Task): string {
@@ -335,6 +336,7 @@ export function TaskBoard({
   const taskIds = useMemo(() => tasks.map(t => t.id), [tasks])
   const { counts: subtaskCounts } = useSubtaskCounts(taskIds, refreshKey)
   const { counts: commentCounts } = useCommentCounts(taskIds, 'task', refreshKey)
+  const { counts: questionCounts } = useTaskQuestionCounts(taskIds, refreshKey)
 
   // Build membersMap for efficient lookup
   const membersMap = useMemo(() => {
@@ -616,6 +618,7 @@ export function TaskBoard({
                           feature={features.find((f) => f.id === task.featureId)}
                           subtaskCount={subtaskCounts[task.id]}
                           commentCount={commentCounts[task.id] || 0}
+                          questionCount={questionCounts[task.id]}
                           assignees={(task.assigneeIds || []).map((id) => membersMap.get(id)).filter(Boolean) as Member[]}
                           allMembers={allMembers}
                           isAiProcessing={aiProcessingTaskIds?.has(task.id)}

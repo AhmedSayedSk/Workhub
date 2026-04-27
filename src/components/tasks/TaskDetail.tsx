@@ -70,6 +70,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { MemberAvatar } from '@/components/members/MemberAvatar'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
 import { TaskAttachmentsSection } from '@/components/tasks/TaskAttachmentsSection'
+import { TaskQuestionsPanel } from '@/components/tasks/TaskQuestionsPanel'
 import { useAI } from '@/hooks/useAI'
 import { useSettings } from '@/hooks/useSettings'
 
@@ -831,6 +832,9 @@ export function TaskDetail({
 
             {/* Right Column - Properties sidebar */}
             <div className="w-72 shrink-0 border-l bg-muted/20 overflow-y-auto p-5 space-y-5">
+              {/* Questions panel — opens a separate dialog */}
+              <TaskQuestionsPanel taskId={task.id} taskName={task.name} />
+
               {/* Type */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><LayoutList className="h-3.5 w-3.5" />Type</Label>

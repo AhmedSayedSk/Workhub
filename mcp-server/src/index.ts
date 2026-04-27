@@ -15,6 +15,10 @@ import { deleteTimeEntrySchema, deleteTimeEntry } from './tools/delete-time-entr
 import { getTaskDetailsSchema, getTaskDetails } from './tools/get-task-details.js';
 import { updateTaskStatusSchema, updateTaskStatus } from './tools/update-task-status.js';
 import { createTaskSchema, createTask } from './tools/create-task.js';
+import { listTaskQuestionsSchema, listTaskQuestions } from './tools/list-task-questions.js';
+import { addTaskQuestionSchema, addTaskQuestion } from './tools/add-task-question.js';
+import { updateTaskQuestionSchema, updateTaskQuestion } from './tools/update-task-question.js';
+import { deleteTaskQuestionSchema, deleteTaskQuestion } from './tools/delete-task-question.js';
 import { updateTaskAssigneesSchema, updateTaskAssignees } from './tools/update-task-assignees.js';
 import { listMembersSchema, listMembers } from './tools/list-members.js';
 import { addTaskCommentSchema, addTaskComment } from './tools/add-task-comment.js';
@@ -116,6 +120,34 @@ server.tool(
   'Create a new task in a WorkHub project. Required: projectId, name. Optional: description, status, taskType, priority, estimatedHours, featureId, deadline (ISO date), assigneeIds, skipAutoAssign, icon, waiting/waitingReason, sortOrder.',
   createTaskSchema,
   async (args) => createTask(args)
+);
+
+server.tool(
+  'list_task_questions',
+  "List questions attached to a task with their answers. Use this to retrieve owner-provided context before executing a task. Filter by status: 'all' (default), 'unanswered', or 'answered'.",
+  listTaskQuestionsSchema,
+  async (args) => listTaskQuestions(args)
+);
+
+server.tool(
+  'add_task_question',
+  "Add a question to a task for the owner to answer in the WorkHub UI. Use this during brainstorming/thinking when you need owner input before executing the task. The owner sees questions on the task card (kanban indicator) and inside the task detail modal.",
+  addTaskQuestionSchema,
+  async (args) => addTaskQuestion(args)
+);
+
+server.tool(
+  'update_task_question',
+  "Edit a question's text. Only allowed while the question is still unanswered.",
+  updateTaskQuestionSchema,
+  async (args) => updateTaskQuestion(args)
+);
+
+server.tool(
+  'delete_task_question',
+  'Delete an unanswered question. Answered questions are locked to preserve the audit trail.',
+  deleteTaskQuestionSchema,
+  async (args) => deleteTaskQuestion(args)
 );
 
 server.tool(

@@ -64,6 +64,7 @@ import {
   BarChart3,
   CalendarDays,
   Users,
+  HelpCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, differenceInDays, format } from 'date-fns'
@@ -72,6 +73,7 @@ import { ProjectIncomeChart } from '@/components/charts/ProjectIncomeChart'
 import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
 import { useSettings } from '@/hooks/useSettings'
 import { useModulePermissions } from '@/hooks/usePermissions'
+import { useUnansweredQuestions } from '@/hooks/useTaskQuestions'
 
 export default function DashboardPage() {
   const [activeProjects, setActiveProjects] = useState<Project[]>([])
@@ -104,6 +106,7 @@ export default function DashboardPage() {
   const { canModule, loading: permsLoading } = useModulePermissions()
   const canViewTimesheets = isAppOwner || (!permsLoading && canModule('viewTimesheets'))
   const canViewFinances = isAppOwner || (!permsLoading && canModule('viewFinances'))
+  const { unansweredQuestions } = useUnansweredQuestions()
 
   useEffect(() => {
     loadDashboardData()
@@ -389,6 +392,66 @@ export default function DashboardPage() {
           </Card>
         )}
       </div>
+
+      {/* Tasks waiting for the owner to answer Claude's questions */}
+      {isAppOwner && unansweredQuestions.length > 0 && (() => {
+        // Group by taskId so a task with multiple pending questions appears once
+        const grouped: Record<string, { taskId: string; taskName: string; projectId: string; projectName: string; count: number }> = {}
+        for (const q of unansweredQuestions) {
+          const key = q.taskId
+          if (!grouped[key]) {
+            grouped[key] = {
+              taskId: q.taskId,
+              taskName: q.taskName,
+              projectId: q.projectId,
+              projectName: q.projectName,
+              count: 0,
+            }
+          }
+          grouped[key].count += 1
+        }
+        const rows = Object.values(grouped)
+        return (
+          <Card className="border-amber-500/40 bg-amber-500/5">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <HelpCircle className="h-5 w-5 text-amber-500" />
+                    Tasks waiting for your answers
+                  </CardTitle>
+                  <CardDescription>
+                    {unansweredQuestions.length} unanswered question{unansweredQuestions.length === 1 ? '' : 's'} across {rows.length} task{rows.length === 1 ? '' : 's'}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {rows.map((row) => {
+                  const project = projectsMap[row.projectId]
+                  return (
+                    <Link key={row.taskId} href={`/projects/${row.projectId}`} className="block">
+                      <div className="flex items-center gap-3 p-3 rounded-md border bg-background hover:bg-amber-500/10 transition-colors">
+                        {project && (
+                          <ProjectIcon src={project.coverImageUrl} name={project.name} size="sm" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{row.taskName}</p>
+                          <p className="text-xs text-muted-foreground truncate">{row.projectName}</p>
+                        </div>
+                        <Badge variant="destructive" className="shrink-0">
+                          {row.count} pending
+                        </Badge>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       {/* Main Content Grid */}
       <div className="grid gap-6 md:grid-cols-2 items-start">
