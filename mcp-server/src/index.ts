@@ -14,6 +14,7 @@ import { updateTimeEntrySchema, updateTimeEntry } from './tools/update-time-entr
 import { deleteTimeEntrySchema, deleteTimeEntry } from './tools/delete-time-entry.js';
 import { getTaskDetailsSchema, getTaskDetails } from './tools/get-task-details.js';
 import { updateTaskStatusSchema, updateTaskStatus } from './tools/update-task-status.js';
+import { createTaskSchema, createTask } from './tools/create-task.js';
 import { updateTaskAssigneesSchema, updateTaskAssignees } from './tools/update-task-assignees.js';
 import { listMembersSchema, listMembers } from './tools/list-members.js';
 import { addTaskCommentSchema, addTaskComment } from './tools/add-task-comment.js';
@@ -108,6 +109,13 @@ server.tool(
   'Update a task status (todo, in_progress, review, done). Creates a project log entry and optionally adds a comment.',
   updateTaskStatusSchema,
   async (args) => updateTaskStatus(args)
+);
+
+server.tool(
+  'create_task',
+  'Create a new task in a WorkHub project. Required: projectId, name. Optional: description, status, taskType, priority, estimatedHours, featureId, deadline (ISO date), assigneeIds, skipAutoAssign, icon, waiting/waitingReason, sortOrder.',
+  createTaskSchema,
+  async (args) => createTask(args)
 );
 
 server.tool(
