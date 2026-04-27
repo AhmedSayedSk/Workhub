@@ -22,7 +22,6 @@ import {
   Pause,
   Play,
   UserPlus,
-  Bot,
   HelpCircle,
 } from 'lucide-react'
 import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
@@ -53,18 +52,14 @@ interface TaskCardProps {
   questionCount?: { total: number; unanswered: number }
   assignees?: Member[]
   allMembers?: Member[]
-  isAiProcessing?: boolean
   onAssigneeChange?: (ids: string[]) => void
   onClick: () => void
   onArchive?: () => void
   onSetWaiting?: () => void
   onRemoveWaiting?: () => void
-  selectable?: boolean
-  selected?: boolean
-  onSelectionToggle?: (taskId: string) => void
 }
 
-export function TaskCard({ task, feature, subtaskCount, commentCount, questionCount, assignees, allMembers, isAiProcessing, onAssigneeChange, onClick, onArchive, onSetWaiting, onRemoveWaiting, selectable, selected, onSelectionToggle }: TaskCardProps) {
+export function TaskCard({ task, feature, subtaskCount, commentCount, questionCount, assignees, allMembers, onAssigneeChange, onClick, onArchive, onSetWaiting, onRemoveWaiting }: TaskCardProps) {
   const [assignOpen, setAssignOpen] = useState(false)
   const taskType = task.taskType || 'task'
   const priority = task.priority || 'low'
@@ -89,21 +84,12 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, questionCo
 
   return (
     <Card
-      className={`group/card hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all duration-200 cursor-pointer active:shadow-lg active:scale-[1.02] select-none rounded-none border-r-0 relative ${borderColor ? 'border-l-[3px]' : ''} ${isWaiting ? 'opacity-60 border-dashed border-amber-400/50 bg-amber-50/30 dark:bg-amber-950/10' : ''} ${isAiProcessing ? 'ring-1 ring-blue-400/60 bg-blue-50/40 dark:bg-blue-950/20 shadow-[0_0_12px_-3px_rgba(59,130,246,0.3)]' : ''}`}
+      className={`group/card hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all duration-200 cursor-pointer active:shadow-lg active:scale-[1.02] select-none rounded-none border-r-0 relative ${borderColor ? 'border-l-[3px]' : ''} ${isWaiting ? 'opacity-60 border-dashed border-amber-400/50 bg-amber-50/30 dark:bg-amber-950/10' : ''}`}
       style={borderColor ? { borderLeftColor: borderColor } : undefined}
       onClick={onClick}
     >
-      {/* AI Processing badge */}
-      {isAiProcessing && (
-        <div className="absolute -top-2 left-3 z-10 pointer-events-none">
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 shadow-sm animate-pulse">
-            <Bot className="h-2.5 w-2.5" />
-            <span>AI Processing</span>
-          </div>
-        </div>
-      )}
       {/* Waiting badge */}
-      {isWaiting && !isAiProcessing && (
+      {isWaiting && (
         <div className="absolute -top-2 left-3 z-10 pointer-events-none">
           <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 shadow-sm">
             <Hourglass className="h-2.5 w-2.5" />
@@ -137,23 +123,6 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, questionCo
           })()}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between mb-1">
-              {selectable && (
-                <div
-                  className="flex items-center mr-2 mt-0.5 shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onSelectionToggle?.(task.id)
-                  }}
-                >
-                  <div className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${selected ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary/60'}`}>
-                    {selected && (
-                      <svg className="h-3 w-3 text-primary-foreground" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M2 6l3 3 5-5" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-              )}
               <div className="flex-1 min-w-0">
                 <h4 className="font-medium text-sm line-clamp-2">{task.name}</h4>
               </div>

@@ -149,13 +149,6 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
-    // Claude AI Sessions
-    match /claudeSessions/{sessionId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
-      allow update, delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
-    }
-
     // Project Notes
     match /projectNotes/{noteId} {
       allow read: if isAuthenticated();

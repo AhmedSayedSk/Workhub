@@ -134,14 +134,6 @@ const PROJECT_PERM_GROUPS: {
     ],
   },
   {
-    label: 'AI Sessions',
-    icon: Bot,
-    keys: [
-      { key: 'viewAiSessions', label: 'View AI sessions' },
-      { key: 'runAiSessions', label: 'Run AI sessions' },
-    ],
-  },
-  {
     label: 'Time Tracking',
     icon: Clock,
     keys: [

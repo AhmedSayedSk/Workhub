@@ -90,7 +90,6 @@ import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
 import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
-import { ClaudeSessionsTab } from '@/components/projects/ClaudeSessionsTab'
 import { ProjectNotesTab } from '@/components/projects/ProjectNotesTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { useProjectPermissions } from '@/hooks/usePermissions'
@@ -100,7 +99,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'activity', 'ai-sessions']
+  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'activity']
   const {
     project,
     parentProject,
@@ -823,16 +822,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             Activity
           </TabsTriggerBoxed>
           )}
-          {can('viewAiSessions') && (
-          <TabsTriggerBoxed value="ai-sessions" className="gap-2">
-            <Bot className="h-4 w-4" />
-            AI Sessions
-          </TabsTriggerBoxed>
-          )}
         </TabsListBoxed>
 
         <TabsContentBoxed value="tasks" className="lg:flex-1 lg:min-h-0">
-          <ProjectTasksTab projectId={id} projectName={project.name} repoPath={project.repoPath || null} onSwitchToAiTab={() => handleTabChange('ai-sessions')} canArchive={can('archiveTasks')} canRunAi={can('runAiSessions')} />
+          <ProjectTasksTab projectId={id} projectName={project.name} canArchive={can('archiveTasks')} />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
@@ -1371,11 +1364,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
         </TabsContentBoxed>
-
-        <TabsContentBoxed value="ai-sessions" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-          <ClaudeSessionsTab projectId={id} repoPath={project.repoPath || null} />
-        </TabsContentBoxed>
-
 
       </Tabs>
 

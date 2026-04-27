@@ -52,8 +52,6 @@ import {
   ProjectLogChange,
   Member,
   MemberInput,
-  ClaudeSession,
-  ClaudeSessionInput,
   ProjectNote,
   ProjectNoteInput,
   CalendarEvent,
@@ -820,9 +818,8 @@ export const batch = {
       monthlyPayments.getAll(projectId),
     ])
 
-    // Delete project logs and AI sessions
+    // Delete project logs
     await projectLogs.deleteByProject(projectId)
-    await claudeSessions.deleteByProject(projectId)
 
     // Get subtasks for all tasks
     const taskIds = projectTasks.map((t) => t.id)
@@ -1166,76 +1163,6 @@ export const vaultEntries = {
   },
 }
 
-// Claude AI Sessions - track Claude Code processing history
-export const claudeSessions = {
-  async getByProject(projectId: string): Promise<ClaudeSession[]> {
-    // Query by projectId only, sort client-side to avoid needing a composite index
-    const sessions = await getAll<ClaudeSession>(
-      'claudeSessions',
-      where('projectId', '==', projectId),
-    )
-    return sessions.sort((a, b) => b.startedAt.toMillis() - a.startedAt.toMillis())
-  },
-
-  async getById(id: string): Promise<ClaudeSession | null> {
-    return getById<ClaudeSession>('claudeSessions', id)
-  },
-
-  async create(data: ClaudeSessionInput): Promise<string> {
-    return create('claudeSessions', {
-      ...data,
-      startedAt: Timestamp.fromDate(data.startedAt),
-      completedAt: data.completedAt ? Timestamp.fromDate(data.completedAt) : null,
-      lastFlushAt: data.lastFlushAt ? Timestamp.fromDate(data.lastFlushAt) : null,
-    })
-  },
-
-  async update(id: string, data: Partial<ClaudeSessionInput>): Promise<void> {
-    const updates: Record<string, unknown> = { ...data }
-    if (data.startedAt) updates.startedAt = Timestamp.fromDate(data.startedAt)
-    if (data.completedAt) updates.completedAt = Timestamp.fromDate(data.completedAt)
-    else if (data.completedAt === null) updates.completedAt = null
-    if (data.lastFlushAt) updates.lastFlushAt = Timestamp.fromDate(data.lastFlushAt)
-    else if (data.lastFlushAt === null) updates.lastFlushAt = null
-    return update('claudeSessions', id, updates)
-  },
-
-  async delete(id: string): Promise<void> {
-    return remove('claudeSessions', id)
-  },
-
-  async appendTranscript(id: string, lines: string[], totalLineCount: number): Promise<void> {
-    if (lines.length === 0) return
-    // Safety cap: don't exceed 3000 lines to stay under Firestore 1MB doc limit
-    if (totalLineCount > 3000) return
-    const docRef = doc(db, 'claudeSessions', id)
-    await updateDoc(docRef, {
-      transcript: arrayUnion(...lines),
-      lineCount: totalLineCount,
-      lastFlushAt: Timestamp.now(),
-    })
-  },
-
-  async getByTaskId(taskId: string, projectId: string): Promise<ClaudeSession | null> {
-    // Query by array-contains only, filter projectId client-side to avoid composite index
-    const sessions = await getAll<ClaudeSession>(
-      'claudeSessions',
-      where('taskIds', 'array-contains', taskId),
-    )
-    const filtered = sessions.filter((s) => s.projectId === projectId)
-    // Sort client-side by startedAt desc, return most recent
-    filtered.sort((a, b) => b.startedAt.toMillis() - a.startedAt.toMillis())
-    return filtered[0] || null
-  },
-
-  async deleteByProject(projectId: string): Promise<void> {
-    const sessions = await this.getByProject(projectId)
-    for (const session of sessions) {
-      await this.delete(session.id)
-    }
-  },
-}
-
 // Project Notes
 export const projectNotes = {
   async getByProject(projectId: string): Promise<ProjectNote[]> {
@@ -1438,7 +1365,6 @@ export const DEFAULT_PROJECT_PERMISSIONS: ProjectPermissions = {
   viewVault: false, createEditVault: false, deleteVault: false,
   viewPayments: false, createEditPayments: false, deletePayments: false,
   viewActivity: false,
-  viewAiSessions: false, runAiSessions: false,
   logTime: false, viewAllTimeEntries: false, editDeleteOthersTime: false,
 }
 

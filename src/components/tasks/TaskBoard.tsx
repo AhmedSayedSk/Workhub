@@ -25,7 +25,7 @@ import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Plus, Loader2, Bot, UserX, LayoutList, Signal, Puzzle, CalendarDays, Clock, Sparkles } from 'lucide-react'
+import { Plus, Loader2, UserX, LayoutList, Signal, Puzzle, CalendarDays, Clock, Sparkles } from 'lucide-react'
 import { useAI } from '@/hooks/useAI'
 import { useSettings } from '@/hooks/useSettings'
 import { format, isToday, isYesterday } from 'date-fns'
@@ -286,9 +286,6 @@ interface TaskBoardProps {
   projectName?: string
   allMembers?: Member[]
   selectedFeatureId?: string | null
-  selectionMode?: boolean
-  aiProcessingTaskIds?: Set<string>
-  onProcessingStarted?: (taskIds: string[]) => void
   onCreateTask: (task: TaskInput) => Promise<void>
   onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>
   onArchiveTask?: (id: string) => Promise<void>
@@ -307,9 +304,6 @@ export function TaskBoard({
   projectName,
   allMembers,
   selectedFeatureId,
-  selectionMode = false,
-  aiProcessingTaskIds,
-  onProcessingStarted,
   onCreateTask,
   onUpdateTask,
   onArchiveTask,
@@ -322,9 +316,6 @@ export function TaskBoard({
 }: TaskBoardProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [createColumn, setCreateColumn] = useState<TaskStatus>('todo')
-
-  // Selection state
-  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
 
   // Drag and drop state
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
@@ -344,31 +335,6 @@ export function TaskBoard({
     allMembers?.forEach((m) => map.set(m.id, m))
     return map
   }, [allMembers])
-
-  const toggleTaskSelection = (taskId: string) => {
-    setSelectedTaskIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(taskId)) {
-        next.delete(taskId)
-      } else {
-        next.add(taskId)
-      }
-      return next
-    })
-  }
-
-  // Clear selection when selection mode is turned off
-  useEffect(() => {
-    if (!selectionMode) {
-      setSelectedTaskIds(new Set())
-    }
-  }, [selectionMode])
-
-  const handleProcessTasks = () => {
-    if (selectedTaskIds.size === 0) return
-    onProcessingStarted?.(Array.from(selectedTaskIds))
-    setSelectedTaskIds(new Set())
-  }
 
   const tasksByStatus = useMemo(() => columns.reduce((acc, col) => {
     acc[col.id] = tasks
@@ -621,15 +587,11 @@ export function TaskBoard({
                           questionCount={questionCounts[task.id]}
                           assignees={(task.assigneeIds || []).map((id) => membersMap.get(id)).filter(Boolean) as Member[]}
                           allMembers={allMembers}
-                          isAiProcessing={aiProcessingTaskIds?.has(task.id)}
                           onAssigneeChange={allMembers ? (ids) => onUpdateTask(task.id, { assigneeIds: ids }) : undefined}
-                          onClick={() => selectionMode ? toggleTaskSelection(task.id) : onSelectTask(task)}
+                          onClick={() => onSelectTask(task)}
                           onArchive={onArchiveTask ? () => onArchiveTask(task.id) : undefined}
                           onSetWaiting={onSetTaskWaiting ? () => onSetTaskWaiting(task.id) : undefined}
                           onRemoveWaiting={onRemoveTaskWaiting ? () => onRemoveTaskWaiting(task.id) : undefined}
-                          selectable={selectionMode}
-                          selected={selectedTaskIds.has(task.id)}
-                          onSelectionToggle={toggleTaskSelection}
                         />
                       </div>
                     </div>
@@ -658,24 +620,6 @@ export function TaskBoard({
           )
         })}
       </div>
-
-      {/* Floating Action Bar - shown when tasks are selected */}
-      {selectionMode && selectedTaskIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl border bg-card shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-          <span className="text-sm font-medium text-muted-foreground">
-            {selectedTaskIds.size} task{selectedTaskIds.size > 1 ? 's' : ''} selected
-          </span>
-          <div className="w-px h-6 bg-border" />
-          <Button
-            size="sm"
-            onClick={handleProcessTasks}
-            className="gap-2"
-          >
-            <Bot className="h-4 w-4" />
-            Process with Claude
-          </Button>
-        </div>
-      )}
 
       {/* Create Task Dialog — extracted component so form state doesn't re-render the board */}
       <CreateTaskDialog
