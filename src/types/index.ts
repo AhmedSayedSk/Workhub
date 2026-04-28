@@ -155,6 +155,7 @@ export interface Task {
   doneAt?: Timestamp
   assigneeIds?: string[]
   skipAutoAssign?: boolean // When true, task will not be auto-assigned to any user or role
+  hiddenFromDashboard?: boolean // When true, task is hidden from dashboard "My Tasks" / "Team Tasks" cards
   icon?: string | null
   createdAt: Timestamp
 }
@@ -310,6 +311,7 @@ export interface TaskInput {
   doneAt?: Timestamp | null
   assigneeIds?: string[]
   skipAutoAssign?: boolean // When true, task will not be auto-assigned to any user or role
+  hiddenFromDashboard?: boolean
   icon?: string | null
 }
 

@@ -65,6 +65,8 @@ import {
   CalendarDays,
   Users,
   HelpCircle,
+  MoreVertical,
+  EyeOff,
 } from 'lucide-react'
 import Link from 'next/link'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, differenceInDays, format } from 'date-fns'
@@ -74,6 +76,13 @@ import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
 import { useSettings } from '@/hooks/useSettings'
 import { useModulePermissions } from '@/hooks/usePermissions'
 import { useUnansweredQuestions } from '@/hooks/useTaskQuestions'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useToast } from '@/hooks/useToast'
 
 export default function DashboardPage() {
   const [activeProjects, setActiveProjects] = useState<Project[]>([])
@@ -112,6 +121,27 @@ export default function DashboardPage() {
     acc[q.taskId] = (acc[q.taskId] || 0) + 1
     return acc
   }, {})
+  const { toast } = useToast()
+
+  const handleHideFromDashboard = async (taskId: string) => {
+    try {
+      await tasks.update(taskId, { hiddenFromDashboard: true })
+      // Optimistic local update — drop from each list so the row disappears immediately
+      setAllTodoTasks((prev) => prev.filter((t) => t.id !== taskId))
+      setAllInProgressTasks((prev) => prev.filter((t) => t.id !== taskId))
+      setReviewTasks((prev) => prev.filter((t) => t.id !== taskId))
+      setTeamTodoTasks((prev) => prev.filter((t) => t.id !== taskId))
+      setTeamInProgressTasks((prev) => prev.filter((t) => t.id !== taskId))
+      setTeamReviewTasks((prev) => prev.filter((t) => t.id !== taskId))
+      toast({ description: 'Task hidden from dashboard', variant: 'success' })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to hide task',
+        variant: 'destructive',
+      })
+    }
+  }
 
   useEffect(() => {
     loadDashboardData()
@@ -180,9 +210,9 @@ export default function DashboardPage() {
           })
           .map((p: Project) => p.id),
       )
-      const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
-      const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
-      const filteredReview = reviewData.filter((t: Task) => !t.waiting && !t.archived && activeProjectIds.has(t.projectId))
+      const filteredTodo = todoData.filter((t: Task) => !t.waiting && !t.archived && !t.hiddenFromDashboard && activeProjectIds.has(t.projectId))
+      const filteredInProgress = inProgressData.filter((t: Task) => !t.waiting && !t.archived && !t.hiddenFromDashboard && activeProjectIds.has(t.projectId))
+      const filteredReview = reviewData.filter((t: Task) => !t.waiting && !t.archived && !t.hiddenFromDashboard && activeProjectIds.has(t.projectId))
 
       const isMine = (t: Task) => {
         const ids = t.assigneeIds || []
@@ -691,6 +721,32 @@ export default function DashboardPage() {
                                   {task.estimatedHours}h
                                 </span>
                               )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Task actions"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
+                                    className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors flex-shrink-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault()
+                                      handleHideFromDashboard(task.id)
+                                    }}
+                                  >
+                                    <EyeOff className="h-4 w-4 mr-2" />
+                                    Hide from dashboard
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </Link>
                         )
@@ -769,6 +825,32 @@ export default function DashboardPage() {
                                   {task.estimatedHours}h
                                 </span>
                               )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Task actions"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
+                                    className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors flex-shrink-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault()
+                                      handleHideFromDashboard(task.id)
+                                    }}
+                                  >
+                                    <EyeOff className="h-4 w-4 mr-2" />
+                                    Hide from dashboard
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </Link>
                         )
@@ -846,6 +928,32 @@ export default function DashboardPage() {
                                   {task.estimatedHours}h
                                 </span>
                               )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Task actions"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
+                                    className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors flex-shrink-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault()
+                                      handleHideFromDashboard(task.id)
+                                    }}
+                                  >
+                                    <EyeOff className="h-4 w-4 mr-2" />
+                                    Hide from dashboard
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </Link>
                         )
@@ -939,6 +1047,32 @@ export default function DashboardPage() {
                                   {task.estimatedHours}h
                                 </span>
                               )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Task actions"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
+                                    className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors flex-shrink-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault()
+                                      handleHideFromDashboard(task.id)
+                                    }}
+                                  >
+                                    <EyeOff className="h-4 w-4 mr-2" />
+                                    Hide from dashboard
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </Link>
                         )
@@ -1007,6 +1141,32 @@ export default function DashboardPage() {
                                   {task.estimatedHours}h
                                 </span>
                               )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Task actions"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
+                                    className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors flex-shrink-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault()
+                                      handleHideFromDashboard(task.id)
+                                    }}
+                                  >
+                                    <EyeOff className="h-4 w-4 mr-2" />
+                                    Hide from dashboard
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </Link>
                         )
@@ -1075,6 +1235,32 @@ export default function DashboardPage() {
                                   {task.estimatedHours}h
                                 </span>
                               )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Task actions"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                    }}
+                                    className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors flex-shrink-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault()
+                                      handleHideFromDashboard(task.id)
+                                    }}
+                                  >
+                                    <EyeOff className="h-4 w-4 mr-2" />
+                                    Hide from dashboard
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </Link>
                         )

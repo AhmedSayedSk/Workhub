@@ -57,6 +57,7 @@ import {
   CalendarDays,
   Clock,
   Sparkles,
+  Eye,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -1085,6 +1086,25 @@ export function TaskDetail({
                     </span>
                   </div>
                 )}
+              </div>
+
+              <Separator />
+
+              {/* Dashboard visibility toggle */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5" />
+                  Dashboard
+                </Label>
+                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-background">
+                  <span className="text-sm">Show on dashboard</span>
+                  <Switch
+                    checked={!task.hiddenFromDashboard}
+                    onCheckedChange={(checked) =>
+                      onUpdateTask(task.id, { hiddenFromDashboard: !checked } as Partial<Task>)
+                    }
+                  />
+                </div>
               </div>
 
               <Separator />
