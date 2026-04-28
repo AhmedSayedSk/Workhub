@@ -85,12 +85,14 @@ import {
   Check,
   ChevronsUpDown,
   StickyNote,
+  Scale,
 } from 'lucide-react'
 import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
 import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
 import { ProjectNotesTab } from '@/components/projects/ProjectNotesTab'
+import { ProjectEquityTab } from '@/components/projects/ProjectEquityTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { useProjectPermissions } from '@/hooks/usePermissions'
 
@@ -99,7 +101,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'activity']
+  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'equity', 'activity']
   const {
     project,
     parentProject,
@@ -118,7 +120,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   } = useProject(id)
   const { logs: activityLogs, loading: logsLoading, refetch: refetchLogs, deleteLog } = useProjectLogs(id)
   const { can, loading: permsLoading } = useProjectPermissions(id)
-  const { reauthenticate } = useAuth()
+  const { reauthenticate, user } = useAuth()
 
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
@@ -816,6 +818,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Payments
             </TabsTriggerBoxed>
           )}
+          {(user?.uid === project.ownerId || (project.distribution?.partners?.length ?? 0) > 0) && (
+            <TabsTriggerBoxed value="equity" className="gap-2">
+              <Scale className="h-4 w-4" />
+              Equity Split
+            </TabsTriggerBoxed>
+          )}
           {can('viewActivity') && (
           <TabsTriggerBoxed value="activity" className="gap-2">
             <History className="h-4 w-4" />
@@ -1220,6 +1228,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </CardContent>
             </Card>
           )}
+        </TabsContentBoxed>
+
+        <TabsContentBoxed value="equity" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <ProjectEquityTab project={project} onUpdate={refetchProject} />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="activity" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">

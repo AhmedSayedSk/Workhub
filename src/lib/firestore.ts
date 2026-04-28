@@ -21,6 +21,7 @@ import {
   OrganizationInput,
   Project,
   ProjectInput,
+  ProjectDistribution,
   Milestone,
   MilestoneInput,
   Feature,
@@ -266,6 +267,11 @@ export const projects = {
     for (const sub of subs) {
       await this.updateSharing(sub.id, sharedWith, ownerId)
     }
+  },
+
+  /** Replace the project's equity distribution (categories + partners). */
+  async updateDistribution(projectId: string, distribution: ProjectDistribution): Promise<void> {
+    return update('projects', projectId, { distribution })
   },
 
   async getByStatus(status: string, userId?: string): Promise<Project[]> {

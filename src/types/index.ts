@@ -106,9 +106,29 @@ export interface Project {
   ownerId: string
   sharedWith: string[] // UIDs of users who can access this project
   pendingSharedEmails: string[] // Emails of users invited but not yet signed up
+  distribution?: ProjectDistribution
   createdAt: Timestamp
   warrantyDays?: number
   warrantyStartDate?: Timestamp | null
+}
+
+// Dynamic Equity Split / Effort-Based Profit Sharing
+export interface DistributionCategory {
+  id: string
+  name: string
+  weight: number // 0–100; all category weights sum to 100
+  isCustom: boolean
+}
+
+export interface DistributionPartner {
+  memberId: string
+  allocations: Record<string, number> // categoryId → 0–100 (sums to 100 per category)
+}
+
+export interface ProjectDistribution {
+  enabled: boolean
+  categories: DistributionCategory[]
+  partners: DistributionPartner[]
 }
 
 export interface Milestone {
@@ -270,6 +290,7 @@ export interface ProjectInput {
   pendingSharedEmails?: string[]
   warrantyDays?: number
   warrantyStartDate?: Date | null
+  distribution?: ProjectDistribution
 }
 
 export interface MilestoneInput {
@@ -541,7 +562,14 @@ export interface AppSettings {
   imageGenDisabledEmails?: string[]
   imageGenPreferredEmail?: string | null
   imageGenStandingPrompt?: string | null
+  defaultDistributionCategories?: DistributionCategoryDefault[]
   updatedAt: Timestamp
+}
+
+export interface DistributionCategoryDefault {
+  id: string
+  name: string
+  weight: number
 }
 
 export interface AppSettingsInput {
@@ -570,6 +598,7 @@ export interface AppSettingsInput {
   imageGenDisabledEmails?: string[]
   imageGenPreferredEmail?: string | null
   imageGenStandingPrompt?: string | null
+  defaultDistributionCategories?: DistributionCategoryDefault[]
 }
 
 // AI Model types
