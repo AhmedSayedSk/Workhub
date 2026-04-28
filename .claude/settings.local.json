@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "stitch"
+  ],
+  "enableAllProjectMcpServers": true
+}
