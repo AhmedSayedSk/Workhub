@@ -171,12 +171,13 @@ interface ParsedQuestion {
   recommendation: string | null
 }
 
-// Two option formats are supported:
-//   1. `**A)**` (older format) — bold-wrapped letter, no per-option recommend mark
-//   2. `A★)` or `A)` (newer inline format) — plain letter with optional ★ marking the option as recommended
+// Multiple option formats are supported:
+//   1. `**A)**` (older format) — bold-wrapped uppercase letter, no per-option recommend mark
+//   2. `A★)` / `A)` — plain uppercase letter, optional ★ marks the option as recommended
+//   3. `a)` / `a★)` — lowercase letter (some questions use lowercase for sub-questions or alternates)
 //
 // The `(?<=^|[\s,;:])` lookbehind requires a boundary before the marker so we don't match `B)` inside prose like "API (B) is preferred".
-const OPTION_REGEX = /(?<=^|[\s,;:])(\*\*)?([A-Z])(★*)\)(\*\*)?\s*/g
+const OPTION_REGEX = /(?<=^|[\s,;:])(\*\*)?([A-Za-z])(★*)\)(\*\*)?\s*/g
 
 function parseQuestion(text: string): ParsedQuestion {
   const original = text.trim()
@@ -246,34 +247,39 @@ function InlineMD({ text }: { text: string }) {
 }
 
 // Toggle a letter in/out of the answer draft.
-// - Empty draft → set to the letter.
-// - Letter-only draft (e.g. "A", "A, C", "A+C+E") → toggle this letter, preserving the user's existing separator.
+// - Empty draft → set to the letter (preserves the option's case).
+// - Letter-only draft (e.g. "A", "A, C", "A+C+E", "a, b") → toggle this letter case-insensitively, preserving the user's existing separator.
 // - Freeform draft (sentences, prose) → append ", <letter>" at the end (no toggle, since the regex can't safely
 //   identify the letter as a "selection" inside arbitrary prose).
 function toggleLetterInDraft(draft: string, letter: string): string {
   const trimmed = draft.trim()
   if (trimmed === '') return letter
 
-  const letterOnlyRegex = /^[A-Z](\s*[,+]\s*[A-Z])*$/
+  const letterOnlyRegex = /^[A-Za-z](\s*[,+]\s*[A-Za-z])*$/
   if (letterOnlyRegex.test(trimmed)) {
     const sep = trimmed.includes('+') ? '+' : ', '
     const tokens = trimmed.split(/\s*[,+]\s*/).filter(Boolean)
-    if (tokens.includes(letter)) {
-      return tokens.filter((t) => t !== letter).join(sep)
+    const target = letter.toUpperCase()
+    const exists = tokens.some((t) => t.toUpperCase() === target)
+    if (exists) {
+      return tokens.filter((t) => t.toUpperCase() !== target).join(sep)
     }
     return [...tokens, letter].join(sep)
   }
 
-  // Freeform — already-typed prose. Append unless letter is the last visible token.
-  if (new RegExp(`(^|[^A-Za-z])${letter}\\s*$`).test(trimmed)) return draft
+  // Freeform — already-typed prose. Append unless letter is the last visible token (case-insensitive).
+  if (new RegExp(`(^|[^A-Za-z])${letter}\\s*$`, 'i').test(trimmed)) return draft
   return `${trimmed}, ${letter}`
 }
 
 // Returns the set of letters currently "selected" in the draft (only meaningful in letter-only mode).
+// Letters are normalized to uppercase so case-insensitive comparison works downstream.
 function selectedLetters(draft: string): Set<string> {
   const trimmed = draft.trim()
-  if (!/^[A-Z](\s*[,+]\s*[A-Z])*$/.test(trimmed)) return new Set()
-  return new Set(trimmed.split(/\s*[,+]\s*/).filter(Boolean))
+  if (!/^[A-Za-z](\s*[,+]\s*[A-Za-z])*$/.test(trimmed)) return new Set()
+  return new Set(
+    trimmed.split(/\s*[,+]\s*/).filter(Boolean).map((s) => s.toUpperCase()),
+  )
 }
 
 /**
@@ -419,7 +425,7 @@ function QuestionCard({
         {parsed.options.length > 0 && (
           <div className="space-y-1 pl-1">
             {parsed.options.map((opt) => {
-              const isSelected = selected.has(opt.label)
+              const isSelected = selected.has(opt.label.toUpperCase())
               const tooltip = `Click to ${isSelected ? 'remove' : 'insert'} option ${opt.label} in your answer${
                 opt.recommended ? ' (recommended)' : ''
               }`
