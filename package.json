@@ -81,6 +81,7 @@
     "firebase": "^11.1.0",
     "firebase-admin": "^13.0.2",
     "lucide-react": "^0.468.0",
+    "markdown-it": "^14.1.0",
     "next": "^16",
     "nodemailer": "^8.0.7",
     "react": "^19.2.0",
@@ -95,6 +96,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/markdown-it": "^14.1.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
