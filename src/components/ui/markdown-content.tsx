@@ -21,6 +21,7 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        link: false, // we configure Link separately with custom target/rel
       }),
       Link.configure({
         openOnClick: true,

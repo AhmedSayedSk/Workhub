@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -74,6 +74,8 @@ import { TaskAttachmentsSection } from '@/components/tasks/TaskAttachmentsSectio
 import { TaskQuestionsPanel } from '@/components/tasks/TaskQuestionsPanel'
 import { useAI } from '@/hooks/useAI'
 import { useSettings } from '@/hooks/useSettings'
+import { notifyByEmail } from '@/lib/email/notify'
+import { resolveMentions, commentSnippet } from '@/lib/email/mentions'
 
 function formatRelativeTime(timestamp: { toDate: () => Date }): string {
   const now = new Date()
@@ -97,30 +99,109 @@ function CommentSection({
   projectId,
   contextLabel,
   onDataChanged,
+  mentionContext,
 }: {
   parentId: string
   parentType: CommentParentType
   projectId?: string
   contextLabel?: string
   onDataChanged?: () => void
+  mentionContext?: {
+    members: Member[]
+    taskId: string
+    taskName: string
+    projectName: string
+    projectId: string
+  }
 }) {
   const { user } = useAuth()
   const { comments, addComment, deleteComment } = useComments(parentId, parentType, projectId, contextLabel)
   const [newComment, setNewComment] = useState('')
   const [isUploadingAudio, setIsUploadingAudio] = useState(false)
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [mention, setMention] = useState<{ query: string; start: number } | null>(null)
+  const [mentionIndex, setMentionIndex] = useState(0)
+
+  const mentionMembers = mentionContext?.members ?? []
+  const filteredMentionMembers = mention
+    ? mentionMembers.filter((m) => {
+        const q = mention.query.toLowerCase()
+        if (!q) return true
+        return (
+          m.name.toLowerCase().includes(q) ||
+          m.email.toLowerCase().includes(q)
+        )
+      }).slice(0, 6)
+    : []
+
+  const detectMention = (value: string, cursorPos: number) => {
+    if (!mentionContext) {
+      setMention(null)
+      return
+    }
+    const upTo = value.slice(0, cursorPos)
+    // Match @<token> immediately before cursor, allowing letters (incl. Arabic), digits, hyphen, underscore
+    const match = upTo.match(/(?:^|\s)@([\p{L}\p{N}_-]*)$/u)
+    if (match) {
+      const start = upTo.length - match[1].length - 1
+      setMention({ query: match[1], start })
+      setMentionIndex(0)
+    } else {
+      setMention(null)
+    }
+  }
+
+  const insertMention = (member: Member) => {
+    if (!mention || !textareaRef.current) return
+    const ta = textareaRef.current
+    const cursor = ta.selectionStart ?? newComment.length
+    const before = newComment.slice(0, mention.start)
+    const after = newComment.slice(cursor)
+    // Use the first word of the name (matches our parser's resolution rule)
+    const token = (member.name.split(/\s+/)[0] || member.name).replace(/[^\p{L}\p{N}_-]/gu, '')
+    const insert = '@' + token + ' '
+    const next = before + insert + after
+    setNewComment(next)
+    setMention(null)
+    requestAnimationFrame(() => {
+      const pos = (before + insert).length
+      ta.focus()
+      ta.setSelectionRange(pos, pos)
+    })
+  }
 
   const handleSubmit = async () => {
     if (!newComment.trim() || !user) return
+    const text = newComment.trim()
     await addComment({
       parentId,
       parentType,
-      text: newComment.trim(),
+      text,
       authorId: user.uid,
       authorName: user.displayName || user.email || 'Unknown',
     })
     setNewComment('')
     onDataChanged?.()
+
+    // Email anyone @mentioned (including the author — self-mentions are allowed)
+    if (mentionContext) {
+      const mentioned = resolveMentions(text, mentionContext.members).filter((m) => !!m.email)
+      if (mentioned.length > 0) {
+        void notifyByEmail({
+          type: 'task_comment_mention',
+          payload: {
+            recipients: mentioned.map((m) => ({ email: m.email, name: m.name })),
+            actorName: user.displayName || user.email || 'Someone',
+            taskName: mentionContext.taskName,
+            projectName: mentionContext.projectName,
+            projectId: mentionContext.projectId,
+            taskId: mentionContext.taskId,
+            commentSnippet: commentSnippet(text),
+          },
+        })
+      }
+    }
   }
 
   const handleRecordingComplete = async (blob: Blob, durationSecs: number) => {
@@ -160,6 +241,54 @@ function CommentSection({
     }
   }
 
+  // Renders comment text. When @mentions are present we switch to a plain-text
+  // renderer that highlights each mention with an avatar + colored chip.
+  // Comments without mentions still go through MarkdownContent for full markdown.
+  const renderCommentText = (text: string) => {
+    const members = mentionContext?.members ?? []
+    if (members.length === 0 || !text.includes('@')) {
+      return <MarkdownContent content={text} className="comment-markdown" />
+    }
+    const re = /(^|[\s,;.!?])@([\p{L}\p{N}_-]{1,48})/gu
+    type Seg = { kind: 'text'; value: string } | { kind: 'mention'; value: string; member?: Member }
+    const segments: Seg[] = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = re.exec(text)) !== null) {
+      const prefix = match[1] || ''
+      const token = match[2]
+      const matchedAt = match.index + prefix.length
+      if (matchedAt > lastIndex) segments.push({ kind: 'text', value: text.slice(lastIndex, matchedAt) })
+      const tokenLower = token.toLowerCase()
+      const member = members.find((m) => {
+        const first = (m.name.split(/\s+/)[0] || '').toLowerCase()
+        const slug = m.name.toLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')
+        return first === tokenLower || slug === tokenLower
+      })
+      segments.push({ kind: 'mention', value: token, member })
+      lastIndex = matchedAt + 1 + token.length
+    }
+    if (lastIndex < text.length) segments.push({ kind: 'text', value: text.slice(lastIndex) })
+
+    return (
+      <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+        {segments.map((seg, i) => {
+          if (seg.kind === 'text') return <span key={i}>{seg.value}</span>
+          if (!seg.member) return <span key={i} className="text-primary font-medium">@{seg.value}</span>
+          return (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-primary/10 text-primary font-medium align-middle text-xs"
+            >
+              <MemberAvatar member={seg.member} size="sm" className="h-4 w-4 text-[8px]" />
+              <span>@{seg.member.name.split(/\s+/)[0] || seg.member.name}</span>
+            </span>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       {/* Comment list */}
@@ -193,7 +322,7 @@ function CommentSection({
                   )}
                   {comment.text && (
                     <div className="mt-0.5">
-                      <MarkdownContent content={comment.text} className="comment-markdown" />
+                      {renderCommentText(comment.text)}
                     </div>
                   )}
                 </div>
@@ -214,20 +343,86 @@ function CommentSection({
       )}
 
       {/* Comment input */}
-      <div className="flex items-center gap-2">
-        <Textarea
-          placeholder="Add a comment... (Shift+Enter for new line)"
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              handleSubmit()
-            }
-          }}
-          className="flex-1 min-h-[40px] max-h-[160px] text-sm resize-none"
-          rows={2}
-        />
+      <div className="flex items-start gap-2">
+        <div className="relative flex-1">
+          {mention && filteredMentionMembers.length > 0 && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 z-20 bg-popover border rounded-md shadow-md overflow-hidden max-h-64 overflow-y-auto">
+              <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground border-b bg-muted/30">
+                Mention a team member
+              </div>
+              {filteredMentionMembers.map((m, i) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onMouseDown={(e) => {
+                    // mousedown to prevent textarea blur before click handler runs
+                    e.preventDefault()
+                    insertMention(m)
+                  }}
+                  onMouseEnter={() => setMentionIndex(i)}
+                  className={cn(
+                    'w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors',
+                    i === mentionIndex && 'bg-muted/60',
+                  )}
+                >
+                  <MemberAvatar member={m} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{m.name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{m.email}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          <Textarea
+            ref={textareaRef}
+            placeholder="Add a comment... (Shift+Enter for new line, @ to mention)"
+            value={newComment}
+            onChange={(e) => {
+              setNewComment(e.target.value)
+              detectMention(e.target.value, e.target.selectionStart ?? e.target.value.length)
+            }}
+            onKeyUp={(e) => {
+              const t = e.currentTarget
+              detectMention(t.value, t.selectionStart ?? t.value.length)
+            }}
+            onClick={(e) => {
+              const t = e.currentTarget
+              detectMention(t.value, t.selectionStart ?? t.value.length)
+            }}
+            onBlur={() => setTimeout(() => setMention(null), 150)}
+            onKeyDown={(e) => {
+              if (mention && filteredMentionMembers.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setMentionIndex((i) => (i + 1) % filteredMentionMembers.length)
+                  return
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setMentionIndex((i) => (i - 1 + filteredMentionMembers.length) % filteredMentionMembers.length)
+                  return
+                }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  insertMention(filteredMentionMembers[mentionIndex])
+                  return
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setMention(null)
+                  return
+                }
+              }
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSubmit()
+              }
+            }}
+            className="w-full min-h-[40px] max-h-[160px] text-sm resize-none"
+            rows={2}
+          />
+        </div>
         <AudioRecorder
           onRecordingComplete={handleRecordingComplete}
           disabled={isUploadingAudio}
@@ -451,6 +646,7 @@ export function TaskDetail({
   )
   const { suggestTaskIcon, generateTaskSuggestion } = useAI()
   const { settings } = useSettings()
+  const { user } = useAuth()
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
@@ -740,7 +936,20 @@ export function TaskDetail({
               {/* Task Comments */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Comments</Label>
-                <CommentSection parentId={task.id} parentType="task" projectId={projectId} contextLabel={task.name} onDataChanged={onDataChanged} />
+                <CommentSection
+                  parentId={task.id}
+                  parentType="task"
+                  projectId={projectId}
+                  contextLabel={task.name}
+                  onDataChanged={onDataChanged}
+                  mentionContext={{
+                    members: allMembers || [],
+                    taskId: task.id,
+                    taskName: task.name,
+                    projectName,
+                    projectId,
+                  }}
+                />
               </div>
 
               <Separator />
@@ -1003,7 +1212,32 @@ export function TaskDetail({
                     <AssigneeSelect
                       members={allMembers}
                       selectedIds={task.assigneeIds || []}
-                      onChange={(ids) => onUpdateTask(task.id, { assigneeIds: ids })}
+                      onChange={(ids) => {
+                        const previous = new Set(task.assigneeIds || [])
+                        const newlyAdded = ids.filter((id) => !previous.has(id))
+                        onUpdateTask(task.id, { assigneeIds: ids })
+                        if (newlyAdded.length > 0) {
+                          const recipients = newlyAdded
+                            .map((id) => allMembers.find((m) => m.id === id))
+                            .filter((m): m is NonNullable<typeof m> => !!m && !!m.email)
+                            .map((m) => ({ email: m.email, name: m.name }))
+                          if (recipients.length > 0) {
+                            void notifyByEmail({
+                              type: 'task_assigned',
+                              payload: {
+                                recipients,
+                                actorName: user?.displayName || user?.email || 'Someone',
+                                taskName: task.name,
+                                projectName,
+                                projectId: task.projectId,
+                                taskId: task.id,
+                                taskDescription: task.description,
+                                deadline: task.deadline ? task.deadline.toDate().toLocaleDateString() : null,
+                              },
+                            })
+                          }
+                        }
+                      }}
                       trigger={
                         <Button variant="outline" size="sm" className="w-full text-xs">
                           {(task.assigneeIds || []).length > 0 ? 'Edit Assignees' : 'Assign Members'}

@@ -563,6 +563,7 @@ export interface AppSettings {
   imageGenPreferredEmail?: string | null
   imageGenStandingPrompt?: string | null
   defaultDistributionCategories?: DistributionCategoryDefault[]
+  emailNotificationsEnabled?: boolean
   updatedAt: Timestamp
 }
 
@@ -599,6 +600,7 @@ export interface AppSettingsInput {
   imageGenPreferredEmail?: string | null
   imageGenStandingPrompt?: string | null
   defaultDistributionCategories?: DistributionCategoryDefault[]
+  emailNotificationsEnabled?: boolean
 }
 
 // AI Model types

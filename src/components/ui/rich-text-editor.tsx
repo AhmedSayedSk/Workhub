@@ -58,6 +58,7 @@ export function RichTextEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        link: false, // we configure Link separately
       }),
       ResizableImage,
       Link.configure({
