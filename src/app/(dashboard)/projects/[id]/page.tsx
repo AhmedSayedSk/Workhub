@@ -61,6 +61,8 @@ import {
   projectTypes,
   getEffectiveTotal,
 } from '@/lib/utils'
+import { userProfiles } from '@/lib/firestore'
+import type { UserProfile } from '@/types'
 import {
   ArrowLeft,
   Bot,
@@ -121,6 +123,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const { logs: activityLogs, loading: logsLoading, refetch: refetchLogs, deleteLog } = useProjectLogs(id)
   const { can, loading: permsLoading } = useProjectPermissions(id)
   const { reauthenticate, user } = useAuth()
+
+  const [ownerProfile, setOwnerProfile] = useState<UserProfile | null>(null)
+  useEffect(() => {
+    if (!project?.ownerId) { setOwnerProfile(null); return }
+    let cancelled = false
+    userProfiles.getByUids([project.ownerId]).then((arr) => { if (!cancelled) setOwnerProfile(arr[0] || null) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [project?.ownerId])
 
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
@@ -833,7 +843,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </TabsListBoxed>
 
         <TabsContentBoxed value="tasks" className="lg:flex-1 lg:min-h-0">
-          <ProjectTasksTab projectId={id} projectName={project.name} canArchive={can('archiveTasks')} />
+          <ProjectTasksTab
+            projectId={id}
+            projectName={project.name}
+            projectOwnerId={project.ownerId}
+            projectOwnerEmail={ownerProfile?.email}
+            projectOwnerName={ownerProfile?.displayName || ownerProfile?.email}
+            canArchive={can('archiveTasks')}
+          />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">

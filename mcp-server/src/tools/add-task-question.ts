@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getDb } from '../firebase.js';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAuthor } from '../lib/author.js';
+import { notifyEmail } from '../lib/notify-email.js';
 
 export const addTaskQuestionSchema = {
   taskId: z.string().describe('The task ID this question is about'),
@@ -25,11 +26,14 @@ export async function addTaskQuestion(args: { taskId: string; question: string; 
   const task = taskDoc.data()!;
   const askedBy = args.askedBy?.trim() || getAuthor().authorName;
 
-  // Look up the project name to denormalize for the dashboard card
+  // Look up the project to denormalize name for the dashboard card and resolve owner for email
   let projectName = task.projectId as string;
+  let projectOwnerId: string | null = null;
   const projectDoc = await db.collection('projects').doc(task.projectId).get();
   if (projectDoc.exists) {
-    projectName = (projectDoc.data()?.name as string) || projectName;
+    const p = projectDoc.data();
+    projectName = (p?.name as string) || projectName;
+    projectOwnerId = (p?.ownerId as string) || null;
   }
 
   const ref = await db.collection('taskQuestions').add({
@@ -44,6 +48,30 @@ export async function addTaskQuestion(args: { taskId: string; question: string; 
     answeredAt: null,
     answeredBy: null,
   });
+
+  // Fire-and-forget email to the project owner
+  if (projectOwnerId) {
+    try {
+      const ownerSnap = await db.collection('userProfiles').doc(projectOwnerId).get();
+      const owner = ownerSnap.exists ? ownerSnap.data() : null;
+      if (owner?.email) {
+        void notifyEmail({
+          type: 'task_question_asked',
+          payload: {
+            recipients: [{ email: owner.email as string, name: (owner.displayName as string) || (owner.email as string) }],
+            actorName: askedBy,
+            taskName: task.name,
+            projectName,
+            projectId: task.projectId,
+            taskId: args.taskId,
+            question: args.question,
+          },
+        });
+      }
+    } catch {
+      // ignore — email is best-effort
+    }
+  }
 
   return {
     content: [{

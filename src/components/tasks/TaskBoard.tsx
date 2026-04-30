@@ -25,11 +25,10 @@ import { Timestamp } from 'firebase/firestore'
 import { taskTypeLabels } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Plus, Loader2, UserX, LayoutList, Signal, Puzzle, CalendarDays, Clock, Sparkles } from 'lucide-react'
+import { Plus, Loader2, LayoutList, Signal, Puzzle, CalendarDays, Clock, Sparkles } from 'lucide-react'
 import { useAI } from '@/hooks/useAI'
 import { useSettings } from '@/hooks/useSettings'
 import { format, isToday, isYesterday } from 'date-fns'
-import { Switch } from '@/components/ui/switch'
 import { TaskCard } from './TaskCard'
 import { useSubtaskCounts } from '@/hooks/useTasks'
 import { useCommentCounts } from '@/hooks/useComments'
@@ -74,7 +73,6 @@ function CreateTaskDialog({
   const [estimatedHours, setEstimatedHours] = useState('')
   const [deadline, setDeadline] = useState<Date | null>(null)
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
-  const [skipAutoAssign, setSkipAutoAssign] = useState(true)
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
   const { generateTaskSuggestion } = useAI()
   const { settings } = useSettings()
@@ -110,7 +108,6 @@ function CreateTaskDialog({
       setEstimatedHours('')
       setDeadline(null)
       setAssigneeIds([])
-      setSkipAutoAssign(true)
     }
   }, [open, selectedFeatureId])
 
@@ -128,8 +125,8 @@ function CreateTaskDialog({
         priority,
         estimatedHours: parseFloat(estimatedHours) || 0,
         deadline: deadline ? Timestamp.fromDate(deadline) : null,
-        assigneeIds: skipAutoAssign ? [] : assigneeIds,
-        skipAutoAssign,
+        assigneeIds,
+        skipAutoAssign: true,
       })
       onOpenChange(false)
     } finally {
@@ -233,31 +230,21 @@ function CreateTaskDialog({
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Est. Hours</Label>
               <Input type="number" placeholder="0" value={estimatedHours} onChange={(e) => setEstimatedHours(e.target.value)} className="h-9" />
             </div>
-            {allMembers && allMembers.length > 0 && !skipAutoAssign && (
+            {allMembers && allMembers.length > 0 && (
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignees</Label>
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assign to</Label>
                 <AssigneeSelect
                   members={allMembers}
                   selectedIds={assigneeIds}
                   onChange={setAssigneeIds}
                   trigger={
                     <Button variant="outline" size="sm" className="w-full h-9 text-xs">
-                      {assigneeIds.length > 0 ? `${assigneeIds.length} assigned` : 'Assign members'}
+                      {assigneeIds.length > 0 ? `${assigneeIds.length} assigned` : 'Assign to'}
                     </Button>
                   }
                 />
               </div>
             )}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <UserX className="h-4 w-4 text-muted-foreground" />
-                  <Label className="text-xs font-medium cursor-pointer" htmlFor="skip-auto-assign">Leave unassigned</Label>
-                </div>
-                <Switch id="skip-auto-assign" checked={skipAutoAssign} onCheckedChange={(checked) => { setSkipAutoAssign(checked); if (checked) setAssigneeIds([]) }} />
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-tight">Task will not be assigned to anyone. A manager can assign later.</p>
-            </div>
           </div>
         </div>
         <div className="px-6 py-4 border-t shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
