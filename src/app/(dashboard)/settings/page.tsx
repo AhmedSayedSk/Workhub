@@ -55,7 +55,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useThemeContext()
   const { user, signOut, updateUserProfile } = useAuth()
   const {
-    settings, loading, saving, setAIModel, setAIEnabled, setThinkingTimePercent,
+    settings, loading, saving, updateSettings, setAIModel, setAIEnabled, setThinkingTimePercent,
     setVaultPasskey, removeVaultPasskey,
     setNotifyTimerReminder, setTimerReminderMinutes,
     setNotifyDeadlineAlerts, setDeadlineAlertDays,
@@ -987,6 +987,23 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <>
+                  {/* Email Notifications (global on/off) */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Email Notifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Send emails for task assignments, mentions, questions, and completions. Requires Zoho Mail SMTP configured in env.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings?.emailNotificationsEnabled !== false}
+                      onCheckedChange={(checked) => updateSettings({ emailNotificationsEnabled: checked })}
+                      disabled={saving}
+                    />
+                  </div>
+
+                  <Separator />
+
                   {/* Timer Reminders */}
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">

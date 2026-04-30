@@ -9,7 +9,7 @@ import {
 } from '@/lib/gemini'
 import { requireAuth, verifyAuth } from '@/lib/api-auth'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { appSettings } from '@/lib/firestore'
+import { getAppSettingsServer } from '@/lib/server/app-settings'
 import { GeminiModel } from '@/types'
 
 export async function POST(request: NextRequest) {
@@ -22,21 +22,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { action, data, model: requestModel } = body
 
-    // Get model from request, or fetch from settings
+    // Get model from request, or fetch from settings via Admin SDK (bypasses rules)
     let model: GeminiModel | undefined = requestModel
     if (!model) {
-      try {
-        const settings = await appSettings.get()
-        if (settings?.aiEnabled === false) {
-          return NextResponse.json(
-            { success: false, error: 'AI features are disabled' },
-            { status: 403 }
-          )
-        }
-        model = settings?.aiModel
-      } catch (e) {
-        console.warn('Could not fetch settings, using default model:', e)
+      const settings = await getAppSettingsServer()
+      if (settings?.aiEnabled === false) {
+        return NextResponse.json(
+          { success: false, error: 'AI features are disabled' },
+          { status: 403 }
+        )
       }
+      model = settings?.aiModel
     }
 
     switch (action) {
@@ -117,12 +113,12 @@ export async function GET(request: NextRequest) {
   try {
     const authError = await requireAuth(request)
     if (authError) return authError
-    const settings = await appSettings.getOrCreate()
+    const settings = await getAppSettingsServer()
     return NextResponse.json({
       success: true,
       data: {
-        model: settings.aiModel,
-        enabled: settings.aiEnabled,
+        model: settings?.aiModel,
+        enabled: settings?.aiEnabled !== false,
       },
     })
   } catch (error) {
