@@ -1213,30 +1213,9 @@ export function TaskDetail({
                       members={allMembers}
                       selectedIds={task.assigneeIds || []}
                       onChange={(ids) => {
-                        const previous = new Set(task.assigneeIds || [])
-                        const newlyAdded = ids.filter((id) => !previous.has(id))
+                        // Assignment email is sent by the upstream handleUpdateTask
+                        // (centralized in ProjectTasksTab so 3-dot menu also triggers it).
                         onUpdateTask(task.id, { assigneeIds: ids })
-                        if (newlyAdded.length > 0) {
-                          const recipients = newlyAdded
-                            .map((id) => allMembers.find((m) => m.id === id))
-                            .filter((m): m is NonNullable<typeof m> => !!m && !!m.email)
-                            .map((m) => ({ email: m.email, name: m.name }))
-                          if (recipients.length > 0) {
-                            void notifyByEmail({
-                              type: 'task_assigned',
-                              payload: {
-                                recipients,
-                                actorName: user?.displayName || user?.email || 'Someone',
-                                taskName: task.name,
-                                projectName,
-                                projectId: task.projectId,
-                                taskId: task.id,
-                                taskDescription: task.description,
-                                deadline: task.deadline ? task.deadline.toDate().toLocaleDateString() : null,
-                              },
-                            })
-                          }
-                        }
                       }}
                       trigger={
                         <Button variant="outline" size="sm" className="w-full text-xs">

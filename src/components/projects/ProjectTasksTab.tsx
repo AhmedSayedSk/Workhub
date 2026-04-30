@@ -115,12 +115,47 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
     await deleteFeature(id)
   }
 
+  // Unified helper: notify newly assigned members for any task assignment change.
+  // Called from create/update flows so 3-dot menu, TaskDetail, board, and creation all behave the same.
+  const notifyNewAssignees = useCallback(
+    (taskId: string, taskName: string, taskDescription: string, deadline: Task['deadline'] | null | undefined, previousIds: string[], nextIds: string[]) => {
+      if (!user) return
+      const previous = new Set(previousIds)
+      const newlyAdded = nextIds.filter((id) => !previous.has(id))
+      if (newlyAdded.length === 0) return
+      const recipients = newlyAdded
+        .map((id) => allMembers.find((m) => m.id === id))
+        .filter((m): m is NonNullable<typeof m> => !!m && !!m.email)
+        .map((m) => ({ email: m.email, name: m.name }))
+      if (recipients.length === 0) return
+      void notifyByEmail({
+        type: 'task_assigned',
+        payload: {
+          recipients,
+          actorName: user.displayName || user.email || 'Someone',
+          taskName,
+          projectName,
+          projectId,
+          taskId,
+          taskDescription,
+          deadline: deadline ? deadline.toDate().toLocaleDateString() : null,
+        },
+      })
+    },
+    [allMembers, projectId, projectName, user],
+  )
+
   const handleCreateTask = async (data: TaskInput) => {
     const taskId = await createTask({
       ...data,
       // If a feature is selected, use it. Otherwise use whatever was provided
       featureId: selectedFeatureId || data.featureId,
     })
+
+    // Email newly assigned members on creation (treat previous as empty).
+    if (taskId && data.assigneeIds && data.assigneeIds.length > 0) {
+      notifyNewAssignees(taskId, data.name, data.description || '', data.deadline, [], data.assigneeIds)
+    }
 
     // Non-blocking: suggest an icon via AI if enabled
     if (taskId && settings?.aiEnabled) {
@@ -139,6 +174,19 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
       setConfetti({ active: true })
     }
     await updateTask(id, updates as Partial<TaskInput>)
+
+    // Unified assignment notification: any update that changes assigneeIds — from
+    // the 3-dot menu, TaskDetail, or anywhere else — emails newly added members.
+    if (taskBefore && Array.isArray(updates.assigneeIds)) {
+      notifyNewAssignees(
+        id,
+        (updates.name as string) || taskBefore.name,
+        (updates.description as string) || taskBefore.description || '',
+        (updates.deadline as Task['deadline']) ?? taskBefore.deadline,
+        taskBefore.assigneeIds || [],
+        updates.assigneeIds,
+      )
+    }
 
     // Email project owner when a task moves to "done" by someone other than the owner
     if (
