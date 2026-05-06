@@ -156,6 +156,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     window.history.replaceState({}, '', url.toString())
   }, [])
 
+  // If a member lands on ?tab=payments without permission, fall back to tasks.
+  useEffect(() => {
+    if (permsLoading) return
+    if (activeTab === 'payments' && !can('viewPayments')) {
+      handleTabChange('tasks')
+    }
+  }, [permsLoading, activeTab, can, handleTabChange])
+
   const [deleteCooldown, setDeleteCooldown] = useState(0)
   const cooldownRef = useRef<NodeJS.Timeout | null>(null)
   const maxDeleteAttempts = 3
@@ -581,7 +589,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <Card className="shrink-0 py-2">
           <CardContent className="space-y-2 pb-0 pt-0 px-4">
             {/* Finances - horizontal row for non-internal projects with own finances */}
-            {!isInternal && project.hasOwnFinances !== false && (
+            {!isInternal && project.hasOwnFinances !== false && can('viewPayments') && (
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1.5">
                   <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
@@ -605,7 +613,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             )}
 
             {/* Actions + Status */}
-            {!isInternal && project.hasOwnFinances !== false && <Separator />}
+            {!isInternal && project.hasOwnFinances !== false && can('viewPayments') && <Separator />}
             <div className="flex items-center gap-2 flex-wrap">
               {!project.parentProjectId && (
               <Dialog>
@@ -678,7 +686,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                     <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{sub.description}</p>
                                   )}
                                 </div>
-                                {sub.hasOwnFinances !== false && !subIsInternal && (
+                                {sub.hasOwnFinances !== false && !subIsInternal && can('viewPayments') && (
                                   <div className="text-right text-sm shrink-0">
                                     <p className="font-medium">{formatCurrency(sub.totalAmount)}</p>
                                     <p className="text-muted-foreground">{formatCurrency(sub.paidAmount)} paid</p>
@@ -866,6 +874,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </TabsContentBoxed>
 
         <TabsContentBoxed value="payments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto space-y-6">
+          {can('viewPayments') && (
+          <>
           {/* Milestone-based payments */}
           {project.paymentModel === 'milestone' && (
             <Card>
@@ -1244,6 +1254,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </CardContent>
             </Card>
+          )}
+          </>
           )}
         </TabsContentBoxed>
 
