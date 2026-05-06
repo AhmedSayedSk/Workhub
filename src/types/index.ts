@@ -110,6 +110,7 @@ export interface Project {
   createdAt: Timestamp
   warrantyDays?: number
   warrantyStartDate?: Timestamp | null
+  sortOrder?: number // Manual ordering among siblings (sub-projects of the same parent)
 }
 
 // Dynamic Equity Split / Effort-Based Profit Sharing
@@ -291,6 +292,7 @@ export interface ProjectInput {
   warrantyDays?: number
   warrantyStartDate?: Date | null
   distribution?: ProjectDistribution
+  sortOrder?: number
 }
 
 export interface MilestoneInput {

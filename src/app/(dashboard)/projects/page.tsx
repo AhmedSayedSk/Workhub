@@ -21,6 +21,7 @@ import {
   formatTimeSince,
   projectTypes,
   getEffectiveTotal,
+  cn,
 } from '@/lib/utils'
 import {
   Plus,
@@ -86,6 +87,61 @@ export default function ProjectsPage() {
   const { projects, loading } = useProjects()
   const [subProjectsByParent, setSubProjectsByParent] = useState<Record<string, Project[]>>({})
   const [subTaskCounts, setSubTaskCounts] = useState<Record<string, number>>({})
+  const [draggedSubId, setDraggedSubId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ parentId: string; index: number } | null>(null)
+
+  // Compute a midpoint sortOrder so reordering only writes the dragged sub-project.
+  // Mirrors the TaskBoard pattern.
+  const calculateNewSubSortOrder = (
+    siblings: Project[],
+    dropIndex: number,
+    draggedId: string,
+  ): number => {
+    const others = siblings.filter((s) => s.id !== draggedId)
+    if (others.length === 0) return Date.now()
+
+    const draggedIndex = siblings.findIndex((s) => s.id === draggedId)
+    let adjusted = dropIndex
+    if (draggedIndex >= 0 && draggedIndex < dropIndex) adjusted = dropIndex - 1
+
+    const orderOf = (p: Project | undefined): number =>
+      p?.sortOrder ?? p?.createdAt?.toMillis?.() ?? Date.now()
+
+    if (adjusted <= 0) return orderOf(others[0]) - 1000
+    if (adjusted >= others.length) return orderOf(others[others.length - 1]) + 1000
+    const prev = orderOf(others[adjusted - 1])
+    const next = orderOf(others[adjusted])
+    return Math.floor((prev + next) / 2)
+  }
+
+  const handleSubProjectReorder = async (
+    parentId: string,
+    draggedId: string,
+    dropIndex: number,
+  ) => {
+    const siblings = subProjectsByParent[parentId] || []
+    const draggedIndex = siblings.findIndex((s) => s.id === draggedId)
+    if (draggedIndex < 0) return
+    // No-op if dropping at its current slot.
+    if (dropIndex === draggedIndex || dropIndex === draggedIndex + 1) return
+
+    const newOrder = calculateNewSubSortOrder(siblings, dropIndex, draggedId)
+
+    // Optimistic local update so the strip reorders before the round-trip.
+    setSubProjectsByParent((prev) => {
+      const arr = [...(prev[parentId] || [])]
+      const [moved] = arr.splice(draggedIndex, 1)
+      const insertAt = draggedIndex < dropIndex ? dropIndex - 1 : dropIndex
+      arr.splice(insertAt, 0, { ...moved, sortOrder: newOrder })
+      return { ...prev, [parentId]: arr }
+    })
+
+    try {
+      await projectsApi.update(draggedId, { sortOrder: newOrder })
+    } catch (err) {
+      console.error('Failed to reorder sub-project', err)
+    }
+  }
 
   // Fetch all projects (including sub-projects) and their active task counts
   useEffect(() => {
@@ -98,6 +154,14 @@ export default function ProjectsPage() {
           map[p.parentProjectId].push(p)
           subIds.push(p.id)
         }
+      })
+      // Sort each parent's sub-projects by sortOrder ASC (fallback to createdAt).
+      Object.keys(map).forEach((parentId) => {
+        map[parentId].sort((a, b) => {
+          const oa = a.sortOrder ?? a.createdAt?.toMillis?.() ?? 0
+          const ob = b.sortOrder ?? b.createdAt?.toMillis?.() ?? 0
+          return oa - ob
+        })
       })
       setSubProjectsByParent(map)
 
@@ -309,23 +373,73 @@ export default function ProjectsPage() {
                               {subProjectsByParent[project.id]?.length > 0 && (
                                 <div className="space-y-2">
                                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sub-projects</p>
-                                  <div className="flex items-center gap-4 flex-wrap">
+                                  <div
+                                    className="flex items-center gap-4 flex-wrap"
+                                    onDragOver={(e) => {
+                                      if (!draggedSubId) return
+                                      const subs = subProjectsByParent[project.id] || []
+                                      if (!subs.some((s) => s.id === draggedSubId)) return
+                                      e.preventDefault()
+                                    }}
+                                    onDrop={(e) => {
+                                      if (!draggedSubId || !dropTarget || dropTarget.parentId !== project.id) return
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      handleSubProjectReorder(project.id, draggedSubId, dropTarget.index)
+                                      setDraggedSubId(null)
+                                      setDropTarget(null)
+                                    }}
+                                  >
                                     <TooltipProvider delayDuration={200}>
-                                      {subProjectsByParent[project.id].map((sub) => {
+                                      {subProjectsByParent[project.id].map((sub, index) => {
                                         const SubStatusIcon = statusConfig[sub.status].icon
                                         const subStatusLabel = statusConfig[sub.status].label
                                         const taskCount = subTaskCounts[sub.id] || 0
+                                        const isDragging = draggedSubId === sub.id
+                                        const showIndicator =
+                                          dropTarget?.parentId === project.id &&
+                                          dropTarget.index === index &&
+                                          draggedSubId !== sub.id
 
                                         return (
-                                          <Tooltip key={sub.id}>
+                                          <div key={sub.id} className="flex items-center gap-2">
+                                            {showIndicator && (
+                                              <div className="w-1 h-10 rounded-full bg-primary animate-pulse" />
+                                            )}
+                                          <Tooltip>
                                             <TooltipTrigger asChild>
                                               <div
+                                                draggable
+                                                onDragStart={(e) => {
+                                                  e.stopPropagation()
+                                                  setDraggedSubId(sub.id)
+                                                  e.dataTransfer.effectAllowed = 'move'
+                                                  e.dataTransfer.setData('text/plain', sub.id)
+                                                }}
+                                                onDragEnd={(e) => {
+                                                  e.stopPropagation()
+                                                  setDraggedSubId(null)
+                                                  setDropTarget(null)
+                                                }}
+                                                onDragOver={(e) => {
+                                                  if (!draggedSubId) return
+                                                  e.preventDefault()
+                                                  e.stopPropagation()
+                                                  const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                                                  const isLeftHalf = e.clientX < rect.left + rect.width / 2
+                                                  const targetIndex = isLeftHalf ? index : index + 1
+                                                  setDropTarget({ parentId: project.id, index: targetIndex })
+                                                }}
                                                 onClick={(e) => {
                                                   e.stopPropagation()
+                                                  if (draggedSubId) return
                                                   router.push(`/projects/${sub.id}`)
                                                 }}
                                                 onPointerDown={(e) => e.stopPropagation()}
-                                                className="cursor-pointer hover:opacity-80 transition-all"
+                                                className={cn(
+                                                  'cursor-grab active:cursor-grabbing hover:opacity-80 transition-all',
+                                                  isDragging && 'opacity-40 scale-95',
+                                                )}
                                               >
                                                 <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md-lg" />
                                               </div>
@@ -380,8 +494,14 @@ export default function ProjectsPage() {
                                               </div>
                                             </TooltipContent>
                                           </Tooltip>
+                                          </div>
                                         )
                                       })}
+                                      {dropTarget?.parentId === project.id &&
+                                        dropTarget.index >= (subProjectsByParent[project.id]?.length || 0) &&
+                                        draggedSubId && (
+                                          <div className="w-1 h-10 rounded-full bg-primary animate-pulse" />
+                                        )}
                                     </TooltipProvider>
                                   </div>
                                 </div>

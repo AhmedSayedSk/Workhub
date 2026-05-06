@@ -88,6 +88,7 @@ import {
   ChevronsUpDown,
   StickyNote,
   Scale,
+  GripVertical,
 } from 'lucide-react'
 import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
 import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
@@ -97,6 +98,8 @@ import { ProjectNotesTab } from '@/components/projects/ProjectNotesTab'
 import { ProjectEquityTab } from '@/components/projects/ProjectEquityTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { useProjectPermissions } from '@/hooks/usePermissions'
+import { projects as projectsApi } from '@/lib/firestore'
+import { Project } from '@/types'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -248,6 +251,54 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isEditPaymentDialogOpen, setIsEditPaymentDialogOpen] = useState(false)
   const [editingMilestone, setEditingMilestone] = useState<MilestoneType | null>(null)
   const [isEditMilestoneDialogOpen, setIsEditMilestoneDialogOpen] = useState(false)
+  const [draggedSubId, setDraggedSubId] = useState<string | null>(null)
+  const [dropIndex, setDropIndex] = useState<number | null>(null)
+  const [orderedSubs, setOrderedSubs] = useState<Project[]>([])
+  useEffect(() => {
+    const sorted = [...subProjects].sort((a, b) => {
+      const oa = a.sortOrder ?? a.createdAt?.toMillis?.() ?? 0
+      const ob = b.sortOrder ?? b.createdAt?.toMillis?.() ?? 0
+      return oa - ob
+    })
+    setOrderedSubs(sorted)
+  }, [subProjects])
+
+  const calculateNewSubSortOrder = (
+    siblings: Project[],
+    targetIndex: number,
+    draggedId: string,
+  ): number => {
+    const others = siblings.filter((s) => s.id !== draggedId)
+    if (others.length === 0) return Date.now()
+    const draggedIdx = siblings.findIndex((s) => s.id === draggedId)
+    let adjusted = targetIndex
+    if (draggedIdx >= 0 && draggedIdx < targetIndex) adjusted = targetIndex - 1
+    const orderOf = (p: Project | undefined) => p?.sortOrder ?? p?.createdAt?.toMillis?.() ?? Date.now()
+    if (adjusted <= 0) return orderOf(others[0]) - 1000
+    if (adjusted >= others.length) return orderOf(others[others.length - 1]) + 1000
+    const prev = orderOf(others[adjusted - 1])
+    const next = orderOf(others[adjusted])
+    return Math.floor((prev + next) / 2)
+  }
+
+  const handleSubProjectReorder = useCallback(async (draggedId: string, targetIndex: number) => {
+    const draggedIdx = orderedSubs.findIndex((s) => s.id === draggedId)
+    if (draggedIdx < 0) return
+    if (targetIndex === draggedIdx || targetIndex === draggedIdx + 1) return
+    const newOrder = calculateNewSubSortOrder(orderedSubs, targetIndex, draggedId)
+    setOrderedSubs((prev) => {
+      const arr = [...prev]
+      const [moved] = arr.splice(draggedIdx, 1)
+      const insertAt = draggedIdx < targetIndex ? targetIndex - 1 : targetIndex
+      arr.splice(insertAt, 0, { ...moved, sortOrder: newOrder })
+      return arr
+    })
+    try {
+      await projectsApi.update(draggedId, { sortOrder: newOrder })
+    } catch (err) {
+      console.error('Failed to reorder sub-project', err)
+    }
+  }, [orderedSubs])
 
   if (loading) {
     return (
@@ -649,7 +700,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">Drag to reorder</p>
                         <Link href={`/projects/new?parent=${id}`}>
                           <Button size="sm">
                             <Plus className="h-4 w-4 mr-2" />
@@ -657,17 +709,61 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           </Button>
                         </Link>
                       </div>
-                      <div className="grid gap-3">
-                        {subProjects.map((sub) => {
+                      <div
+                        className="grid gap-3"
+                        onDragOver={(e) => {
+                          if (!draggedSubId) return
+                          e.preventDefault()
+                        }}
+                        onDrop={(e) => {
+                          if (!draggedSubId || dropIndex === null) return
+                          e.preventDefault()
+                          handleSubProjectReorder(draggedSubId, dropIndex)
+                          setDraggedSubId(null)
+                          setDropIndex(null)
+                        }}
+                      >
+                        {orderedSubs.map((sub, index) => {
                           const subIsInternal = sub.paymentModel === 'internal'
+                          const isDragging = draggedSubId === sub.id
+                          const showIndicatorBefore =
+                            dropIndex === index && draggedSubId && draggedSubId !== sub.id
                           return (
-                            <Link key={sub.id} href={`/projects/${sub.id}`}>
+                            <div key={sub.id}>
+                              {showIndicatorBefore && (
+                                <div className="h-1 bg-primary rounded-full mb-3 animate-pulse" />
+                              )}
                               <div
-                                className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm transition-all cursor-pointer"
+                                draggable
+                                onDragStart={(e) => {
+                                  setDraggedSubId(sub.id)
+                                  e.dataTransfer.effectAllowed = 'move'
+                                  e.dataTransfer.setData('text/plain', sub.id)
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedSubId(null)
+                                  setDropIndex(null)
+                                }}
+                                onDragOver={(e) => {
+                                  if (!draggedSubId) return
+                                  e.preventDefault()
+                                  const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                                  const isTopHalf = e.clientY < rect.top + rect.height / 2
+                                  setDropIndex(isTopHalf ? index : index + 1)
+                                }}
+                                onClick={() => {
+                                  if (draggedSubId) return
+                                  router.push(`/projects/${sub.id}`)
+                                }}
+                                className={cn(
+                                  'flex items-center gap-3 p-3 rounded-lg border hover:shadow-sm transition-all cursor-pointer',
+                                  isDragging && 'opacity-40 scale-[0.99]',
+                                )}
                                 style={{
                                   backgroundColor: `color-mix(in srgb, ${sub.color || project.color || '#6B8DD6'} 6%, transparent)`,
                                 }}
                               >
+                                <GripVertical className="h-4 w-4 text-muted-foreground/60 shrink-0 cursor-grab active:cursor-grabbing" />
                                 <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md" />
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
@@ -693,9 +789,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                   </div>
                                 )}
                               </div>
-                            </Link>
+                            </div>
                           )
                         })}
+                        {dropIndex !== null && dropIndex >= orderedSubs.length && draggedSubId && (
+                          <div className="h-1 bg-primary rounded-full animate-pulse" />
+                        )}
                       </div>
                     </div>
                   )}
