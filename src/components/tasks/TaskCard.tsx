@@ -23,6 +23,7 @@ import {
   Play,
   UserPlus,
   HelpCircle,
+  FolderInput,
 } from 'lucide-react'
 import { MemberAvatarGroup } from '@/components/members/MemberAvatarGroup'
 import { AssigneeSelect } from '@/components/members/AssigneeSelect'
@@ -57,9 +58,10 @@ interface TaskCardProps {
   onArchive?: () => void
   onSetWaiting?: () => void
   onRemoveWaiting?: () => void
+  onMove?: () => void
 }
 
-export function TaskCard({ task, feature, subtaskCount, commentCount, questionCount, assignees, allMembers, onAssigneeChange, onClick, onArchive, onSetWaiting, onRemoveWaiting }: TaskCardProps) {
+export function TaskCard({ task, feature, subtaskCount, commentCount, questionCount, assignees, allMembers, onAssigneeChange, onClick, onArchive, onSetWaiting, onRemoveWaiting, onMove }: TaskCardProps) {
   const [assignOpen, setAssignOpen] = useState(false)
   const taskType = task.taskType || 'task'
   const priority = task.priority || 'low'
@@ -168,6 +170,20 @@ export function TaskCard({ task, feature, subtaskCount, commentCount, questionCo
                         <Pause className="h-4 w-4 mr-2" />
                         Set Waiting
                       </DropdownMenuItem>
+                    )}
+                    {onMove && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onMove()
+                          }}
+                        >
+                          <FolderInput className="h-4 w-4 mr-2" />
+                          Move to project…
+                        </DropdownMenuItem>
+                      </>
                     )}
                     {onArchive && (
                     <>

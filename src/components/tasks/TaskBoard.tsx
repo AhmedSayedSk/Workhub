@@ -278,6 +278,7 @@ interface TaskBoardProps {
   onArchiveTask?: (id: string) => Promise<void>
   onSetTaskWaiting?: (id: string) => Promise<void>
   onRemoveTaskWaiting?: (id: string) => Promise<void>
+  onMoveTask?: (task: Task) => void
   onSelectTask: (task: Task) => void
   onReorderTask?: (taskId: string, newStatus: TaskStatus, newSortOrder: number) => Promise<void>
   onTaskMovedToDone?: (x: number, y: number) => void
@@ -296,6 +297,7 @@ export function TaskBoard({
   onArchiveTask,
   onSetTaskWaiting,
   onRemoveTaskWaiting,
+  onMoveTask,
   onSelectTask,
   onReorderTask,
   onTaskMovedToDone,
@@ -579,6 +581,7 @@ export function TaskBoard({
                           onArchive={onArchiveTask ? () => onArchiveTask(task.id) : undefined}
                           onSetWaiting={onSetTaskWaiting ? () => onSetTaskWaiting(task.id) : undefined}
                           onRemoveWaiting={onRemoveTaskWaiting ? () => onRemoveTaskWaiting(task.id) : undefined}
+                          onMove={onMoveTask ? () => onMoveTask(task) : undefined}
                         />
                       </div>
                     </div>

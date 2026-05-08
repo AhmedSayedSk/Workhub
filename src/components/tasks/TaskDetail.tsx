@@ -46,6 +46,7 @@ import {
   MessageSquare,
   Send,
   Archive,
+  FolderInput,
   Hourglass,
   Pause,
   UserX,
@@ -624,6 +625,7 @@ interface TaskDetailProps {
   onArchiveTask?: (id: string) => Promise<void>
   onSetTaskWaiting?: (id: string) => Promise<void>
   onRemoveTaskWaiting?: (id: string) => Promise<void>
+  onMoveTask?: (task: Task) => void
   onDataChanged?: () => void
 }
 
@@ -639,6 +641,7 @@ export function TaskDetail({
   onArchiveTask,
   onSetTaskWaiting,
   onRemoveTaskWaiting,
+  onMoveTask,
   onDataChanged,
 }: TaskDetailProps) {
   const { subtasks, createSubtask, updateSubtask, deleteSubtask } = useSubtasks(
@@ -1344,6 +1347,17 @@ export function TaskDetail({
                     <Pause className="h-4 w-4 mr-1" />
                     Set Waiting
                   </Button>
+                )}
+                {onMoveTask && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => onMoveTask(task)}
+                >
+                  <FolderInput className="h-4 w-4 mr-1" />
+                  Move to project
+                </Button>
                 )}
                 {onArchiveTask && (
                 <Button

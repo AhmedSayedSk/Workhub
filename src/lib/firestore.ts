@@ -421,6 +421,57 @@ export const tasks = {
     }
     return update('tasks', taskId, updates)
   },
+
+  // Move a task to another project. Cascades the projectId update to denormalised
+  // copies on TaskQuestions and TimeEntries so finance/time reports stay accurate.
+  // featureId is reset to '' by default since features are project-scoped; pass a
+  // targetFeatureId to land the task in a specific feature in the new project.
+  // sortOrder is recomputed as "end of column" in the target project's status.
+  async move(
+    taskId: string,
+    target: { projectId: string; projectName: string; featureId?: string },
+  ): Promise<void> {
+    const task = await getById<Task>('tasks', taskId)
+    if (!task) throw new Error(`Task ${taskId} not found`)
+    if (task.projectId === target.projectId) return // no-op
+
+    // Compute end-of-column sortOrder in the target project for the task's status.
+    const targetTasks = await getAll<Task>(
+      'tasks',
+      where('projectId', '==', target.projectId),
+      where('status', '==', task.status),
+    )
+    const maxOrder = targetTasks.reduce((m, t) => {
+      const o = t.sortOrder ?? t.createdAt?.toMillis?.() ?? 0
+      return o > m ? o : m
+    }, 0)
+    const newSortOrder = maxOrder + 1000
+
+    // Read related denormalised collections before opening the batch.
+    const [relatedQuestions, relatedTimeEntries] = await Promise.all([
+      getAll<TaskQuestion>('taskQuestions', where('taskId', '==', taskId)),
+      getAll<TimeEntry>('timeEntries', where('taskId', '==', taskId)),
+    ])
+
+    const batchOp = writeBatch(db)
+    batchOp.update(doc(db, 'tasks', taskId), {
+      projectId: target.projectId,
+      featureId: target.featureId ?? '',
+      sortOrder: newSortOrder,
+    })
+    for (const q of relatedQuestions) {
+      batchOp.update(doc(db, 'taskQuestions', q.id), {
+        projectId: target.projectId,
+        projectName: target.projectName,
+      })
+    }
+    for (const t of relatedTimeEntries) {
+      batchOp.update(doc(db, 'timeEntries', t.id), {
+        projectId: target.projectId,
+      })
+    }
+    await batchOp.commit()
+  },
 }
 
 // Subtasks

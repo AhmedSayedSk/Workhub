@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useFeatures, useTasks } from '@/hooks/useTasks'
 import { useMembers } from '@/hooks/useMembers'
-import { Task, TaskInput, FeatureInput, TaskStatus } from '@/types'
+import { Task, TaskInput, FeatureInput, TaskStatus, Project } from '@/types'
 import { FeatureList } from '@/components/features/FeatureList'
 import { TaskBoard } from '@/components/tasks/TaskBoard'
 import { TaskDetail } from '@/components/tasks/TaskDetail'
 import { TaskArchive } from '@/components/tasks/TaskArchive'
+import { MoveTaskDialog } from '@/components/tasks/MoveTaskDialog'
 import { Confetti } from '@/components/ui/confetti'
 import { Loader2, Archive, Users, X } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -17,6 +18,8 @@ import { useAI } from '@/hooks/useAI'
 import { useSettings } from '@/hooks/useSettings'
 import { useAuth } from '@/hooks/useAuth'
 import { notifyByEmail } from '@/lib/email/notify'
+import { projects as projectsApi, memberPermissions, tasks as tasksApi, auditLogs } from '@/lib/firestore'
+import { useToast } from '@/hooks/useToast'
 
 interface ProjectTasksTabProps {
   projectId: string
@@ -25,9 +28,10 @@ interface ProjectTasksTabProps {
   projectOwnerEmail?: string
   projectOwnerName?: string
   canArchive?: boolean
+  canMoveTasks?: boolean
 }
 
-export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projectOwnerEmail, projectOwnerName, canArchive = true }: ProjectTasksTabProps) {
+export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projectOwnerEmail, projectOwnerName, canArchive = true, canMoveTasks = false }: ProjectTasksTabProps) {
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [confetti, setConfetti] = useState<{ active: boolean; x?: number; y?: number }>({ active: false })
@@ -38,6 +42,11 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
   const { suggestTaskIcon } = useAI()
   const { settings } = useSettings()
   const { user } = useAuth()
+  const { toast } = useToast()
+  const [movingTask, setMovingTask] = useState<Task | null>(null)
+  const [eligibleTargets, setEligibleTargets] = useState<Project[]>([])
+  const [eligibleLoaded, setEligibleLoaded] = useState(false)
+  const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
 
   const handleBoardDataChanged = useCallback(() => {
     setBoardRefreshKey((k) => k + 1)
@@ -64,6 +73,7 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
     setTaskWaiting,
     removeTaskWaiting,
     reorderTask,
+    refetch: refetchTasks,
   } = useTasks(projectId, undefined, projectName)
 
   // Separate active and archived tasks
@@ -257,6 +267,84 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
     await reorderTask(taskId, newStatus, newSortOrder)
   }
 
+  // Lazy-load the projects the user is allowed to move tasks into.
+  // App owner sees every accessible project; others are filtered by createTasks permission.
+  useEffect(() => {
+    if (!movingTask || eligibleLoaded || !user) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const accessible = await projectsApi.getAll(user.uid)
+        let allowed: Project[]
+        if (isAppOwner) {
+          allowed = accessible
+        } else {
+          const perms = await memberPermissions.getForMember(user.uid)
+          const allowedIds = new Set(
+            perms.filter((p) => p.permissions?.createTasks === true).map((p) => p.projectId),
+          )
+          allowed = accessible.filter((p) => allowedIds.has(p.id))
+        }
+        if (!cancelled) {
+          setEligibleTargets(allowed)
+          setEligibleLoaded(true)
+        }
+      } catch (err) {
+        console.error('Failed to load move targets', err)
+        if (!cancelled) setEligibleLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [movingTask, eligibleLoaded, user, isAppOwner])
+
+  const handleConfirmMove = useCallback(
+    async ({
+      projectId: targetProjectId,
+      projectName: targetProjectName,
+      featureId: targetFeatureId,
+    }: { projectId: string; projectName: string; featureId: string }) => {
+      if (!movingTask) return
+      try {
+        await tasksApi.move(movingTask.id, {
+          projectId: targetProjectId,
+          projectName: targetProjectName,
+          featureId: targetFeatureId,
+        })
+        if (user) {
+          auditLogs.create({
+            type: 'task',
+            action: 'moved',
+            actorUid: user.uid,
+            actorEmail: user.email || '',
+            projectId: targetProjectId,
+            projectName: targetProjectName,
+            targetId: movingTask.id,
+            targetName: movingTask.name,
+            details: { fromProjectId: projectId, fromProjectName: projectName, toFeatureId: targetFeatureId || null },
+          }).catch(() => {})
+        }
+        // The task is no longer in this project's list — close detail if it was open.
+        if (selectedTaskId === movingTask.id) setSelectedTaskId(null)
+        setBoardRefreshKey((k) => k + 1)
+        await refetchTasks()
+        toast({
+          title: 'Task moved',
+          description: `"${movingTask.name}" is now in ${targetProjectName}.`,
+        })
+      } catch (err) {
+        toast({
+          title: 'Move failed',
+          description: err instanceof Error ? err.message : 'Could not move task. Try again.',
+          variant: 'destructive',
+        })
+        throw err
+      }
+    },
+    [movingTask, user, projectId, projectName, selectedTaskId, toast, refetchTasks],
+  )
+
   const handleTaskMovedToDone = (x: number, y: number) => {
     setConfetti({ active: true, x, y })
   }
@@ -397,6 +485,7 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
           onArchiveTask={canArchive ? handleArchiveTask : undefined}
           onSetTaskWaiting={handleSetTaskWaiting}
           onRemoveTaskWaiting={handleRemoveTaskWaiting}
+          onMoveTask={canMoveTasks ? setMovingTask : undefined}
           onSelectTask={handleSelectTask}
           onReorderTask={handleReorderTask}
           onTaskMovedToDone={handleTaskMovedToDone}
@@ -417,8 +506,21 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
         onArchiveTask={canArchive ? handleArchiveTask : undefined}
         onSetTaskWaiting={handleSetTaskWaiting}
         onRemoveTaskWaiting={handleRemoveTaskWaiting}
+        onMoveTask={canMoveTasks ? setMovingTask : undefined}
         onDataChanged={handleBoardDataChanged}
       />
+
+      {/* Move Task Dialog */}
+      {movingTask && (
+        <MoveTaskDialog
+          open={!!movingTask}
+          onOpenChange={(o) => !o && setMovingTask(null)}
+          task={movingTask}
+          currentProjectName={projectName}
+          allowedTargets={eligibleTargets}
+          onConfirm={handleConfirmMove}
+        />
+      )}
 
       {/* Archive Section */}
       <TaskArchive

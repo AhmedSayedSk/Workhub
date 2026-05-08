@@ -957,6 +957,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             projectOwnerEmail={ownerProfile?.email}
             projectOwnerName={ownerProfile?.displayName || ownerProfile?.email}
             canArchive={can('archiveTasks')}
+            canMoveTasks={can('editTasks')}
           />
         </TabsContentBoxed>
 
