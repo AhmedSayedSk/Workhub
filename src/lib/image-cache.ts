@@ -1,5 +1,5 @@
 const CACHE_NAME = 'workhub-image-cache'
-const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000 // 24 hours
+const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 const TIMESTAMP_HEADER = 'x-cached-at'
 
 function isCacheApiAvailable(): boolean {

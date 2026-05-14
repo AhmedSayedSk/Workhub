@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(blob, {
       headers: {
         'Content-Type': blob.type,
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': 'public, max-age=604800',
       },
     })
   } catch {
