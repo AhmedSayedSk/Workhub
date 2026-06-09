@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -329,11 +329,6 @@ export default function ProjectsPage() {
                                 )}
                               </div>
                             </div>
-                            {project.description && (
-                              <CardDescription className="line-clamp-2 pt-1.5">
-                                {project.description}
-                              </CardDescription>
-                            )}
                           </CardHeader>
                           <CardContent className="p-4 pt-3">
                             {(() => {
