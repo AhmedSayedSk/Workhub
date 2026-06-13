@@ -5,7 +5,7 @@ import { getAuthor } from '../lib/author.js';
 
 export const addTaskCommentSchema = {
   taskId: z.string().describe('The task ID to comment on'),
-  text: z.string().describe('The comment text (supports markdown)'),
+  text: z.string().describe('The comment text (supports markdown). Keep it SHORT — 1-3 sentences, outcome-only. Team members read this; skip implementation details and process narration.'),
   parentType: z.enum(['task', 'subtask']).optional().describe('Whether this is a task or subtask comment (defaults to task)'),
 };
 

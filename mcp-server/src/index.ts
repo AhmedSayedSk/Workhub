@@ -166,7 +166,7 @@ server.tool(
 
 server.tool(
   'add_task_comment',
-  'Add a comment to a task or subtask. Shows up in the WorkHub UI.',
+  'Add a comment to a task or subtask. Shows up in the WorkHub UI read by team members. KEEP IT SHORT: 1-3 sentences stating the outcome or what is needed — no implementation details, file lists, or step-by-step narratives.',
   addTaskCommentSchema,
   async (args) => addTaskComment(args)
 );

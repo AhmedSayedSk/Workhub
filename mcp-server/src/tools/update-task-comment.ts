@@ -5,7 +5,7 @@ import { getAuthor } from '../lib/author.js';
 
 export const updateTaskCommentSchema = {
   commentId: z.string().describe('The taskComments doc ID to edit'),
-  text: z.string().describe('The new comment text (supports markdown). Replaces the existing text.'),
+  text: z.string().describe('The new comment text (supports markdown). Replaces the existing text. Keep it SHORT — 1-3 sentences, outcome-only.'),
 };
 
 export async function updateTaskComment(args: {
