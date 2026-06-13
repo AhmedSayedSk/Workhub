@@ -6,6 +6,16 @@ import {
   askAI,
   suggestTaskIcon,
   generateTaskSuggestion,
+  summarizeRepoReadme,
+  summarizeDeployNotes,
+  generateDeployRecommendations,
+  generateMarketPlan,
+  generateMarketPlaybook,
+  generateMarketCampaigns,
+  generateMarketListings,
+  generateShape,
+  generateShapeDecisions,
+  generateNextSteps,
 } from '@/lib/gemini'
 import { requireAuth, verifyAuth } from '@/lib/api-auth'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -91,6 +101,108 @@ export async function POST(request: NextRequest) {
         const { description } = data
         const suggestion = await generateTaskSuggestion({ description }, model)
         return NextResponse.json({ success: true, data: { suggestion } })
+      }
+
+      case 'summarize_repo': {
+        const { repoName, readme } = data
+        if (!readme || typeof readme !== 'string') {
+          return NextResponse.json(
+            { success: false, error: 'Missing readme content' },
+            { status: 400 }
+          )
+        }
+        const summary = await summarizeRepoReadme({ repoName: repoName ?? 'repository', readme }, model)
+        return NextResponse.json({ success: true, data: { summary } })
+      }
+
+      case 'generate_market_plan': {
+        const { context } = data
+        if (!context || typeof context !== 'string') {
+          return NextResponse.json({ success: false, error: 'Missing context' }, { status: 400 })
+        }
+        const plan = await generateMarketPlan({ context }, model)
+        return NextResponse.json({ success: true, data: { plan } })
+      }
+
+      case 'generate_next_steps': {
+        const { context } = data
+        if (!context || typeof context !== 'string') {
+          return NextResponse.json({ success: false, error: 'Missing context' }, { status: 400 })
+        }
+        const steps = await generateNextSteps({ context }, model)
+        return NextResponse.json({ success: true, data: { steps } })
+      }
+
+      case 'generate_shape': {
+        const { context } = data
+        if (!context || typeof context !== 'string') {
+          return NextResponse.json({ success: false, error: 'Missing context' }, { status: 400 })
+        }
+        const shape = await generateShape({ context }, model)
+        return NextResponse.json({ success: true, data: { shape } })
+      }
+
+      case 'generate_shape_decisions': {
+        const { context } = data
+        if (!context || typeof context !== 'string') {
+          return NextResponse.json({ success: false, error: 'Missing context' }, { status: 400 })
+        }
+        const decisions = await generateShapeDecisions({ context }, model)
+        return NextResponse.json({ success: true, data: { decisions } })
+      }
+
+      case 'generate_market_listings': {
+        const { context } = data
+        if (!context || typeof context !== 'string') {
+          return NextResponse.json({ success: false, error: 'Missing context' }, { status: 400 })
+        }
+        const listings = await generateMarketListings({ context }, model)
+        return NextResponse.json({ success: true, data: { listings } })
+      }
+
+      case 'generate_market_campaigns': {
+        const { context } = data
+        if (!context || typeof context !== 'string') {
+          return NextResponse.json({ success: false, error: 'Missing context' }, { status: 400 })
+        }
+        const campaigns = await generateMarketCampaigns({ context }, model)
+        return NextResponse.json({ success: true, data: { campaigns } })
+      }
+
+      case 'generate_market_playbook': {
+        const { context } = data
+        if (!context || typeof context !== 'string') {
+          return NextResponse.json({ success: false, error: 'Missing context' }, { status: 400 })
+        }
+        const items = await generateMarketPlaybook({ context }, model)
+        return NextResponse.json({ success: true, data: { items } })
+      }
+
+      case 'generate_deploy_recs': {
+        const { context } = data
+        if (!context || typeof context !== 'string') {
+          return NextResponse.json(
+            { success: false, error: 'Missing context' },
+            { status: 400 }
+          )
+        }
+        const recommendations = await generateDeployRecommendations({ context }, model)
+        return NextResponse.json({ success: true, data: { recommendations } })
+      }
+
+      case 'summarize_deploy_notes': {
+        const { kind, content } = data
+        if (!content || typeof content !== 'string') {
+          return NextResponse.json(
+            { success: false, error: 'Missing notes content' },
+            { status: 400 }
+          )
+        }
+        const summary = await summarizeDeployNotes(
+          { kind: kind === 'security' ? 'security' : 'infrastructure', content },
+          model
+        )
+        return NextResponse.json({ success: true, data: { summary } })
       }
 
       default:
