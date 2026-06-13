@@ -9,6 +9,7 @@ import { projects, tasks, timeEntries, milestones, monthlyPayments, members as m
 import { Project, Task, TimeEntry, Milestone, MonthlyPayment, TaskType, Member } from '@/types'
 import { formatCurrency, formatDuration, formatDate, statusColors, calculateProgress, applyThinkingTime, getEffectiveTotal, getWarrantyState, getWarrantyDaysLeft } from '@/lib/utils'
 import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 
 const taskTypeBorderColors: Record<TaskType, string> = {
   task: '#64748b',       // slate-500
@@ -322,21 +323,14 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back! Here&apos;s your work overview.
-          </p>
-        </div>
+      <HeaderActions>
         <Link href="/projects/new">
-          <Button>
+          <Button size="sm">
             <Plus className="h-4 w-4 mr-2" />
             New Project
           </Button>
         </Link>
-      </div>
+      </HeaderActions>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

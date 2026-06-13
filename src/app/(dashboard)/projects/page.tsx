@@ -36,9 +36,54 @@ import {
   PauseCircle,
   XCircle,
   ListTodo,
+  ChevronRight,
+  Globe,
+  Cloud,
+  LayoutDashboard,
+  Smartphone,
+  Monitor,
+  PanelTop,
+  ShoppingCart,
+  Plug,
+  FileText,
+  Factory,
+  Users,
+  Gauge,
+  Briefcase,
+  Newspaper,
+  Gamepad2,
+  Puzzle,
+  Terminal,
+  Package,
+  Folder,
 } from 'lucide-react'
+import type { ProjectType } from '@/types'
+
+const projectTypeIcons: Record<ProjectType, typeof Globe> = {
+  website: Globe,
+  saas: Cloud,
+  admin_panel: LayoutDashboard,
+  mobile_app: Smartphone,
+  desktop_app: Monitor,
+  landing_page: PanelTop,
+  ecommerce: ShoppingCart,
+  api: Plug,
+  cms: FileText,
+  erp: Factory,
+  crm: Users,
+  dashboard: Gauge,
+  portfolio: Briefcase,
+  blog: Newspaper,
+  game: Gamepad2,
+  browser_extension: Puzzle,
+  cli_tool: Terminal,
+  library: Package,
+  other: Folder,
+}
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
+import { StageBadge } from '@/components/projects/stages/StageBadge'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const paymentModelLabels: Record<PaymentModel, string> = {
@@ -89,6 +134,26 @@ export default function ProjectsPage() {
   const [subTaskCounts, setSubTaskCounts] = useState<Record<string, number>>({})
   const [draggedSubId, setDraggedSubId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<{ parentId: string; index: number } | null>(null)
+  // Panel DnD: group-scoped drop indicator (group name + local index within the group).
+  const [panelDrop, setPanelDrop] = useState<{ group: string; index: number } | null>(null)
+  // Group-header DnD: reorder the groups themselves (persists to org.subGroups).
+  const [draggedGroup, setDraggedGroup] = useState<{ orgId: string; name: string } | null>(null)
+  const [groupDropName, setGroupDropName] = useState<string | null>(null)
+  const [groupOrderOverride, setGroupOrderOverride] = useState<Record<string, string[]>>({})
+
+  const handleGroupReorder = async (orgId: string, baseList: string[], dragged: string, target: string) => {
+    if (dragged === target) return
+    const list = baseList.filter((g) => g !== dragged)
+    const at = list.indexOf(target)
+    if (at === -1) return
+    list.splice(at, 0, dragged)
+    setGroupOrderOverride((prev) => ({ ...prev, [orgId]: list }))
+    try {
+      await projectsApi.update(orgId, { subGroups: list })
+    } catch (err) {
+      console.error('Failed to reorder groups', err)
+    }
+  }
 
   // Compute a midpoint sortOrder so reordering only writes the dragged sub-project.
   // Mirrors the TaskBoard pattern.
@@ -181,8 +246,16 @@ export default function ProjectsPage() {
     })
   }, [projects, user?.uid]) // re-compute when top-level projects change
 
-  // Group projects by status and sort by start date (oldest first)
+  // Internal organizations: internal payment model + own sub-projects.
+  // They get a dedicated products grid instead of a card in the client groups.
+  const organizations = useMemo(
+    () => projects.filter((p) => p.paymentModel === 'internal' && (subProjectsByParent[p.id]?.length ?? 0) > 0),
+    [projects, subProjectsByParent],
+  )
+
+  // Group remaining (client) projects by status, sorted by start date (oldest first)
   const groupedProjects = useMemo(() => {
+    const orgIds = new Set(organizations.map((o) => o.id))
     const groups: Record<ProjectStatus, Project[]> = {
       active: [],
       paused: [],
@@ -191,6 +264,7 @@ export default function ProjectsPage() {
     }
 
     projects.forEach((project) => {
+      if (orgIds.has(project.id)) return
       groups[project.status].push(project)
     })
 
@@ -204,7 +278,7 @@ export default function ProjectsPage() {
     })
 
     return groups
-  }, [projects])
+  }, [projects, organizations])
 
   if (loading) {
     return (
@@ -216,23 +290,16 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-          <p className="text-muted-foreground">
-            Manage and track all your projects
-          </p>
-        </div>
+      <HeaderActions>
         {canModule('createProjects') && (
         <Link href="/projects/new">
-          <Button>
+          <Button size="sm">
             <Plus className="h-4 w-4 mr-2" />
             New Project
           </Button>
         </Link>
         )}
-      </div>
+      </HeaderActions>
 
       {/* Projects Grid */}
       {projects.length === 0 ? (
@@ -254,7 +321,9 @@ export default function ProjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+          {/* Client projects — main column */}
+          <div className="space-y-6">
           {statusOrder.map((status) => {
             const projectsInGroup = groupedProjects[status]
             if (projectsInGroup.length === 0) return null
@@ -263,35 +332,26 @@ export default function ProjectsPage() {
             const StatusIcon = config.icon
 
             return (
-              <div key={status} className="space-y-4">
-                {/* Group Header */}
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted flex-shrink-0">
-                    <StatusIcon className="h-4 w-4 text-muted-foreground" />
-                    <h2 className="text-sm font-medium">
-                      {config.label}
-                    </h2>
-                    <Badge variant="secondary" className="h-5 px-1.5 text-xs">
-                      {projectsInGroup.length}
-                    </Badge>
-                  </div>
-                  <div className="h-px flex-1 bg-border" />
+              <div key={status} className="space-y-3">
+                {/* Group Header — quiet divider label */}
+                <div className="flex items-center gap-2">
+                  <StatusIcon className="h-3.5 w-3.5 text-muted-foreground/60" />
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    {config.label}
+                  </h2>
+                  <span className="text-[11px] tabular-nums text-muted-foreground/50">{projectsInGroup.length}</span>
+                  <div className="h-px flex-1 bg-border/60" />
                 </div>
 
                 {/* Projects Grid */}
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {projectsInGroup.map((project) => {
                     const progress = calculateProgress(project.paidAmount, getEffectiveTotal(project))
                     const PaymentIcon = paymentModelIcons[project.paymentModel]
 
                     return (
                       <div key={project.id} onClick={() => router.push(`/projects/${project.id}`)}>
-                        <Card
-                          className="h-full hover:shadow-md transition-all cursor-pointer overflow-hidden border"
-                          style={{
-                            backgroundColor: `color-mix(in srgb, ${project.color || '#6B8DD6'} 6%, transparent)`,
-                          }}
-                        >
+                        <Card className="h-full cursor-pointer overflow-hidden border bg-card transition-all duration-150 hover:bg-muted hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5">
                           <CardHeader className="pb-1 pt-4 px-4 relative">
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                               <div className="flex items-center gap-1 text-muted-foreground">
@@ -309,7 +369,10 @@ export default function ProjectsPage() {
                                 size="lg"
                               />
                               <div className="flex-1 min-w-0">
-                                <CardTitle className="text-xl pr-28 !mt-0 truncate">{project.name}</CardTitle>
+                                <div className="flex items-start justify-between gap-2">
+                                  <CardTitle className="text-xl pr-28 !mt-0 truncate">{project.name}</CardTitle>
+                                  <StageBadge stage={project.lastTouchedStage ?? null} className="shrink-0 mt-0.5" />
+                                </div>
                                 {project.paymentModel === 'internal' ? (
                                   <p className="text-sm text-muted-foreground">
                                     Internal Project
@@ -446,6 +509,7 @@ export default function ProjectsPage() {
                                                   <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="sm" />
                                                   <div className="flex-1 min-w-0">
                                                     <p className="font-semibold text-sm">{sub.name}</p>
+                                                    <StageBadge stage={sub.lastTouchedStage ?? null} className="ml-0 mt-0.5" />
                                                   </div>
                                                 </div>
 
@@ -546,6 +610,177 @@ export default function ProjectsPage() {
               </div>
             )
           })}
+          </div>
+
+          {/* Internal organizations — side panel */}
+          <div className="order-first space-y-4 lg:order-none lg:sticky lg:top-0">
+            {organizations.map((org) => {
+              const products = subProjectsByParent[org.id] || []
+              return (
+                <Card key={org.id} className="p-5">
+                  <div className="flex items-center gap-2">
+                    <ProjectIcon src={org.coverImageUrl} name={org.name} size="xs" />
+                    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">{org.name}</h2>
+                    <span className="text-[11px] tabular-nums text-muted-foreground/50">{products.length}</span>
+                    <div className="flex-1" />
+                    <Link
+                      href={`/projects/${org.id}`}
+                      className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground/60 transition hover:text-foreground"
+                    >
+                      open <ChevronRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {(() => {
+                      // Grouping comes ONLY from the manual Group field (managed on the org).
+                      const groupOf = (s: Project) => s.group?.trim() || ''
+                      const groupOrderList = groupOrderOverride[org.id] ?? org.subGroups ?? []
+                      const orderIndex = (g: string) => {
+                        const i = groupOrderList.indexOf(g)
+                        return i === -1 ? Number.MAX_SAFE_INTEGER : i
+                      }
+                      return Array.from(new Set(products.map(groupOf)))
+                        .sort((a, b) => {
+                          if (a === '') return 1
+                          if (b === '') return -1
+                          // Follow the user-defined order from Manage Groups.
+                          if (orderIndex(a) !== orderIndex(b)) {
+                            return orderIndex(a) - orderIndex(b)
+                          }
+                          return a.localeCompare(b)
+                        })
+                        .map((groupName) => {
+                          const items = products.filter((s) => groupOf(s) === groupName)
+                        return (
+                          <div key={groupName || '_ungrouped'}>
+                            <div
+                              draggable={!!groupName && groupOrderList.includes(groupName)}
+                              onDragStart={(e) => {
+                                if (!groupName) return
+                                setDraggedGroup({ orgId: org.id, name: groupName })
+                                e.dataTransfer.effectAllowed = 'move'
+                                e.dataTransfer.setData('text/plain', `group:${groupName}`)
+                              }}
+                              onDragEnd={() => { setDraggedGroup(null); setGroupDropName(null) }}
+                              onDragOver={(e) => {
+                                if (!draggedGroup || draggedGroup.orgId !== org.id || !groupName || draggedGroup.name === groupName) return
+                                e.preventDefault()
+                                setGroupDropName(groupName)
+                              }}
+                              onDrop={(e) => {
+                                if (!draggedGroup || draggedGroup.orgId !== org.id || !groupName) return
+                                e.preventDefault()
+                                handleGroupReorder(org.id, groupOrderList, draggedGroup.name, groupName)
+                                setDraggedGroup(null)
+                                setGroupDropName(null)
+                              }}
+                              className={cn(
+                                'mb-1 flex items-center gap-2 rounded',
+                                groupName && groupOrderList.includes(groupName) && 'cursor-grab active:cursor-grabbing',
+                                draggedGroup?.name === groupName && 'opacity-40',
+                                groupDropName === groupName && 'border-t-2 border-primary',
+                              )}
+                            >
+                              <p className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{groupName || 'No group'}</p>
+                              <div className="h-px flex-1 bg-border/60" />
+                            </div>
+                            <div className="space-y-1">
+                    {items.map((sub, localIdx) => (
+                      <TooltipProvider key={sub.id} delayDuration={350}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              draggable
+                              onDragStart={(e) => {
+                                setDraggedSubId(sub.id)
+                                e.dataTransfer.effectAllowed = 'move'
+                                e.dataTransfer.setData('text/plain', sub.id)
+                              }}
+                              onDragEnd={() => { setDraggedSubId(null); setPanelDrop(null) }}
+                              onDragOver={(e) => {
+                                if (!draggedSubId || draggedSubId === sub.id) return
+                                const dragged = products.find((p) => p.id === draggedSubId)
+                                if (!dragged || groupOf(dragged) !== groupName) return // same-group only
+                                e.preventDefault()
+                                const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                                const isTopHalf = e.clientY < rect.top + rect.height / 2
+                                setPanelDrop({ group: groupName, index: isTopHalf ? localIdx : localIdx + 1 })
+                              }}
+                              onDrop={(e) => {
+                                if (!draggedSubId || !panelDrop || panelDrop.group !== groupName) return
+                                e.preventDefault()
+                                // Convert the group-local index into a global index among all siblings.
+                                const globalIndex = panelDrop.index < items.length
+                                  ? products.findIndex((p) => p.id === items[panelDrop.index].id)
+                                  : products.findIndex((p) => p.id === items[items.length - 1].id) + 1
+                                handleSubProjectReorder(org.id, draggedSubId, globalIndex)
+                                setDraggedSubId(null)
+                                setPanelDrop(null)
+                              }}
+                              onClick={() => {
+                                if (draggedSubId) return
+                                router.push(`/projects/${sub.id}`)
+                              }}
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-md py-1.5 transition hover:bg-muted',
+                                draggedSubId === sub.id && 'opacity-40',
+                                panelDrop?.group === groupName && panelDrop.index === localIdx && 'border-t-2 border-primary',
+                                panelDrop?.group === groupName && panelDrop.index === localIdx + 1 && localIdx === items.length - 1 && 'border-b-2 border-primary',
+                              )}
+                            >
+                              <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="sm" />
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium">{sub.name}</span>
+                              {(subTaskCounts[sub.id] ?? 0) > 0 && (
+                                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 py-0 text-[10px] tabular-nums text-muted-foreground">
+                                  <ListTodo className="h-2.5 w-2.5" />
+                                  {subTaskCounts[sub.id]}
+                                </span>
+                              )}
+                              <StageBadge stage={sub.lastTouchedStage ?? null} className="shrink-0 gap-0.5 px-1.5 py-0 text-[10px]" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="w-72 p-3">
+                            <div className="space-y-2">
+                              <p className="text-sm font-semibold">{sub.name}</p>
+                              {sub.projectType && sub.projectType !== 'other' && (() => {
+                                const TypeIcon = projectTypeIcons[sub.projectType] ?? Folder
+                                return (
+                                  <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                    <TypeIcon className="h-3.5 w-3.5" />
+                                    {projectTypes.find((t) => t.value === sub.projectType)?.label}
+                                  </span>
+                                )
+                              })()}
+                              {sub.description && (
+                                <p className="text-xs leading-relaxed text-muted-foreground line-clamp-5">{sub.description}</p>
+                              )}
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', statusColors.project[sub.status])}>
+                                  {sub.status}
+                                </Badge>
+                                <StageBadge stage={sub.lastTouchedStage ?? null} />
+                                {(subTaskCounts[sub.id] ?? 0) > 0 && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <ListTodo className="h-3 w-3" />
+                                    {subTaskCounts[sub.id]} active task{(subTaskCounts[sub.id] ?? 0) !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                            </div>
+                          </div>
+                        )
+                        })
+                    })()}
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -268,14 +268,6 @@ export default function FinancesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Finances</h1>
-        <p className="text-muted-foreground">
-          Track payments and financial overview
-        </p>
-      </div>
-
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="hover:shadow-md hover:bg-muted/40 dark:hover:bg-muted/20 transition-all">

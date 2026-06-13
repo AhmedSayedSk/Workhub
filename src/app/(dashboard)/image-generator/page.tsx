@@ -889,10 +889,6 @@ export default function ImageGeneratorPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-1 pb-3 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Wand2 className="h-5 w-5 text-primary" />
-            Image Generator
-          </h1>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="h-8">
               <TabsTrigger value="generate" className="text-xs px-3 h-7"><Sparkles className="h-3 w-3 mr-1" />Generate</TabsTrigger>

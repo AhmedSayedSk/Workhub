@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect, useRef, useCallback } from 'react'
+import { use, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContentBoxed, TabsListBoxed, TabsTriggerBoxed } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command'
 import {
   Dialog,
@@ -32,6 +33,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Select,
   SelectContent,
@@ -81,32 +89,44 @@ import {
   Plus,
   Trash2,
   Wallet,
-  ListTodo,
   Paperclip,
   KeyRound,
   Check,
   ChevronsUpDown,
+  ChevronUp,
+  ChevronDown,
   StickyNote,
   Scale,
-  GripVertical,
+  Workflow,
+  MoreHorizontal,
 } from 'lucide-react'
 import { WarrantyBadge } from '@/components/projects/WarrantyBadge'
-import { ProjectTasksTab } from '@/components/projects/ProjectTasksTab'
 import { ProjectAttachmentsTab } from '@/components/projects/ProjectAttachmentsTab'
 import { ProjectVaultTab } from '@/components/projects/ProjectVaultTab'
 import { ProjectNotesTab } from '@/components/projects/ProjectNotesTab'
 import { ProjectEquityTab } from '@/components/projects/ProjectEquityTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
+import { SikagitProjectPicker } from '@/components/projects/SikagitProjectPicker'
 import { useProjectPermissions } from '@/hooks/usePermissions'
 import { projects as projectsApi } from '@/lib/firestore'
-import { Project } from '@/types'
+import { Project, PROJECT_STAGES } from '@/types'
+import type { ProjectStage } from '@/types'
+import { StageStrip } from '@/components/projects/stages/StageStrip'
+import { BuildStage } from '@/components/projects/stages/BuildStage'
+import { ShapeStage } from '@/components/projects/stages/ShapeStage'
+import { MarketStage } from '@/components/projects/stages/MarketStage'
+import { LaunchStage } from '@/components/projects/stages/LaunchStage'
+import { DeployStage } from '@/components/projects/stages/DeployStage'
+import { DesignStage } from '@/components/projects/stages/DesignStage'
+import { NextStage } from '@/components/projects/stages/NextStage'
+import { ReposStage } from '@/components/projects/stages/ReposStage'
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const VALID_TABS = ['tasks', 'notes', 'attachments', 'vault', 'payments', 'equity', 'activity']
+  const VALID_TABS = ['workspace', 'notes', 'attachments', 'vault', 'payments', 'equity', 'activity']
   const {
     project,
     parentProject,
@@ -138,6 +158,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isSubProjectsOpen, setIsSubProjectsOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [manageGroupsOpen, setManageGroupsOpen] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [groupRenames, setGroupRenames] = useState<Record<string, string>>({})
+  const [groupBusy, setGroupBusy] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
@@ -146,16 +172,32 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [deleteAttempts, setDeleteAttempts] = useState(0)
   const tabParam = searchParams.get('tab')
   const [activeTab, setActiveTab] = useState(() => {
-    return tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'tasks'
+    return tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'workspace'
   })
+
+  // Open the matching dialog when the Header dropdown sets `?dialog=...`,
+  // then strip the param so reload doesn't re-open it.
+  // For Edit, we must wait for `project` to be loaded before prefilling the form.
+  const dialogParam = searchParams.get('dialog')
+  useEffect(() => {
+    if (!dialogParam) return
+    if (dialogParam === 'edit') {
+      if (!project) return // wait for project to load before prefilling
+      openEditDialog()
+    } else if (dialogParam === 'subprojects') {
+      setIsSubProjectsOpen(true)
+    } else if (dialogParam === 'delete') {
+      setIsDeleteOpen(true)
+    }
+    const url = new URL(window.location.href)
+    url.searchParams.delete('dialog')
+    window.history.replaceState({}, '', url.toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogParam, project])
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab)
     const url = new URL(window.location.href)
-    if (tab === 'tasks') {
-      url.searchParams.delete('tab')
-    } else {
-      url.searchParams.set('tab', tab)
-    }
+    url.searchParams.set('tab', tab)
     window.history.replaceState({}, '', url.toString())
   }, [])
 
@@ -163,9 +205,36 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     if (permsLoading) return
     if (activeTab === 'payments' && !can('viewPayments')) {
-      handleTabChange('tasks')
+      handleTabChange('notes')
     }
   }, [permsLoading, activeTab, can, handleTabChange])
+
+  const enabledStages = useMemo(() => {
+    // 'next' (the AI compass) is always on — it isn't stored per-project.
+    const stored = (project?.enabledStages ?? ['build']) as ProjectStage[]
+    return stored.includes('next') ? stored : (['next', ...stored] as ProjectStage[])
+  }, [project?.enabledStages])
+  // Restore the active stage from ?stage= so a refresh doesn't reset to default.
+  const [activeStage, setActiveStage] = useState<ProjectStage>(() => {
+    const s = searchParams.get('stage')
+    return s && PROJECT_STAGES.includes(s as ProjectStage) ? (s as ProjectStage) : 'build'
+  })
+
+  const changeStage = useCallback((stage: ProjectStage) => {
+    setActiveStage(stage)
+    const url = new URL(window.location.href)
+    url.searchParams.set('stage', stage)
+    window.history.replaceState({}, '', url.toString())
+  }, [])
+
+  useEffect(() => {
+    // Wait for the real project before enforcing the enabled-stages fallback —
+    // otherwise the default ['build'] wrongly evicts a valid ?stage= deep link.
+    if (!project) return
+    if (!enabledStages.includes(activeStage)) {
+      changeStage(enabledStages[0] ?? 'build')
+    }
+  }, [project, enabledStages, activeStage, changeStage])
 
   const [deleteCooldown, setDeleteCooldown] = useState(0)
   const cooldownRef = useRef<NodeJS.Timeout | null>(null)
@@ -237,9 +306,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     coverImageUrl: null as string | null,
     color: colorPresets[0].value,
     projectType: null as ProjectType | null,
-    repoPath: '' as string,
     warrantyDays: '' as string,
     warrantyStartDate: null as Date | null,
+    sikagitProjectId: '' as string,
+    sikagitRepoId: '' as string,
+    group: '' as string,
   })
 
   const [paymentForm, setPaymentForm] = useState({
@@ -299,6 +370,43 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       console.error('Failed to reorder sub-project', err)
     }
   }, [orderedSubs])
+
+  // Available sub-project groups (must run before the early returns — Rules of Hooks).
+  const availableGroups = useMemo(() => {
+    const list = [...(parentProject?.subGroups ?? [])]
+    // Include a legacy free-text value so it stays selectable.
+    if (editForm.group && !list.includes(editForm.group)) list.push(editForm.group)
+    return list.sort((a, b) => a.localeCompare(b))
+  }, [parentProject?.subGroups, editForm.group])
+
+  // Declared before the early returns: the `?dialog=edit` effect above can fire
+  // after an early-return render, where later declarations are still in their TDZ.
+  const openEditDialog = () => {
+    if (project) {
+      setEditForm({
+        name: project.name,
+        clientName: project.clientName || '',
+        clientNumber: project.clientNumber || '',
+        description: project.description,
+        status: project.status,
+        paymentModel: project.paymentModel,
+        totalAmount: project.totalAmount.toString(),
+        estimatedValue: project.estimatedValue?.toString() || '',
+        startDate: project.startDate.toDate(),
+        deadline: project.deadline ? project.deadline.toDate() : null,
+        notes: project.notes,
+        coverImageUrl: project.coverImageUrl || null,
+        color: project.color || colorPresets[0].value,
+        projectType: project.projectType || null,
+        warrantyDays: project.warrantyDays ? project.warrantyDays.toString() : '',
+        warrantyStartDate: project.warrantyStartDate ? project.warrantyStartDate.toDate() : null,
+        sikagitProjectId: project.sikagitProjectId ?? '',
+        sikagitRepoId: project.sikagitRepoId ?? '',
+        group: project.group ?? '',
+      })
+      setIsEditDialogOpen(true)
+    }
+  }
 
   if (loading) {
     return (
@@ -524,28 +632,73 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  const openEditDialog = () => {
-    if (project) {
-      setEditForm({
-        name: project.name,
-        clientName: project.clientName || '',
-        clientNumber: project.clientNumber || '',
-        description: project.description,
-        status: project.status,
-        paymentModel: project.paymentModel,
-        totalAmount: project.totalAmount.toString(),
-        estimatedValue: project.estimatedValue?.toString() || '',
-        startDate: project.startDate.toDate(),
-        deadline: project.deadline ? project.deadline.toDate() : null,
-        notes: project.notes,
-        coverImageUrl: project.coverImageUrl || null,
-        color: project.color || colorPresets[0].value,
-        projectType: project.projectType || null,
-        repoPath: project.repoPath || '',
-        warrantyDays: project.warrantyDays ? project.warrantyDays.toString() : '',
-        warrantyStartDate: project.warrantyStartDate ? project.warrantyStartDate.toDate() : null,
+  // ===== Sub-project group management (groups live on the parent org project) =====
+  const handleAddGroup = async () => {
+    const name = newGroupName.trim()
+    if (!name || !parentProject || groupBusy) return
+    setGroupBusy(true)
+    try {
+      await projectsApi.update(parentProject.id, {
+        subGroups: Array.from(new Set([...(parentProject.subGroups ?? []), name])),
       })
-      setIsEditDialogOpen(true)
+      setNewGroupName('')
+      await refetchProject()
+    } finally {
+      setGroupBusy(false)
+    }
+  }
+
+  const handleRenameGroup = async (oldName: string) => {
+    const newName = (groupRenames[oldName] ?? '').trim()
+    if (!newName || newName === oldName || !parentProject || !user || groupBusy) return
+    setGroupBusy(true)
+    try {
+      const siblings = await projectsApi.getSubProjects(parentProject.id, user.uid)
+      await Promise.all(
+        siblings.filter((s) => s.group === oldName).map((s) => projectsApi.update(s.id, { group: newName })),
+      )
+      await projectsApi.update(parentProject.id, {
+        subGroups: (parentProject.subGroups ?? []).map((g) => (g === oldName ? newName : g)),
+      })
+      if (editForm.group === oldName) setEditForm({ ...editForm, group: newName })
+      setGroupRenames((r) => { const { [oldName]: _, ...rest } = r; return rest })
+      await refetchProject()
+    } finally {
+      setGroupBusy(false)
+    }
+  }
+
+  const handleMoveGroup = async (name: string, dir: -1 | 1) => {
+    if (!parentProject || groupBusy) return
+    const list = [...(parentProject.subGroups ?? [])]
+    const i = list.indexOf(name)
+    const j = i + dir
+    if (i === -1 || j < 0 || j >= list.length) return
+    ;[list[i], list[j]] = [list[j], list[i]]
+    setGroupBusy(true)
+    try {
+      await projectsApi.update(parentProject.id, { subGroups: list })
+      await refetchProject()
+    } finally {
+      setGroupBusy(false)
+    }
+  }
+
+  const handleDeleteGroup = async (name: string) => {
+    if (!parentProject || !user || groupBusy) return
+    setGroupBusy(true)
+    try {
+      const siblings = await projectsApi.getSubProjects(parentProject.id, user.uid)
+      await Promise.all(
+        siblings.filter((s) => s.group === name).map((s) => projectsApi.update(s.id, { group: null })),
+      )
+      await projectsApi.update(parentProject.id, {
+        subGroups: (parentProject.subGroups ?? []).filter((g) => g !== name),
+      })
+      if (editForm.group === name) setEditForm({ ...editForm, group: '' })
+      await refetchProject()
+    } finally {
+      setGroupBusy(false)
     }
   }
 
@@ -573,7 +726,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         coverImageUrl: editForm.coverImageUrl,
         color: editForm.color,
         projectType: editForm.projectType || null,
-        repoPath: editForm.repoPath.trim() || null,
+        sikagitProjectId: editForm.sikagitProjectId.trim() || null,
+        sikagitRepoId: editForm.sikagitRepoId.trim() || null,
+        group: editForm.group.trim() || null,
         warrantyDays: hasWarranty ? parsedWarrantyDays : 0,
         warrantyStartDate: hasWarranty ? editForm.warrantyStartDate : null,
       }
@@ -590,96 +745,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="flex flex-col gap-5 lg:h-[calc(100vh-7rem)] lg:overflow-hidden">
-      {/* Header */}
-      <div className="flex items-start gap-6 shrink-0">
-        {/* Left: Project info */}
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          <Link href={parentProject ? `/projects/${parentProject.id}` : '/projects'} className="shrink-0">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <ProjectIcon
-            src={project.coverImageUrl}
-            name={project.name}
-            size="lg"
-          />
-          <div className="min-w-0">
-            {/* Breadcrumb for sub-projects */}
-            {parentProject && (
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-0.5">
-                <Link href="/projects" className="hover:text-foreground transition-colors">Projects</Link>
-                <ChevronRight className="h-3.5 w-3.5" />
-                <Link href={`/projects/${parentProject.id}`} className="hover:text-foreground transition-colors">{parentProject.name}</Link>
-                <ChevronRight className="h-3.5 w-3.5" />
-                <span className="text-foreground">{project.name}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
-              {!isInternal && project.clientName && (
-                <span className="text-sm font-medium text-primary">· {project.clientName}</span>
-              )}
-              {project.projectType && project.projectType !== 'other' && (
-                <span className="text-sm text-muted-foreground">· {projectTypes.find((t) => t.value === project.projectType)?.label}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <p className="text-muted-foreground truncate">{project.description}</p>
-              {parentProject && !project.hasOwnFinances && (
-                <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-0 shrink-0">
-                  <Link2 className="h-3 w-3 mr-1" />
-                  Shared finances
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Combined info card */}
-        <Card className="shrink-0 py-2">
-          <CardContent className="space-y-2 pb-0 pt-0 px-4">
-            {/* Finances - horizontal row for non-internal projects with own finances */}
-            {!isInternal && project.hasOwnFinances !== false && can('viewPayments') && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
-                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{isMonthly ? 'Rate' : 'Total'}</span>
-                  <span className="text-sm font-semibold">{formatCurrency(effectiveTotal)}</span>
-                </div>
-                <Separator orientation="vertical" className="h-4" />
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                  <span className="text-xs text-muted-foreground">{isMonthly ? 'Received' : 'Paid'}</span>
-                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">{formatCurrency(project.paidAmount)}</span>
-                  {!isMonthly && <span className="text-xs text-muted-foreground">({progress}%)</span>}
-                </div>
-                <Separator orientation="vertical" className="h-4" />
-                <div className="flex items-center gap-1.5">
-                  <Wallet className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
-                  <span className="text-xs text-muted-foreground">{isMonthly ? 'Pending' : 'Owed'}</span>
-                  <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">{formatCurrency(owedAmount)}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Actions + Status */}
-            {!isInternal && project.hasOwnFinances !== false && can('viewPayments') && <Separator />}
-            <div className="flex items-center gap-2 flex-wrap">
-              {!project.parentProjectId && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
-                    <FolderKanban className="h-3.5 w-3.5" />
-                    Sub-Projects
-                    {subProjects.length > 0 && (
-                      <Badge variant="secondary" className="h-4 px-1 text-[10px]">
-                        {subProjects.length}
-                      </Badge>
-                    )}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+      {/* Sub-Projects Dialog (state-controlled) */}
+      {!project.parentProjectId && (
+        <Dialog open={isSubProjectsOpen} onOpenChange={setIsSubProjectsOpen}>
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
                   <DialogHeader>
                     <DialogTitle>Sub-Projects</DialogTitle>
                     <DialogDescription>
@@ -699,8 +768,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       </Link>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-h-0 flex-1 flex-col space-y-4">
+                      <div className="flex shrink-0 items-center justify-between gap-2">
                         <p className="text-xs text-muted-foreground">Drag to reorder</p>
                         <Link href={`/projects/new?parent=${id}`}>
                           <Button size="sm">
@@ -710,7 +779,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         </Link>
                       </div>
                       <div
-                        className="grid gap-3"
+                        className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto pr-1 grid-cols-2 sm:grid-cols-3"
                         onDragOver={(e) => {
                           if (!draggedSubId) return
                           e.preventDefault()
@@ -724,191 +793,173 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         }}
                       >
                         {orderedSubs.map((sub, index) => {
-                          const subIsInternal = sub.paymentModel === 'internal'
                           const isDragging = draggedSubId === sub.id
                           const showIndicatorBefore =
                             dropIndex === index && draggedSubId && draggedSubId !== sub.id
+                          const showIndicatorAfter =
+                            index === orderedSubs.length - 1 &&
+                            dropIndex !== null && dropIndex >= orderedSubs.length && draggedSubId
                           return (
-                            <div key={sub.id}>
+                            <div key={sub.id} className="relative">
                               {showIndicatorBefore && (
-                                <div className="h-1 bg-primary rounded-full mb-3 animate-pulse" />
+                                <div className="absolute -left-2 inset-y-1 w-1 rounded-full bg-primary animate-pulse" />
                               )}
-                              <div
-                                draggable
-                                onDragStart={(e) => {
-                                  setDraggedSubId(sub.id)
-                                  e.dataTransfer.effectAllowed = 'move'
-                                  e.dataTransfer.setData('text/plain', sub.id)
-                                }}
-                                onDragEnd={() => {
-                                  setDraggedSubId(null)
-                                  setDropIndex(null)
-                                }}
-                                onDragOver={(e) => {
-                                  if (!draggedSubId) return
-                                  e.preventDefault()
-                                  const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-                                  const isTopHalf = e.clientY < rect.top + rect.height / 2
-                                  setDropIndex(isTopHalf ? index : index + 1)
-                                }}
-                                onClick={() => {
-                                  if (draggedSubId) return
-                                  router.push(`/projects/${sub.id}`)
-                                }}
-                                className={cn(
-                                  'flex items-center gap-3 p-3 rounded-lg border hover:shadow-sm transition-all cursor-pointer',
-                                  isDragging && 'opacity-40 scale-[0.99]',
-                                )}
-                                style={{
-                                  backgroundColor: `color-mix(in srgb, ${sub.color || project.color || '#6B8DD6'} 6%, transparent)`,
-                                }}
-                              >
-                                <GripVertical className="h-4 w-4 text-muted-foreground/60 shrink-0 cursor-grab active:cursor-grabbing" />
-                                <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-medium truncate">{sub.name}</p>
-                                    <Badge variant="outline" className={statusColors.project[sub.status]}>
-                                      {sub.status}
-                                    </Badge>
-                                    {!sub.hasOwnFinances && (
-                                      <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-0 text-xs">
-                                        <Link2 className="h-3 w-3 mr-0.5" />
-                                        Shared
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {sub.description && (
-                                    <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{sub.description}</p>
-                                  )}
-                                </div>
-                                {sub.hasOwnFinances !== false && !subIsInternal && can('viewPayments') && (
-                                  <div className="text-right text-sm shrink-0">
-                                    <p className="font-medium">{formatCurrency(sub.totalAmount)}</p>
-                                    <p className="text-muted-foreground">{formatCurrency(sub.paidAmount)} paid</p>
-                                  </div>
-                                )}
-                              </div>
+                              {showIndicatorAfter && (
+                                <div className="absolute -right-2 inset-y-1 w-1 rounded-full bg-primary animate-pulse" />
+                              )}
+                              <TooltipProvider delayDuration={350}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div
+                                      draggable
+                                      onDragStart={(e) => {
+                                        setDraggedSubId(sub.id)
+                                        e.dataTransfer.effectAllowed = 'move'
+                                        e.dataTransfer.setData('text/plain', sub.id)
+                                      }}
+                                      onDragEnd={() => {
+                                        setDraggedSubId(null)
+                                        setDropIndex(null)
+                                      }}
+                                      onDragOver={(e) => {
+                                        if (!draggedSubId) return
+                                        e.preventDefault()
+                                        const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                                        const isLeftHalf = e.clientX < rect.left + rect.width / 2
+                                        setDropIndex(isLeftHalf ? index : index + 1)
+                                      }}
+                                      onClick={() => {
+                                        if (draggedSubId) return
+                                        router.push(`/projects/${sub.id}`)
+                                      }}
+                                      className={cn(
+                                        'flex h-full cursor-pointer flex-col items-center gap-2 rounded-lg border p-4 text-center transition-all hover:shadow-sm',
+                                        isDragging && 'opacity-40 scale-[0.98]',
+                                      )}
+                                      style={{
+                                        backgroundColor: `color-mix(in srgb, ${sub.color || project.color || '#6B8DD6'} 6%, transparent)`,
+                                      }}
+                                    >
+                                      <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md-lg" />
+                                      <p className="w-full truncate text-sm font-medium">{sub.name}</p>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="w-72 p-3">
+                                    <div className="space-y-2">
+                                      <p className="text-sm font-semibold">{sub.name}</p>
+                                      {sub.description && (
+                                        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-6">{sub.description}</p>
+                                      )}
+                                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                        <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', statusColors.project[sub.status])}>
+                                          {sub.status}
+                                        </Badge>
+                                        {sub.projectType && sub.projectType !== 'other' && (
+                                          <span>{projectTypes.find((t) => t.value === sub.projectType)?.label}</span>
+                                        )}
+                                        {!sub.hasOwnFinances && (
+                                          <span className="inline-flex items-center gap-1 text-blue-500">
+                                            <Link2 className="h-3 w-3" /> Shared finances
+                                          </span>
+                                        )}
+                                      </div>
+                                      {sub.hasOwnFinances !== false && sub.paymentModel !== 'internal' && can('viewPayments') && (
+                                        <div className="flex items-center gap-3 border-t pt-2 text-xs">
+                                          <span><span className="text-muted-foreground">Total </span><span className="font-semibold">{formatCurrency(sub.totalAmount)}</span></span>
+                                          <span><span className="text-muted-foreground">Paid </span><span className="font-semibold text-green-700 dark:text-green-400">{formatCurrency(sub.paidAmount)}</span></span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                           )
                         })}
-                        {dropIndex !== null && dropIndex >= orderedSubs.length && draggedSubId && (
-                          <div className="h-1 bg-primary rounded-full animate-pulse" />
-                        )}
                       </div>
                     </div>
                   )}
                 </DialogContent>
-              </Dialog>
-              )}
+        </Dialog>
+      )}
 
-              {can('editProject') && (
-              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={openEditDialog}>
-                <Edit className="h-3.5 w-3.5 mr-1" />
-                Edit
-              </Button>
-              )}
-
-              {can('deleteProject') && (
-              <AlertDialog onOpenChange={(open) => { if (!open) { setDeleteConfirmation(''); setDeletePassword(''); if (!deleteCooldown) { setDeletePasswordError(''); setDeleteAttempts(0) } } }}>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="icon" className="text-destructive hover:text-destructive h-8 w-8">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Project</AlertDialogTitle>
-                    <AlertDialogDescription asChild>
-                      <div className="text-sm text-muted-foreground">
-                        <p>
-                          Are you sure you want to delete <span className="font-semibold">{project.name}</span>?
-                          This will permanently remove the project and all related data including:
-                        </p>
-                        <ul className="list-disc list-inside mt-2 space-y-1">
-                          <li>All milestones and payments</li>
-                          <li>All features, tasks, and subtasks</li>
-                          <li>All time entries</li>
-                        </ul>
-                        <p className="mt-2 text-destructive font-medium">This action cannot be undone.</p>
-                        <div className="mt-4 space-y-2">
-                          <p>Type <span className="font-semibold text-foreground">{project.name}</span> to confirm:</p>
-                          <Input
-                            value={deleteConfirmation}
-                            onChange={(e) => setDeleteConfirmation(e.target.value)}
-                            placeholder={project.name}
-                            className="mt-1"
-                            autoComplete="off"
-                          />
-                        </div>
-                        <div className="mt-3 space-y-2">
-                          <p>Enter your password:</p>
-                          <Input
-                            type="password"
-                            value={deletePassword}
-                            onChange={(e) => { setDeletePassword(e.target.value); if (!deleteCooldown) setDeletePasswordError('') }}
-                            placeholder="Password"
-                            className="mt-1"
-                            autoComplete="current-password"
-                          />
-                          {deletePasswordError && (
-                            <p className="text-xs text-destructive">
-                              {deleteCooldown > 0
-                                ? `Too many failed attempts. Try again in ${Math.floor(deleteCooldown / 60)}:${String(deleteCooldown % 60).padStart(2, '0')}.`
-                                : deletePasswordError}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <Button
-                      onClick={handleDeleteProject}
-                      disabled={isDeleting || deleteConfirmation !== project.name || !deletePassword || deleteCooldown > 0}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isDeleting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Verifying...
-                        </>
-                      ) : (
-                        'Delete Project'
-                      )}
-                    </Button>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              )}
-
-              <div className="flex-1" />
-              <Badge
-                variant="outline"
-                className={statusColors.project[project.status]}
+      {/* Delete Project Dialog (state-controlled) */}
+      {can('deleteProject') && (
+        <AlertDialog open={isDeleteOpen} onOpenChange={(open) => { setIsDeleteOpen(open); if (!open) { setDeleteConfirmation(''); setDeletePassword(''); if (!deleteCooldown) { setDeletePasswordError(''); setDeleteAttempts(0) } } }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="text-sm text-muted-foreground">
+                  <p>
+                    Are you sure you want to delete <span className="font-semibold">{project.name}</span>?
+                    This will permanently remove the project and all related data including:
+                  </p>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>All milestones and payments</li>
+                    <li>All features, tasks, and subtasks</li>
+                    <li>All time entries</li>
+                  </ul>
+                  <p className="mt-2 text-destructive font-medium">This action cannot be undone.</p>
+                  <div className="mt-4 space-y-2">
+                    <p>Type <span className="font-semibold text-foreground">{project.name}</span> to confirm:</p>
+                    <Input
+                      value={deleteConfirmation}
+                      onChange={(e) => setDeleteConfirmation(e.target.value)}
+                      placeholder={project.name}
+                      className="mt-1"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <p>Enter your password:</p>
+                    <Input
+                      type="password"
+                      value={deletePassword}
+                      onChange={(e) => { setDeletePassword(e.target.value); if (!deleteCooldown) setDeletePasswordError('') }}
+                      placeholder="Password"
+                      className="mt-1"
+                      autoComplete="current-password"
+                    />
+                    {deletePasswordError && (
+                      <p className="text-xs text-destructive">
+                        {deleteCooldown > 0
+                          ? `Too many failed attempts. Try again in ${Math.floor(deleteCooldown / 60)}:${String(deleteCooldown % 60).padStart(2, '0')}.`
+                          : deletePasswordError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <Button
+                onClick={handleDeleteProject}
+                disabled={isDeleting || deleteConfirmation !== project.name || !deletePassword || deleteCooldown > 0}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {project.status}
-              </Badge>
-              <WarrantyBadge project={project} />
-              {isInternal && (
-                <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 border-0">
-                  <Building2 className="h-3 w-3 mr-1" />
-                  Internal
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Delete Project'
+                )}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
         <TabsListBoxed className="gap-1">
           {can('viewTasks') && (
-          <TabsTriggerBoxed value="tasks" className="gap-2">
-            <ListTodo className="h-4 w-4" />
-            Tasks
+          <TabsTriggerBoxed value="workspace" className="gap-2">
+            <Workflow className="h-4 w-4" />
+            Workspace
           </TabsTriggerBoxed>
           )}
           {can('viewNotes') && (
@@ -949,16 +1000,41 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </TabsListBoxed>
 
-        <TabsContentBoxed value="tasks" className="lg:flex-1 lg:min-h-0">
-          <ProjectTasksTab
-            projectId={id}
-            projectName={project.name}
-            projectOwnerId={project.ownerId}
-            projectOwnerEmail={ownerProfile?.email}
-            projectOwnerName={ownerProfile?.displayName || ownerProfile?.email}
-            canArchive={can('archiveTasks')}
-            canMoveTasks={can('editTasks')}
-          />
+        <TabsContentBoxed value="workspace" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <div className="space-y-3 lg:h-full lg:flex lg:flex-col">
+            <StageStrip
+              enabledStages={enabledStages}
+              activeStage={activeStage}
+              canManage={can('editProject')}
+              onSelect={changeStage}
+              onEnable={async (s) => {
+                await projectsApi.enableStage(project.id, s)
+                changeStage(s)
+                refetchProject()
+              }}
+              onDisable={async (s) => {
+                await projectsApi.disableStage(project.id, s)
+                if (s === activeStage) changeStage('build')
+                refetchProject()
+              }}
+            />
+            {activeStage === 'build' && (
+              <BuildStage
+                project={project}
+                canMoveTasks={can('editTasks')}
+                canArchive={can('archiveTasks')}
+                ownerEmail={ownerProfile?.email}
+                ownerName={ownerProfile?.displayName || ownerProfile?.email}
+              />
+            )}
+            {activeStage === 'shape' && <ShapeStage project={project} canEdit={can('editProject')} />}
+            {activeStage === 'market' && <MarketStage project={project} canEdit={can('editProject')} />}
+            {activeStage === 'launch' && <LaunchStage project={project} canEdit={can('editProject')} />}
+            {activeStage === 'deploy' && <DeployStage project={project} canEdit={can('editProject')} />}
+            {activeStage === 'design' && <DesignStage project={project} canEdit={can('editProject')} />}
+            {activeStage === 'next' && <NextStage project={project} canEdit={can('editProject')} />}
+            {activeStage === 'repos' && <ReposStage project={project} canEdit={can('editProject')} />}
+          </div>
         </TabsContentBoxed>
 
         <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
@@ -1654,89 +1730,93 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl h-[92vh] flex flex-col overflow-hidden p-8">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
-            <DialogDescription>
-              Update the project details
-            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
-            <ProjectImagePicker
-              value={editForm.coverImageUrl}
-              onChange={(url) => setEditForm({ ...editForm, coverImageUrl: url })}
-            />
+          <div className="space-y-6 overflow-y-auto flex-1 min-h-0 -mx-8 px-8 py-3">
 
-            {/* Brand Color */}
-            <div className="space-y-2">
-              <Label>Brand Color</Label>
-              <div className="flex flex-wrap items-center gap-2">
-                {colorPresets.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-                    style={{
-                      backgroundColor: c.value,
-                      boxShadow: editForm.color === c.value ? `0 0 0 2px var(--background), 0 0 0 4px ${c.value}` : 'none',
-                    }}
-                    onClick={() => setEditForm({ ...editForm, color: c.value })}
-                    title={c.name}
-                  >
-                    {editForm.color === c.value && (
-                      <Check className="h-4 w-4 text-white" />
-                    )}
-                  </button>
-                ))}
-                {/* Custom color picker */}
-                <label
-                  className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center cursor-pointer hover:border-muted-foreground/70 transition-all relative overflow-hidden"
-                  style={{
-                    backgroundColor: !colorPresets.some((c) => c.value === editForm.color) ? editForm.color : undefined,
-                    boxShadow: !colorPresets.some((c) => c.value === editForm.color) ? `0 0 0 2px var(--background), 0 0 0 4px ${editForm.color}` : 'none',
-                    borderStyle: !colorPresets.some((c) => c.value === editForm.color) ? 'solid' : 'dashed',
-                    borderColor: !colorPresets.some((c) => c.value === editForm.color) ? 'transparent' : undefined,
-                  }}
-                  title="Custom color"
-                >
-                  {!colorPresets.some((c) => c.value === editForm.color) ? (
-                    <Check className="h-4 w-4 text-white" />
-                  ) : (
-                    <Plus className="h-4 w-4 text-muted-foreground/60" />
-                  )}
-                  <input
-                    type="color"
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    value={editForm.color}
-                    onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
-                  />
-                </label>
-              </div>
-            </div>
-
-            {editForm.paymentModel !== 'internal' ? (
-              <>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-name">Project Name *</Label>
+            {/* Identity */}
+            <section className="space-y-3">
+              <div className="flex items-start gap-4">
+                <ProjectImagePicker
+                  value={editForm.coverImageUrl}
+                  onChange={(url) => setEditForm({ ...editForm, coverImageUrl: url })}
+                />
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-name" className="text-xs">Project Name *</Label>
                     <Input
                       id="edit-name"
                       value={editForm.name}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-clientName">Client Name</Label>
-                    <Input
-                      id="edit-clientName"
-                      value={editForm.clientName}
-                      onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })}
-                    />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {colorPresets.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        className="flex h-6 w-6 items-center justify-center rounded-full transition-all"
+                        style={{
+                          backgroundColor: c.value,
+                          boxShadow: editForm.color === c.value ? `0 0 0 2px var(--background), 0 0 0 4px ${c.value}` : 'none',
+                        }}
+                        onClick={() => setEditForm({ ...editForm, color: c.value })}
+                        title={c.name}
+                      >
+                        {editForm.color === c.value && <Check className="h-3 w-3 text-white" />}
+                      </button>
+                    ))}
+                    <label
+                      className="relative flex h-6 w-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/40 transition-all hover:border-muted-foreground/70"
+                      style={{
+                        backgroundColor: !colorPresets.some((c) => c.value === editForm.color) ? editForm.color : undefined,
+                        boxShadow: !colorPresets.some((c) => c.value === editForm.color) ? `0 0 0 2px var(--background), 0 0 0 4px ${editForm.color}` : 'none',
+                        borderStyle: !colorPresets.some((c) => c.value === editForm.color) ? 'solid' : 'dashed',
+                        borderColor: !colorPresets.some((c) => c.value === editForm.color) ? 'transparent' : undefined,
+                      }}
+                      title="Custom color"
+                    >
+                      {!colorPresets.some((c) => c.value === editForm.color) ? (
+                        <Check className="h-3 w-3 text-white" />
+                      ) : (
+                        <Plus className="h-3 w-3 text-muted-foreground/60" />
+                      )}
+                      <input
+                        type="color"
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        value={editForm.color}
+                        onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                      />
+                    </label>
                   </div>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-description" className="text-xs">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="min-h-[88px] resize-y"
+                />
+              </div>
+            </section>
 
-                <div className="space-y-2">
-                  <Label htmlFor="edit-clientNumber">Client Number</Label>
+            {/* Client (hidden for internal projects) */}
+            {editForm.paymentModel !== 'internal' && (
+              <section className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-clientName" className="text-xs">Client Name</Label>
+                  <Input
+                    id="edit-clientName"
+                    value={editForm.clientName}
+                    onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-clientNumber" className="text-xs">Client Number</Label>
                   <PhoneInput
                     id="edit-clientNumber"
                     placeholder="Enter phone number"
@@ -1744,200 +1824,210 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     onChange={(value) => setEditForm({ ...editForm, clientNumber: value })}
                   />
                 </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Project Name *</Label>
-                <Input
-                  id="edit-name"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                />
-              </div>
+              </section>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={editForm.status}
-                  onValueChange={(value) => setEditForm({ ...editForm, status: value as ProjectStatus })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Project Type</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn('w-full justify-between font-normal', !editForm.projectType && 'text-muted-foreground')}
-                    >
-                      {projectTypes.find((t) => t.value === editForm.projectType)?.label ?? 'Not specified'}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search types..." />
-                      <CommandList>
-                        <CommandEmpty>No type found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="Not specified"
-                            onSelect={() => setEditForm({ ...editForm, projectType: null })}
-                          >
-                            <Check className={cn('mr-2 h-4 w-4', !editForm.projectType ? 'opacity-100' : 'opacity-0')} />
-                            <span className="text-muted-foreground">Not specified</span>
-                          </CommandItem>
-                          {projectTypes.map((type) => (
+            {/* Details */}
+            <section className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Status</Label>
+                  <Select
+                    value={editForm.status}
+                    onValueChange={(value) => setEditForm({ ...editForm, status: value as ProjectStatus })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Project Type</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn('w-full justify-between font-normal', !editForm.projectType && 'text-muted-foreground')}
+                      >
+                        <span className="truncate">{projectTypes.find((t) => t.value === editForm.projectType)?.label ?? 'Not specified'}</span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search types..." />
+                        <CommandList>
+                          <CommandEmpty>No type found.</CommandEmpty>
+                          <CommandGroup>
                             <CommandItem
-                              key={type.value}
-                              value={type.label}
-                              onSelect={() => setEditForm({ ...editForm, projectType: type.value })}
+                              value="Not specified"
+                              onSelect={() => setEditForm({ ...editForm, projectType: null })}
                             >
-                              <Check className={cn('mr-2 h-4 w-4', editForm.projectType === type.value ? 'opacity-100' : 'opacity-0')} />
-                              {type.label}
+                              <Check className={cn('mr-2 h-4 w-4', !editForm.projectType ? 'opacity-100' : 'opacity-0')} />
+                              <span className="text-muted-foreground">Not specified</span>
                             </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2">
-                <Label>Payment Model</Label>
-                <Select
-                  value={editForm.paymentModel}
-                  onValueChange={(value) => setEditForm({ ...editForm, paymentModel: value as PaymentModel })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="milestone">Milestone-based</SelectItem>
-                    <SelectItem value="monthly">Monthly Salary</SelectItem>
-                    <SelectItem value="fixed">Fixed Price</SelectItem>
-                    <SelectItem value="internal">Internal Project</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {editForm.status === 'completed' && (
-              <div className="grid gap-4 md:grid-cols-2 rounded-md border border-dashed border-border/60 p-3 bg-muted/30">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-warranty-days">Warranty Days</Label>
-                  <Input
-                    id="edit-warranty-days"
-                    type="number"
-                    min={0}
-                    placeholder="0 (no warranty)"
-                    value={editForm.warrantyDays}
-                    onChange={(e) => setEditForm({ ...editForm, warrantyDays: e.target.value })}
-                  />
+                            {projectTypes.map((type) => (
+                              <CommandItem
+                                key={type.value}
+                                value={type.label}
+                                onSelect={() => setEditForm({ ...editForm, projectType: type.value })}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', editForm.projectType === type.value ? 'opacity-100' : 'opacity-0')} />
+                                {type.label}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-warranty-start">Warranty Start Date</Label>
-                  <Input
-                    id="edit-warranty-start"
-                    type="date"
-                    value={
-                      editForm.warrantyStartDate
-                        ? editForm.warrantyStartDate.toISOString().slice(0, 10)
-                        : ''
-                    }
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        warrantyStartDate: e.target.value ? new Date(e.target.value) : null,
-                      })
-                    }
-                  />
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Payment Model</Label>
+                  <Select
+                    value={editForm.paymentModel}
+                    onValueChange={(value) => setEditForm({ ...editForm, paymentModel: value as PaymentModel })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="milestone">Milestone-based</SelectItem>
+                      <SelectItem value="monthly">Monthly Salary</SelectItem>
+                      <SelectItem value="fixed">Fixed Price</SelectItem>
+                      <SelectItem value="internal">Internal Project</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+
+              {editForm.status === 'completed' && (
+                <div className="grid gap-3 rounded-md border border-dashed border-border/60 bg-muted/30 p-3 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-warranty-days" className="text-xs">Warranty Days</Label>
+                    <Input
+                      id="edit-warranty-days"
+                      type="number"
+                      min={0}
+                      placeholder="0 (no warranty)"
+                      value={editForm.warrantyDays}
+                      onChange={(e) => setEditForm({ ...editForm, warrantyDays: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-warranty-start" className="text-xs">Warranty Start Date</Label>
+                    <Input
+                      id="edit-warranty-start"
+                      type="date"
+                      value={
+                        editForm.warrantyStartDate
+                          ? editForm.warrantyStartDate.toISOString().slice(0, 10)
+                          : ''
+                      }
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          warrantyStartDate: e.target.value ? new Date(e.target.value) : null,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {editForm.paymentModel !== 'internal' ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-totalAmount" className="text-xs">
+                      {editForm.paymentModel === 'monthly' ? 'Monthly Amount' : 'Total Amount'} (EGP)
+                    </Label>
+                    <Input
+                      id="edit-totalAmount"
+                      type="number"
+                      value={editForm.totalAmount}
+                      onChange={(e) => setEditForm({ ...editForm, totalAmount: e.target.value })}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-estimatedValue" className="text-xs" title="Used for hourly rate calculation in income charts">
+                      Estimated Value (EGP)
+                    </Label>
+                    <Input
+                      id="edit-estimatedValue"
+                      type="number"
+                      value={editForm.estimatedValue}
+                      onChange={(e) => setEditForm({ ...editForm, estimatedValue: e.target.value })}
+                    />
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Start Date</Label>
+                  <DatePicker
+                    value={editForm.startDate}
+                    onChange={(date) => setEditForm({ ...editForm, startDate: date })}
+                    placeholder="Select start date"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Deadline</Label>
+                  <DatePicker
+                    value={editForm.deadline}
+                    onChange={(date) => setEditForm({ ...editForm, deadline: date })}
+                    placeholder="Select deadline"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Group (sub-projects only) */}
+            {project.parentProjectId && (
+              <section className="space-y-1.5">
+                <Label className="text-xs" title="Sub-projects with the same group are shown together in the organization panel">
+                  Group
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={editForm.group || '__none__'}
+                    onValueChange={(v) => setEditForm({ ...editForm, group: v === '__none__' ? '' : v })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="No group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No group</SelectItem>
+                      {availableGroups.map((g) => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setManageGroupsOpen(true)}>
+                    Manage
+                  </Button>
+                </div>
+              </section>
             )}
 
-            {editForm.paymentModel !== 'internal' ? (
-              <div className="space-y-2">
-                <Label htmlFor="edit-totalAmount">
-                  {editForm.paymentModel === 'monthly' ? 'Monthly Amount' : 'Total Amount'} (EGP)
-                </Label>
-                <Input
-                  id="edit-totalAmount"
-                  type="number"
-                  value={editForm.totalAmount}
-                  onChange={(e) => setEditForm({ ...editForm, totalAmount: e.target.value })}
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="edit-estimatedValue">
-                  Estimated Value (EGP) - Optional
-                </Label>
-                <Input
-                  id="edit-estimatedValue"
-                  type="number"
-                  value={editForm.estimatedValue}
-                  onChange={(e) => setEditForm({ ...editForm, estimatedValue: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Used for hourly rate calculation in income charts
-                </p>
-              </div>
-            )}
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Start Date</Label>
-                <DatePicker
-                  value={editForm.startDate}
-                  onChange={(date) => setEditForm({ ...editForm, startDate: date })}
-                  placeholder="Select start date"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Deadline</Label>
-                <DatePicker
-                  value={editForm.deadline}
-                  onChange={(date) => setEditForm({ ...editForm, deadline: date })}
-                  placeholder="Select deadline"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-repoPath">Repository Path</Label>
-              <Input
-                id="edit-repoPath"
-                value={editForm.repoPath}
-                onChange={(e) => setEditForm({ ...editForm, repoPath: e.target.value })}
-                placeholder="/mnt/d/programming/project-name"
+            {/* Integrations */}
+            <section className="space-y-1.5">
+              <Label htmlFor="edit-sikagit-project" className="text-xs" title="Required for the Repos view. Link a full sikagit project, or a single repo for one-repo products.">
+                Sikagit link
+              </Label>
+              <SikagitProjectPicker
+                projectValue={editForm.sikagitProjectId}
+                repoValue={editForm.sikagitRepoId}
+                onChange={({ projectId, repoId }) =>
+                  setEditForm({ ...editForm, sikagitProjectId: projectId, sikagitRepoId: repoId })
+                }
               />
-              <p className="text-xs text-muted-foreground">
-                Local filesystem path to the project&apos;s repository. Used by Claude Code for automated task processing.
-              </p>
-            </div>
+            </section>
 
           </div>
           <DialogFooter>
@@ -1949,6 +2039,83 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Save Changes
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Sub-Project Groups */}
+      <Dialog open={manageGroupsOpen} onOpenChange={setManageGroupsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Groups</DialogTitle>
+            <DialogDescription>
+              Groups organize {parentProject?.name ?? 'the organization'}&apos;s sub-projects. Renaming or deleting updates every sub-project using it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {(parentProject?.subGroups ?? []).map((g, idx, arr) => {
+              const draft = groupRenames[g] ?? g
+              const changed = draft.trim() !== g && draft.trim() !== ''
+              return (
+                <div key={g} className="flex items-center gap-2">
+                  <div className="flex flex-col">
+                    <button
+                      type="button"
+                      disabled={groupBusy || idx === 0}
+                      onClick={() => handleMoveGroup(g, -1)}
+                      className="text-muted-foreground/50 hover:text-foreground disabled:opacity-30"
+                      aria-label={`Move ${g} up`}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={groupBusy || idx === arr.length - 1}
+                      onClick={() => handleMoveGroup(g, 1)}
+                      className="text-muted-foreground/50 hover:text-foreground disabled:opacity-30"
+                      aria-label={`Move ${g} down`}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <Input
+                    value={draft}
+                    onChange={(e) => setGroupRenames((r) => ({ ...r, [g]: e.target.value }))}
+                    className="h-8 flex-1 text-sm"
+                  />
+                  {changed && (
+                    <Button size="sm" className="h-8" disabled={groupBusy} onClick={() => handleRenameGroup(g)}>
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    disabled={groupBusy}
+                    onClick={() => handleDeleteGroup(g)}
+                    aria-label={`Delete group ${g}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )
+            })}
+            {(parentProject?.subGroups ?? []).length === 0 && (
+              <p className="py-2 text-center text-sm italic text-muted-foreground">No groups yet.</p>
+            )}
+            <div className="flex items-center gap-2 border-t pt-3">
+              <Input
+                placeholder="New group (Open Source…)"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddGroup() } }}
+                className="h-8 flex-1 text-sm"
+              />
+              <Button size="sm" className="h-8" disabled={!newGroupName.trim() || groupBusy} onClick={handleAddGroup}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Add
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

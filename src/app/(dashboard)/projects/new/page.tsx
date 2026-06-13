@@ -228,16 +228,6 @@ function NewProjectContent() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {parentProject ? 'New Sub-Project' : 'New Project'}
-          </h1>
-          <p className="text-muted-foreground">
-            {parentProject
-              ? <>Creating under <span className="font-medium text-foreground">{parentProject.name}</span></>
-              : 'Create a new project to track'}
-          </p>
-        </div>
       </div>
 
       {/* Step Indicator — always show all tabs, disable Client for internal */}

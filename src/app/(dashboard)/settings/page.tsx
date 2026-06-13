@@ -43,7 +43,9 @@ import {
   Eye,
   EyeOff,
   CalendarDays,
+  GitBranch,
 } from 'lucide-react'
+import { useToast } from '@/hooks/useToast'
 import { clearImageCache, getImageCacheInfo } from '@/lib/image-cache'
 import { verifyPasskey } from '@/lib/passkey'
 import { getNotificationPermission, requestNotificationPermission } from '@/lib/notifications'
@@ -67,10 +69,17 @@ export default function SettingsPage() {
     setNotifyCalendarEvents, setCalendarEventHoursBefore,
   } = useSettings()
 
+  const { toast } = useToast()
+
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [profileName, setProfileName] = useState('')
   const [profilePhoto, setProfilePhoto] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
+
+  // Sikagit state
+  const [sikagitDbPath, setSikagitDbPath] = useState('')
+  const [sikagitPathPrefix, setSikagitPathPrefix] = useState('')
+  const [savingSikagit, setSavingSikagit] = useState(false)
   const [cacheCount, setCacheCount] = useState(0)
   const [clearingCache, setClearingCache] = useState(false)
   const [thinkingTimeLocal, setThinkingTimeLocal] = useState(0)
@@ -126,6 +135,8 @@ export default function SettingsPage() {
       setTaskDueHoursLocal(settings.taskDueHoursBefore ?? 24)
       setBreakReminderMinutesLocal(settings.breakReminderMinutes ?? 90)
       setCalendarHoursLocal(settings.calendarEventHoursBefore ?? 1)
+      setSikagitDbPath(settings.sikagitDbPath ?? 'D:\\programming\\Sikasio\\sikagit\\data\\sikagit.db')
+      setSikagitPathPrefix(settings.sikagitPathPrefix ?? '/host')
     }
   }, [settings])
 
@@ -260,17 +271,28 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSaveSikagit = async () => {
+    if (!settings) return
+    setSavingSikagit(true)
+    try {
+      await updateSettings({
+        sikagitDbPath: sikagitDbPath.trim() || null,
+        sikagitPathPrefix: sikagitPathPrefix.trim() || null,
+      })
+      toast({ title: 'Sikagit settings saved' })
+    } catch (err) {
+      console.error(err)
+      toast({ title: 'Failed to save', variant: 'destructive' })
+    } finally {
+      setSavingSikagit(false)
+    }
+  }
+
   const hasFullSettings = !permsLoading && canModule('accessSettings')
   const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{hasFullSettings ? 'Settings' : 'Profile'}</h1>
-        <p className="text-muted-foreground">{hasFullSettings ? 'Manage your account and preferences' : 'Manage your profile and appearance'}</p>
-      </div>
-
       <Tabs defaultValue={defaultTab} orientation="vertical" className="flex gap-6">
         <TabsList className="flex flex-col h-fit w-56 shrink-0 bg-muted/50 p-2 rounded-lg">
           <TabsTrigger value="account" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
@@ -295,6 +317,12 @@ export default function SettingsPage() {
                 <TabsTrigger value="ai" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
                   <Sparkles className="h-4 w-4" />
                   AI
+                </TabsTrigger>
+              )}
+              {isAppOwner && (
+                <TabsTrigger value="integrations" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
+                  <GitBranch className="h-4 w-4" />
+                  Integrations
                 </TabsTrigger>
               )}
               <TabsTrigger value="notifications" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
@@ -928,6 +956,53 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>}
+
+        {/* Integrations Tab */}
+        {hasFullSettings && isAppOwner && <TabsContent value="integrations" className="space-y-6">
+          {/* Sikagit Integration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GitBranch className="h-5 w-5" />
+                Sikagit Integration
+              </CardTitle>
+              <CardDescription>
+                Read project repos from a local sikagit installation. Configure the absolute path to the sikagit SQLite database.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="sikagit-db-path">Sikagit database path</Label>
+                <Input
+                  id="sikagit-db-path"
+                  type="text"
+                  placeholder="/mnt/d/programming/Sikasio/sikagit/data/sikagit.db"
+                  value={sikagitDbPath}
+                  onChange={(e) => setSikagitDbPath(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Absolute path on the WorkHub server. Read-only.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sikagit-path-prefix">Path prefix to strip (optional)</Label>
+                <Input
+                  id="sikagit-path-prefix"
+                  type="text"
+                  placeholder="/host"
+                  value={sikagitPathPrefix}
+                  onChange={(e) => setSikagitPathPrefix(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Sikagit (running in Docker) stores paths like <code>/host/home/...</code>. WorkHub strips this prefix to read README files from the real host filesystem. Default: <code>/host</code>.
+                </p>
+              </div>
+              <Button onClick={handleSaveSikagit} disabled={savingSikagit}>
+                {savingSikagit ? 'Saving…' : 'Save sikagit settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>}

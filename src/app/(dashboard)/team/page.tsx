@@ -37,6 +37,7 @@ import { memberPermissions as memberPermsApi, projects as projectsApi } from '@/
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 
 const defaultForm: MemberInput = {
   name: '',
@@ -282,21 +283,14 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Team</h1>
-          <p className="text-muted-foreground">
-            {members.length} member{members.length !== 1 ? 's' : ''}
-          </p>
-        </div>
+      <HeaderActions>
         {canEdit && (
-          <Button onClick={openCreate}>
+          <Button size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />
             Add Member
           </Button>
         )}
-      </div>
+      </HeaderActions>
 
       {/* Members Grid */}
       {members.length === 0 ? (

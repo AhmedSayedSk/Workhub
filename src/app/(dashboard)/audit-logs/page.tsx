@@ -78,6 +78,7 @@ const TYPE_CONFIG: Record<AuditLogType, { label: string; icon: any; color: strin
   subtask:      { label: 'Subtask',      icon: CheckSquare,   color: 'text-purple-500 dark:text-purple-300' },
   time_entry:   { label: 'Time Entry',   icon: Clock,         color: 'text-lime-600 dark:text-lime-400' },
   milestone:    { label: 'Milestone',    icon: Flag,          color: 'text-fuchsia-600 dark:text-fuchsia-400' },
+  stage:        { label: 'Stage',        icon: Layers,        color: 'text-cyan-600 dark:text-cyan-400' },
 }
 
 const ALL_TYPES = Object.keys(TYPE_CONFIG) as AuditLogType[]
@@ -266,18 +267,7 @@ export default function AuditLogsPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ScrollText className="h-6 w-6" />
-            Audit Logs
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {filteredLogs.length} event{filteredLogs.length !== 1 ? 's' : ''}
-            {hasActiveFilters && ` (filtered from ${logs.length})`}
-            {' · '}90-day retention
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-2">
           <Button
             variant={filterOpen ? 'default' : 'outline'}

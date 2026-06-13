@@ -42,6 +42,7 @@ import {
   ShieldAlert,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 
 export default function MediaPage() {
   const { canModule, loading: permsLoading } = useModulePermissions()
@@ -283,6 +284,24 @@ export default function MediaPage() {
 
   return (
     <div className="space-y-6">
+      <HeaderActions>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setEditingFolder(null)
+            setIsFolderDialogOpen(true)
+          }}
+        >
+          <FolderPlus className="h-4 w-4 mr-2" />
+          New Folder
+        </Button>
+        <Button size="sm" onClick={() => setIsUploadDialogOpen(true)}>
+          <Upload className="h-4 w-4 mr-2" />
+          Upload
+        </Button>
+      </HeaderActions>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
@@ -299,26 +318,9 @@ export default function MediaPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
           )}
-          <h1 className="text-3xl font-bold tracking-tight whitespace-nowrap">Media Library</h1>
           {breadcrumb.length > 0 && (
             <MediaBreadcrumb path={breadcrumb} onNavigate={navigateToFolder} />
           )}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setEditingFolder(null)
-              setIsFolderDialogOpen(true)
-            }}
-          >
-            <FolderPlus className="h-4 w-4 mr-2" />
-            New Folder
-          </Button>
-          <Button onClick={() => setIsUploadDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload
-          </Button>
         </div>
       </div>
 

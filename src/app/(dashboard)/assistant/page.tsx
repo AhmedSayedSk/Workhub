@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAI } from '@/hooks/useAI'
 import { useProjects } from '@/hooks/useProjects'
 import { useTasks } from '@/hooks/useTasks'
-import { Sparkles, Loader2, Bot, Trash2, CheckCircle2, XCircle, AlertCircle, Plus, MessageSquare, MoreHorizontal, Check, X, ListTodo, Clock, Search, Globe, GitBranch, Pencil, Copy, Eye, Code2, FileCode, Maximize2, Minimize2, ShieldAlert } from 'lucide-react'
+import { Loader2, Bot, Trash2, CheckCircle2, XCircle, AlertCircle, Plus, MessageSquare, MoreHorizontal, Check, X, ListTodo, Clock, Search, Globe, GitBranch, Pencil, Copy, Eye, Code2, FileCode, Maximize2, Minimize2, ShieldAlert } from 'lucide-react'
 import { subtasks as subtasksApi } from '@/lib/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { useModulePermissions } from '@/hooks/usePermissions'
@@ -1505,17 +1505,9 @@ ${webContext ? '\nYou have access to web search results above. Use this informat
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-3 border-b bg-card flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">AI Assistant</h1>
-              <p className="text-xs text-muted-foreground">
-                {currentSession?.title || 'New Chat'}
-              </p>
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            {currentSession?.title || 'New Chat'}
+          </p>
           <Button variant="outline" size="sm" onClick={handleClearChat}>
             <Trash2 className="h-4 w-4 mr-2" />
             Clear Chat

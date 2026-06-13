@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -47,6 +46,7 @@ import { Clock, Plus, Loader2, Trash2, Calendar, ArrowRight, ShieldAlert } from 
 import { useSettings } from '@/hooks/useSettings'
 import { useModulePermissions } from '@/hooks/usePermissions'
 import Link from 'next/link'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 import {
   BarChart,
   Bar,
@@ -251,21 +251,14 @@ export default function TimePage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Time Tracking</h1>
-          <p className="text-muted-foreground">
-            Track and analyze your work time
-          </p>
-        </div>
-        <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Manual Entry
-            </Button>
-          </DialogTrigger>
+      <HeaderActions>
+        <Button size="sm" onClick={() => setIsManualEntryOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Manual Entry
+        </Button>
+      </HeaderActions>
+
+      <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Time Entry</DialogTitle>
@@ -360,8 +353,7 @@ export default function TimePage() {
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
-      </div>
+      </Dialog>
 
       {/* Date Range Tabs */}
       <Tabs value={dateRange} onValueChange={(v) => setDateRange(v as typeof dateRange)}>

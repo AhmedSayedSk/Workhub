@@ -64,6 +64,7 @@ import {
   ShieldAlert,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 
 // Status color mapping
 const STATUS_COLORS: Record<CalendarEventStatus, string> = {
@@ -516,9 +517,14 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
+      <HeaderActions>
+        <Button size="sm" onClick={() => { setSelectedEvent(null); setForm(defaultFormState); setDialogOpen(true) }}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Event
+        </Button>
+      </HeaderActions>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Calendar</h1>
           <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
             <Button
               variant={viewMode === 'calendar' ? 'default' : 'ghost'}
@@ -540,10 +546,6 @@ export default function CalendarPage() {
             </Button>
           </div>
         </div>
-        <Button onClick={() => { setSelectedEvent(null); setForm(defaultFormState); setDialogOpen(true) }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Event
-        </Button>
       </div>
 
       {viewMode === 'calendar' ? (

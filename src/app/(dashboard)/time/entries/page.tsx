@@ -15,7 +15,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -40,6 +39,7 @@ import {
 import { Clock, Plus, Loader2, Trash2, ArrowLeft } from 'lucide-react'
 import { TimeEntry } from '@/types'
 import { useSettings } from '@/hooks/useSettings'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 
 export default function TimeEntriesPage() {
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('week')
@@ -76,8 +76,6 @@ export default function TimeEntriesPage() {
     minutes: '',
     notes: '',
   })
-
-  const totalMinutes = applyThinkingTime(timeEntries.reduce((sum, e) => sum + e.duration, 0), thinkingPercent)
 
   // Group entries by date
   const groupedEntries = useMemo(() => {
@@ -130,28 +128,23 @@ export default function TimeEntriesPage() {
 
   return (
     <div className="space-y-6">
+      <HeaderActions>
+        <Button size="sm" onClick={() => setIsManualEntryOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Manual Entry
+        </Button>
+      </HeaderActions>
+
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/time">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">All Time Entries</h1>
-            <p className="text-muted-foreground">
-              {timeEntries.length} entries &middot; {formatDuration(totalMinutes)} total
-            </p>
-          </div>
-        </div>
-        <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Manual Entry
-            </Button>
-          </DialogTrigger>
+        <Link href="/time">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+      </div>
+
+      <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Time Entry</DialogTitle>
@@ -246,8 +239,7 @@ export default function TimeEntriesPage() {
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
-      </div>
+      </Dialog>
 
       {/* Date Range Tabs */}
       <Tabs value={dateRange} onValueChange={(v) => setDateRange(v as typeof dateRange)}>
