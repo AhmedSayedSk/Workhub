@@ -7,6 +7,10 @@ export type PaymentModel = 'milestone' | 'monthly' | 'fixed' | 'internal'
 
 export type ProjectStatus = 'active' | 'paused' | 'completed' | 'cancelled'
 
+export type ProjectStage = 'next' | 'shape' | 'design' | 'build' | 'deploy' | 'market' | 'launch' | 'repos'
+
+export const PROJECT_STAGES: ProjectStage[] = ['next', 'shape', 'design', 'build', 'deploy', 'market', 'launch', 'repos']
+
 export type FeatureStatus = 'pending' | 'in_progress' | 'completed'
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done'
@@ -102,11 +106,20 @@ export interface Project {
   parentProjectId: string | null
   mediaFolderId: string | null
   hasOwnFinances: boolean
-  repoPath?: string | null
   ownerId: string
   sharedWith: string[] // UIDs of users who can access this project
   pendingSharedEmails: string[] // Emails of users invited but not yet signed up
   distribution?: ProjectDistribution
+  sikagitProjectId?: string | null
+  /** Link to a single sikagit repo instead of a full sikagit project (for one-repo products). */
+  sikagitRepoId?: string | null
+  /** Optional grouping label among sibling sub-projects (e.g. "Browser Extensions", "Open Source"). */
+  group?: string | null
+  /** For parent/org projects: the canonical list of sub-project groups. */
+  subGroups?: string[]
+  enabledStages: ProjectStage[]
+  lastTouchedStage?: ProjectStage | null
+  lastTouchedAt?: Timestamp
   createdAt: Timestamp
   warrantyDays?: number
   warrantyStartDate?: Timestamp | null
@@ -285,13 +298,20 @@ export interface ProjectInput {
   parentProjectId?: string | null
   mediaFolderId?: string | null
   hasOwnFinances?: boolean
-  repoPath?: string | null
   ownerId?: string
   sharedWith?: string[]
   pendingSharedEmails?: string[]
   warrantyDays?: number
   warrantyStartDate?: Date | null
   distribution?: ProjectDistribution
+  sikagitProjectId?: string | null
+  /** Link to a single sikagit repo instead of a full sikagit project (for one-repo products). */
+  sikagitRepoId?: string | null
+  /** Optional grouping label among sibling sub-projects (e.g. "Browser Extensions", "Open Source"). */
+  group?: string | null
+  /** For parent/org projects: the canonical list of sub-project groups. */
+  subGroups?: string[]
+  enabledStages?: ProjectStage[]
   sortOrder?: number
 }
 
@@ -566,6 +586,8 @@ export interface AppSettings {
   imageGenStandingPrompt?: string | null
   defaultDistributionCategories?: DistributionCategoryDefault[]
   emailNotificationsEnabled?: boolean
+  sikagitDbPath?: string | null
+  sikagitPathPrefix?: string | null
   updatedAt: Timestamp
 }
 
@@ -603,6 +625,8 @@ export interface AppSettingsInput {
   imageGenStandingPrompt?: string | null
   defaultDistributionCategories?: DistributionCategoryDefault[]
   emailNotificationsEnabled?: boolean
+  sikagitDbPath?: string | null
+  sikagitPathPrefix?: string | null
 }
 
 // AI Model types
@@ -859,6 +883,7 @@ export type AuditLogType =
   | 'permission' | 'member' | 'sharing'
   | 'settings' | 'media' | 'payment' | 'calendar'
   | 'attachment' | 'note' | 'time_entry' | 'milestone'
+  | 'stage'
 
 export interface AuditLog {
   id: string
@@ -875,3 +900,475 @@ export interface AuditLog {
 }
 
 export type AuditLogInput = Omit<AuditLog, 'id' | 'createdAt'>
+
+// ===== Project Stage: Shape =====
+export interface ProjectShape {
+  projectId: string
+  visionStatement: string
+  inScope: string[]
+  outOfScope: string[]
+  constraints: string[]
+  updatedAt: Timestamp
+}
+
+export type DecisionStatus = 'open' | 'decided' | 'reversed'
+
+export interface Decision {
+  id: string
+  projectId: string
+  title: string
+  rationale: string
+  status: DecisionStatus
+  decidedAt: Timestamp
+  authorId: string
+}
+
+export interface DecisionInput {
+  projectId: string
+  title: string
+  rationale: string
+  status: DecisionStatus
+  authorId: string
+}
+
+// ===== Project Stage: Market =====
+export interface ProjectMarket {
+  projectId: string
+  positioning: string
+  audience: string
+  pricing: string
+  updatedAt: Timestamp
+}
+
+export type MarketChannelStatus = 'planned' | 'active' | 'paused' | 'completed'
+
+export interface MarketChannel {
+  id: string
+  projectId: string
+  name: string
+  status: MarketChannelStatus
+  url?: string | null
+}
+
+export interface MarketChannelInput {
+  projectId: string
+  name: string
+  status: MarketChannelStatus
+  url?: string | null
+}
+
+// ===== Project Stage: Next (AI compass) =====
+
+export type NextStepStatus = 'pending' | 'skipped' | 'done'
+export type NextStepEffort = 'minutes' | 'hours' | 'days'
+
+export interface NextStep {
+  id: string
+  projectId: string
+  /** Imperative action, max ~14 words. */
+  title: string
+  /** Why this is the highest-leverage move right now. */
+  why: string
+  /** Concrete how-to, 2-4 sentences. */
+  how: string
+  /** Which stage this action belongs to. */
+  stage: ProjectStage
+  effort: NextStepEffort
+  /** Rank within its generated batch (1 = top). */
+  rank: number
+  status: NextStepStatus
+  createdAt: Timestamp
+  resolvedAt?: Timestamp | null
+}
+
+export interface NextStepInput {
+  projectId: string
+  title: string
+  why: string
+  how: string
+  stage: ProjectStage
+  effort: NextStepEffort
+  rank: number
+}
+
+// ===== Project Stage: Design (pre-code) =====
+
+export interface DesignColor {
+  name: string
+  /** Hex value, e.g. #E66A4C */
+  value: string
+}
+
+export interface ProjectDesign {
+  projectId: string
+  /** Conventions & free-form notes about the design system. */
+  designSystemNotes: string
+  /** Structured palette — rendered as swatches. */
+  colors?: DesignColor[]
+  /** Font families in use. */
+  fonts?: string[]
+  /** Icon set, e.g. 'Phosphor 2.1.1' or 'Lucide'. */
+  iconSet?: string | null
+  updatedAt: Timestamp
+}
+
+export type DesignPrototypeKind = 'html' | 'figma' | 'live' | 'other'
+export type DesignPrototypeStatus = 'draft' | 'final'
+
+export interface DesignPrototype {
+  id: string
+  projectId: string
+  name: string
+  /** URL or local file path to the prototype. */
+  url: string
+  kind: DesignPrototypeKind
+  status: DesignPrototypeStatus
+  notes?: string | null
+}
+
+export interface DesignPrototypeInput {
+  projectId: string
+  name: string
+  url: string
+  kind: DesignPrototypeKind
+  status?: DesignPrototypeStatus
+  notes?: string | null
+}
+
+export type DesignScreenStatus = 'todo' | 'designed' | 'approved'
+
+export interface DesignScreen {
+  id: string
+  projectId: string
+  /** Surface grouping, e.g. 'Cashier (mobile)' or 'Admin (desktop)'. */
+  group: string
+  title: string
+  status: DesignScreenStatus
+  order: number
+}
+
+export interface DesignScreenInput {
+  projectId: string
+  group: string
+  title: string
+  status?: DesignScreenStatus
+  order?: number
+}
+
+export interface DesignImage {
+  id: string
+  projectId: string
+  url: string
+  caption?: string | null
+}
+
+export interface DesignImageInput {
+  projectId: string
+  url: string
+  caption?: string | null
+}
+
+// Marketplace distribution (Market stage)
+export type MarketListingModel = 'one_time' | 'subscription' | 'freemium'
+export type MarketListingStatus = 'preparing' | 'submitted' | 'approved' | 'rejected' | 'live'
+
+export interface MarketListing {
+  id: string
+  projectId: string
+  marketplace: string
+  model: MarketListingModel
+  status: MarketListingStatus
+  price?: string | null
+  url?: string | null
+  notes?: string | null
+  createdAt: Timestamp
+}
+
+export interface MarketListingInput {
+  projectId: string
+  marketplace: string
+  model?: MarketListingModel
+  status?: MarketListingStatus
+  price?: string | null
+  url?: string | null
+  notes?: string | null
+}
+
+// Guided go-to-market (Market stage)
+export type MarketPlaybookPhase = 'pre_launch' | 'launch' | 'post_launch'
+export type MarketPlaybookStatus = 'todo' | 'doing' | 'done'
+
+export interface MarketPlaybookItem {
+  id: string
+  projectId: string
+  phase: MarketPlaybookPhase
+  title: string
+  detail: string
+  status: MarketPlaybookStatus
+  order: number
+  createdAt: Timestamp
+}
+
+export interface MarketPlaybookItemInput {
+  projectId: string
+  phase: MarketPlaybookPhase
+  title: string
+  detail: string
+  status?: MarketPlaybookStatus
+  order?: number
+}
+
+export type MarketCampaignStatus = 'planned' | 'running' | 'done'
+
+export interface MarketCampaign {
+  id: string
+  projectId: string
+  name: string
+  channel: string
+  status: MarketCampaignStatus
+  notes?: string | null
+  result?: string | null
+  createdAt: Timestamp
+}
+
+export interface MarketCampaignInput {
+  projectId: string
+  name: string
+  channel: string
+  status?: MarketCampaignStatus
+  notes?: string | null
+  result?: string | null
+}
+
+export type LaunchAssetStatus = 'not_started' | 'in_progress' | 'done'
+
+export interface LaunchAsset {
+  id: string
+  projectId: string
+  name: string
+  status: LaunchAssetStatus
+  url?: string | null
+  ownerId?: string | null
+}
+
+export interface LaunchAssetInput {
+  projectId: string
+  name: string
+  status: LaunchAssetStatus
+  url?: string | null
+  ownerId?: string | null
+}
+
+// ===== Project Stage: Launch =====
+export type LaunchStatus = 'planned' | 'in_review' | 'live'
+
+export interface ProjectLaunch {
+  projectId: string
+  releaseDate?: Timestamp | null
+  status: LaunchStatus
+  updatedAt: Timestamp
+}
+
+export type LaunchChecklistStatus = 'not_started' | 'in_progress' | 'done'
+
+export interface LaunchChecklistItem {
+  id: string
+  projectId: string
+  title: string
+  status: LaunchChecklistStatus
+  dueDate?: Timestamp | null
+  ownerId?: string | null
+}
+
+export interface LaunchChecklistItemInput {
+  projectId: string
+  title: string
+  status: LaunchChecklistStatus
+  dueDate?: Timestamp | null
+  ownerId?: string | null
+}
+
+export interface MonitoringLink {
+  id: string
+  projectId: string
+  label: string
+  url: string
+}
+
+export interface MonitoringLinkInput {
+  projectId: string
+  label: string
+  url: string
+}
+
+export type PostLaunchIssueSeverity = 'low' | 'medium' | 'high' | 'critical'
+export type PostLaunchIssueStatus = 'open' | 'in_progress' | 'resolved'
+
+export interface PostLaunchIssue {
+  id: string
+  projectId: string
+  title: string
+  severity: PostLaunchIssueSeverity
+  status: PostLaunchIssueStatus
+  reportedAt: Timestamp
+}
+
+export interface PostLaunchIssueInput {
+  projectId: string
+  title: string
+  severity: PostLaunchIssueSeverity
+  status: PostLaunchIssueStatus
+}
+
+// ===== Sikagit Integration =====
+
+/** A sikagit project as returned by our `/api/sikagit/projects` endpoint. */
+export interface SikagitProject {
+  id: string
+  name: string
+  avatar?: string | null
+  position: number
+  createdAt: string
+  repoIds: string[]
+}
+
+/** A sikagit repo as returned by `/api/sikagit/projects/:id/repos`. */
+export interface SikagitRepo {
+  id: string
+  name: string
+  /** Original sikagit-stored path (Docker-container view, may start with /host). */
+  path: string
+  /** Host-friendly display path. */
+  displayPath: string
+  /** Real on-host filesystem path, with /host prefix stripped. */
+  hostPath: string
+  isWSL: boolean
+  group?: string | null
+  avatar?: string | null
+  lastOpened?: string | null
+  /** Names of the sikagit projects this repo belongs to (populated by the list-all endpoint). */
+  projectNames?: string[]
+}
+
+// ===== Project Stage: Repos (graph stored in Firestore) =====
+
+export interface RepoGraphNode {
+  /** sikagit repo id. */
+  repoId: string
+  x: number
+  y: number
+}
+
+export interface RepoGraphEdge {
+  id: string
+  sourceRepoId: string
+  targetRepoId: string
+  label?: string | null
+}
+
+export interface ProjectRepoGraph {
+  projectId: string
+  nodes: RepoGraphNode[]
+  edges: RepoGraphEdge[]
+  updatedAt: Timestamp
+}
+
+/** AI-generated short summary of a repo's README, cached per project+repo. */
+export interface RepoSummary {
+  id: string
+  projectId: string
+  repoId: string
+  summary: string
+  generatedAt: Timestamp
+}
+
+// ===== Project Stage: Deploy (infrastructure) =====
+
+export interface ProjectDeploy {
+  projectId: string
+  /** Free text — architecture, hosting layout, networks, backups. */
+  infrastructureNotes: string
+  /** Free text — hardening, firewall, TLS, auth, headers, secrets. */
+  securityNotes: string
+  /** Tech tags: e.g. 'Docker Compose', 'Caddy 2', 'Postgres 17'. */
+  technologies: string[]
+  updatedAt: Timestamp
+}
+
+export type DeployServerStatus = 'planned' | 'provisioning' | 'live' | 'retired'
+
+export interface DeployServer {
+  id: string
+  projectId: string
+  name: string
+  provider: string
+  region?: string | null
+  specs?: string | null
+  ip?: string | null
+  os?: string | null
+  costMonthly?: string | null
+  status: DeployServerStatus
+  notes?: string | null
+}
+
+export interface DeployServerInput {
+  projectId: string
+  name: string
+  provider: string
+  region?: string | null
+  specs?: string | null
+  ip?: string | null
+  os?: string | null
+  costMonthly?: string | null
+  status: DeployServerStatus
+  notes?: string | null
+}
+
+export type DeployRecSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
+export type DeployRecArea = 'security' | 'infrastructure' | 'optimization'
+export type DeployRecStatus = 'open' | 'resolved' | 'dismissed'
+
+/** A security / infrastructure recommendation surfaced on the Deploy stage. */
+export interface DeployRecommendation {
+  id: string
+  projectId: string
+  severity: DeployRecSeverity
+  area: DeployRecArea
+  title: string
+  detail: string
+  status: DeployRecStatus
+  createdAt: Timestamp
+}
+
+export interface DeployRecommendationInput {
+  projectId: string
+  severity: DeployRecSeverity
+  area: DeployRecArea
+  title: string
+  detail: string
+  status?: DeployRecStatus
+}
+
+export type DeployDomainSsl = 'lets_encrypt' | 'cloudflare' | 'custom' | 'none'
+
+export interface DeployDomain {
+  id: string
+  projectId: string
+  domain: string
+  /** What the domain serves / points at, e.g. 'portal Next.js :3000'. */
+  target: string
+  dnsProvider?: string | null
+  ssl: DeployDomainSsl
+  proxied?: boolean
+  notes?: string | null
+}
+
+export interface DeployDomainInput {
+  projectId: string
+  domain: string
+  target: string
+  dnsProvider?: string | null
+  ssl: DeployDomainSsl
+  proxied?: boolean
+  notes?: string | null
+}
