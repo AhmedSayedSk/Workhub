@@ -26,6 +26,15 @@ service cloud.firestore {
       return project != null && project.data.ownerId == uid();
     }
 
+    function canReadProjectScoped(projectId) {
+      return isAuthenticated() && hasProjectAccess(projectId);
+    }
+    function canWriteProjectScoped(projectId) {
+      // For now write access = read access; finer per-action permissions
+      // are enforced in the client via useProjectPermissions.
+      return isAuthenticated() && hasProjectAccess(projectId);
+    }
+
     // User Profiles — anyone can read (for sharing lookups), users can only write their own
     match /userProfiles/{userId} {
       allow read: if isAuthenticated();
@@ -182,6 +191,140 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
+    }
+
+    // ===== Project Stages =====
+
+    match /projectShape/{projectId} {
+      allow read:   if canReadProjectScoped(projectId);
+      allow write:  if canWriteProjectScoped(projectId);
+    }
+
+    match /decisions/{decisionId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /projectMarket/{projectId} {
+      allow read:   if canReadProjectScoped(projectId);
+      allow write:  if canWriteProjectScoped(projectId);
+    }
+
+    match /marketChannels/{channelId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /launchAssets/{assetId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /projectLaunch/{projectId} {
+      allow read:   if canReadProjectScoped(projectId);
+      allow write:  if canWriteProjectScoped(projectId);
+    }
+
+    match /projectRepoGraph/{projectId} {
+      allow read:   if canReadProjectScoped(projectId);
+      allow write:  if canWriteProjectScoped(projectId);
+    }
+
+    match /repoSummaries/{summaryId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /projectDeploy/{projectId} {
+      allow read:   if canReadProjectScoped(projectId);
+      allow write:  if canWriteProjectScoped(projectId);
+    }
+
+    match /deployServers/{serverId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /deployDomains/{domainId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /deployRecommendations/{recId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /marketPlaybook/{itemId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /marketCampaigns/{campaignId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /marketListings/{listingId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /projectDesign/{projectId} {
+      allow read:   if canReadProjectScoped(projectId);
+      allow write:  if canWriteProjectScoped(projectId);
+    }
+
+    match /designPrototypes/{protoId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /designScreens/{screenId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /designImages/{imageId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /nextSteps/{stepId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /launchChecklist/{itemId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /monitoringLinks/{linkId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /postLaunchIssues/{issueId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
     }
   }
 }
