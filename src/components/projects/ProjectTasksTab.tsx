@@ -385,9 +385,9 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
       </aside>
 
       {/* Task Board */}
-      <div className="flex-1 min-w-0 relative">
-        {/* Floating actions row */}
-        <div className="absolute -top-11 right-0 z-10 flex items-center gap-2">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Actions row */}
+        <div className="mb-3 flex items-center justify-end gap-2">
           {/* Member filter */}
           <Popover open={memberFilterOpen} onOpenChange={setMemberFilterOpen}>
             <PopoverTrigger asChild>
@@ -473,24 +473,26 @@ export function ProjectTasksTab({ projectId, projectName, projectOwnerId, projec
             </button>
           )}
         </div>
-        <TaskBoard
-          tasks={filteredTasks}
-          features={features}
-          projectId={projectId}
-          projectName={projectName}
-          allMembers={allMembers}
-          selectedFeatureId={selectedFeatureId}
-          onCreateTask={handleCreateTask}
-          onUpdateTask={handleUpdateTask}
-          onArchiveTask={canArchive ? handleArchiveTask : undefined}
-          onSetTaskWaiting={handleSetTaskWaiting}
-          onRemoveTaskWaiting={handleRemoveTaskWaiting}
-          onMoveTask={canMoveTasks ? setMovingTask : undefined}
-          onSelectTask={handleSelectTask}
-          onReorderTask={handleReorderTask}
-          onTaskMovedToDone={handleTaskMovedToDone}
-          refreshKey={boardRefreshKey}
-        />
+        <div className="min-h-0 flex-1">
+          <TaskBoard
+            tasks={filteredTasks}
+            features={features}
+            projectId={projectId}
+            projectName={projectName}
+            allMembers={allMembers}
+            selectedFeatureId={selectedFeatureId}
+            onCreateTask={handleCreateTask}
+            onUpdateTask={handleUpdateTask}
+            onArchiveTask={canArchive ? handleArchiveTask : undefined}
+            onSetTaskWaiting={handleSetTaskWaiting}
+            onRemoveTaskWaiting={handleRemoveTaskWaiting}
+            onMoveTask={canMoveTasks ? setMovingTask : undefined}
+            onSelectTask={handleSelectTask}
+            onReorderTask={handleReorderTask}
+            onTaskMovedToDone={handleTaskMovedToDone}
+            refreshKey={boardRefreshKey}
+          />
+        </div>
       </div>
 
       {/* Task Detail Modal */}
