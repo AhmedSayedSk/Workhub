@@ -366,6 +366,435 @@ Reply with ONLY a compact JSON object on a single line, no markdown, no code fen
   }
 }
 
+export async function summarizeRepoReadme(
+  params: { repoName: string; readme: string },
+  model?: GeminiModel
+): Promise<string> {
+  const truncated = params.readme.slice(0, 12_000)
+  const prompt = `You are summarizing a code repository for a project-management dashboard card.
+
+Repository name: ${params.repoName}
+
+README content:
+"""
+${truncated}
+"""
+
+Write a ONE-LINE functional summary of what this repository does (max 15 words, single sentence). Focus on the function/purpose, not setup instructions or badges. Plain text only — no markdown, no quotes, no trailing period.`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    return result.response.text().trim().replace(/^["']|["']$/g, '').split('\n')[0].slice(0, 140)
+  } catch (error) {
+    console.error('Error summarizing repo readme:', error)
+    throw error
+  }
+}
+
+export async function summarizeDeployNotes(
+  params: { kind: 'infrastructure' | 'security'; content: string },
+  model?: GeminiModel
+): Promise<string> {
+  const prompt = `You are condensing ${params.kind} documentation for a project-management dashboard.
+
+Content:
+"""
+${params.content.slice(0, 12_000)}
+"""
+
+Rewrite as the MAIN POINTS ONLY: a plain-text bullet list ("- " prefix), max 7 bullets, each bullet max 12 words. Keep concrete facts (names, numbers, versions); drop filler and explanations. No markdown headings, no intro/outro text — bullets only.`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    return result.response.text().trim()
+  } catch (error) {
+    console.error('Error summarizing deploy notes:', error)
+    throw error
+  }
+}
+
+export interface GeneratedDeployRec {
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
+  area: 'security' | 'infrastructure' | 'optimization'
+  title: string
+  detail: string
+}
+
+export async function generateDeployRecommendations(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedDeployRec[]> {
+  const prompt = `You are a senior DevOps/security engineer reviewing a project's deployment.
+
+Project context (servers, domains, stack, infrastructure/security notes, repo summaries, and ALREADY-TRACKED recommendations):
+"""
+${params.context.slice(0, 14_000)}
+"""
+
+Suggest NEW deployment recommendations — security vulnerabilities, infrastructure gaps, or optimizations — that are NOT already tracked (do not repeat or rephrase the already-tracked list). Be concrete and grounded in the context; skip generic advice that doesn't apply to this stack.
+
+Respond with ONLY a JSON array (no markdown fences, no commentary), max 5 items:
+[{"severity":"critical|high|medium|low|info","area":"security|infrastructure|optimization","title":"<max 12 words>","detail":"<2-4 sentences: the risk and the concrete fix>"}]
+
+If you find nothing genuinely new, respond with [].`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    // Strip accidental code fences
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('[')
+    const end = text.lastIndexOf(']')
+    if (start === -1 || end === -1) return []
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedDeployRec[]
+    const validSev = ['critical', 'high', 'medium', 'low', 'info']
+    const validArea = ['security', 'infrastructure', 'optimization']
+    return parsed
+      .filter((r) => r && typeof r.title === 'string' && typeof r.detail === 'string')
+      .map((r) => ({
+        severity: validSev.includes(r.severity) ? r.severity : 'medium',
+        area: validArea.includes(r.area) ? r.area : 'security',
+        title: r.title.slice(0, 120),
+        detail: r.detail.slice(0, 1500),
+      }))
+      .slice(0, 5)
+  } catch (error) {
+    console.error('Error generating deploy recommendations:', error)
+    throw error
+  }
+}
+
+export interface GeneratedNextStep {
+  title: string
+  why: string
+  how: string
+  stage: 'shape' | 'design' | 'build' | 'deploy' | 'market' | 'launch'
+  effort: 'minutes' | 'hours' | 'days'
+}
+
+export async function generateNextSteps(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedNextStep[]> {
+  const prompt = `You are a pragmatic startup operator coaching a solo product owner. Below is the COMPLETE current state of one of their projects. Your job: tell them the highest-leverage things to do next, ranked. Think like an owner, not a backlog — what actually moves this project forward right now?
+
+Rules:
+- Ground every suggestion in the actual state below (reference real open decisions, real findings, real progress gaps).
+- Never suggest anything in the "Next-step history" section.
+- Prefer unblocking moves: open decisions blocking build, security findings blocking launch, missing positioning blocking marketing.
+- Be concrete: a step the owner can start today.
+
+PROJECT STATE:
+"""
+${params.context.slice(0, 20_000)}
+"""
+
+Respond with ONLY a JSON array of EXACTLY 3 items, ranked most-important first (no fences):
+[{"title":"<imperative action, max 10 words>","why":"<ONE short sentence citing the actual project state>","how":"<1-2 short sentences: how to start>","stage":"shape|design|build|deploy|market|launch","effort":"minutes|hours|days"}]
+
+Keep it tight — the owner reads this on a small card. No filler words.`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('[')
+    const end = text.lastIndexOf(']')
+    if (start === -1 || end === -1) return []
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedNextStep[]
+    const stages = ['shape', 'design', 'build', 'deploy', 'market', 'launch']
+    const efforts = ['minutes', 'hours', 'days']
+    return parsed
+      .filter((s) => s && typeof s.title === 'string')
+      .map((s) => ({
+        title: s.title.slice(0, 100),
+        why: String(s.why ?? '').slice(0, 250),
+        how: String(s.how ?? '').slice(0, 400),
+        stage: stages.includes(s.stage) ? s.stage : 'build',
+        effort: efforts.includes(s.effort) ? s.effort : 'hours',
+      }))
+      .slice(0, 3)
+  } catch (error) {
+    console.error('Error generating next steps:', error)
+    throw error
+  }
+}
+
+export interface GeneratedShape {
+  visionStatement: string
+  inScope: string[]
+  outOfScope: string[]
+  constraints: string[]
+}
+
+export async function generateShape(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedShape | null> {
+  const prompt = `You are a senior product strategist helping a developer lock the shape of their product: vision, scope boundaries, and constraints.
+
+Project context (description, repos, deployment, existing drafts):
+"""
+${params.context.slice(0, 14_000)}
+"""
+
+Respond with ONLY a JSON object (no fences):
+{
+  "visionStatement": "<2-4 sentences: what this is, for whom, and the core direction — concrete, no fluff>",
+  "inScope": ["<4-7 items that ARE part of this product's committed scope>"],
+  "outOfScope": ["<3-6 tempting things explicitly NOT being built (with version hints like 'v2' where sensible)>"],
+  "constraints": ["<3-6 hard constraints: technical, market, budget, platform>"]
+}`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    if (start === -1 || end === -1) return null
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedShape
+    const arr = (v: unknown) => (Array.isArray(v) ? v.map(String).slice(0, 8) : [])
+    return {
+      visionStatement: String(parsed.visionStatement ?? '').slice(0, 1500),
+      inScope: arr(parsed.inScope),
+      outOfScope: arr(parsed.outOfScope),
+      constraints: arr(parsed.constraints),
+    }
+  } catch (error) {
+    console.error('Error generating shape:', error)
+    throw error
+  }
+}
+
+export interface GeneratedDecision {
+  title: string
+  rationale: string
+}
+
+export async function generateShapeDecisions(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedDecision[]> {
+  const prompt = `You are a senior product strategist. Identify the CRITICAL OPEN DECISIONS this project must lock before/while building — the choices that are expensive to reverse or that block other work.
+
+Project context (vision, scope, constraints, repos, and ALREADY-TRACKED decisions to NOT repeat):
+"""
+${params.context.slice(0, 14_000)}
+"""
+
+Respond with ONLY a JSON array (no fences), 3-6 items:
+[{"title":"<the decision as a question, max 14 words>","rationale":"<1-3 sentences: why it matters now and the trade-off>"}]`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('[')
+    const end = text.lastIndexOf(']')
+    if (start === -1 || end === -1) return []
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedDecision[]
+    return parsed
+      .filter((d) => d && typeof d.title === 'string')
+      .map((d) => ({
+        title: d.title.slice(0, 140),
+        rationale: String(d.rationale ?? '').slice(0, 600),
+      }))
+      .slice(0, 6)
+  } catch (error) {
+    console.error('Error generating shape decisions:', error)
+    throw error
+  }
+}
+
+export interface GeneratedMarketPlan {
+  positioning: string
+  audience: string
+  pricing: string
+  channels: string[]
+}
+
+export async function generateMarketPlan(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedMarketPlan | null> {
+  const prompt = `You are a senior go-to-market strategist helping a solo developer market their product. They have NO marketing experience — be concrete and jargon-free.
+
+Product context (description, repo summaries, deployment, domains):
+"""
+${params.context.slice(0, 14_000)}
+"""
+
+Produce a starter marketing plan. Respond with ONLY a JSON object (no markdown fences):
+{
+  "positioning": "<2-3 sentences: what it is, for whom, why it beats alternatives — written so it can be pasted on a landing page>",
+  "audience": "<2-3 sentences: the specific buyer/user personas and where they hang out online>",
+  "pricing": "<2-3 sentences: a concrete suggested pricing model with numbers, grounded in comparable tools>",
+  "channels": ["<5-7 specific channels ranked by fit, e.g. 'Product Hunt', 'r/SaaS', 'Hacker News (Show HN)'>"]
+}`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    if (start === -1 || end === -1) return null
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedMarketPlan
+    return {
+      positioning: String(parsed.positioning ?? '').slice(0, 1200),
+      audience: String(parsed.audience ?? '').slice(0, 1200),
+      pricing: String(parsed.pricing ?? '').slice(0, 1200),
+      channels: Array.isArray(parsed.channels) ? parsed.channels.map(String).slice(0, 7) : [],
+    }
+  } catch (error) {
+    console.error('Error generating market plan:', error)
+    throw error
+  }
+}
+
+export interface GeneratedCampaign {
+  name: string
+  channel: string
+  notes: string
+}
+
+export async function generateMarketCampaigns(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedCampaign[]> {
+  const prompt = `You are a go-to-market coach proposing concrete marketing campaigns for a solo developer with NO marketing experience. Each campaign must be a specific, runnable initiative — not a vague channel name.
+
+Product context (positioning, audience, channels, playbook, and ALREADY-TRACKED campaigns to NOT repeat):
+"""
+${params.context.slice(0, 14_000)}
+"""
+
+Respond with ONLY a JSON array (no fences), 3-5 items:
+[{"name":"<campaign name, max 8 words>","channel":"<where it runs>","notes":"<2-3 sentences: the goal, the concrete steps, and what success looks like (with a number)>"}]`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('[')
+    const end = text.lastIndexOf(']')
+    if (start === -1 || end === -1) return []
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedCampaign[]
+    return parsed
+      .filter((c) => c && typeof c.name === 'string')
+      .map((c) => ({
+        name: c.name.slice(0, 80),
+        channel: String(c.channel ?? '').slice(0, 60),
+        notes: String(c.notes ?? '').slice(0, 1000),
+      }))
+      .slice(0, 5)
+  } catch (error) {
+    console.error('Error generating market campaigns:', error)
+    throw error
+  }
+}
+
+export interface GeneratedListing {
+  marketplace: string
+  model: 'one_time' | 'subscription' | 'freemium'
+  price: string
+  why: string
+  prepItems: string[]
+}
+
+export async function generateMarketListings(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedListing[]> {
+  const prompt = `You are a distribution strategist for indie software products. Suggest where to LIST/SELL this product — script marketplaces (CodeCanyon, Codester, Gumroad), deal platforms (AppSumo), app stores, or direct SaaS — whichever genuinely fit.
+
+Product context (positioning, pricing, stack, and ALREADY-TRACKED listings to NOT repeat):
+"""
+${params.context.slice(0, 14_000)}
+"""
+
+Respond with ONLY a JSON array (no fences), 2-4 items, ranked by fit:
+[{"marketplace":"<platform name>","model":"one_time|subscription|freemium","price":"<concrete suggested price for that platform>","why":"<1-2 sentences why this platform fits>","prepItems":["<3-5 concrete submission requirements for this platform, e.g. 'Record 2-min demo video', 'Prepare 590x300 preview image'>"]}]`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('[')
+    const end = text.lastIndexOf(']')
+    if (start === -1 || end === -1) return []
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedListing[]
+    const models = ['one_time', 'subscription', 'freemium']
+    return parsed
+      .filter((l) => l && typeof l.marketplace === 'string')
+      .map((l) => ({
+        marketplace: l.marketplace.slice(0, 60),
+        model: models.includes(l.model) ? l.model : 'one_time',
+        price: String(l.price ?? '').slice(0, 60),
+        why: String(l.why ?? '').slice(0, 500),
+        prepItems: Array.isArray(l.prepItems) ? l.prepItems.map(String).slice(0, 5) : [],
+      }))
+      .slice(0, 4)
+  } catch (error) {
+    console.error('Error generating market listings:', error)
+    throw error
+  }
+}
+
+export interface GeneratedPlaybookItem {
+  phase: 'pre_launch' | 'launch' | 'post_launch'
+  title: string
+  detail: string
+}
+
+export async function generateMarketPlaybook(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedPlaybookItem[]> {
+  const prompt = `You are a go-to-market coach building a step-by-step launch playbook for a solo developer with NO marketing experience. Every item must be an actionable task with a concrete how-to, not vague advice.
+
+Product context (positioning, audience, channels, repos, deployment, existing playbook items to NOT repeat):
+"""
+${params.context.slice(0, 14_000)}
+"""
+
+Respond with ONLY a JSON array (no fences), 9-15 items spread across the three phases:
+[{"phase":"pre_launch|launch|post_launch","title":"<max 10 words, imperative>","detail":"<2-4 sentences: exactly what to do, where, and what good looks like>"}]`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('[')
+    const end = text.lastIndexOf(']')
+    if (start === -1 || end === -1) return []
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedPlaybookItem[]
+    const phases = ['pre_launch', 'launch', 'post_launch']
+    return parsed
+      .filter((i) => i && typeof i.title === 'string')
+      .map((i) => ({
+        phase: phases.includes(i.phase) ? i.phase : 'pre_launch',
+        title: i.title.slice(0, 100),
+        detail: String(i.detail ?? '').slice(0, 1200),
+      }))
+      .slice(0, 15)
+  } catch (error) {
+    console.error('Error generating market playbook:', error)
+    throw error
+  }
+}
+
 export async function askAI(
   question: string,
   context?: string,

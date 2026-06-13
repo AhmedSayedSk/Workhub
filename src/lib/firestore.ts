@@ -9,11 +9,13 @@ import {
   query,
   where,
   orderBy,
+  setDoc,
   Timestamp,
   QueryConstraint,
   DocumentData,
   writeBatch,
   arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import {
@@ -69,6 +71,58 @@ import {
   AuditLog,
   AuditLogInput,
   AuditLogType,
+  ProjectStage,
+  ProjectShape,
+  Decision,
+  DecisionInput,
+  DecisionStatus,
+  ProjectMarket,
+  MarketChannel,
+  MarketChannelInput,
+  MarketChannelStatus,
+  LaunchAsset,
+  LaunchAssetInput,
+  LaunchAssetStatus,
+  ProjectLaunch,
+  LaunchStatus,
+  LaunchChecklistItem,
+  LaunchChecklistItemInput,
+  LaunchChecklistStatus,
+  MonitoringLink,
+  MonitoringLinkInput,
+  PostLaunchIssue,
+  PostLaunchIssueInput,
+  PostLaunchIssueStatus,
+  ProjectRepoGraph,
+  RepoSummary,
+  ProjectDeploy,
+  DeployServer,
+  DeployServerInput,
+  DeployDomain,
+  DeployDomainInput,
+  DeployRecommendation,
+  DeployRecommendationInput,
+  DeployRecStatus,
+  MarketPlaybookItem,
+  MarketPlaybookItemInput,
+  MarketPlaybookStatus,
+  MarketCampaign,
+  MarketCampaignInput,
+  MarketCampaignStatus,
+  MarketListing,
+  MarketListingInput,
+  MarketListingStatus,
+  ProjectDesign,
+  DesignPrototype,
+  DesignPrototypeInput,
+  DesignScreen,
+  DesignScreenInput,
+  DesignScreenStatus,
+  DesignImage,
+  DesignImageInput,
+  NextStep,
+  NextStepInput,
+  NextStepStatus,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -219,6 +273,8 @@ export const projects = {
       ...data,
       parentProjectId: data.parentProjectId ?? null,
       hasOwnFinances: data.hasOwnFinances ?? true,
+      enabledStages: data.enabledStages ?? ['build'],
+      lastTouchedStage: null,
       startDate: Timestamp.fromDate(data.startDate),
       deadline: toTimestamp(data.deadline),
       warrantyStartDate: toTimestamp(data.warrantyStartDate ?? null),
@@ -278,6 +334,25 @@ export const projects = {
     if (!userId) return []
     const all = await this.getAll(userId)
     return all.filter((p) => p.status === status)
+  },
+
+  async enableStage(projectId: string, stage: ProjectStage): Promise<void> {
+    await update('projects', projectId, { enabledStages: arrayUnion(stage) })
+  },
+
+  async disableStage(projectId: string, stage: ProjectStage): Promise<void> {
+    await update('projects', projectId, { enabledStages: arrayRemove(stage) })
+  },
+
+  /**
+   * Mark a stage as the most recently touched. Call from every stage-content
+   * mutating write (create/update/delete). Enable/disable do NOT touch.
+   */
+  async touchStage(projectId: string, stage: ProjectStage): Promise<void> {
+    await update('projects', projectId, {
+      lastTouchedStage: stage,
+      lastTouchedAt: Timestamp.now(),
+    })
   },
 }
 
@@ -1531,4 +1606,508 @@ export const auditLogs = {
 /** Fire-and-forget audit log helper */
 export function audit(data: AuditLogInput): void {
   auditLogs.create(data).catch(() => {})
+}
+
+// ===== Stage: Shape =====
+export const projectShape = {
+  async get(projectId: string): Promise<ProjectShape | null> {
+    return getById<ProjectShape & { id: string }>('projectShape', projectId)
+  },
+
+  /** Upsert by docId = projectId. */
+  async save(projectId: string, data: Omit<ProjectShape, 'projectId' | 'updatedAt'>, actorId: string): Promise<void> {
+    const ref = doc(db, 'projectShape', projectId)
+    await setDoc(ref, { ...data, projectId, updatedAt: Timestamp.now() }, { merge: true })
+    projects.touchStage(projectId, 'shape').catch(() => {})
+    audit({ type: 'stage', action: 'shape_updated', actorUid: actorId, actorEmail: '', projectId, targetId: projectId })
+  },
+}
+
+export const decisions = {
+  async listByProject(projectId: string): Promise<Decision[]> {
+    const all = await getAll<Decision>('decisions', where('projectId', '==', projectId))
+    return all.sort((a, b) => b.decidedAt.toMillis() - a.decidedAt.toMillis())
+  },
+
+  async add(input: DecisionInput): Promise<string> {
+    const id = await create('decisions', { ...input, decidedAt: Timestamp.now() })
+    projects.touchStage(input.projectId, 'shape').catch(() => {})
+    audit({ type: 'stage', action: 'decision_added', actorUid: input.authorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+
+  async setStatus(id: string, projectId: string, status: DecisionStatus, actorId: string): Promise<void> {
+    await update('decisions', id, { status })
+    projects.touchStage(projectId, 'shape').catch(() => {})
+    audit({ type: 'stage', action: 'decision_status_changed', actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('decisions', id)
+    projects.touchStage(projectId, 'shape').catch(() => {})
+    audit({ type: 'stage', action: 'decision_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+// ===== Stage: Market =====
+export const projectMarket = {
+  async get(projectId: string): Promise<ProjectMarket | null> {
+    return getById<ProjectMarket & { id: string }>('projectMarket', projectId)
+  },
+
+  async save(projectId: string, data: Omit<ProjectMarket, 'projectId' | 'updatedAt'>, actorId: string): Promise<void> {
+    const ref = doc(db, 'projectMarket', projectId)
+    await setDoc(ref, { ...data, projectId, updatedAt: Timestamp.now() }, { merge: true })
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'market_updated', actorUid: actorId, actorEmail: '', projectId, targetId: projectId })
+  },
+}
+
+export const marketChannels = {
+  async listByProject(projectId: string): Promise<MarketChannel[]> {
+    return getAll<MarketChannel>('marketChannels', where('projectId', '==', projectId))
+  },
+  async add(input: MarketChannelInput, actorId: string): Promise<string> {
+    const id = await create('marketChannels', { ...input, url: input.url ?? null })
+    projects.touchStage(input.projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'channel_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: MarketChannelStatus, actorId: string): Promise<void> {
+    await update('marketChannels', id, { status })
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'channel_status_changed', actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('marketChannels', id)
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'channel_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const launchAssets = {
+  async listByProject(projectId: string): Promise<LaunchAsset[]> {
+    return getAll<LaunchAsset>('launchAssets', where('projectId', '==', projectId))
+  },
+  async add(input: LaunchAssetInput, actorId: string): Promise<string> {
+    const id = await create('launchAssets', { ...input, url: input.url ?? null, ownerId: input.ownerId ?? null })
+    projects.touchStage(input.projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'asset_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: LaunchAssetStatus, actorId: string): Promise<void> {
+    await update('launchAssets', id, { status })
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'asset_status_changed', actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('launchAssets', id)
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'asset_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+// ===== Stage: Launch =====
+export const projectLaunch = {
+  async get(projectId: string): Promise<ProjectLaunch | null> {
+    return getById<ProjectLaunch & { id: string }>('projectLaunch', projectId)
+  },
+  async save(projectId: string, data: Omit<ProjectLaunch, 'projectId' | 'updatedAt'>, actorId: string): Promise<void> {
+    const ref = doc(db, 'projectLaunch', projectId)
+    await setDoc(ref, {
+      ...data,
+      projectId,
+      releaseDate: data.releaseDate ?? null,
+      updatedAt: Timestamp.now(),
+    }, { merge: true })
+    projects.touchStage(projectId, 'launch').catch(() => {})
+    audit({ type: 'stage', action: 'launch_updated', actorUid: actorId, actorEmail: '', projectId, targetId: projectId })
+  },
+}
+
+export const launchChecklist = {
+  async listByProject(projectId: string): Promise<LaunchChecklistItem[]> {
+    return getAll<LaunchChecklistItem>('launchChecklist', where('projectId', '==', projectId))
+  },
+  async add(input: LaunchChecklistItemInput, actorId: string): Promise<string> {
+    const id = await create('launchChecklist', {
+      ...input,
+      dueDate: input.dueDate ?? null,
+      ownerId: input.ownerId ?? null,
+    })
+    projects.touchStage(input.projectId, 'launch').catch(() => {})
+    audit({ type: 'stage', action: 'checklist_item_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: LaunchChecklistStatus, actorId: string): Promise<void> {
+    await update('launchChecklist', id, { status })
+    projects.touchStage(projectId, 'launch').catch(() => {})
+    const action = status === 'done' ? 'checklist_item_completed' : 'checklist_item_status_changed'
+    audit({ type: 'stage', action, actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('launchChecklist', id)
+    projects.touchStage(projectId, 'launch').catch(() => {})
+    audit({ type: 'stage', action: 'checklist_item_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const monitoringLinks = {
+  async listByProject(projectId: string): Promise<MonitoringLink[]> {
+    return getAll<MonitoringLink>('monitoringLinks', where('projectId', '==', projectId))
+  },
+  async add(input: MonitoringLinkInput, actorId: string): Promise<string> {
+    const id = await create('monitoringLinks', input)
+    projects.touchStage(input.projectId, 'launch').catch(() => {})
+    audit({ type: 'stage', action: 'monitoring_link_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('monitoringLinks', id)
+    projects.touchStage(projectId, 'launch').catch(() => {})
+    audit({ type: 'stage', action: 'monitoring_link_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+// ===== Stage: Repos =====
+export const projectRepoGraph = {
+  async get(projectId: string): Promise<ProjectRepoGraph | null> {
+    return getById<ProjectRepoGraph & { id: string }>('projectRepoGraph', projectId)
+  },
+  async save(projectId: string, data: Omit<ProjectRepoGraph, 'projectId' | 'updatedAt'>, actorId: string): Promise<void> {
+    const ref = doc(db, 'projectRepoGraph', projectId)
+    await setDoc(ref, { ...data, projectId, updatedAt: Timestamp.now() }, { merge: true })
+    projects.touchStage(projectId, 'repos').catch(() => {})
+    audit({ type: 'stage', action: 'repos_graph_updated', actorUid: actorId, actorEmail: '', projectId, targetId: projectId })
+  },
+}
+
+// ===== Stage: Deploy =====
+export const projectDeploy = {
+  async get(projectId: string): Promise<ProjectDeploy | null> {
+    return getById<ProjectDeploy & { id: string }>('projectDeploy', projectId)
+  },
+  async save(projectId: string, data: Omit<ProjectDeploy, 'projectId' | 'updatedAt'>, actorId: string): Promise<void> {
+    const ref = doc(db, 'projectDeploy', projectId)
+    await setDoc(ref, { ...data, projectId, updatedAt: Timestamp.now() }, { merge: true })
+    projects.touchStage(projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'deploy_updated', actorUid: actorId, actorEmail: '', projectId, targetId: projectId })
+  },
+}
+
+export const deployServers = {
+  async listByProject(projectId: string): Promise<DeployServer[]> {
+    return getAll<DeployServer>('deployServers', where('projectId', '==', projectId))
+  },
+  async add(input: DeployServerInput, actorId: string): Promise<string> {
+    const id = await create('deployServers', {
+      ...input,
+      region: input.region ?? null,
+      specs: input.specs ?? null,
+      ip: input.ip ?? null,
+      os: input.os ?? null,
+      costMonthly: input.costMonthly ?? null,
+      notes: input.notes ?? null,
+    })
+    projects.touchStage(input.projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'server_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async update(id: string, projectId: string, data: Partial<DeployServerInput>, actorId: string): Promise<void> {
+    await update('deployServers', id, data as DocumentData)
+    projects.touchStage(projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'server_updated', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('deployServers', id)
+    projects.touchStage(projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'server_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const deployDomains = {
+  async listByProject(projectId: string): Promise<DeployDomain[]> {
+    return getAll<DeployDomain>('deployDomains', where('projectId', '==', projectId))
+  },
+  async add(input: DeployDomainInput, actorId: string): Promise<string> {
+    const id = await create('deployDomains', {
+      ...input,
+      dnsProvider: input.dnsProvider ?? null,
+      proxied: input.proxied ?? false,
+      notes: input.notes ?? null,
+    })
+    projects.touchStage(input.projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'domain_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async update(id: string, projectId: string, data: Partial<DeployDomainInput>, actorId: string): Promise<void> {
+    await update('deployDomains', id, data as DocumentData)
+    projects.touchStage(projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'domain_updated', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('deployDomains', id)
+    projects.touchStage(projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'domain_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+// ===== Stage: Next (AI compass) =====
+export const nextSteps = {
+  async listByProject(projectId: string): Promise<NextStep[]> {
+    const all = await getAll<NextStep>('nextSteps', where('projectId', '==', projectId))
+    // Newest batch first, then by rank within a batch.
+    return all.sort((a, b) =>
+      b.createdAt.toMillis() - a.createdAt.toMillis() || a.rank - b.rank)
+  },
+  async add(input: NextStepInput, actorId: string): Promise<string> {
+    const id = await create('nextSteps', {
+      ...input,
+      status: 'pending',
+      createdAt: Timestamp.now(),
+      resolvedAt: null,
+    })
+    audit({ type: 'stage', action: 'next_step_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: NextStepStatus, actorId: string): Promise<void> {
+    await update('nextSteps', id, { status, resolvedAt: status === 'pending' ? null : Timestamp.now() })
+    audit({ type: 'stage', action: `next_step_${status}`, actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('nextSteps', id)
+    audit({ type: 'stage', action: 'next_step_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+// ===== Stage: Design =====
+export const projectDesign = {
+  async get(projectId: string): Promise<ProjectDesign | null> {
+    return getById<ProjectDesign & { id: string }>('projectDesign', projectId)
+  },
+  async save(projectId: string, data: Omit<ProjectDesign, 'projectId' | 'updatedAt'>, actorId: string): Promise<void> {
+    const ref = doc(db, 'projectDesign', projectId)
+    await setDoc(ref, { ...data, projectId, updatedAt: Timestamp.now() }, { merge: true })
+    projects.touchStage(projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'design_updated', actorUid: actorId, actorEmail: '', projectId, targetId: projectId })
+  },
+}
+
+export const designPrototypes = {
+  async listByProject(projectId: string): Promise<DesignPrototype[]> {
+    return getAll<DesignPrototype>('designPrototypes', where('projectId', '==', projectId))
+  },
+  async add(input: DesignPrototypeInput, actorId: string): Promise<string> {
+    const id = await create('designPrototypes', { ...input, status: input.status ?? 'draft', notes: input.notes ?? null })
+    projects.touchStage(input.projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'prototype_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async update(id: string, projectId: string, data: Partial<DesignPrototypeInput>, actorId: string): Promise<void> {
+    await update('designPrototypes', id, data as DocumentData)
+    projects.touchStage(projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'prototype_updated', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('designPrototypes', id)
+    projects.touchStage(projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'prototype_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const designScreens = {
+  async listByProject(projectId: string): Promise<DesignScreen[]> {
+    const all = await getAll<DesignScreen>('designScreens', where('projectId', '==', projectId))
+    return all.sort((a, b) => a.order - b.order)
+  },
+  async add(input: DesignScreenInput, actorId: string): Promise<string> {
+    const id = await create('designScreens', { ...input, status: input.status ?? 'todo', order: input.order ?? Date.now() })
+    projects.touchStage(input.projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'screen_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: DesignScreenStatus, actorId: string): Promise<void> {
+    await update('designScreens', id, { status })
+    projects.touchStage(projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'screen_status_changed', actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('designScreens', id)
+    projects.touchStage(projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'screen_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const designImages = {
+  async listByProject(projectId: string): Promise<DesignImage[]> {
+    return getAll<DesignImage>('designImages', where('projectId', '==', projectId))
+  },
+  async add(input: DesignImageInput, actorId: string): Promise<string> {
+    const id = await create('designImages', { ...input, caption: input.caption ?? null })
+    projects.touchStage(input.projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'design_image_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('designImages', id)
+    projects.touchStage(projectId, 'design').catch(() => {})
+    audit({ type: 'stage', action: 'design_image_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const marketListings = {
+  async listByProject(projectId: string): Promise<MarketListing[]> {
+    const all = await getAll<MarketListing>('marketListings', where('projectId', '==', projectId))
+    return all.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+  async add(input: MarketListingInput, actorId: string): Promise<string> {
+    const id = await create('marketListings', {
+      ...input,
+      model: input.model ?? 'one_time',
+      status: input.status ?? 'preparing',
+      price: input.price ?? null,
+      url: input.url ?? null,
+      notes: input.notes ?? null,
+      createdAt: Timestamp.now(),
+    })
+    projects.touchStage(input.projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'listing_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: MarketListingStatus, actorId: string): Promise<void> {
+    await update('marketListings', id, { status })
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'listing_status_changed', actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('marketListings', id)
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'listing_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const marketPlaybook = {
+  async listByProject(projectId: string): Promise<MarketPlaybookItem[]> {
+    const all = await getAll<MarketPlaybookItem>('marketPlaybook', where('projectId', '==', projectId))
+    return all.sort((a, b) => a.order - b.order)
+  },
+  async add(input: MarketPlaybookItemInput, actorId: string): Promise<string> {
+    const id = await create('marketPlaybook', {
+      ...input,
+      status: input.status ?? 'todo',
+      order: input.order ?? Date.now(),
+      createdAt: Timestamp.now(),
+    })
+    projects.touchStage(input.projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'playbook_item_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: MarketPlaybookStatus, actorId: string): Promise<void> {
+    await update('marketPlaybook', id, { status })
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'playbook_item_status_changed', actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('marketPlaybook', id)
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'playbook_item_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const marketCampaigns = {
+  async listByProject(projectId: string): Promise<MarketCampaign[]> {
+    const all = await getAll<MarketCampaign>('marketCampaigns', where('projectId', '==', projectId))
+    return all.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+  },
+  async add(input: MarketCampaignInput, actorId: string): Promise<string> {
+    const id = await create('marketCampaigns', {
+      ...input,
+      status: input.status ?? 'planned',
+      notes: input.notes ?? null,
+      result: input.result ?? null,
+      createdAt: Timestamp.now(),
+    })
+    projects.touchStage(input.projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'campaign_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async update(id: string, projectId: string, data: Partial<MarketCampaignInput>, actorId: string): Promise<void> {
+    await update('marketCampaigns', id, data as DocumentData)
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'campaign_updated', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+  async setStatus(id: string, projectId: string, status: MarketCampaignStatus, actorId: string): Promise<void> {
+    await update('marketCampaigns', id, { status })
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'campaign_status_changed', actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('marketCampaigns', id)
+    projects.touchStage(projectId, 'market').catch(() => {})
+    audit({ type: 'stage', action: 'campaign_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const deployRecommendations = {
+  async listByProject(projectId: string): Promise<DeployRecommendation[]> {
+    const all = await getAll<DeployRecommendation>('deployRecommendations', where('projectId', '==', projectId))
+    const sevRank = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
+    return all.sort((a, b) => sevRank[a.severity] - sevRank[b.severity])
+  },
+  async add(input: DeployRecommendationInput, actorId: string): Promise<string> {
+    const id = await create('deployRecommendations', {
+      ...input,
+      status: input.status ?? 'open',
+      createdAt: Timestamp.now(),
+    })
+    projects.touchStage(input.projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'deploy_rec_added', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: DeployRecStatus, actorId: string): Promise<void> {
+    await update('deployRecommendations', id, { status })
+    projects.touchStage(projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'deploy_rec_status_changed', actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('deployRecommendations', id)
+    projects.touchStage(projectId, 'deploy').catch(() => {})
+    audit({ type: 'stage', action: 'deploy_rec_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const repoSummaries = {
+  async listByProject(projectId: string): Promise<RepoSummary[]> {
+    return getAll<RepoSummary>('repoSummaries', where('projectId', '==', projectId))
+  },
+  /** Upsert by deterministic doc id so each project+repo pair has exactly one summary. */
+  async save(projectId: string, repoId: string, summary: string, actorId: string): Promise<void> {
+    const ref = doc(db, 'repoSummaries', `${projectId}_${repoId}`)
+    await setDoc(ref, { projectId, repoId, summary, generatedAt: Timestamp.now() }, { merge: true })
+    audit({ type: 'stage', action: 'repo_summary_generated', actorUid: actorId, actorEmail: '', projectId, targetId: repoId })
+  },
+}
+
+export const postLaunchIssues = {
+  async listByProject(projectId: string): Promise<PostLaunchIssue[]> {
+    const all = await getAll<PostLaunchIssue>('postLaunchIssues', where('projectId', '==', projectId))
+    return all.sort((a, b) => b.reportedAt.toMillis() - a.reportedAt.toMillis())
+  },
+  async add(input: PostLaunchIssueInput, actorId: string): Promise<string> {
+    const id = await create('postLaunchIssues', { ...input, reportedAt: Timestamp.now() })
+    projects.touchStage(input.projectId, 'launch').catch(() => {})
+    audit({ type: 'stage', action: 'post_launch_issue_opened', actorUid: actorId, actorEmail: '', projectId: input.projectId, targetId: id })
+    return id
+  },
+  async setStatus(id: string, projectId: string, status: PostLaunchIssueStatus, actorId: string): Promise<void> {
+    await update('postLaunchIssues', id, { status })
+    projects.touchStage(projectId, 'launch').catch(() => {})
+    const action = status === 'resolved' ? 'post_launch_issue_resolved' : 'post_launch_issue_status_changed'
+    audit({ type: 'stage', action, actorUid: actorId, actorEmail: '', projectId, targetId: id, details: { status } })
+  },
+  async remove(id: string, projectId: string, actorId: string): Promise<void> {
+    await remove('postLaunchIssues', id)
+    projects.touchStage(projectId, 'launch').catch(() => {})
+    audit({ type: 'stage', action: 'post_launch_issue_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
 }
