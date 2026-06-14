@@ -49,6 +49,7 @@ import { useToast } from '@/hooks/useToast'
 import { clearImageCache, getImageCacheInfo } from '@/lib/image-cache'
 import { verifyPasskey } from '@/lib/passkey'
 import { getNotificationPermission, requestNotificationPermission } from '@/lib/notifications'
+import { SIKAGIT_ENABLED } from '@/lib/sikagit-flag'
 
 export default function SettingsPage() {
   const { canModule, loading: permsLoading } = useModulePermissions()
@@ -319,7 +320,7 @@ export default function SettingsPage() {
                   AI
                 </TabsTrigger>
               )}
-              {isAppOwner && (
+              {SIKAGIT_ENABLED && isAppOwner && (
                 <TabsTrigger value="integrations" className="w-full justify-start gap-2.5 px-3 py-2.5 text-sm">
                   <GitBranch className="h-4 w-4" />
                   Integrations
@@ -961,7 +962,7 @@ export default function SettingsPage() {
         </TabsContent>}
 
         {/* Integrations Tab */}
-        {hasFullSettings && isAppOwner && <TabsContent value="integrations" className="space-y-6">
+        {SIKAGIT_ENABLED && hasFullSettings && isAppOwner && <TabsContent value="integrations" className="space-y-6">
           {/* Sikagit Integration */}
           <Card>
             <CardHeader>

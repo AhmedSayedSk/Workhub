@@ -107,6 +107,7 @@ import { ProjectNotesTab } from '@/components/projects/ProjectNotesTab'
 import { ProjectEquityTab } from '@/components/projects/ProjectEquityTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { SikagitProjectPicker } from '@/components/projects/SikagitProjectPicker'
+import { SIKAGIT_ENABLED } from '@/lib/sikagit-flag'
 import { useProjectPermissions } from '@/hooks/usePermissions'
 import { projects as projectsApi } from '@/lib/firestore'
 import { Project, PROJECT_STAGES } from '@/types'
@@ -211,7 +212,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const enabledStages = useMemo(() => {
     // 'next' (the AI compass) is always on — it isn't stored per-project.
-    const stored = (project?.enabledStages ?? ['build']) as ProjectStage[]
+    let stored = (project?.enabledStages ?? ['build']) as ProjectStage[]
+    // Drop 'repos' when the sikagit integration is gated off (prod): the pill is
+    // hidden and a ?stage=repos deep link is treated as unavailable + redirected.
+    if (!SIKAGIT_ENABLED) stored = stored.filter((s) => s !== 'repos')
     return stored.includes('next') ? stored : (['next', ...stored] as ProjectStage[])
   }, [project?.enabledStages])
   // Restore the active stage from ?stage= so a refresh doesn't reset to default.
@@ -1033,7 +1037,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {activeStage === 'deploy' && <DeployStage project={project} canEdit={can('editProject')} />}
             {activeStage === 'design' && <DesignStage project={project} canEdit={can('editProject')} />}
             {activeStage === 'next' && <NextStage project={project} canEdit={can('editProject')} />}
-            {activeStage === 'repos' && <ReposStage project={project} canEdit={can('editProject')} />}
+            {SIKAGIT_ENABLED && activeStage === 'repos' && <ReposStage project={project} canEdit={can('editProject')} />}
           </div>
         </TabsContentBoxed>
 
@@ -2016,18 +2020,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             )}
 
             {/* Integrations */}
-            <section className="space-y-1.5">
-              <Label htmlFor="edit-sikagit-project" className="text-xs" title="Required for the Repos view. Link a full sikagit project, or a single repo for one-repo products.">
-                Sikagit link
-              </Label>
-              <SikagitProjectPicker
-                projectValue={editForm.sikagitProjectId}
-                repoValue={editForm.sikagitRepoId}
-                onChange={({ projectId, repoId }) =>
-                  setEditForm({ ...editForm, sikagitProjectId: projectId, sikagitRepoId: repoId })
-                }
-              />
-            </section>
+            {SIKAGIT_ENABLED && (
+              <section className="space-y-1.5">
+                <Label htmlFor="edit-sikagit-project" className="text-xs" title="Required for the Repos view. Link a full sikagit project, or a single repo for one-repo products.">
+                  Sikagit link
+                </Label>
+                <SikagitProjectPicker
+                  projectValue={editForm.sikagitProjectId}
+                  repoValue={editForm.sikagitRepoId}
+                  onChange={({ projectId, repoId }) =>
+                    setEditForm({ ...editForm, sikagitProjectId: projectId, sikagitRepoId: repoId })
+                  }
+                />
+              </section>
+            )}
 
           </div>
           <DialogFooter>

@@ -4,6 +4,7 @@ import { X, Plus } from 'lucide-react'
 import type { ProjectStage } from '@/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { STAGE_META, STAGE_ORDER } from './stageMeta'
+import { SIKAGIT_ENABLED } from '@/lib/sikagit-flag'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -17,7 +18,10 @@ interface Props {
 
 export function StageStrip({ enabledStages, activeStage, canManage, onSelect, onEnable, onDisable }: Props) {
   const enabledSet = new Set(enabledStages)
-  const disabledStages = STAGE_ORDER.filter((s) => !enabledSet.has(s))
+  const disabledStages = STAGE_ORDER.filter(
+    // Don't offer 'repos' in the "Add stage" menu when sikagit is gated off (prod).
+    (s) => !enabledSet.has(s) && (SIKAGIT_ENABLED || s !== 'repos'),
+  )
 
   return (
     <div className="flex flex-wrap items-center gap-2 pb-1">
