@@ -212,10 +212,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const enabledStages = useMemo(() => {
     // 'next' (the AI compass) is always on — it isn't stored per-project.
-    let stored = (project?.enabledStages ?? ['build']) as ProjectStage[]
-    // Drop 'repos' when the sikagit integration is gated off (prod): the pill is
-    // hidden and a ?stage=repos deep link is treated as unavailable + redirected.
-    if (!SIKAGIT_ENABLED) stored = stored.filter((s) => s !== 'repos')
+    // The Repos stage reads its data from Firestore, so it's visible everywhere
+    // (prod renders read-only; only the local "Sync from sikagit" action is gated).
+    const stored = (project?.enabledStages ?? ['build']) as ProjectStage[]
     return stored.includes('next') ? stored : (['next', ...stored] as ProjectStage[])
   }, [project?.enabledStages])
   // Restore the active stage from ?stage= so a refresh doesn't reset to default.
@@ -1037,7 +1036,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {activeStage === 'deploy' && <DeployStage project={project} canEdit={can('editProject')} />}
             {activeStage === 'design' && <DesignStage project={project} canEdit={can('editProject')} />}
             {activeStage === 'next' && <NextStage project={project} canEdit={can('editProject')} />}
-            {SIKAGIT_ENABLED && activeStage === 'repos' && <ReposStage project={project} canEdit={can('editProject')} />}
+            {activeStage === 'repos' && <ReposStage project={project} canEdit={can('editProject')} />}
           </div>
         </TabsContentBoxed>
 

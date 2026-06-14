@@ -95,6 +95,8 @@ import {
   PostLaunchIssueStatus,
   ProjectRepoGraph,
   RepoSummary,
+  ProjectRepos,
+  RepoSnapshot,
   ProjectDeploy,
   DeployServer,
   DeployServerInput,
@@ -1782,6 +1784,22 @@ export const projectRepoGraph = {
   },
 }
 
+/**
+ * Snapshot of a project's repos, persisted by the local "Sync from sikagit" action.
+ * Display + AI read this in BOTH dev and prod — no filesystem access required.
+ */
+export const projectRepos = {
+  async get(projectId: string): Promise<ProjectRepos | null> {
+    return getById<ProjectRepos & { id: string }>('projectRepos', projectId)
+  },
+  async save(projectId: string, repos: RepoSnapshot[], actorId: string): Promise<void> {
+    const ref = doc(db, 'projectRepos', projectId)
+    await setDoc(ref, { projectId, repos, syncedAt: Timestamp.now(), syncedBy: actorId }, { merge: false })
+    projects.touchStage(projectId, 'repos').catch(() => {})
+    audit({ type: 'stage', action: 'repos_synced', actorUid: actorId, actorEmail: '', projectId, targetId: projectId, details: { count: repos.length } })
+  },
+}
+
 // ===== Stage: Deploy =====
 export const projectDeploy = {
   async get(projectId: string): Promise<ProjectDeploy | null> {
@@ -2076,15 +2094,38 @@ export const deployRecommendations = {
   },
 }
 
+/** Cap stored README text well under Firestore's 1 MB/doc limit. */
+const README_MAX_CHARS = 60000
+
 export const repoSummaries = {
   async listByProject(projectId: string): Promise<RepoSummary[]> {
     return getAll<RepoSummary>('repoSummaries', where('projectId', '==', projectId))
   },
+  /**
+   * Merge-upsert summary and/or README for one project+repo, by deterministic doc id.
+   * README is capped (truncated with a marker) to stay under Firestore's per-doc size limit.
+   */
+  async saveData(
+    projectId: string,
+    repoId: string,
+    data: { summary?: string | null; readme?: string | null },
+    actorId: string,
+  ): Promise<void> {
+    const ref = doc(db, 'repoSummaries', `${projectId}_${repoId}`)
+    const payload: DocumentData = { projectId, repoId, generatedAt: Timestamp.now() }
+    if (data.summary !== undefined) payload.summary = data.summary
+    if (data.readme !== undefined) {
+      payload.readme =
+        data.readme && data.readme.length > README_MAX_CHARS
+          ? data.readme.slice(0, README_MAX_CHARS) + '\n…(truncated)'
+          : data.readme
+    }
+    await setDoc(ref, payload, { merge: true })
+    audit({ type: 'stage', action: 'repo_summary_generated', actorUid: actorId, actorEmail: '', projectId, targetId: repoId })
+  },
   /** Upsert by deterministic doc id so each project+repo pair has exactly one summary. */
   async save(projectId: string, repoId: string, summary: string, actorId: string): Promise<void> {
-    const ref = doc(db, 'repoSummaries', `${projectId}_${repoId}`)
-    await setDoc(ref, { projectId, repoId, summary, generatedAt: Timestamp.now() }, { merge: true })
-    audit({ type: 'stage', action: 'repo_summary_generated', actorUid: actorId, actorEmail: '', projectId, targetId: repoId })
+    return repoSummaries.saveData(projectId, repoId, { summary }, actorId)
   },
 }
 

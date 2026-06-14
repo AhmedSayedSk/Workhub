@@ -5,7 +5,7 @@ import {
   projectDeploy, deployServers, deployDomains, deployRecommendations,
   projectMarket, marketChannels, marketCampaigns, marketListings, marketPlaybook, launchAssets,
   projectLaunch, launchChecklist, postLaunchIssues,
-  repoSummaries, nextSteps,
+  repoSummaries, projectRepos, nextSteps,
 } from '@/lib/firestore'
 
 function countBy<T>(items: T[], key: (t: T) => string): Record<string, number> {
@@ -33,7 +33,7 @@ export async function buildFullProjectContext(project: Project): Promise<string>
     deploy, servers, domains, recs,
     market, channels, campaigns, listings, playbook, assets,
     launch, checklist, issues,
-    repos, history,
+    repos, repoList, history,
   ] = await Promise.all([
     safe(projectShape.get(pid), null),
     safe(decisions.listByProject(pid), []),
@@ -56,6 +56,7 @@ export async function buildFullProjectContext(project: Project): Promise<string>
     safe(launchChecklist.listByProject(pid), []),
     safe(postLaunchIssues.listByProject(pid), []),
     safe(repoSummaries.listByProject(pid), []),
+    safe(projectRepos.get(pid), null),
     safe(nextSteps.listByProject(pid), []),
   ])
 
@@ -65,6 +66,15 @@ export async function buildFullProjectContext(project: Project): Promise<string>
   const openDecs = decs.filter((d) => d.status === 'open')
   const openRecs = recs.filter((r) => r.status === 'open')
   const resolvedSteps = history.filter((s) => s.status !== 'pending')
+
+  // Codebase view: prefer the synced repo snapshot (names + groups) joined to
+  // each repo's summary; fall back to bare summaries if no snapshot exists.
+  const summaryByRepoId: Record<string, string> = {}
+  for (const r of repos) summaryByRepoId[r.repoId] = r.summary
+  const codebaseLines: string[] = (repoList?.repos ?? []).length > 0
+    ? repoList!.repos.map((r) =>
+        `- ${r.name}${r.group ? ` [${r.group}]` : ''}: ${summaryByRepoId[r.id] ?? '(no summary)'}`)
+    : repos.map((r) => `- ${r.summary}`)
 
   const sections: (string | false)[] = [
     `# Project: ${project.name}`,
@@ -94,8 +104,8 @@ export async function buildFullProjectContext(project: Project): Promise<string>
       (inProgress.length > 0 ? `\nIn progress now: ${inProgress.slice(0, 6).map((t) => t.name).join('; ')}` : '') +
       (todo.length > 0 ? `\nTop todos: ${todo.slice(0, 8).map((t) => t.name).join('; ')}` : ''),
 
-    // Repos (codebase view)
-    repos.length > 0 && `## Codebase (repo summaries)\n${repos.map((r) => `- ${r.summary}`).join('\n')}`,
+    // Repos (codebase view) — systems/repos with their AI summaries
+    codebaseLines.length > 0 && `## Codebase (systems / repos)\n${codebaseLines.join('\n')}`,
 
     // Deploy
     (!!deploy || servers.length > 0 || domains.length > 0) &&

@@ -22,12 +22,13 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import { Maximize2, ExternalLink, Loader2, AlertTriangle, GitBranch, RefreshCw, FileText, Sparkles } from 'lucide-react'
-import type { Project, SikagitRepo, RepoGraphNode, RepoGraphEdge } from '@/types'
+import { Maximize2, Loader2, AlertTriangle, GitBranch, FileText, Sparkles, FolderSync } from 'lucide-react'
+import type { Project, RepoSnapshot, RepoGraphNode, RepoGraphEdge } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
-import { projectRepoGraph, repoSummaries } from '@/lib/firestore'
+import { projectRepoGraph, repoSummaries, projectRepos } from '@/lib/firestore'
 import { authFetch } from '@/lib/api-client'
+import { SIKAGIT_ENABLED } from '@/lib/sikagit-flag'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { MarkdownContent } from '@/components/ui/markdown-content'
@@ -38,10 +39,9 @@ import Link from 'next/link'
 interface Props { project: Project; canEdit: boolean }
 
 interface RepoNodeData extends Record<string, unknown> {
-  repo: SikagitRepo
+  repo: RepoSnapshot
   preview: string
-  loadingReadme: boolean
-  onExpand: (repo: SikagitRepo) => void
+  onExpand: (repo: RepoSnapshot) => void
   isPendingSource?: boolean
 }
 
@@ -49,7 +49,7 @@ const NODE_WIDTH = 260
 const NODE_HEIGHT = 140
 const SAVE_DEBOUNCE_MS = 700
 
-function dagreLayout(repos: SikagitRepo[]): Record<string, { x: number; y: number }> {
+function dagreLayout(repos: RepoSnapshot[]): Record<string, { x: number; y: number }> {
   const g = new dagre.graphlib.Graph()
   g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 80 })
   g.setDefaultEdgeLabel(() => ({}))
@@ -64,7 +64,7 @@ function dagreLayout(repos: SikagitRepo[]): Record<string, { x: number; y: numbe
 }
 
 function RepoNode({ data }: { data: RepoNodeData }) {
-  const { repo, preview, loadingReadme, onExpand, isPendingSource } = data
+  const { repo, preview, onExpand, isPendingSource } = data
   return (
     <div
       className={`group rounded-lg border bg-card text-card-foreground shadow-sm transition-shadow ${
@@ -89,14 +89,10 @@ function RepoNode({ data }: { data: RepoNodeData }) {
         </button>
       </div>
       <div className="px-3 pt-2 pb-3">
-        {loadingReadme ? (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" /> Summarizing…
-          </div>
-        ) : preview ? (
+        {preview ? (
           <p className="text-xs text-muted-foreground">{preview}</p>
         ) : (
-          <p className="text-xs italic text-muted-foreground">No README found</p>
+          <p className="text-xs italic text-muted-foreground">No summary</p>
         )}
       </div>
     </div>
@@ -116,6 +112,12 @@ const EDGE_MARKER = {
 /** Shared wire styling. */
 const EDGE_STYLE = { strokeWidth: 2 } as const
 
+interface SyncProgress {
+  done: number
+  total: number
+  label: string
+}
+
 function ReposStageInner({ project, canEdit }: Props) {
   const { settings } = useSettings()
   const { user } = useAuth()
@@ -125,82 +127,94 @@ function ReposStageInner({ project, canEdit }: Props) {
   const sikagitProjectId = project.sikagitProjectId ?? ''
   const sikagitRepoId = project.sikagitRepoId ?? ''
 
-  const [repos, setRepos] = useState<SikagitRepo[]>([])
+  const [repos, setRepos] = useState<RepoSnapshot[]>([])
   const [readmeByRepo, setReadmeByRepo] = useState<Record<string, string | null>>({})
   const [summaryByRepo, setSummaryByRepo] = useState<Record<string, string | null>>({})
-  const [summariesLoaded, setSummariesLoaded] = useState(false)
-  const [loadingRepos, setLoadingRepos] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loaded, setLoaded] = useState(false)
+  const [syncedAt, setSyncedAt] = useState<Date | null>(null)
   const [nodes, setNodes] = useState<Node<RepoNodeData>[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
-  const [expandedRepo, setExpandedRepo] = useState<SikagitRepo | null>(null)
-  const [expandedReadme, setExpandedReadme] = useState<string | null>(null)
-  const [expandedLoading, setExpandedLoading] = useState(false)
+  const [expandedRepo, setExpandedRepo] = useState<RepoSnapshot | null>(null)
   const [showFullReadme, setShowFullReadme] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
   const [pendingSourceId, setPendingSourceId] = useState<string | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
+  // Sync state (local-only).
+  const [syncing, setSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [syncWhisper, setSyncWhisper] = useState<string | null>(null)
+
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isFirstLayoutRef = useRef(true)
-  const summaryInflightRef = useRef<Set<string>>(new Set())
 
-  // Latest summary/readme maps, readable at async-resolve time inside effects
-  // whose dep arrays intentionally exclude them (avoids stale-closure wipes).
-  const summaryMapRef = useRef(summaryByRepo)
-  summaryMapRef.current = summaryByRepo
-  const readmeMapRef = useRef(readmeByRepo)
-  readmeMapRef.current = readmeByRepo
+  const canSync = SIKAGIT_ENABLED && canEdit
 
-  // Load cached AI summaries from Firestore.
-  useEffect(() => {
-    let cancelled = false
-    repoSummaries.listByProject(project.id)
-      .then((list) => {
-        if (cancelled) return
-        const map: Record<string, string | null> = {}
-        for (const s of list) map[s.repoId] = s.summary
-        setSummaryByRepo(map)
-        setSummariesLoaded(true)
-      })
-      .catch(() => { if (!cancelled) setSummariesLoaded(true) })
-    return () => { cancelled = true }
+  /** Load the persisted snapshot + summaries + graph from Firestore. No filesystem access. */
+  const loadFromFirestore = useCallback(async () => {
+    setLoading(true)
+    const [snapshot, summaryList, graph] = await Promise.all([
+      projectRepos.get(project.id).catch(() => null),
+      repoSummaries.listByProject(project.id).catch(() => []),
+      projectRepoGraph.get(project.id).catch(() => null),
+    ])
+
+    const repoList = snapshot?.repos ?? []
+    const summaryMap: Record<string, string | null> = {}
+    const readmeMap: Record<string, string | null> = {}
+    for (const s of summaryList) {
+      summaryMap[s.repoId] = s.summary ?? null
+      readmeMap[s.repoId] = s.readme ?? null
+    }
+
+    // Positions/edges from the saved graph; auto-layout repos missing a position.
+    const savedPositions: Record<string, { x: number; y: number }> = {}
+    for (const n of graph?.nodes ?? []) savedPositions[n.repoId] = { x: n.x, y: n.y }
+    const missing = repoList.filter((r) => !(r.id in savedPositions))
+    const autoPositions = missing.length > 0 ? dagreLayout(missing) : {}
+
+    const nextNodes: Node<RepoNodeData>[] = repoList.map((repo) => ({
+      id: repo.id,
+      type: 'repoNode',
+      position: savedPositions[repo.id] ?? autoPositions[repo.id] ?? { x: 0, y: 0 },
+      data: { repo, preview: summaryMap[repo.id] ?? '', onExpand },
+    }))
+    const nextEdges: Edge[] = (graph?.edges ?? []).map((e) => ({
+      id: e.id,
+      source: e.sourceRepoId,
+      target: e.targetRepoId,
+      label: e.label ?? undefined,
+      type: 'floating',
+      animated: false,
+      markerEnd: EDGE_MARKER,
+      style: EDGE_STYLE,
+    }))
+
+    setRepos(repoList)
+    setSummaryByRepo(summaryMap)
+    setReadmeByRepo(readmeMap)
+    setSyncedAt(snapshot?.syncedAt ? snapshot.syncedAt.toDate() : null)
+    setNodes(nextNodes)
+    setEdges(nextEdges)
+    setLoaded(true)
+    setLoading(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id])
 
-  /** Generate (or regenerate) the AI summary for one repo and cache it in Firestore. */
-  const generateSummary = useCallback(async (repo: SikagitRepo, readme: string): Promise<string | null> => {
-    if (!user) return null
-    try {
-      const response = await authFetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'summarize_repo', data: { repoName: repo.name, readme } }),
-      })
-      const result = await response.json()
-      if (!result.success || !result.data?.summary) return null
-      const summary: string = result.data.summary
-      setSummaryByRepo((prev) => ({ ...prev, [repo.id]: summary }))
-      repoSummaries.save(project.id, repo.id, summary, user.uid).catch(() => {})
-      return summary
-    } catch {
-      return null
-    }
-  }, [user, project.id])
-
-  // Auto-generate missing summaries once READMEs arrive (one inflight per repo).
   useEffect(() => {
-    if (!summariesLoaded || repos.length === 0) return
-    for (const repo of repos) {
-      const readme = readmeByRepo[repo.id]
-      if (!readme) continue // no README → nothing to summarize
-      if (summaryByRepo[repo.id]) continue // already cached
-      if (summaryInflightRef.current.has(repo.id)) continue
-      summaryInflightRef.current.add(repo.id)
-      generateSummary(repo, readme).finally(() => {
-        summaryInflightRef.current.delete(repo.id)
-      })
-    }
-  }, [summariesLoaded, repos, readmeByRepo, summaryByRepo, generateSummary])
+    let cancelled = false
+    ;(async () => {
+      if (cancelled) return
+      await loadFromFirestore()
+    })()
+    return () => { cancelled = true }
+  }, [loadFromFirestore])
+
+  // Stable callback for the node's "expand" button — reads stored README, no live fetch.
+  const onExpand = useCallback((repo: RepoSnapshot) => {
+    setExpandedRepo(repo)
+    setShowFullReadme(false)
+  }, [])
 
   // Reflect `pendingSourceId` into each node's data so RepoNode can render a ring.
   useEffect(() => {
@@ -223,140 +237,99 @@ function ReposStageInner({ project, canEdit }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [pendingSourceId])
 
-  // Stable callback for the node's "expand" button.
-  const onExpand = useCallback((repo: SikagitRepo) => {
-    setExpandedRepo(repo)
-    setExpandedReadme(null)
-    setShowFullReadme(false)
-    setExpandedLoading(true)
-    if (!dbPath) {
-      setExpandedReadme(null)
-      setExpandedLoading(false)
-      return
-    }
-    const params = new URLSearchParams({ dbPath })
-    if (pathPrefix) params.set('pathPrefix', pathPrefix)
-    fetch(`/api/sikagit/repos/${encodeURIComponent(repo.id)}/readme?${params.toString()}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setExpandedReadme(data?.readme?.content ?? null)
-      })
-      .catch(() => setExpandedReadme(null))
-      .finally(() => setExpandedLoading(false))
-  }, [dbPath, pathPrefix])
-
-  // 1) Load repos — either the linked sikagit project's repos, or the single linked repo
-  useEffect(() => {
-    if (!dbPath || (!sikagitProjectId && !sikagitRepoId)) { setRepos([]); return }
-    let cancelled = false
-    setLoadingRepos(true)
-    setError(null)
-    const params = new URLSearchParams({ dbPath })
-    if (pathPrefix) params.set('pathPrefix', pathPrefix)
-    const url = sikagitProjectId
-      ? `/api/sikagit/projects/${encodeURIComponent(sikagitProjectId)}/repos?${params.toString()}`
-      : `/api/sikagit/repos/${encodeURIComponent(sikagitRepoId)}?${params.toString()}`
-    fetch(url)
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return
-        if (data.error) { setError(data.error); setRepos([]); return }
-        setRepos(data.repos ?? (data.repo ? [data.repo] : []))
-      })
-      .catch((e) => { if (!cancelled) setError(String(e)) })
-      .finally(() => { if (!cancelled) setLoadingRepos(false) })
-    return () => { cancelled = true }
-  }, [dbPath, pathPrefix, sikagitProjectId, sikagitRepoId])
-
-  // 2) Fetch README previews for each repo (small)
-  useEffect(() => {
-    if (!dbPath || repos.length === 0) return
-    let cancelled = false
-    const params = new URLSearchParams({ dbPath })
-    if (pathPrefix) params.set('pathPrefix', pathPrefix)
-    for (const repo of repos) {
-      if (readmeByRepo[repo.id] !== undefined) continue
-      fetch(`/api/sikagit/repos/${encodeURIComponent(repo.id)}/readme?${params.toString()}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (cancelled) return
-          setReadmeByRepo((prev) => ({ ...prev, [repo.id]: data?.readme?.content ?? null }))
-        })
-        .catch(() => {
-          if (!cancelled) setReadmeByRepo((prev) => ({ ...prev, [repo.id]: null }))
-        })
-    }
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repos, dbPath, pathPrefix])
-
-  // 3) Load saved graph from Firestore, then build nodes + edges
-  useEffect(() => {
-    if (repos.length === 0) { setNodes([]); setEdges([]); return }
-    let cancelled = false
-    ;(async () => {
-      const saved = await projectRepoGraph.get(project.id).catch(() => null)
-      if (cancelled) return
-
-      const savedPositions: Record<string, { x: number; y: number }> = {}
-      for (const n of saved?.nodes ?? []) savedPositions[n.repoId] = { x: n.x, y: n.y }
-      const missing = repos.filter((r) => !(r.id in savedPositions))
-      const autoPositions = missing.length > 0 ? dagreLayout(missing) : {}
-
-      const nextNodes: Node<RepoNodeData>[] = repos.map((repo) => {
-        const pos = savedPositions[repo.id] ?? autoPositions[repo.id] ?? { x: 0, y: 0 }
-        // Read through refs: this runs after an await, so state captured in the
-        // effect closure may be stale by now.
-        const summary = summaryMapRef.current[repo.id] ?? ''
-        return {
-          id: repo.id,
-          type: 'repoNode',
-          position: pos,
-          data: {
-            repo,
-            preview: summary,
-            loadingReadme: !summary && readmeMapRef.current[repo.id] !== null,
-            onExpand,
-          },
-        }
-      })
-      const nextEdges: Edge[] = (saved?.edges ?? []).map((e) => ({
-        id: e.id,
-        source: e.sourceRepoId,
-        target: e.targetRepoId,
-        label: e.label ?? undefined,
-        type: 'floating',
-        animated: false,
-        markerEnd: EDGE_MARKER,
-        style: EDGE_STYLE,
-      }))
-      setNodes(nextNodes)
-      setEdges(nextEdges)
-      isFirstLayoutRef.current = !saved
-    })()
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repos, project.id, onExpand])
-
-  // Keep node previews in sync when AI summaries arrive or change.
+  // Keep node previews in sync when summaries change (e.g. after a sync).
   useEffect(() => {
     setNodes((curr) => {
       let changed = false
       const next = curr.map((n) => {
         const r = (n.data as RepoNodeData).repo
         const preview = summaryByRepo[r.id] ?? ''
-        // Still "loading" while there is (or may be) a README but no summary yet.
-        const loadingReadme = !preview && readmeByRepo[r.id] !== null
-        if (
-          (n.data as RepoNodeData).preview === preview &&
-          (n.data as RepoNodeData).loadingReadme === loadingReadme
-        ) return n
+        if ((n.data as RepoNodeData).preview === preview) return n
         changed = true
-        return { ...n, data: { ...(n.data as RepoNodeData), preview, loadingReadme } }
+        return { ...n, data: { ...(n.data as RepoNodeData), preview } }
       })
       return changed ? next : curr
     })
-  }, [summaryByRepo, readmeByRepo])
+  }, [summaryByRepo])
+
+  // ===== Sync from sikagit (LOCAL ONLY) =====
+  const handleSync = useCallback(async () => {
+    if (!user || syncing) return
+    if (!dbPath || (!sikagitProjectId && !sikagitRepoId)) return
+    setSyncing(true)
+    setSyncError(null)
+    setSyncWhisper(null)
+    setSyncProgress({ done: 0, total: 0, label: 'Reading repos…' })
+    const startedAt = Date.now()
+    try {
+      // 1) Live repo list from sikagit.
+      const params = new URLSearchParams({ dbPath })
+      if (pathPrefix) params.set('pathPrefix', pathPrefix)
+      const listUrl = sikagitProjectId
+        ? `/api/sikagit/projects/${encodeURIComponent(sikagitProjectId)}/repos?${params.toString()}`
+        : `/api/sikagit/repos/${encodeURIComponent(sikagitRepoId)}?${params.toString()}`
+      const listRes = await fetch(listUrl).then((r) => r.json())
+      if (listRes.error) throw new Error(listRes.error)
+      const liveRepos: RepoSnapshot[] = (
+        listRes.repos ?? (listRes.repo ? [listRes.repo] : [])
+      ).map((r: { id: string; name: string; displayPath: string; group?: string | null; avatar?: string | null; lastOpened?: string | null }) => ({
+        id: r.id,
+        name: r.name,
+        displayPath: r.displayPath,
+        group: r.group ?? null,
+        avatar: r.avatar ?? null,
+        lastOpened: r.lastOpened ?? null,
+      }))
+
+      setSyncProgress({ done: 0, total: liveRepos.length, label: 'Syncing repos…' })
+
+      // 2) + 3) For each repo: fetch README, generate a summary. Errors per-repo don't abort.
+      let done = 0
+      for (const repo of liveRepos) {
+        try {
+          const readmeRes = await fetch(
+            `/api/sikagit/repos/${encodeURIComponent(repo.id)}/readme?${params.toString()}`,
+          ).then((r) => r.json())
+          const readme: string | null = readmeRes?.readme?.content ?? null
+
+          let summary: string | null = null
+          if (readme) {
+            try {
+              const aiRes = await authFetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'summarize_repo', data: { repoName: repo.name, readme } }),
+              })
+              const aiJson = await aiRes.json()
+              if (aiJson.success && aiJson.data?.summary) summary = aiJson.data.summary
+            } catch {
+              // summary stays null on AI failure
+            }
+          }
+
+          // 4) Persist README + summary for this repo.
+          await repoSummaries.saveData(project.id, repo.id, { summary, readme }, user.uid).catch(() => {})
+        } catch {
+          // README fetch failed — skip this repo's content, keep going.
+        }
+        done += 1
+        setSyncProgress({ done, total: liveRepos.length, label: 'Syncing repos…' })
+      }
+
+      // 4) Persist the repo snapshot itself.
+      await projectRepos.save(project.id, liveRepos, user.uid)
+
+      // 5) Reload from Firestore + whisper.
+      await loadFromFirestore()
+      const secs = Math.max(1, Math.round((Date.now() - startedAt) / 1000))
+      setSyncWhisper(`Synced ✓ (${liveRepos.length} repo${liveRepos.length === 1 ? '' : 's'}, ${secs}s)`)
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSyncing(false)
+      setSyncProgress(null)
+    }
+  }, [user, syncing, dbPath, pathPrefix, sikagitProjectId, sikagitRepoId, project.id, loadFromFirestore])
 
   // Persist the graph (debounced)
   const scheduleSave = useCallback((nextNodes: Node<RepoNodeData>[], nextEdges: Edge[]) => {
@@ -451,8 +424,6 @@ function ReposStageInner({ project, canEdit }: Props) {
   }, [])
 
   // Highlight wires connected to the hovered node; dim the rest.
-  // Highlighted wires keep the default wire color but at full theme contrast,
-  // and animate as a dash pulse flowing source → target.
   const displayEdges = useMemo(() => {
     if (!hoveredNodeId) return edges
     return edges.map((e) =>
@@ -467,31 +438,44 @@ function ReposStageInner({ project, canEdit }: Props) {
     )
   }, [edges, hoveredNodeId])
 
-  // ===== Empty states =====
-  if (!dbPath) {
-    return (
-      <div className="space-y-4">
-        <StageEmptyState stage="repos" />
-        <p className="text-center text-sm text-muted-foreground">
-          Configure the sikagit database path in{' '}
-          <Link href="/settings?tab=integrations" className="underline">Settings → Integrations</Link>.
-        </p>
-      </div>
-    )
-  }
+  const expandedReadme = expandedRepo ? readmeByRepo[expandedRepo.id] ?? null : null
+  const expandedSummary = expandedRepo ? summaryByRepo[expandedRepo.id] ?? null : null
 
-  if (!sikagitProjectId && !sikagitRepoId) {
-    return (
-      <div className="space-y-4">
-        <StageEmptyState stage="repos" />
-        <p className="text-center text-sm text-muted-foreground">
-          Link a sikagit project — or a single repo — from the project Edit dialog.
-        </p>
-      </div>
-    )
-  }
+  // Reusable sync button + progress/whisper line (local only).
+  const syncBar = canSync && (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 gap-1 text-xs"
+        disabled={syncing || !dbPath || (!sikagitProjectId && !sikagitRepoId)}
+        onClick={handleSync}
+      >
+        {syncing
+          ? <Loader2 className="h-3 w-3 animate-spin" />
+          : <FolderSync className="h-3 w-3" />}
+        Sync from sikagit
+      </Button>
+      {syncProgress && (
+        <span className="text-muted-foreground">
+          {syncProgress.label}
+          {syncProgress.total > 0 ? ` ${syncProgress.done}/${syncProgress.total}` : ''}
+        </span>
+      )}
+      {syncWhisper && !syncing && (
+        <span className="text-green-700 dark:text-green-400">{syncWhisper}</span>
+      )}
+      {syncError && !syncing && (
+        <span className="text-destructive">Sync failed: {syncError}</span>
+      )}
+      {syncedAt && !syncProgress && !syncWhisper && !syncError && (
+        <span className="text-muted-foreground">Last synced {syncedAt.toLocaleString()}</span>
+      )}
+    </div>
+  )
 
-  if (loadingRepos) {
+  // ===== Loading =====
+  if (loading && !loaded) {
     return (
       <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading repos…
@@ -499,32 +483,59 @@ function ReposStageInner({ project, canEdit }: Props) {
     )
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-sm text-destructive">
-        <AlertTriangle className="mb-2 h-6 w-6" />
-        <p className="font-medium">Could not load sikagit repos</p>
-        <p className="mt-1 text-xs text-muted-foreground">{error}</p>
-      </div>
-    )
-  }
-
+  // ===== Empty states =====
   if (repos.length === 0) {
+    if (canSync) {
+      // Local: prompt to sync (with dbPath / link guidance).
+      return (
+        <div className="space-y-4">
+          <StageEmptyState stage="repos" />
+          <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+            {!dbPath ? (
+              <p>
+                Configure the sikagit database path in{' '}
+                <Link href="/settings?tab=integrations" className="underline">Settings → Integrations</Link>{' '}
+                to sync.
+              </p>
+            ) : !sikagitProjectId && !sikagitRepoId ? (
+              <p>Link a sikagit project — or a single repo — from the project Edit dialog, then sync.</p>
+            ) : (
+              <p>No repo data has been synced yet — click “Sync from sikagit” to pull the latest snapshot.</p>
+            )}
+            {syncBar}
+          </div>
+        </div>
+      )
+    }
+    // Prod (or non-editor): read-only, never synced.
     return (
-      <div className="py-16 text-center text-sm text-muted-foreground">
-        This sikagit project has no repos.
+      <div className="space-y-4">
+        <StageEmptyState stage="repos" />
+        <p className="text-center text-sm text-muted-foreground">
+          No repo data has been synced yet — run a sync from a local environment.
+        </p>
       </div>
     )
   }
 
   return (
     <div className="flex flex-col gap-3 lg:flex-1 lg:min-h-0">
-      {canEdit && pendingSourceId && (
-        <div className="flex items-center rounded-md border bg-muted/40 px-3 py-1.5 text-xs">
-          <span className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400">
-            <span className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
-            Pick a target repo to connect — Esc cancels
-          </span>
+      {(syncBar || (canEdit && pendingSourceId)) && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {syncBar}
+          {canEdit && pendingSourceId && (
+            <div className="flex items-center rounded-md border bg-muted/40 px-3 py-1.5 text-xs">
+              <span className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400">
+                <span className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
+                Pick a target repo to connect — Esc cancels
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+      {syncError && !syncBar && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-xs text-destructive">
+          <AlertTriangle className="h-3.5 w-3.5" /> Sync failed: {syncError}
         </div>
       )}
       <div className="rounded-lg border bg-background flex-1 min-h-[420px]">
@@ -554,7 +565,7 @@ function ReposStageInner({ project, canEdit }: Props) {
         </ReactFlow>
       </div>
 
-      <Dialog open={!!expandedRepo} onOpenChange={(open) => { if (!open) { setExpandedRepo(null); setExpandedReadme(null) } }}>
+      <Dialog open={!!expandedRepo} onOpenChange={(open) => { if (!open) { setExpandedRepo(null) } }}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -568,16 +579,6 @@ function ReposStageInner({ project, canEdit }: Props) {
             </DialogTitle>
             <DialogDescription className="flex items-center gap-2">
               <span className="truncate">{expandedRepo?.displayPath}</span>
-              {expandedRepo?.hostPath && (
-                <a
-                  href={`file://${expandedRepo.hostPath}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-blue-700 hover:underline inline-flex items-center gap-1"
-                >
-                  <ExternalLink className="h-3 w-3" /> open path
-                </a>
-              )}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto pr-2 flex-1 space-y-4">
@@ -588,9 +589,9 @@ function ReposStageInner({ project, canEdit }: Props) {
                 AI summary
               </div>
               <p className="mt-1.5 text-sm">
-                {expandedRepo && summaryByRepo[expandedRepo.id]
-                  ? summaryByRepo[expandedRepo.id]
-                  : expandedRepo && readmeByRepo[expandedRepo.id] === null
+                {expandedSummary
+                  ? expandedSummary
+                  : expandedReadme === null
                     ? <span className="italic text-muted-foreground">No README to summarize.</span>
                     : <span className="italic text-muted-foreground">Not generated yet.</span>}
               </p>
@@ -598,30 +599,11 @@ function ReposStageInner({ project, canEdit }: Props) {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-              {canEdit && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1"
-                  disabled={regenerating || expandedLoading || !expandedReadme}
-                  onClick={async () => {
-                    if (!expandedRepo || !expandedReadme) return
-                    setRegenerating(true)
-                    await generateSummary(expandedRepo, expandedReadme)
-                    setRegenerating(false)
-                  }}
-                >
-                  {regenerating
-                    ? <Loader2 className="h-3 w-3 animate-spin" />
-                    : <RefreshCw className="h-3 w-3" />}
-                  Regenerate summary
-                </Button>
-              )}
               <Button
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs gap-1"
-                disabled={expandedLoading || !expandedReadme}
+                disabled={!expandedReadme}
                 onClick={() => setShowFullReadme((v) => !v)}
               >
                 <FileText className="h-3 w-3" />
@@ -631,11 +613,7 @@ function ReposStageInner({ project, canEdit }: Props) {
 
             {/* Full README (on demand) */}
             {showFullReadme && (
-              expandedLoading ? (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground p-4">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Loading README…
-                </div>
-              ) : expandedReadme ? (
+              expandedReadme ? (
                 <div className="rounded-lg border p-3">
                   <MarkdownContent content={expandedReadme} />
                 </div>

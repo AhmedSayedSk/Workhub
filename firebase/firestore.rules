@@ -233,6 +233,11 @@ service cloud.firestore {
       allow write:  if canWriteProjectScoped(projectId);
     }
 
+    match /projectRepos/{projectId} {
+      allow read:   if canReadProjectScoped(projectId);
+      allow write:  if canWriteProjectScoped(projectId);
+    }
+
     match /repoSummaries/{summaryId} {
       allow read:   if canReadProjectScoped(resource.data.projectId);
       allow create: if canWriteProjectScoped(request.resource.data.projectId);

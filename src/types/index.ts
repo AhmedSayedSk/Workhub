@@ -1279,7 +1279,27 @@ export interface RepoSummary {
   projectId: string
   repoId: string
   summary: string
+  /** Stored README text (synced from sikagit), so prod can render it without filesystem access. */
+  readme?: string | null
   generatedAt: Timestamp
+}
+
+/** A single repo captured in a Firestore snapshot (sikagit → Firestore). */
+export interface RepoSnapshot {
+  id: string
+  name: string
+  displayPath: string
+  group?: string | null
+  avatar?: string | null
+  lastOpened?: string | null
+}
+
+/** The persisted snapshot of a project's repos, written by a local "Sync from sikagit" action. */
+export interface ProjectRepos {
+  projectId: string
+  repos: RepoSnapshot[]
+  syncedAt: Timestamp
+  syncedBy: string
 }
 
 // ===== Project Stage: Deploy (infrastructure) =====

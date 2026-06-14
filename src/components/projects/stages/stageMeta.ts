@@ -1,5 +1,5 @@
 import type { ProjectStage } from '@/types'
-import { Layers, Hammer, Megaphone, Rocket, GitBranch, Server, Palette, Navigation, LucideIcon } from 'lucide-react'
+import { Layers, ListChecks, Megaphone, Rocket, GitBranch, Server, Palette, Navigation, LucideIcon } from 'lucide-react'
 
 export interface StageMeta {
   key: ProjectStage
@@ -31,12 +31,13 @@ export const STAGE_META: Record<ProjectStage, StageMeta> = {
     emptyCta: 'Write the vision',
   },
   build: {
+    // Display label is "Tasks"; the stored stage key stays 'build' (no migration).
     key: 'build',
-    label: 'Build',
-    icon: Hammer,
+    label: 'Tasks',
+    icon: ListChecks,
     pillClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    description: 'Make it real. Workstreams, features, tasks toward an MVP.',
-    emptyCta: 'Add a feature',
+    description: 'The work board. Features, tasks, and day-to-day execution for this project.',
+    emptyCta: 'Add a task',
   },
   design: {
     key: 'design',
