@@ -470,6 +470,32 @@ export async function uploadBlob(
   })
 }
 
+// Uploads social media to social/{projectId}/{uniqueName}.{ext}; returns a public download URL usable by Meta/IG.
+export async function uploadSocialMedia(file: File, projectId: string): Promise<string> {
+  const unique = crypto.randomUUID()
+  const ext = getFileExtension(file.name) || 'bin'
+  const storagePath = `social/${projectId}/${unique}.${ext}`
+
+  const storageRef = ref(storage, storagePath)
+  const uploadTask = uploadBytesResumable(storageRef, file)
+
+  return new Promise((resolve, reject) => {
+    uploadTask.on(
+      'state_changed',
+      undefined,
+      reject,
+      async () => {
+        try {
+          const url = await getDownloadURL(uploadTask.snapshot.ref)
+          resolve(url)
+        } catch (error) {
+          reject(error)
+        }
+      }
+    )
+  })
+}
+
 export async function deleteFile(storagePath: string): Promise<void> {
   const storageRef = ref(storage, storagePath)
   await deleteObject(storageRef)

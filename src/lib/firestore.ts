@@ -125,6 +125,11 @@ import {
   NextStep,
   NextStepInput,
   NextStepStatus,
+  SocialPost,
+  SocialPostInput,
+  SocialPostStatus,
+  SocialInsight,
+  InsightScope,
 } from '@/types'
 
 // Helper function to convert input dates to Timestamps
@@ -2063,6 +2068,71 @@ export const marketCampaigns = {
     await remove('marketCampaigns', id)
     projects.touchStage(projectId, 'market').catch(() => {})
     audit({ type: 'stage', action: 'campaign_removed', actorUid: actorId, actorEmail: '', projectId, targetId: id })
+  },
+}
+
+export const socialPosts = {
+  /** All posts for a project, newest first by scheduledAt ?? createdAt (sorted client-side to avoid composite index). */
+  async listByProject(projectId: string): Promise<SocialPost[]> {
+    const all = await getAll<SocialPost>('socialPosts', where('projectId', '==', projectId))
+    return all.sort((a, b) => {
+      const aMs = (a.scheduledAt ?? a.createdAt)?.toMillis() ?? 0
+      const bMs = (b.scheduledAt ?? b.createdAt)?.toMillis() ?? 0
+      return bMs - aMs
+    })
+  },
+  /** Posts due to publish: status === 'scheduled' AND scheduledAt <= now. Query by status only, filter scheduledAt client-side. */
+  async getDue(nowMs: number): Promise<SocialPost[]> {
+    const scheduled = await getAll<SocialPost>('socialPosts', where('status', '==', 'scheduled'))
+    return scheduled.filter((p) => p.scheduledAt != null && p.scheduledAt.toMillis() <= nowMs)
+  },
+  /** Create a post; sets createdAt/updatedAt and defaults createdBy to actorId. Returns new doc id. */
+  async add(input: SocialPostInput, actorId: string): Promise<string> {
+    const now = Timestamp.now()
+    const docRef = await addDoc(collection(db, 'socialPosts'), {
+      ...input,
+      createdBy: input.createdBy ?? actorId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    return docRef.id
+  },
+  /** Patch fields; always bumps updatedAt. */
+  async update(id: string, patch: Partial<SocialPost>): Promise<void> {
+    const docRef = doc(db, 'socialPosts', id)
+    await updateDoc(docRef, {
+      ...patch,
+      updatedAt: Timestamp.now(),
+    })
+  },
+  /** Set status (+ optional extra fields like publishedAt/fbPostId/igMediaId/error/attempts); bumps updatedAt. */
+  async setStatus(id: string, status: SocialPostStatus, extra?: Partial<SocialPost>): Promise<void> {
+    const docRef = doc(db, 'socialPosts', id)
+    await updateDoc(docRef, {
+      ...extra,
+      status,
+      updatedAt: Timestamp.now(),
+    })
+  },
+}
+
+export const socialInsights = {
+  /** Most recent insight for a scope+refId (query by scope+refId, sort by capturedAt client-side, return first or null). */
+  async latest(scope: InsightScope, refId: string): Promise<SocialInsight | null> {
+    const all = await getAll<SocialInsight>(
+      'socialInsights',
+      where('scope', '==', scope),
+      where('refId', '==', refId),
+    )
+    const sorted = all.sort((a, b) => (b.capturedAt?.toMillis() ?? 0) - (a.capturedAt?.toMillis() ?? 0))
+    return sorted[0] ?? null
+  },
+  /** Save a new insight snapshot; defaults capturedAt to now if not provided. */
+  async save(input: Omit<SocialInsight, 'id'>): Promise<void> {
+    await addDoc(collection(db, 'socialInsights'), {
+      ...input,
+      capturedAt: input.capturedAt ?? Timestamp.now(),
+    })
   },
 }
 

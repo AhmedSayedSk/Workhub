@@ -285,6 +285,24 @@ service cloud.firestore {
       allow update, delete: if canWriteProjectScoped(resource.data.projectId);
     }
 
+    match /socialPosts/{postId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /socialInsights/{insightId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
+    match /adCampaigns/{campaignId} {
+      allow read:   if canReadProjectScoped(resource.data.projectId);
+      allow create: if canWriteProjectScoped(request.resource.data.projectId);
+      allow update, delete: if canWriteProjectScoped(resource.data.projectId);
+    }
+
     match /projectDesign/{projectId} {
       allow read:   if canReadProjectScoped(projectId);
       allow write:  if canWriteProjectScoped(projectId);

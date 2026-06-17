@@ -1392,3 +1392,59 @@ export interface DeployDomainInput {
   proxied?: boolean
   notes?: string | null
 }
+
+// ===== Social Media =====
+
+export type SocialPlatform = 'fb' | 'ig'
+export type SocialPostStatus = 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
+export type SocialMediaType = 'none' | 'image' | 'video'
+
+export interface SocialPost {
+  id: string
+  projectId: string
+  platforms: SocialPlatform[]
+  caption: string
+  mediaUrls: string[]
+  mediaType: SocialMediaType
+  status: SocialPostStatus
+  scheduledAt: Timestamp | null
+  publishedAt: Timestamp | null
+  fbPostId: string | null
+  igMediaId: string | null
+  error: string | null
+  attempts: number
+  createdBy: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export type SocialPostInput = Omit<SocialPost, 'id' | 'createdAt' | 'updatedAt'>
+
+export type InsightScope = 'account' | 'post'
+
+export interface SocialInsight {
+  id: string
+  scope: InsightScope
+  refId: string
+  platform: SocialPlatform
+  metrics: Record<string, number>
+  capturedAt: Timestamp
+}
+
+export type AdCampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+
+export interface AdCampaign {
+  id: string
+  projectId: string
+  metaCampaignId: string | null
+  name: string
+  objective: string
+  status: AdCampaignStatus
+  dailyBudget: number | null
+  adSetIds: string[]
+  adIds: string[]
+  lastMetrics: Record<string, number> | null
+  lastSyncedAt: Timestamp | null
+  createdBy: string
+  createdAt: Timestamp
+}
