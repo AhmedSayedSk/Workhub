@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { authFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
+import { SocialPanel } from './market/social/SocialPanel'
 
 interface Props { project: Project; canEdit: boolean }
 
@@ -424,6 +425,10 @@ export function MarketStage({ project, canEdit }: Props) {
   const showAssets = canEdit || assets.length > 0
 
   return (
+    <div className="space-y-3">
+    {/* Publishing — social posting & insights (new capability, sits above planning) */}
+    <SocialPanel project={project} canEdit={canEdit} />
+
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[60fr_40fr] lg:items-start">
     <Card className="divide-y">
       {/* Plan */}
@@ -946,6 +951,7 @@ export function MarketStage({ project, canEdit }: Props) {
         })}
       </div>
     </Card>
+    </div>
     </div>
   )
 }
