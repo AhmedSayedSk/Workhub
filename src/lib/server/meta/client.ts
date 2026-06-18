@@ -1,4 +1,5 @@
 import 'server-only'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 const V = process.env.META_GRAPH_VERSION || 'v21.0'
 const BASE = `https://graph.facebook.com/${V}`
@@ -10,7 +11,18 @@ export class MetaApiError extends Error {
   }
 }
 
-export function metaEnv() {
+export type MetaCreds = { token: string; pageId: string; igUserId: string; adAccountId: string }
+
+/**
+ * Per-project credential context. Publishing for a specific project runs within
+ * `metaContext.run(creds, ...)`, so metaEnv() — and therefore graphFetch / pages /
+ * instagram — use that project's Page/IG/token instead of the global env defaults.
+ */
+export const metaContext = new AsyncLocalStorage<MetaCreds>()
+
+export function metaEnv(): MetaCreds {
+  const ctx = metaContext.getStore()
+  if (ctx) return ctx
   const token = process.env.META_SYSTEM_TOKEN
   if (!token) throw new MetaApiError(500, null, 'META_SYSTEM_TOKEN is not set')
   return {
