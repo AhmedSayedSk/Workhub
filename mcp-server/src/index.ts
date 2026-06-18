@@ -24,6 +24,15 @@ import { listMembersSchema, listMembers } from './tools/list-members.js';
 import { addTaskCommentSchema, addTaskComment } from './tools/add-task-comment.js';
 import { updateTaskCommentSchema, updateTaskComment } from './tools/update-task-comment.js';
 import { deleteTaskCommentSchema, deleteTaskComment } from './tools/delete-task-comment.js';
+import { listScheduledPostsSchema, listScheduledPosts } from './tools/list-scheduled-posts.js';
+import { schedulerStatusSchema, schedulerStatus } from './tools/scheduler-status.js';
+import { runSchedulerSchema, runScheduler } from './tools/run-scheduler.js';
+import { createSocialPostSchema, createSocialPost } from './tools/create-social-post.js';
+import { listSocialPostsSchema, listSocialPosts } from './tools/list-social-posts.js';
+import { updateSocialPostSchema, updateSocialPost } from './tools/update-social-post.js';
+import { cancelSocialPostSchema, cancelSocialPost } from './tools/cancel-social-post.js';
+import { setSocialAccountSchema, setSocialAccount } from './tools/set-social-account.js';
+import { listSocialAccountsSchema, listSocialAccounts } from './tools/list-social-accounts.js';
 
 const server = new McpServer({
   name: 'workhub',
@@ -183,6 +192,72 @@ server.tool(
   'Delete a task/subtask comment by its commentId. Pass force:true to override the same-author guard.',
   deleteTaskCommentSchema,
   async (args) => deleteTaskComment(args)
+);
+
+// --- Social media scheduler (CoffeePOS + Sikasio campaigns) ---
+server.tool(
+  'list_scheduled_posts',
+  'List the social-media posts in the campaign schedulers (CoffeePOS + Sikasio) with their Facebook/Instagram status. Filter by campaign, platform, status, or timeframe.',
+  listScheduledPostsSchema,
+  async (args) => listScheduledPosts(args)
+);
+
+server.tool(
+  'scheduler_status',
+  'Dashboard of the social-media schedulers: per-campaign counts (published/scheduled/pending/due/missed) for FB + IG, the next upcoming post, cron health, and last run time.',
+  schedulerStatusSchema,
+  async (args) => schedulerStatus(args)
+);
+
+server.tool(
+  'run_scheduler',
+  'Trigger a campaign scheduler run now (instead of waiting for cron): schedules due Facebook posts and publishes due Instagram Reels. Use dryRun to preview without posting.',
+  runSchedulerSchema,
+  async (args) => runScheduler(args)
+);
+
+// --- Social posts (any project — drives WorkHub's socialPosts model) ---
+server.tool(
+  'create_social_post',
+  'Create a social media post for any WorkHub project (stored in WorkHub, not files). Provide projectId, platforms (fb/ig), caption, optional mediaUrls + mediaType. If scheduledAt is given it is scheduled, otherwise saved as a draft. Instagram requires media.',
+  createSocialPostSchema,
+  async (args) => createSocialPost(args)
+);
+
+server.tool(
+  'list_social_posts',
+  "List a project's social posts (or across all projects) with status, platforms, scheduled time, and caption. Filter by project, status, or platform.",
+  listSocialPostsSchema,
+  async (args) => listSocialPosts(args)
+);
+
+server.tool(
+  'update_social_post',
+  'Edit a social post (caption, media, platforms, or reschedule). Only draft/scheduled/failed posts can be edited.',
+  updateSocialPostSchema,
+  async (args) => updateSocialPost(args)
+);
+
+server.tool(
+  'cancel_social_post',
+  'Unschedule a social post (move it back to draft), or hardDelete it. Published posts cannot be unscheduled.',
+  cancelSocialPostSchema,
+  async (args) => cancelSocialPost(args)
+);
+
+// --- Per-project Meta accounts ---
+server.tool(
+  'set_social_account',
+  "Configure a project's Meta account (Facebook Page + Instagram + access token) so its social posts publish to its own channels. Stored in socialAccounts/{projectId}; falls back to global env when unset.",
+  setSocialAccountSchema,
+  async (args) => setSocialAccount(args)
+);
+
+server.tool(
+  'list_social_accounts',
+  'List the per-project Meta accounts configured (Facebook Page, Instagram user, Graph version; token shown masked).',
+  listSocialAccountsSchema,
+  async () => listSocialAccounts()
 );
 
 // Connect via stdio
