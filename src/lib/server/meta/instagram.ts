@@ -58,6 +58,8 @@ export async function getAccountInsights() {
     ],
   }
 }
-export async function getMediaInsights(mediaId: string, metrics = ['impressions', 'reach', 'likes', 'comments']) {
+// Note: the `impressions` media metric was retired by Meta for reels/video product types
+// ("The Media Insights API does not support the impressions metric...") — `views` replaces it.
+export async function getMediaInsights(mediaId: string, metrics = ['views', 'reach', 'likes', 'comments']) {
   return graphFetch<{ data: any[] }>(`${mediaId}/insights`, { params: { metric: metrics.join(',') } })
 }

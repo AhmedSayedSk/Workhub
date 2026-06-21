@@ -46,7 +46,10 @@ export async function listPosts(limit = 25) {
  * are deprecated). Follower count is read from the Page node's followers_count and
  * appended as a synthetic `page_followers` entry so the UI can render it uniformly.
  */
-export async function getPageInsights(metrics = ['page_impressions_unique', 'page_post_engagements', 'page_views_total']) {
+// Note: page_impressions_unique / page_impressions were retired by Meta (Graph v19+) and
+// return "(#100) The value must be a valid insights metric", which fails the whole call.
+// Only request metrics still supported in the current Graph version.
+export async function getPageInsights(metrics = ['page_post_engagements', 'page_views_total']) {
   const { pageId } = metaEnv()
   const access_token = await pageToken()
   const [insights, page] = await Promise.all([
