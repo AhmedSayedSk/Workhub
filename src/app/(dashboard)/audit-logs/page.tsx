@@ -17,9 +17,10 @@ import {
 } from '@/components/ui/select'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 import { auditLogs, userProfiles } from '@/lib/firestore'
 import { AuditLog, AuditLogType } from '@/types'
-import { formatRelativeTime, formatDateTime } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
 import {
   Loader2,
   ShieldAlert,
@@ -47,15 +48,13 @@ import {
   Clock,
   Flag,
   CheckSquare,
-  User,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Avatar, AvatarFallback, CachedAvatarImage } from '@/components/ui/avatar'
 
 const TYPE_CONFIG: Record<AuditLogType, { label: string; icon: any; color: string }> = {
   login:        { label: 'Login',        icon: LogIn,         color: 'text-green-600 dark:text-green-400' },
@@ -90,7 +89,22 @@ const TYPE_GROUPS = [
   { label: 'System', types: ['settings', 'calendar', 'media', 'payment', 'time_entry'] as AuditLogType[] },
 ]
 
-const PAGE_SIZE = 50
+const USER_PAGE_SIZE = 10
+
+// Compact relative time, e.g. "5h ago", "3d ago" — no "about"/"less than" filler.
+function formatCompactTime(ts: { toDate: () => Date }): string {
+  const seconds = Math.max(0, Math.floor((Date.now() - ts.toDate().getTime()) / 1000))
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  if (days < 30) return `${Math.floor(days / 7)}w ago`
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`
+  return `${Math.floor(days / 365)}y ago`
+}
 
 export default function AuditLogsPage() {
   const { user } = useAuth()
@@ -100,7 +114,7 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [nameMap, setNameMap] = useState<Map<string, string>>(new Map())
-  const [collapsedUsers, setCollapsedUsers] = useState<Set<string>>(new Set())
+  const [photoMap, setPhotoMap] = useState<Map<string, string>>(new Map())
 
   // Filters
   const [filterOpen, setFilterOpen] = useState(true)
@@ -109,7 +123,7 @@ export default function AuditLogsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [userPages, setUserPages] = useState<Record<string, number>>({})
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
@@ -124,10 +138,13 @@ export default function AuditLogsPage() {
       if (uids.length > 0) {
         const profiles = await userProfiles.getByUids(uids)
         const map = new Map<string, string>()
+        const photos = new Map<string, string>()
         profiles.forEach((p) => {
           if (p.displayName) map.set(p.uid, p.displayName)
+          if (p.photoURL) photos.set(p.uid, p.photoURL)
         })
         setNameMap(map)
+        setPhotoMap(photos)
       }
     } catch (err) {
       console.error('Failed to load audit logs:', err)
@@ -149,7 +166,18 @@ export default function AuditLogsPage() {
     return email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   }, [nameMap])
 
-  const getUserKey = (log: AuditLog) => log.actorUid || log.actorEmail || 'unknown'
+  const getAvatarUrl = useCallback((log: AuditLog): string | undefined => {
+    if (log.actorUid && photoMap.has(log.actorUid)) return photoMap.get(log.actorUid)
+    return undefined
+  }, [photoMap])
+
+  const getInitials = useCallback((log: AuditLog): string => {
+    const name = getDisplayName(log).trim()
+    const words = name.split(/\s+/).filter(Boolean)
+    if (words.length === 0) return '?'
+    if (words.length === 1) return words[0][0].toUpperCase()
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase()
+  }, [getDisplayName])
 
   const actorOptions = useMemo(() => {
     const map = new Map<string, { uid: string; name: string }>()
@@ -191,38 +219,20 @@ export default function AuditLogsPage() {
     return result
   }, [logs, selectedTypes, selectedUser, searchQuery])
 
-  const visibleLogs = filteredLogs.slice(0, visibleCount)
-
+  // Group filtered logs by user, preserving first-seen order (newest-first within each user).
   const groupedByUser = useMemo(() => {
-    const groups: { userKey: string; displayName: string; logs: AuditLog[] }[] = []
-    const map = new Map<string, AuditLog[]>()
-    const orderKeys: string[] = []
-    visibleLogs.forEach((log) => {
-      const key = getUserKey(log)
-      if (!map.has(key)) {
-        map.set(key, [])
-        orderKeys.push(key)
+    const groups = new Map<string, { userKey: string; displayName: string; logs: AuditLog[] }>()
+    for (const log of filteredLogs) {
+      const userKey = log.actorUid || log.actorEmail || 'unknown'
+      let group = groups.get(userKey)
+      if (!group) {
+        group = { userKey, displayName: getDisplayName(log), logs: [] }
+        groups.set(userKey, group)
       }
-      map.get(key)!.push(log)
-    })
-    orderKeys.forEach((key) => {
-      const userLogs = map.get(key)!
-      groups.push({
-        userKey: key,
-        displayName: getDisplayName(userLogs[0]),
-        logs: userLogs,
-      })
-    })
-    return groups
-  }, [visibleLogs, getDisplayName])
-
-  const toggleUserCollapse = (userKey: string) => {
-    setCollapsedUsers((prev) => {
-      const next = new Set(prev)
-      next.has(userKey) ? next.delete(userKey) : next.add(userKey)
-      return next
-    })
-  }
+      group.logs.push(log)
+    }
+    return Array.from(groups.values())
+  }, [filteredLogs, getDisplayName])
 
   const toggleType = (type: AuditLogType) => {
     setSelectedTypes((prev) => {
@@ -230,7 +240,7 @@ export default function AuditLogsPage() {
       next.has(type) ? next.delete(type) : next.add(type)
       return next
     })
-    setVisibleCount(PAGE_SIZE)
+    setUserPages({})
   }
 
   const toggleGroup = (types: AuditLogType[]) => {
@@ -240,7 +250,7 @@ export default function AuditLogsPage() {
       types.forEach((t) => allSelected ? next.delete(t) : next.add(t))
       return next
     })
-    setVisibleCount(PAGE_SIZE)
+    setUserPages({})
   }
 
   const clearFilters = () => {
@@ -249,7 +259,7 @@ export default function AuditLogsPage() {
     setSearchQuery('')
     setDateFrom('')
     setDateTo('')
-    setVisibleCount(PAGE_SIZE)
+    setUserPages({})
   }
 
   const hasActiveFilters = selectedTypes.size < ALL_TYPES.length || selectedUser !== '_all' || searchQuery || dateFrom || dateTo
@@ -266,25 +276,23 @@ export default function AuditLogsPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-2">
-          <Button
-            variant={filterOpen ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilterOpen(!filterOpen)}
-          >
-            <Filter className="h-4 w-4 mr-1" />
-            Filters
-            {hasActiveFilters && (
-              <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">!</Badge>
-            )}
-          </Button>
-          <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Refresh'}
-          </Button>
-        </div>
-      </div>
+      {/* Filters + Refresh live in the global header, like other pages */}
+      <HeaderActions>
+        <Button
+          variant={filterOpen ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilterOpen(!filterOpen)}
+        >
+          <Filter className="h-4 w-4 mr-1" />
+          Filters
+          {hasActiveFilters && (
+            <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">!</Badge>
+          )}
+        </Button>
+        <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Refresh'}
+        </Button>
+      </HeaderActions>
 
       <div className="flex gap-4">
         {/* Filter Sidebar */}
@@ -299,7 +307,7 @@ export default function AuditLogsPage() {
                   <Input
                     placeholder="Search logs..."
                     value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setVisibleCount(PAGE_SIZE) }}
+                    onChange={(e) => { setSearchQuery(e.target.value); setUserPages({}) }}
                     className="pl-8 h-8 text-sm"
                   />
                 </div>
@@ -310,7 +318,7 @@ export default function AuditLogsPage() {
               {/* User Filter */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">User</Label>
-                <Select value={selectedUser} onValueChange={(v) => { setSelectedUser(v); setVisibleCount(PAGE_SIZE) }}>
+                <Select value={selectedUser} onValueChange={(v) => { setSelectedUser(v); setUserPages({}) }}>
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -412,118 +420,112 @@ export default function AuditLogsPage() {
               <p className="text-sm">{hasActiveFilters ? 'Try adjusting your filters' : 'Events will appear here as they occur'}</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {groupedByUser.map((group) => {
-                const isCollapsed = collapsedUsers.has(group.userKey)
+                const firstLog = group.logs[0]
+                const totalPages = Math.max(1, Math.ceil(group.logs.length / USER_PAGE_SIZE))
+                const page = Math.min(userPages[group.userKey] ?? 1, totalPages)
+                const start = (page - 1) * USER_PAGE_SIZE
+                const end = Math.min(start + USER_PAGE_SIZE, group.logs.length)
+                const pageLogs = group.logs.slice(start, end)
+                const setPage = (next: number) =>
+                  setUserPages((prev) => ({
+                    ...prev,
+                    [group.userKey]: Math.max(1, Math.min(next, totalPages)),
+                  }))
+
                 return (
-                  <Card key={group.userKey}>
-                    <button
-                      onClick={() => toggleUserCollapse(group.userKey)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors rounded-t-lg"
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                      )}
-                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <User className="h-3.5 w-3.5 text-primary" />
-                      </div>
-                      <span className="text-sm font-semibold">{group.displayName}</span>
-                      <Badge variant="secondary" className="text-[10px] ml-auto">
-                        {group.logs.length} event{group.logs.length !== 1 ? 's' : ''}
-                      </Badge>
-                    </button>
-                    {!isCollapsed && (
-                      <CardContent className="px-4 pt-0 pb-2">
-                        <div className="space-y-1">
-                          {group.logs.map((log, i) => (
-                            <AuditLogRow
-                              key={log.id}
-                              log={log}
-                              displayName={group.displayName}
-                              showDate={i === 0 || !isSameDay(group.logs[i - 1].createdAt.toDate(), log.createdAt.toDate())}
-                            />
-                          ))}
+                  <div key={group.userKey} className="rounded-lg border overflow-hidden">
+                    {/* User header */}
+                    <div className="flex items-center gap-3 px-5 py-4 border-b border-border/60 bg-muted/30">
+                      <Avatar className="h-7 w-7">
+                        <CachedAvatarImage src={getAvatarUrl(firstLog)} alt="" />
+                        <AvatarFallback className="text-[10px] bg-primary/10">
+                          {getInitials(firstLog)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-semibold">{getDisplayName(firstLog)}</span>
+                    </div>
+
+                    {/* User's table */}
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-border/60 text-xs uppercase tracking-wide text-muted-foreground">
+                          <th className="py-2 px-3 font-medium">Time</th>
+                          <th className="py-2 px-3 font-medium">Type</th>
+                          <th className="py-2 px-3 font-medium">Event</th>
+                          <th className="py-2 px-3 font-medium">Project / Target</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pageLogs.map((log) => {
+                          const config = TYPE_CONFIG[log.type] || TYPE_CONFIG.project
+                          const Icon = config.icon
+                          return (
+                            <tr key={log.id} className="border-b border-border/60 last:border-0 hover:bg-muted/50 transition-colors align-top">
+                              <td className="py-2 px-3">
+                                <Tooltip delayDuration={0}>
+                                  <TooltipTrigger>
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {formatCompactTime(log.createdAt)}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="text-xs">
+                                    {formatDateTime(log.createdAt)}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </td>
+                              <td className="py-2 px-3">
+                                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                  <Icon className={`h-3.5 w-3.5 ${config.color}`} />
+                                  <span className="text-xs text-muted-foreground">{config.label}</span>
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 text-sm">{buildDescription(log)}</td>
+                              <td className="py-2 px-3 text-xs text-muted-foreground">
+                                {log.projectName ?? log.targetName ?? ''}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+
+                    {/* Per-user pagination */}
+                    {group.logs.length > USER_PAGE_SIZE && (
+                      <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-border/60">
+                        <span className="text-xs text-muted-foreground">
+                          Showing {start + 1}–{end} of {group.logs.length}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Page {page} / {totalPages}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page <= 1}
+                            onClick={() => setPage(page - 1)}
+                          >
+                            Prev
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page >= totalPages}
+                            onClick={() => setPage(page + 1)}
+                          >
+                            Next
+                          </Button>
                         </div>
-                      </CardContent>
+                      </div>
                     )}
-                  </Card>
+                  </div>
                 )
               })}
-              {filteredLogs.length > visibleCount && (
-                <div className="text-center pt-4">
-                  <Button variant="outline" size="sm" onClick={() => setVisibleCount((p) => p + PAGE_SIZE)}>
-                    Load more ({filteredLogs.length - visibleCount} remaining)
-                  </Button>
-                </div>
-              )}
             </div>
           )}
         </div>
       </div>
     </div>
-  )
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-
-function AuditLogRow({ log, displayName, showDate }: { log: AuditLog; displayName: string; showDate: boolean }) {
-  const config = TYPE_CONFIG[log.type] || TYPE_CONFIG.project
-  const Icon = config.icon
-  const time = log.createdAt.toDate()
-
-  const description = buildDescription(log)
-
-  return (
-    <>
-      {showDate && (
-        <div className="flex items-center gap-3 pt-3 pb-1">
-          <span className="text-xs font-semibold text-muted-foreground">
-            {time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-          </span>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-      )}
-      <div className="flex items-start gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
-        <div className={`mt-0.5 ${config.color}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground">{description}</span>
-          </div>
-          {log.details && Object.keys(log.details).length > 0 && (
-            <div className="mt-0.5 flex items-center gap-2 flex-wrap">
-              {Object.entries(log.details).map(([key, value]) => (
-                <Badge key={key} variant="outline" className="text-[10px] font-normal">
-                  {key}: {String(value)}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="text-right shrink-0">
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger>
-              <span className="text-xs text-muted-foreground">{formatRelativeTime(log.createdAt)}</span>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="text-xs">
-              {formatDateTime(log.createdAt)}
-            </TooltipContent>
-          </Tooltip>
-          <div className="mt-0.5">
-            <Badge variant="secondary" className={`text-[10px] ${config.color}`}>
-              {config.label}
-            </Badge>
-          </div>
-        </div>
-      </div>
-    </>
   )
 }
 
