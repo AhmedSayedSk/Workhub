@@ -11,6 +11,8 @@ import {
   AlertCircle,
   RefreshCw,
   X,
+  Play,
+  ImageOff,
 } from 'lucide-react'
 import type { Project, SocialMediaType, SocialPlatform, SocialPost, SocialPostStatus } from '@/types'
 import { socialPosts } from '@/lib/firestore'
@@ -433,52 +435,88 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
                   </span>
                   <Separator className="flex-1" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {rows.map((post) => {
                     const when =
                       formatTs(post.publishedAt) ?? formatTs(post.scheduledAt)
+                    const media = post.mediaUrls?.[0]
+                    const title = (post.caption ?? '').split('\n')[0].trim()
                     return (
                       <div
                         key={post.id}
-                        className="flex items-start gap-3 rounded-md border bg-card px-3 py-2"
+                        className="group flex flex-col overflow-hidden rounded-lg border bg-card transition-shadow hover:shadow-md"
                       >
-                        <PlatformIcons platforms={post.platforms} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm">
-                            {post.caption || (
-                              <span className="italic text-muted-foreground">No caption</span>
+                        {/* Media preview first */}
+                        <div className="relative aspect-square w-full overflow-hidden bg-muted">
+                          {media && post.mediaType === 'image' ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={media} alt="" className="h-full w-full object-cover" />
+                          ) : media && post.mediaType === 'video' ? (
+                            <>
+                              <video
+                                src={media}
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="h-full w-full object-cover"
+                              />
+                              <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white">
+                                  <Play className="h-5 w-5 fill-current" />
+                                </span>
+                              </span>
+                            </>
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                              <ImageOff className="h-8 w-8" />
+                            </div>
+                          )}
+                          <Badge
+                            variant={statusBadgeVariant(post.status)}
+                            className="absolute left-2 top-2 capitalize shadow-sm"
+                          >
+                            {post.status}
+                          </Badge>
+                          <span className="absolute right-2 top-2 flex items-center rounded-md bg-background/85 px-1.5 py-1 shadow-sm">
+                            <PlatformIcons platforms={post.platforms} />
+                          </span>
+                        </div>
+                        {/* Title summary only */}
+                        <div className="flex flex-1 flex-col gap-1.5 p-2.5">
+                          <p className="line-clamp-2 text-sm font-medium leading-snug">
+                            {title || (
+                              <span className="font-normal italic text-muted-foreground">No caption</span>
                             )}
                           </p>
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <Badge variant={statusBadgeVariant(post.status)} className="capitalize">
-                              {post.status}
-                            </Badge>
-                            {when && (
-                              <span className="text-xs text-muted-foreground">{when}</span>
-                            )}
-                            {post.status === 'failed' && post.error && (
-                              <span className="text-xs text-destructive truncate max-w-[240px]">
-                                {post.error}
-                              </span>
+                          <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
+                            {when && <span className="text-xs text-muted-foreground">{when}</span>}
+                            {post.status === 'failed' && canEdit && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2"
+                                disabled={retryingId === post.id}
+                                onClick={() => handleRetry(post)}
+                                title="Retry"
+                              >
+                                {retryingId === post.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                )}
+                              </Button>
                             )}
                           </div>
+                          {post.status === 'failed' && post.error && (
+                            <span
+                              className="truncate text-xs text-destructive"
+                              title={post.error}
+                            >
+                              {post.error}
+                            </span>
+                          )}
                         </div>
-                        {post.status === 'failed' && canEdit && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={retryingId === post.id}
-                            onClick={() => handleRetry(post)}
-                          >
-                            {retryingId === post.id ? (
-                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                            )}
-                            Retry
-                          </Button>
-                        )}
                       </div>
                     )
                   })}

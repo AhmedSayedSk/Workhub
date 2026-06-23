@@ -44,7 +44,7 @@ const PAGE_TITLES: { prefix: string; title: string; subtitle?: string }[] = [
   { prefix: '/time', title: 'Time Tracking', subtitle: 'Track and analyze your work time' },
   { prefix: '/team', title: 'Team', subtitle: 'Manage your team members' },
   { prefix: '/calendar', title: 'Calendar' },
-  { prefix: '/audit-logs', title: 'Audit Logs' },
+  { prefix: '/audit-logs', title: 'Audit Logs', subtitle: 'Track activity and security events across your workspace' },
   { prefix: '/settings', title: 'Settings', subtitle: 'Manage your account and preferences' },
   { prefix: '/image-generator', title: 'Image Generator' },
   { prefix: '/assistant', title: 'AI Assistant' },

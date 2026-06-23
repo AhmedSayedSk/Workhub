@@ -76,6 +76,7 @@ import {
   Bot,
   Building2,
   Calendar,
+  CalendarDays,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -108,7 +109,8 @@ import { ProjectEquityTab } from '@/components/projects/ProjectEquityTab'
 import { ProjectImagePicker, ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { SikagitProjectPicker } from '@/components/projects/SikagitProjectPicker'
 import { SIKAGIT_ENABLED } from '@/lib/sikagit-flag'
-import { useProjectPermissions } from '@/hooks/usePermissions'
+import { useProjectPermissions, useModulePermissions } from '@/hooks/usePermissions'
+import { CalendarView } from '@/components/calendar/CalendarView'
 import { projects as projectsApi } from '@/lib/firestore'
 import { Project, PROJECT_STAGES } from '@/types'
 import type { ProjectStage } from '@/types'
@@ -127,7 +129,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const VALID_TABS = ['workspace', 'notes', 'attachments', 'vault', 'payments', 'equity', 'activity']
+  const VALID_TABS = ['workspace', 'calendar', 'notes', 'attachments', 'vault', 'payments', 'equity', 'activity']
   const {
     project,
     parentProject,
@@ -146,6 +148,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   } = useProject(id)
   const { logs: activityLogs, loading: logsLoading, refetch: refetchLogs, deleteLog } = useProjectLogs(id)
   const { can, loading: permsLoading } = useProjectPermissions(id)
+  const { canModule } = useModulePermissions()
   const { reauthenticate, user } = useAuth()
 
   const [ownerProfile, setOwnerProfile] = useState<UserProfile | null>(null)
@@ -965,6 +968,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             Workspace
           </TabsTriggerBoxed>
           )}
+          {canModule('viewCalendar') && (
+          <TabsTriggerBoxed value="calendar" className="gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Calendar
+          </TabsTriggerBoxed>
+          )}
           {can('viewNotes') && (
           <TabsTriggerBoxed value="notes" className="gap-2">
             <StickyNote className="h-4 w-4" />
@@ -1038,6 +1047,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {activeStage === 'next' && <NextStage project={project} canEdit={can('editProject')} />}
             {activeStage === 'repos' && <ReposStage project={project} canEdit={can('editProject')} />}
           </div>
+        </TabsContentBoxed>
+
+        <TabsContentBoxed value="calendar" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <CalendarView projectId={project.id} />
         </TabsContentBoxed>
 
         <TabsContentBoxed value="attachments" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto">

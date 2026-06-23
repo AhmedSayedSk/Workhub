@@ -321,7 +321,7 @@ export default function ProjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_560px] lg:items-start">
           {/* Client projects — main column */}
           <div className="space-y-6">
           {statusOrder.map((status) => {
@@ -344,7 +344,7 @@ export default function ProjectsPage() {
                 </div>
 
                 {/* Projects Grid */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {projectsInGroup.map((project) => {
                     const progress = calculateProgress(project.paidAmount, getEffectiveTotal(project))
                     const PaymentIcon = paymentModelIcons[project.paymentModel]
@@ -370,18 +370,18 @@ export default function ProjectsPage() {
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
-                                  <CardTitle className="text-xl pr-28 !mt-0 truncate">{project.name}</CardTitle>
+                                  <CardTitle className="text-base pr-28 !mt-0 truncate">{project.name}</CardTitle>
                                   <StageBadge stage={project.lastTouchedStage ?? null} className="shrink-0 mt-0.5" />
                                 </div>
                                 {project.paymentModel === 'internal' ? (
-                                  <p className="text-sm text-muted-foreground">
+                                  <p className="text-xs text-muted-foreground">
                                     Internal Project
                                     {project.projectType && project.projectType !== 'other' && (
                                       <span className="text-muted-foreground/70"> · {projectTypes.find((t) => t.value === project.projectType)?.label}</span>
                                     )}
                                   </p>
                                 ) : (
-                                  <p className="text-sm">
+                                  <p className="text-xs">
                                     {project.clientName && (
                                       <span className="text-primary font-medium">{project.clientName}</span>
                                     )}
@@ -404,7 +404,7 @@ export default function ProjectsPage() {
                               {project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && project.hasOwnFinances !== false && (
                                 <div className="space-y-2">
                                   <Progress value={progress} className="h-2" />
-                                  <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center justify-between text-xs">
                                     <span className="text-muted-foreground">
                                       {formatCurrency(project.paidAmount)}
                                     </span>
@@ -417,7 +417,7 @@ export default function ProjectsPage() {
 
                               {/* Internal project estimated value */}
                               {project.paymentModel === 'internal' && (project.estimatedValue ?? 0) > 0 && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>Estimated Value: {formatCurrency(project.estimatedValue ?? 0)}</span>
                                 </div>
                               )}
@@ -630,7 +630,7 @@ export default function ProjectsPage() {
                       open <ChevronRight className="h-3 w-3" />
                     </Link>
                   </div>
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-3 space-y-6">
                     {(() => {
                       // Grouping comes ONLY from the manual Group field (managed on the org).
                       const groupOf = (s: Project) => s.group?.trim() || ''
@@ -684,7 +684,7 @@ export default function ProjectsPage() {
                               <p className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{groupName || 'No group'}</p>
                               <div className="h-px flex-1 bg-border/60" />
                             </div>
-                            <div className="space-y-1">
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
                     {items.map((sub, localIdx) => (
                       <TooltipProvider key={sub.id} delayDuration={350}>
                         <Tooltip>

@@ -20,7 +20,6 @@ import {
   FolderOpen,
   Users,
   ExternalLink,
-  CalendarDays,
   Wand2,
   User,
   ScrollText,
@@ -33,7 +32,6 @@ const allMainNavItems = [
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/team', label: 'Team', icon: Users, moduleKey: 'viewTeam' as const },
   { href: '/audit-logs', label: 'Audit Logs', icon: ScrollText, ownerOnly: true },
-  { href: '/calendar', label: 'Calendar', icon: CalendarDays, moduleKey: 'viewCalendar' as const },
   { href: '/media', label: 'Media Library', icon: FolderOpen, moduleKey: 'viewMedia' as const },
 ]
 
