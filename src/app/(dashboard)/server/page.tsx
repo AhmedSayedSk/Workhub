@@ -114,32 +114,30 @@ export default function ServerPage() {
 
           {stats.host && <HostOverview host={stats.host} cpuHistory={cpuHistory.current} />}
 
-          <MetricCharts
-            current={
-              stats.host
-                ? {
-                    cpuPct: stats.host.cpu.usagePct,
-                    memPct: pctOf(stats.host.memory.usedBytes, stats.host.memory.totalBytes),
-                    diskPct: pctOf(stats.host.disk.usedBytes, stats.host.disk.totalBytes),
-                    load1: stats.host.cpu.load1,
-                  }
-                : undefined
-            }
-          />
-
-          {stats.apps && <AppsTable apps={stats.apps} />}
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            {stats.containers && (
-              <div className="lg:col-span-2">
-                <ContainerTable containers={stats.containers} />
-              </div>
-            )}
-            <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+              <MetricCharts
+                current={
+                  stats.host
+                    ? {
+                        cpuPct: stats.host.cpu.usagePct,
+                        memPct: pctOf(stats.host.memory.usedBytes, stats.host.memory.totalBytes),
+                        diskPct: pctOf(stats.host.disk.usedBytes, stats.host.disk.totalBytes),
+                        load1: stats.host.cpu.load1,
+                      }
+                    : undefined
+                }
+              />
+            </div>
+            <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
               {stats.certs && <CertList certs={stats.certs} />}
             </div>
           </div>
+
+          {stats.apps && <AppsTable apps={stats.apps} />}
+
+          {stats.containers && <ContainerTable containers={stats.containers} />}
 
           {stats.errors.length > 0 && (
             <div className="space-y-1 text-xs text-muted-foreground">

@@ -98,7 +98,7 @@ function MetricPanel({
       </div>
       <div className="h-28">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={points} margin={{ top: 6, right: 6, bottom: 0, left: -22 }}>
+          <AreaChart data={points} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={def.color} stopOpacity={0.35} />
@@ -113,21 +113,18 @@ function MetricPanel({
               domain={xDomain}
               allowDataOverflow
               tickFormatter={(t) => fmtTick(t as number, range)}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
               minTickGap={48}
-              stroke="currentColor"
-              className="text-muted-foreground"
             />
             <YAxis
               domain={def.domain as [number, number]}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
-              width={36}
-              stroke="currentColor"
-              className="text-muted-foreground"
+              width={40}
+              tickCount={def.isPct ? 3 : 4}
             />
             {def.threshold != null && (
               <ReferenceLine
