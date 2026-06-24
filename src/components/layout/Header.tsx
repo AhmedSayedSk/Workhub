@@ -273,9 +273,11 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
-      {/* Left: project context on a project page, page title elsewhere */}
+      {/* Left: project context on a project page, page title elsewhere.
+          `#header-title-slot` lets a page inject a DYNAMIC title (e.g. Server). */}
       <div className="flex items-center gap-2 min-w-0">
         {projectId ? <ProjectContextBlock projectId={projectId} /> : <PageTitleBlock />}
+        <div id="header-title-slot" className="contents" />
       </div>
 
       {/* Actions */}

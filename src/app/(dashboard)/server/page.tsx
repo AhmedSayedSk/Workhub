@@ -6,7 +6,9 @@ import { useSettings } from '@/hooks/useSettings'
 import { authFetch } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, ShieldAlert, RefreshCw, Server, AlertCircle } from 'lucide-react'
+import { Loader2, ShieldAlert, RefreshCw, AlertCircle } from 'lucide-react'
+import { HeaderTitle } from '@/components/layout/HeaderTitle'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 import type { VpsStats } from '@/lib/server/vps/types'
 import { AlertBanner } from '@/components/vps/AlertBanner'
 import { HostOverview } from '@/components/vps/HostOverview'
@@ -18,6 +20,8 @@ import { AppsTable } from '@/components/vps/AppsTable'
 
 const POLL_MS = 5000
 const CPU_HISTORY = 30
+
+const pctOf = (used: number, total: number) => (total > 0 ? Math.round((used / total) * 1000) / 10 : 0)
 
 export default function ServerPage() {
   const { user } = useAuth()
@@ -73,22 +77,24 @@ export default function ServerPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold">
-            <Server className="h-6 w-6" />
+      {/* Title + actions live in the global top header bar (portaled). */}
+      <HeaderTitle>
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-semibold leading-tight tracking-tight">
             {stats?.meta?.name || 'Server'}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {stats?.meta?.subtitle || 'live VPS stats'}
+          <p className="truncate text-xs leading-tight text-muted-foreground">
+            {stats?.meta?.subtitle || 'Live VPS stats'}
             {stats ? ` · updated ${new Date(stats.generatedAtMs).toLocaleTimeString()}` : ''}
           </p>
         </div>
+      </HeaderTitle>
+      <HeaderActions>
         <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}>
           <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           Refresh
         </Button>
-      </div>
+      </HeaderActions>
 
       {loading && !stats && (
         <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -108,7 +114,18 @@ export default function ServerPage() {
 
           {stats.host && <HostOverview host={stats.host} cpuHistory={cpuHistory.current} />}
 
-          <MetricCharts />
+          <MetricCharts
+            current={
+              stats.host
+                ? {
+                    cpuPct: stats.host.cpu.usagePct,
+                    memPct: pctOf(stats.host.memory.usedBytes, stats.host.memory.totalBytes),
+                    diskPct: pctOf(stats.host.disk.usedBytes, stats.host.disk.totalBytes),
+                    load1: stats.host.cpu.load1,
+                  }
+                : undefined
+            }
+          />
 
           {stats.apps && <AppsTable apps={stats.apps} />}
 
