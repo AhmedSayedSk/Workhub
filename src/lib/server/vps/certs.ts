@@ -56,7 +56,9 @@ function probeOne(domain: string): Promise<CertInfo> {
         }
         const validToMs = new Date(cert.valid_to).getTime()
         const daysRemaining = Math.floor((validToMs - Date.now()) / (24 * 60 * 60 * 1000))
-        const issuer = cert.issuer?.O || cert.issuer?.CN || null
+        // Node types issuer DN fields as string | string[]; normalize to a single string.
+        const issuerRaw = cert.issuer?.O ?? cert.issuer?.CN
+        const issuer = Array.isArray(issuerRaw) ? issuerRaw[0] ?? null : issuerRaw ?? null
         resolve({ domain, issuer, validToMs, daysRemaining })
       }
     )
