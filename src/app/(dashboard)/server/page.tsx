@@ -54,7 +54,7 @@ export default function ServerPage() {
 
   if (!isAppOwner) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center p-6">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <ShieldAlert className="h-10 w-10 text-muted-foreground" />
@@ -67,7 +67,7 @@ export default function ServerPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4">
       {/* Title + actions live in the global top header bar (portaled). */}
       <HeaderTitle>
         <div className="min-w-0">
