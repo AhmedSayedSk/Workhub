@@ -19,10 +19,15 @@ import type { MetricPoint, HostStats } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
 import { usageColor, pct, formatBytes, formatUptime } from './format'
 
-const RANGES = ['1h', '24h', '7d'] as const
+const RANGES = ['1h', '8h', '24h', '7d'] as const
 type Range = (typeof RANGES)[number]
 
-const RANGE_MS: Record<Range, number> = { '1h': 3600_000, '24h': 86_400_000, '7d': 604_800_000 }
+const RANGE_MS: Record<Range, number> = {
+  '1h': 3600_000,
+  '8h': 28_800_000,
+  '24h': 86_400_000,
+  '7d': 604_800_000,
+}
 
 type MetricKey = 'cpuPct' | 'memPct' | 'diskPct' | 'load1'
 

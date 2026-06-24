@@ -52,13 +52,14 @@ async function prune(): Promise<void> {
 
 const RANGE_MS: Record<string, number> = {
   '1h': 60 * 60 * 1000,
+  '8h': 8 * 60 * 60 * 1000,
   '24h': 24 * 60 * 60 * 1000,
   '7d': 7 * 24 * 60 * 60 * 1000,
 }
-// Target point count per range so each line is sensibly resolved:
-// 1h ≈ 1-min, 24h ≈ 10-min buckets, 7d ≈ 1-hour buckets.
-const TARGET_POINTS: Record<string, number> = { '1h': 60, '24h': 144, '7d': 168 }
-const CACHE_TTL_MS: Record<string, number> = { '1h': 30_000, '24h': 120_000, '7d': 600_000 }
+// Target point count per range so each line is sensibly resolved.
+// Longer ranges use fewer (averaged) points for a smoother, less busy line.
+const TARGET_POINTS: Record<string, number> = { '1h': 60, '8h': 96, '24h': 72, '7d': 84 }
+const CACHE_TTL_MS: Record<string, number> = { '1h': 30_000, '8h': 60_000, '24h': 120_000, '7d': 600_000 }
 const cache: Record<string, { at: number; data: MetricPoint[] }> = {}
 
 export async function readHistory(range: string): Promise<MetricPoint[]> {
