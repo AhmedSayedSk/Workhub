@@ -33,7 +33,6 @@ const allMainNavItems = [
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/team', label: 'Team', icon: Users, moduleKey: 'viewTeam' as const },
   { href: '/audit-logs', label: 'Audit Logs', icon: ScrollText, ownerOnly: true },
-  { href: '/server', label: 'Server', icon: Server, ownerOnly: true },
   { href: '/media', label: 'Media Library', icon: FolderOpen, moduleKey: 'viewMedia' as const },
 ]
 
@@ -272,8 +271,42 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )}
         </nav>
 
-        {/* Settings & Collapse */}
+        {/* Server (owner-only), Settings & Collapse */}
         <div className="border-t p-2 space-y-1 overflow-hidden">
+          {isAppOwner &&
+            (collapsed ? (
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/server"
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted hover:text-foreground',
+                      pathname.startsWith('/server') ? 'bg-muted text-foreground' : 'text-muted-foreground'
+                    )}
+                  >
+                    <Server className="h-5 w-5 flex-shrink-0" />
+                    <span className="whitespace-nowrap opacity-0">Server</span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={10}>
+                  Server
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Link
+                href="/server"
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted hover:text-foreground',
+                  pathname.startsWith('/server') ? 'bg-muted text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                <Server className="h-5 w-5 flex-shrink-0" />
+                <span className="whitespace-nowrap transition-opacity duration-200 opacity-100 delay-100">
+                  Server
+                </span>
+              </Link>
+            ))}
+
           {collapsed ? (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
