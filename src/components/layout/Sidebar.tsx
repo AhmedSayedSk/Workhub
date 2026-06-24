@@ -23,6 +23,7 @@ import {
   Wand2,
   User,
   ScrollText,
+  Server,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -32,6 +33,7 @@ const allMainNavItems = [
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/team', label: 'Team', icon: Users, moduleKey: 'viewTeam' as const },
   { href: '/audit-logs', label: 'Audit Logs', icon: ScrollText, ownerOnly: true },
+  { href: '/server', label: 'Server', icon: Server, ownerOnly: true },
   { href: '/media', label: 'Media Library', icon: FolderOpen, moduleKey: 'viewMedia' as const },
 ]
 
