@@ -24,15 +24,22 @@ import {
   User,
   ScrollText,
   Server,
+  Cog,
+  ChevronUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const allMainNavItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/team', label: 'Team', icon: Users, moduleKey: 'viewTeam' as const },
-  { href: '/audit-logs', label: 'Audit Logs', icon: ScrollText, ownerOnly: true },
   { href: '/media', label: 'Media Library', icon: FolderOpen, moduleKey: 'viewMedia' as const },
 ]
 
@@ -57,14 +64,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { settings } = useSettings()
   const { canModule } = useModulePermissions()
   const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
+  const isAdminActive = ['/server', '/audit-logs', '/settings'].some((p) => (pathname ?? '').startsWith(p))
 
   const mainNavItems = useMemo(() =>
     allMainNavItems.filter((item) => {
-      if (item.ownerOnly && !isAppOwner) return false
       if (item.moduleKey && !canModule(item.moduleKey)) return false
       return true
     }),
-    [isAppOwner, canModule]
+    [canModule]
   )
 
   const filteredTrackingNavItems = useMemo(() =>
@@ -271,43 +278,45 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )}
         </nav>
 
-        {/* Server (owner-only), Settings & Collapse */}
+        {/* Admin dropdown (owner) or Settings, + Collapse */}
         <div className="border-t p-2 space-y-1 overflow-hidden">
-          {isAppOwner &&
-            (collapsed ? (
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/server"
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted hover:text-foreground',
-                      pathname.startsWith('/server') ? 'bg-muted text-foreground' : 'text-muted-foreground'
-                    )}
-                  >
-                    <Server className="h-5 w-5 flex-shrink-0" />
-                    <span className="whitespace-nowrap opacity-0">Server</span>
+          {isAppOwner ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted hover:text-foreground',
+                    isAdminActive ? 'bg-muted text-foreground' : 'text-muted-foreground'
+                  )}
+                >
+                  <Cog className="h-5 w-5 flex-shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="whitespace-nowrap">Admin</span>
+                      <ChevronUp className="ml-auto h-4 w-4 opacity-60" />
+                    </>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/server">
+                    <Server className="mr-2 h-4 w-4" /> Server
                   </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10}>
-                  Server
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/server"
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted hover:text-foreground',
-                  pathname.startsWith('/server') ? 'bg-muted text-foreground' : 'text-muted-foreground'
-                )}
-              >
-                <Server className="h-5 w-5 flex-shrink-0" />
-                <span className="whitespace-nowrap transition-opacity duration-200 opacity-100 delay-100">
-                  Server
-                </span>
-              </Link>
-            ))}
-
-          {collapsed ? (
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/audit-logs">
+                    <ScrollText className="mr-2 h-4 w-4" /> Audit Logs
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">
+                    <Settings className="mr-2 h-4 w-4" /> Settings
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : collapsed ? (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <Link
