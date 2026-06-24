@@ -138,6 +138,9 @@ function MetricPanel({
 }) {
   const latest = current ?? (points.length ? (points[points.length - 1][def.key] as number) : null)
   const gid = `vps-grad-${def.key}`
+  // Show sample dots when the series is sparse (reads better than a thin line);
+  // hide them once the line is dense enough to be smooth on its own.
+  const showDots = points.length > 0 && points.length <= 60
 
   return (
     <div className="rounded-xl border bg-muted/20 p-3">
@@ -205,7 +208,7 @@ function MetricPanel({
               stroke={def.color}
               strokeWidth={2}
               fill={`url(#${gid})`}
-              dot={false}
+              dot={showDots ? { r: 2, fill: def.color, stroke: 'none' } : false}
               activeDot={{ r: 3, strokeWidth: 0, fill: def.color }}
               isAnimationActive={false}
             />

@@ -55,6 +55,9 @@ const RANGE_MS: Record<string, number> = {
   '24h': 24 * 60 * 60 * 1000,
   '7d': 7 * 24 * 60 * 60 * 1000,
 }
+// Target point count per range so each line is sensibly resolved:
+// 1h ≈ 1-min, 24h ≈ 10-min buckets, 7d ≈ 1-hour buckets.
+const TARGET_POINTS: Record<string, number> = { '1h': 60, '24h': 144, '7d': 168 }
 const CACHE_TTL_MS: Record<string, number> = { '1h': 30_000, '24h': 120_000, '7d': 600_000 }
 const cache: Record<string, { at: number; data: MetricPoint[] }> = {}
 
@@ -68,7 +71,7 @@ export async function readHistory(range: string): Promise<MetricPoint[]> {
   // Single-field range filter only (sort client-side) to avoid composite-index needs.
   const snap = await db().collection(COL).where('ts', '>=', cutoff).get()
   const raw = snap.docs.map((d) => d.data() as MetricPoint).sort((a, b) => a.ts - b.ts)
-  const data = downsample(raw, 180)
+  const data = downsample(raw, TARGET_POINTS[range] ?? 168)
   cache[range] = { at: Date.now(), data }
   return data
 }
