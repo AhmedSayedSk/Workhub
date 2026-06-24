@@ -43,10 +43,21 @@ const CHARTS: ChartDef[] = [
   { key: 'load1', label: 'Load', color: '#f472b6', unit: '', domain: [0, 'auto'], isPct: false },
 ]
 
+// Range-appropriate x labels: minutes for 1h, hours for 24h, dates for 7d.
 function fmtTick(ts: number, range: Range): string {
   const d = new Date(ts)
-  if (range === '7d') return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (range === '1h') return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  if (range === '24h') return d.toLocaleTimeString([], { hour: 'numeric' })
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+// Evenly spread ~5 ticks across the selected window so the axis spans the
+// whole time frame (not just where data points happen to fall).
+function buildTicks(range: Range, end: number): number[] {
+  const span = RANGE_MS[range]
+  const start = end - span
+  const n = 4
+  return Array.from({ length: n + 1 }, (_, i) => Math.round(start + (span * i) / n))
 }
 
 function ChartTooltip(props: any) {
@@ -114,6 +125,7 @@ function MetricPanel({
   range,
   current,
   xDomain,
+  xTicks,
   host,
 }: {
   def: ChartDef
@@ -121,6 +133,7 @@ function MetricPanel({
   range: Range
   current?: number
   xDomain: [number, number]
+  xTicks: number[]
   host: HostStats | null
 }) {
   const latest = current ?? (points.length ? (points[points.length - 1][def.key] as number) : null)
@@ -157,12 +170,13 @@ function MetricPanel({
               type="number"
               scale="time"
               domain={xDomain}
+              ticks={xTicks}
               allowDataOverflow
               tickFormatter={(t) => fmtTick(t as number, range)}
               tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
-              minTickGap={48}
+              minTickGap={16}
             />
             <YAxis
               domain={def.domain as [number, number]}
@@ -235,6 +249,7 @@ export function MetricCharts({ host }: { host: HostStats | null }) {
 
   const now = Date.now()
   const xDomain: [number, number] = [now - RANGE_MS[range], now]
+  const xTicks = buildTicks(range, now)
 
   const current: Partial<Record<MetricKey, number>> | undefined = host
     ? {
@@ -284,6 +299,7 @@ export function MetricCharts({ host }: { host: HostStats | null }) {
                 range={range}
                 current={current?.[def.key]}
                 xDomain={xDomain}
+                xTicks={xTicks}
                 host={host}
               />
             ))}
