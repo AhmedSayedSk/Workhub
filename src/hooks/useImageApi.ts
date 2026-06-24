@@ -39,7 +39,7 @@ export interface UploadedAsset {
   uploadedAt: number
 }
 
-export function useImageApi(apiToken: string | null | undefined) {
+export function useImageApi(apiToken: string | null | undefined, managed = false) {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [jobs, setJobs] = useState<JobStats | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(false)
@@ -48,10 +48,10 @@ export function useImageApi(apiToken: string | null | undefined) {
   const [deletingEmail, setDeletingEmail] = useState<string | null>(null)
 
   const fetchAccounts = useCallback(async () => {
-    if (!apiToken) return
+    if (!apiToken && !managed) return
     setLoadingAccounts(true)
     try {
-      const res = await authFetch(`/api/ai/image?action=accounts&token=${encodeURIComponent(apiToken)}`)
+      const res = await authFetch(`/api/ai/image?action=accounts&token=${encodeURIComponent(apiToken || '')}`)
       const result = await res.json()
       if (!result.success) throw new Error(result.error)
 
@@ -78,16 +78,16 @@ export function useImageApi(apiToken: string | null | undefined) {
     } finally {
       setLoadingAccounts(false)
     }
-  }, [apiToken])
+  }, [apiToken, managed])
 
   const registerAccount = useCallback(async (cookies: string): Promise<{ success: boolean; error?: string }> => {
-    if (!apiToken) return { success: false, error: 'No API token' }
+    if (!apiToken && !managed) return { success: false, error: 'No API token' }
     setRegistering(true)
     try {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'register_account', apiToken, cookies }),
+        body: JSON.stringify({ action: 'register_account', ...(apiToken ? { apiToken } : {}), cookies }),
       })
       const result = await res.json()
       if (!result.success) {
@@ -120,16 +120,16 @@ export function useImageApi(apiToken: string | null | undefined) {
     } finally {
       setRegistering(false)
     }
-  }, [apiToken, fetchAccounts])
+  }, [apiToken, managed, fetchAccounts])
 
   const deleteAccount = useCallback(async (email: string) => {
-    if (!apiToken) return false
+    if (!apiToken && !managed) return false
     setDeletingEmail(email)
     try {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete_account', apiToken, email }),
+        body: JSON.stringify({ action: 'delete_account', ...(apiToken ? { apiToken } : {}), email }),
       })
       const result = await res.json()
       if (!result.success) {
@@ -145,27 +145,27 @@ export function useImageApi(apiToken: string | null | undefined) {
     } finally {
       setDeletingEmail(null)
     }
-  }, [apiToken])
+  }, [apiToken, managed])
 
   const fetchCaptchaProviders = useCallback(async () => {
-    if (!apiToken) return null
+    if (!apiToken && !managed) return null
     try {
-      const res = await authFetch(`/api/ai/image?action=captcha-providers&token=${encodeURIComponent(apiToken)}`)
+      const res = await authFetch(`/api/ai/image?action=captcha-providers&token=${encodeURIComponent(apiToken || '')}`)
       const result = await res.json()
       if (!result.success) return null
       return result.data as Record<string, string>
     } catch {
       return null
     }
-  }, [apiToken])
+  }, [apiToken, managed])
 
   const setCaptchaProviders = useCallback(async (providers: Record<string, string>) => {
-    if (!apiToken) return false
+    if (!apiToken && !managed) return false
     try {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'set_captcha_providers', apiToken, providers }),
+        body: JSON.stringify({ action: 'set_captcha_providers', ...(apiToken ? { apiToken } : {}), providers }),
       })
       const result = await res.json()
       if (!result.success) {
@@ -178,13 +178,13 @@ export function useImageApi(apiToken: string | null | undefined) {
       toast.error('Failed to configure captcha provider')
       return false
     }
-  }, [apiToken])
+  }, [apiToken, managed])
 
   const fetchJobs = useCallback(async () => {
-    if (!apiToken) return
+    if (!apiToken && !managed) return
     setLoadingJobs(true)
     try {
-      const res = await authFetch(`/api/ai/image?action=jobs&token=${encodeURIComponent(apiToken)}&options=history`)
+      const res = await authFetch(`/api/ai/image?action=jobs&token=${encodeURIComponent(apiToken || '')}&options=history`)
       const result = await res.json()
       if (!result.success) throw new Error(result.error)
       setJobs(result.data)
@@ -193,15 +193,15 @@ export function useImageApi(apiToken: string | null | undefined) {
     } finally {
       setLoadingJobs(false)
     }
-  }, [apiToken])
+  }, [apiToken, managed])
 
   const upscaleImage = useCallback(async (mediaGenerationId: string, resolution: '2k' | '4k' = '2k') => {
-    if (!apiToken) return null
+    if (!apiToken && !managed) return null
     try {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upscale', apiToken, mediaGenerationId, resolution }),
+        body: JSON.stringify({ action: 'upscale', ...(apiToken ? { apiToken } : {}), mediaGenerationId, resolution }),
       })
       const result = await res.json()
       if (!result.success) {
@@ -214,15 +214,15 @@ export function useImageApi(apiToken: string | null | undefined) {
       toast.error('Upscale failed')
       return null
     }
-  }, [apiToken])
+  }, [apiToken, managed])
 
   const uploadAsset = useCallback(async (dataUrl: string, fileName: string): Promise<UploadedAsset | null> => {
-    if (!apiToken) return null
+    if (!apiToken && !managed) return null
     try {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upload_asset', apiToken, asset: dataUrl }),
+        body: JSON.stringify({ action: 'upload_asset', ...(apiToken ? { apiToken } : {}), asset: dataUrl }),
       })
       const result = await res.json()
       if (!result.success) {
@@ -247,7 +247,7 @@ export function useImageApi(apiToken: string | null | undefined) {
       toast.error('Failed to upload reference image')
       return null
     }
-  }, [apiToken])
+  }, [apiToken, managed])
 
   return {
     accounts,

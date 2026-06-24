@@ -143,18 +143,14 @@ export function useImageGenerator() {
   ) => {
     if (!user) return null
 
-    if (!settings?.imageGenApiToken) {
-      setError({ title: 'Configuration required', message: 'No API token configured. Add your useapi.net token in Image Generator settings.', type: 'config' })
-      return null
-    }
-    if (!settings?.imageGenModel) {
-      setError({ title: 'Configuration required', message: 'No model selected. Choose a model in Image Generator settings.', type: 'config' })
-      return null
-    }
     if (settings?.imageGenEnabled === false) {
       setError({ title: 'Image generation disabled', message: 'Image generation is turned off. Enable it in Image Generator settings.', type: 'config' })
       return null
     }
+
+    // Model defaults when unset; the token is optional here — if the user hasn't
+    // set one in settings, the server falls back to the managed USEAPI_TOKEN.
+    const model = settings?.imageGenModel || 'nano-banana-pro'
 
     setIsGenerating(true)
     setError(null)
@@ -184,12 +180,12 @@ export function useImageGenerator() {
             action: 'generate',
             prompt,
             aspectRatio,
-            model: settings.imageGenModel,
-            apiToken: settings.imageGenApiToken,
+            model,
+            ...(settings?.imageGenApiToken ? { apiToken: settings.imageGenApiToken } : {}),
             count: batchCount,
             ...(references && references.length > 0 ? { references } : {}),
-            ...(settings.imageGenDisabledEmails?.length ? { disabledEmails: settings.imageGenDisabledEmails } : {}),
-            ...(settings.imageGenPreferredEmail ? { preferredEmail: settings.imageGenPreferredEmail } : {}),
+            ...(settings?.imageGenDisabledEmails?.length ? { disabledEmails: settings.imageGenDisabledEmails } : {}),
+            ...(settings?.imageGenPreferredEmail ? { preferredEmail: settings.imageGenPreferredEmail } : {}),
           }),
           signal: controller.signal,
         })
@@ -208,7 +204,7 @@ export function useImageGenerator() {
         id: `temp_${Date.now()}_${i}`,
         prompt,
         aspectRatio,
-        model: settings.imageGenModel!,
+        model,
         imageUrl: img.url,
         storagePath: '',
         mimeType: 'image/png',
@@ -225,11 +221,11 @@ export function useImageGenerator() {
       imageGenLogs.create({
         userId: user.uid,
         prompt,
-        model: settings.imageGenModel!,
+        model,
         aspectRatio,
         imageCount: generatedImages.length,
         status: 'success',
-        email: settings.imageGenPreferredEmail || '',
+        email: settings?.imageGenPreferredEmail || '',
       }).catch(() => {})
 
       // Persist to Firebase Storage + Firestore in background
@@ -250,7 +246,7 @@ export function useImageGenerator() {
             const id = await imageGenerations.create({
               prompt,
               aspectRatio,
-              model: settings.imageGenModel!,
+              model,
               imageUrl,
               storagePath,
               mimeType,
@@ -290,12 +286,12 @@ export function useImageGenerator() {
       imageGenLogs.create({
         userId: user.uid,
         prompt,
-        model: settings.imageGenModel!,
+        model,
         aspectRatio,
         imageCount: 0,
         status: 'failed',
         error: raw,
-        email: settings.imageGenPreferredEmail || '',
+        email: settings?.imageGenPreferredEmail || '',
       }).catch(() => {})
 
       return null

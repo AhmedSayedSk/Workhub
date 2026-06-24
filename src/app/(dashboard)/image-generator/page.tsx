@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { authFetch } from '@/lib/api-client'
 import { useAuth } from '@/hooks/useAuth'
 import { useImageGenerator } from '@/hooks/useImageGenerator'
 import { useImageApi } from '@/hooks/useImageApi'
@@ -231,12 +232,14 @@ export default function ImageGeneratorPage() {
     settings, updateSettings,
     setImageGenApiToken, setImageGenModel, setImageGenEnabled, setImageGenStandingPrompt,
   } = useSettings()
+  // True when the server has a managed USEAPI_TOKEN (no per-user token needed).
+  const [managed, setManaged] = useState(false)
   const {
     accounts, jobs, loadingAccounts, loadingJobs,
     registering, deletingEmail,
     fetchAccounts, registerAccount, deleteAccount, fetchJobs,
     fetchCaptchaProviders, setCaptchaProviders, uploadAsset,
-  } = useImageApi(settings?.imageGenApiToken)
+  } = useImageApi(settings?.imageGenApiToken, managed)
 
   const [prompt, setPrompt] = useState('')
   const promptHistoryRef = useRef<string[]>([])
@@ -363,17 +366,25 @@ export default function ImageGeneratorPage() {
     }
   }, [settings])
 
+  // Detect a server-managed USEAPI_TOKEN so the feature works without a per-user token.
   useEffect(() => {
-    if (activeTab === 'accounts' && settings?.imageGenApiToken) fetchAccounts()
-    if (activeTab === 'jobs' && settings?.imageGenApiToken) fetchJobs()
+    authFetch('/api/ai/image?action=status')
+      .then((r) => r.json())
+      .then((d) => setManaged(!!d?.data?.managed))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'accounts' && (settings?.imageGenApiToken || managed)) fetchAccounts()
+    if (activeTab === 'jobs' && (settings?.imageGenApiToken || managed)) fetchJobs()
     if (activeTab === 'jobs' && user) {
       imageGenLogs.getAll(user.uid).then(setGenLogs).catch(() => {})
     }
-  }, [activeTab, settings?.imageGenApiToken, fetchAccounts, fetchJobs, user])
+  }, [activeTab, settings?.imageGenApiToken, managed, fetchAccounts, fetchJobs, user])
 
   // Auto-fetch jobs stats when quota error appears
   useEffect(() => {
-    if (generationError?.type === 'quota' && settings?.imageGenApiToken) fetchJobs()
+    if (generationError?.type === 'quota' && (settings?.imageGenApiToken || managed)) fetchJobs()
   }, [generationError?.type]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadSavedAssets = async () => {
@@ -880,7 +891,7 @@ export default function ImageGeneratorPage() {
     try { localStorage.setItem('imageGenGridCols', String(n)) } catch {}
   }
 
-  const hasToken = !!settings?.imageGenApiToken
+  const hasToken = !!settings?.imageGenApiToken || managed
 
   if (!user) return null
 

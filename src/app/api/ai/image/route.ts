@@ -54,7 +54,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
-    const apiToken = searchParams.get('token')
+
+    // Whether the server has a managed token (no token needed to answer this).
+    if (action === 'status') {
+      return NextResponse.json({ success: true, data: { managed: !!process.env.USEAPI_TOKEN } })
+    }
+
+    // Client token if provided, else the server-managed token (same as the MCP).
+    const apiToken = searchParams.get('token') || process.env.USEAPI_TOKEN
 
     if (!apiToken) {
       return NextResponse.json({ success: false, error: 'No API token' }, { status: 400 })
@@ -102,7 +109,9 @@ export async function POST(request: NextRequest) {
     if (authError) return authError
 
     const body = await request.json()
-    const { action, apiToken } = body
+    const { action } = body
+    // Client token if provided, else the server-managed token (same as the MCP).
+    const apiToken = body.apiToken || process.env.USEAPI_TOKEN
 
     if (!apiToken) {
       return NextResponse.json(
@@ -113,12 +122,10 @@ export async function POST(request: NextRequest) {
 
     // Generate images
     if (action === 'generate') {
-      const { prompt, aspectRatio, model, count, seed, email } = body
+      const { prompt, aspectRatio, count, seed, email } = body
+      const model = body.model || 'nano-banana-pro'
       if (!prompt) {
         return NextResponse.json({ success: false, error: 'Prompt is required' }, { status: 400 })
-      }
-      if (!model) {
-        return NextResponse.json({ success: false, error: 'No model selected. Choose a model in settings.' }, { status: 400 })
       }
 
       const disabledEmails: string[] = body.disabledEmails || []
