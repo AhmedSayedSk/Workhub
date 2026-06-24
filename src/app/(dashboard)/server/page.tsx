@@ -113,9 +113,9 @@ export default function ServerPage() {
             </div>
           </div>
 
-          {stats.apps && <AppsTable apps={stats.apps} />}
-
           {stats.containers && <ContainerTable containers={stats.containers} />}
+
+          {stats.apps && <AppsTable apps={stats.apps} />}
 
           {stats.errors.length > 0 && (
             <div className="space-y-1 text-xs text-muted-foreground">
