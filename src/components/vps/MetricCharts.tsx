@@ -43,21 +43,21 @@ const CHARTS: ChartDef[] = [
   { key: 'load1', label: 'Load', color: '#f472b6', unit: '', domain: [0, 'auto'], isPct: false },
 ]
 
-// Range-appropriate x labels: minutes for 1h, hours for 24h, dates for 7d.
-function fmtTick(ts: number, range: Range): string {
+type TickMode = 'min' | 'hour' | 'date'
+
+// Labels match the ACTUAL visible span: minutes for short spans, hours for a
+// day-ish, dates for multi-day.
+function fmtTick(ts: number, mode: TickMode): string {
   const d = new Date(ts)
-  if (range === '1h') return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  if (range === '24h') return d.toLocaleTimeString([], { hour: 'numeric' })
+  if (mode === 'min') return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  if (mode === 'hour') return d.toLocaleTimeString([], { hour: 'numeric' })
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-// Evenly spread ~5 ticks across the selected window so the axis spans the
-// whole time frame (not just where data points happen to fall).
-function buildTicks(range: Range, end: number): number[] {
-  const span = RANGE_MS[range]
-  const start = end - span
+// Evenly spread ~5 ticks across [start, end].
+function buildTicks(start: number, end: number): number[] {
   const n = 4
-  return Array.from({ length: n + 1 }, (_, i) => Math.round(start + (span * i) / n))
+  return Array.from({ length: n + 1 }, (_, i) => Math.round(start + ((end - start) * i) / n))
 }
 
 function ChartTooltip(props: any) {
@@ -122,7 +122,7 @@ function PanelDetail({ k, host }: { k: MetricKey; host: HostStats }) {
 function MetricPanel({
   def,
   points,
-  range,
+  fmtMode,
   current,
   xDomain,
   xTicks,
@@ -130,7 +130,7 @@ function MetricPanel({
 }: {
   def: ChartDef
   points: MetricPoint[]
-  range: Range
+  fmtMode: TickMode
   current?: number
   xDomain: [number, number]
   xTicks: number[]
@@ -175,7 +175,7 @@ function MetricPanel({
               domain={xDomain}
               ticks={xTicks}
               allowDataOverflow
-              tickFormatter={(t) => fmtTick(t as number, range)}
+              tickFormatter={(t) => fmtTick(t as number, fmtMode)}
               tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
@@ -250,9 +250,16 @@ export function MetricCharts({ host }: { host: HostStats | null }) {
     return () => clearInterval(id)
   }, [fetchHistory])
 
+  // Fit the x-axis to the data actually present within the selected window, so
+  // a partly-filled 24h/7d view spreads its data across the width instead of
+  // squashing it into the right edge. Expands to the full window as data fills.
   const now = Date.now()
-  const xDomain: [number, number] = [now - RANGE_MS[range], now]
-  const xTicks = buildTicks(range, now)
+  const dataStart = points.length ? points[0].ts : now - RANGE_MS[range]
+  const spanStart = Math.min(dataStart, now - 60_000)
+  const xDomain: [number, number] = [spanStart, now]
+  const effSpan = now - spanStart
+  const fmtMode: TickMode = effSpan < 2 * 3_600_000 ? 'min' : effSpan < 36 * 3_600_000 ? 'hour' : 'date'
+  const xTicks = buildTicks(spanStart, now)
 
   const current: Partial<Record<MetricKey, number>> | undefined = host
     ? {
@@ -299,7 +306,7 @@ export function MetricCharts({ host }: { host: HostStats | null }) {
                 key={def.key}
                 def={def}
                 points={points}
-                range={range}
+                fmtMode={fmtMode}
                 current={current?.[def.key]}
                 xDomain={xDomain}
                 xTicks={xTicks}
