@@ -13,6 +13,8 @@ import { HostOverview } from '@/components/vps/HostOverview'
 import { ContainerTable } from '@/components/vps/ContainerTable'
 import { StorageCard } from '@/components/vps/StorageCard'
 import { CertList } from '@/components/vps/CertList'
+import { MetricCharts } from '@/components/vps/MetricCharts'
+import { AppsTable } from '@/components/vps/AppsTable'
 
 const POLL_MS = 5000
 const CPU_HISTORY = 30
@@ -75,11 +77,10 @@ export default function ServerPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold">
             <Server className="h-6 w-6" />
-            Server
+            {stats?.meta?.name || 'Server'}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {stats?.host ? `${stats.host.hostname} · ` : ''}
-            live VPS stats
+            {stats?.meta?.subtitle || 'live VPS stats'}
             {stats ? ` · updated ${new Date(stats.generatedAtMs).toLocaleTimeString()}` : ''}
           </p>
         </div>
@@ -106,6 +107,10 @@ export default function ServerPage() {
           <AlertBanner alerts={stats.alerts} />
 
           {stats.host && <HostOverview host={stats.host} cpuHistory={cpuHistory.current} />}
+
+          <MetricCharts />
+
+          {stats.apps && <AppsTable apps={stats.apps} />}
 
           <div className="grid gap-4 lg:grid-cols-3">
             {stats.containers && (
