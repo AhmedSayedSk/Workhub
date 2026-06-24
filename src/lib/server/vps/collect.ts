@@ -1,6 +1,7 @@
-import type { VpsStats, SectionError } from './types'
+import type { VpsStats, SectionError, VpsMeta, HostStats } from './types'
 import { collectHost } from './host'
 import { collectContainers, collectStorage } from './docker'
+import { collectApps } from './apps'
 import { collectCerts } from './certs'
 import { evaluateAlerts } from './alerts'
 
@@ -10,9 +11,10 @@ import { evaluateAlerts } from './alerts'
 export async function collectVpsStats(): Promise<VpsStats> {
   const errors: SectionError[] = []
 
-  const [hostR, containersR, storageR, certsR] = await Promise.allSettled([
+  const [hostR, containersR, appsR, storageR, certsR] = await Promise.allSettled([
     collectHost(),
     collectContainers(),
+    collectApps(),
     collectStorage(),
     collectCerts(),
   ])
@@ -22,6 +24,9 @@ export async function collectVpsStats(): Promise<VpsStats> {
 
   const containers = containersR.status === 'fulfilled' ? containersR.value : null
   if (containersR.status === 'rejected') errors.push({ section: 'containers', message: String(containersR.reason) })
+
+  const apps = appsR.status === 'fulfilled' ? appsR.value : null
+  if (appsR.status === 'rejected') errors.push({ section: 'apps', message: String(appsR.reason) })
 
   const storage = storageR.status === 'fulfilled' ? storageR.value : null
   if (storageR.status === 'rejected') errors.push({ section: 'storage', message: String(storageR.reason) })
@@ -38,5 +43,14 @@ export async function collectVpsStats(): Promise<VpsStats> {
 
   const alerts = evaluateAlerts({ host, certs, containers })
 
-  return { generatedAtMs: Date.now(), host, containers, storage, certs, network, alerts, errors }
+  return { generatedAtMs: Date.now(), meta: buildMeta(host), host, containers, apps, storage, certs, network, alerts, errors }
+}
+
+// Header name + subtitle: custom via env, else derived from the live host.
+function buildMeta(host: HostStats | null): VpsMeta {
+  const name = process.env.VPS_DISPLAY_NAME || host?.hostname || 'Server'
+  const subtitle =
+    process.env.VPS_SUBTITLE ||
+    (host ? `${host.os} · ${host.cpu.cores} vCPU / ${Math.round(host.memory.totalBytes / 1e9)} GB` : 'live VPS stats')
+  return { name, subtitle }
 }

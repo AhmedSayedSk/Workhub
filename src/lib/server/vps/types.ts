@@ -67,15 +67,54 @@ export interface Alert {
   detail: string
 }
 
+// A system/app on the box: its /opt path, domains, and its containers' status.
+export interface AppService {
+  name: string
+  state: string
+  status: string
+}
+export interface AppInfo {
+  id: string
+  name: string
+  description: string
+  type: string // app | proxy | site | service | database | system
+  path: string
+  domains: string[]
+  services: AppService[]
+  running: number
+  total: number
+}
+
 export interface SectionError {
-  section: 'host' | 'containers' | 'storage' | 'certs'
+  section: 'host' | 'containers' | 'storage' | 'certs' | 'apps'
   message: string
+}
+
+export interface VpsMeta {
+  name: string // display name shown as the page title
+  subtitle: string
+}
+
+// One persisted time-series sample (written every minute, charted over time).
+export interface MetricPoint {
+  ts: number // epoch ms
+  cpuPct: number
+  memPct: number
+  diskPct: number
+  load1: number
+}
+
+export interface HistoryResponse {
+  range: string
+  points: MetricPoint[]
 }
 
 export interface VpsStats {
   generatedAtMs: number
+  meta: VpsMeta
   host: HostStats | null
   containers: ContainerStat[] | null
+  apps: AppInfo[] | null
   storage: StorageStats | null
   certs: CertInfo[] | null
   network: { rxBytes: number; txBytes: number } | null // aggregate of container NetIO
