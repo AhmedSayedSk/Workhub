@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { authFetch } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { TrendingUp } from 'lucide-react'
+import { Activity } from 'lucide-react'
 import {
   AreaChart,
   Area,
@@ -15,9 +15,9 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from 'recharts'
-import type { MetricPoint } from '@/lib/server/vps/types'
+import type { MetricPoint, HostStats } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
-import { usageColor } from './format'
+import { usageColor, pct, formatBytes, formatUptime } from './format'
 
 const RANGES = ['1h', '24h', '7d'] as const
 type Range = (typeof RANGES)[number]
@@ -32,7 +32,7 @@ interface ChartDef {
   color: string
   unit: string
   domain: [number | string, number | string]
-  threshold?: number // draws a dashed alert line + colors the readout by usage
+  threshold?: number
   isPct: boolean
 }
 
@@ -64,18 +64,64 @@ function ChartTooltip(props: any) {
   )
 }
 
+// The detail that used to live in each host card, now under its chart.
+function PanelDetail({ k, host }: { k: MetricKey; host: HostStats }) {
+  if (k === 'cpuPct') {
+    return (
+      <p className="truncate text-xs text-muted-foreground" title={host.cpu.model}>
+        {host.cpu.cores} cores · {host.cpu.model}
+      </p>
+    )
+  }
+  if (k === 'memPct') {
+    return (
+      <div className="space-y-0.5 text-xs text-muted-foreground">
+        <div>
+          {formatBytes(host.memory.usedBytes)} / {formatBytes(host.memory.totalBytes)} ·{' '}
+          {formatBytes(host.memory.availableBytes)} free
+        </div>
+        {host.swap.totalBytes > 0 && (
+          <div>
+            Swap {formatBytes(host.swap.usedBytes)} / {formatBytes(host.swap.totalBytes)}
+          </div>
+        )}
+      </div>
+    )
+  }
+  if (k === 'diskPct') {
+    return (
+      <p className="text-xs text-muted-foreground">
+        {formatBytes(host.disk.usedBytes)} / {formatBytes(host.disk.totalBytes)} ·{' '}
+        {formatBytes(host.disk.availableBytes)} free
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-0.5 text-xs text-muted-foreground">
+      <div>
+        1m {host.cpu.load1} · 5m {host.cpu.load5} · 15m {host.cpu.load15}
+      </div>
+      <div className="truncate" title={host.os}>
+        up {formatUptime(host.uptimeSec)} · {host.os}
+      </div>
+    </div>
+  )
+}
+
 function MetricPanel({
   def,
   points,
   range,
   current,
   xDomain,
+  host,
 }: {
   def: ChartDef
   points: MetricPoint[]
   range: Range
   current?: number
   xDomain: [number, number]
+  host: HostStats | null
 }) {
   const latest = current ?? (points.length ? (points[points.length - 1][def.key] as number) : null)
   const gid = `vps-grad-${def.key}`
@@ -152,11 +198,16 @@ function MetricPanel({
           </AreaChart>
         </ResponsiveContainer>
       </div>
+      {host && (
+        <div className="mt-2 border-t pt-2">
+          <PanelDetail k={def.key} host={host} />
+        </div>
+      )}
     </div>
   )
 }
 
-export function MetricCharts({ current }: { current?: Partial<Record<MetricKey, number>> }) {
+export function MetricCharts({ host }: { host: HostStats | null }) {
   const [range, setRange] = useState<Range>('24h')
   const [points, setPoints] = useState<MetricPoint[]>([])
   const [loading, setLoading] = useState(true)
@@ -182,17 +233,24 @@ export function MetricCharts({ current }: { current?: Partial<Record<MetricKey, 
     return () => clearInterval(id)
   }, [fetchHistory])
 
-  // Time-scaled x window for the selected range, so switching ranges actually
-  // changes the visible window (not just an evenly-spaced category axis).
   const now = Date.now()
   const xDomain: [number, number] = [now - RANGE_MS[range], now]
+
+  const current: Partial<Record<MetricKey, number>> | undefined = host
+    ? {
+        cpuPct: host.cpu.usagePct,
+        memPct: pct(host.memory.usedBytes, host.memory.totalBytes),
+        diskPct: pct(host.disk.usedBytes, host.disk.totalBytes),
+        load1: host.cpu.load1,
+      }
+    : undefined
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          History
+          <Activity className="h-4 w-4 text-muted-foreground" />
+          Resource Monitor
         </CardTitle>
         <div className="inline-flex rounded-lg border bg-muted/40 p-0.5">
           {RANGES.map((r) => (
@@ -212,9 +270,9 @@ export function MetricCharts({ current }: { current?: Partial<Record<MetricKey, 
         </div>
       </CardHeader>
       <CardContent>
-        {points.length === 0 ? (
+        {points.length === 0 && !host ? (
           <p className="py-10 text-center text-sm text-muted-foreground">
-            {loading ? 'Loading history…' : 'No samples yet — history builds up as the per-minute sampler runs.'}
+            {loading ? 'Loading…' : 'No data yet.'}
           </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -226,6 +284,7 @@ export function MetricCharts({ current }: { current?: Partial<Record<MetricKey, 
                 range={range}
                 current={current?.[def.key]}
                 xDomain={xDomain}
+                host={host}
               />
             ))}
           </div>

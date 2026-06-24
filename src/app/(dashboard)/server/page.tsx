@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSettings } from '@/hooks/useSettings'
 import { authFetch } from '@/lib/api-client'
@@ -11,7 +11,6 @@ import { HeaderTitle } from '@/components/layout/HeaderTitle'
 import { HeaderActions } from '@/components/layout/HeaderActions'
 import type { VpsStats } from '@/lib/server/vps/types'
 import { AlertBanner } from '@/components/vps/AlertBanner'
-import { HostOverview } from '@/components/vps/HostOverview'
 import { ContainerTable } from '@/components/vps/ContainerTable'
 import { StorageCard } from '@/components/vps/StorageCard'
 import { CertList } from '@/components/vps/CertList'
@@ -19,9 +18,6 @@ import { MetricCharts } from '@/components/vps/MetricCharts'
 import { AppsTable } from '@/components/vps/AppsTable'
 
 const POLL_MS = 5000
-const CPU_HISTORY = 30
-
-const pctOf = (used: number, total: number) => (total > 0 ? Math.round((used / total) * 1000) / 10 : 0)
 
 export default function ServerPage() {
   const { user } = useAuth()
@@ -31,7 +27,6 @@ export default function ServerPage() {
   const [stats, setStats] = useState<VpsStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const cpuHistory = useRef<number[]>([])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -41,10 +36,6 @@ export default function ServerPage() {
         return
       }
       const data: VpsStats = await res.json()
-      if (data.host) {
-        const next = [...cpuHistory.current, data.host.cpu.usagePct]
-        cpuHistory.current = next.slice(-CPU_HISTORY)
-      }
       setStats(data)
       setError(null)
     } catch (e) {
@@ -112,22 +103,9 @@ export default function ServerPage() {
         <>
           <AlertBanner alerts={stats.alerts} />
 
-          {stats.host && <HostOverview host={stats.host} cpuHistory={cpuHistory.current} />}
-
           <div className="grid gap-4 lg:grid-cols-12">
             <div className="lg:col-span-7">
-              <MetricCharts
-                current={
-                  stats.host
-                    ? {
-                        cpuPct: stats.host.cpu.usagePct,
-                        memPct: pctOf(stats.host.memory.usedBytes, stats.host.memory.totalBytes),
-                        diskPct: pctOf(stats.host.disk.usedBytes, stats.host.disk.totalBytes),
-                        load1: stats.host.cpu.load1,
-                      }
-                    : undefined
-                }
-              />
+              <MetricCharts host={stats.host} />
             </div>
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
