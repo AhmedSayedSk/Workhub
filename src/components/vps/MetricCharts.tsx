@@ -22,6 +22,8 @@ import { usageColor } from './format'
 const RANGES = ['1h', '24h', '7d'] as const
 type Range = (typeof RANGES)[number]
 
+const RANGE_MS: Record<Range, number> = { '1h': 3600_000, '24h': 86_400_000, '7d': 604_800_000 }
+
 type MetricKey = 'cpuPct' | 'memPct' | 'diskPct' | 'load1'
 
 interface ChartDef {
@@ -67,11 +69,13 @@ function MetricPanel({
   points,
   range,
   current,
+  xDomain,
 }: {
   def: ChartDef
   points: MetricPoint[]
   range: Range
   current?: number
+  xDomain: [number, number]
 }) {
   const latest = current ?? (points.length ? (points[points.length - 1][def.key] as number) : null)
   const gid = `vps-grad-${def.key}`
@@ -104,6 +108,10 @@ function MetricPanel({
             <CartesianGrid strokeDasharray="2 4" stroke="currentColor" className="text-border" vertical={false} />
             <XAxis
               dataKey="ts"
+              type="number"
+              scale="time"
+              domain={xDomain}
+              allowDataOverflow
               tickFormatter={(t) => fmtTick(t as number, range)}
               tick={{ fontSize: 10 }}
               tickLine={false}
@@ -177,6 +185,11 @@ export function MetricCharts({ current }: { current?: Partial<Record<MetricKey, 
     return () => clearInterval(id)
   }, [fetchHistory])
 
+  // Time-scaled x window for the selected range, so switching ranges actually
+  // changes the visible window (not just an evenly-spaced category axis).
+  const now = Date.now()
+  const xDomain: [number, number] = [now - RANGE_MS[range], now]
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -209,7 +222,14 @@ export function MetricCharts({ current }: { current?: Partial<Record<MetricKey, 
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {CHARTS.map((def) => (
-              <MetricPanel key={def.key} def={def} points={points} range={range} current={current?.[def.key]} />
+              <MetricPanel
+                key={def.key}
+                def={def}
+                points={points}
+                range={range}
+                current={current?.[def.key]}
+                xDomain={xDomain}
+              />
             ))}
           </div>
         )}
