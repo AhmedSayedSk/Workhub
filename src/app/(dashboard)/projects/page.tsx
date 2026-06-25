@@ -684,7 +684,7 @@ export default function ProjectsPage() {
                               <p className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{groupName || 'No group'}</p>
                               <div className="h-px flex-1 bg-border/60" />
                             </div>
-                            <div className="grid grid-cols-2 gap-2.5">
+                            <div className="flex flex-wrap gap-2.5">
                     {items.map((sub, localIdx) => (
                       <TooltipProvider key={sub.id} delayDuration={350}>
                         <Tooltip>
@@ -722,7 +722,7 @@ export default function ProjectsPage() {
                                 router.push(`/projects/${sub.id}`)
                               }}
                               className={cn(
-                                'group flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-2.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
+                                'group flex w-[170px] cursor-pointer flex-col gap-2 rounded-xl border bg-card p-2.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
                                 draggedSubId === sub.id && 'opacity-40',
                                 panelDrop?.group === groupName && panelDrop.index === localIdx && 'ring-2 ring-primary ring-offset-1',
                                 panelDrop?.group === groupName && panelDrop.index === localIdx + 1 && localIdx === items.length - 1 && 'ring-2 ring-primary ring-offset-1',
