@@ -18,7 +18,10 @@ export function parseCpuTimes(procStat: string): CpuTimes | null {
   const parts = line.trim().split(/\s+/).slice(1).map(Number)
   if (parts.length < 5 || parts.some(Number.isNaN)) return null
   // user nice system idle iowait irq softirq steal guest guest_nice
-  const idle = parts[3] + (parts[4] || 0) // idle + iowait
+  // Treat idle + iowait + steal as "not our compute": steal is the hypervisor
+  // handing our cores to a neighbour VM, so counting it as usage inflates the
+  // chart to 80-100% on a shared host while load average stays low.
+  const idle = parts[3] + (parts[4] || 0) + (parts[7] || 0) // idle + iowait + steal
   const total = parts.reduce((a, b) => a + b, 0)
   return { idle, total }
 }
@@ -53,9 +56,11 @@ async function sampleCpu(): Promise<CpuTimes | null> {
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export async function collectHost(): Promise<HostStats> {
-  // CPU: two samples ~250ms apart.
+  // CPU: two /proc/stat samples ~1s apart. The wider window averages out the
+  // brief CPU burst from the once-a-minute sampler request itself, which a
+  // 250ms window would otherwise read as a steady ~80% floor.
   const a = await sampleCpu()
-  await delay(250)
+  await delay(1000)
   const b = await sampleCpu()
   const usagePct = a && b ? cpuUsagePct(a, b) : 0
 
