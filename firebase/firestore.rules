@@ -180,6 +180,14 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Campaign Creator — campaigns + their draft posts
+    match /campaigns/{campaignId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /campaignPosts/{postId} {
+      allow read, write: if isAuthenticated();
+    }
+
     match /imageAssets/{assetId} {
       allow read, write: if isAuthenticated();
     }

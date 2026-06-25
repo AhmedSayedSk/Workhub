@@ -61,6 +61,8 @@ import {
   CalendarEventInput,
   ImageGeneration,
   ImageGenSession,
+  Campaign,
+  CampaignPost,
   ImageAsset,
   ImageAssetFolder,
   ImageAssetFolderInput,
@@ -1442,6 +1444,50 @@ export const imageGenSessions = {
 
   async delete(id: string): Promise<void> {
     return remove('imageGenSessions', id)
+  },
+}
+
+// Campaign Creator — campaigns + their draft posts (handed to socialPosts on schedule)
+export const campaigns = {
+  async getAllForProject(projectId: string): Promise<Campaign[]> {
+    const results = await getAll<Campaign>('campaigns', where('projectId', '==', projectId))
+    // Sort client-side (newest first) to avoid a composite index.
+    return results.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+  },
+
+  async get(id: string): Promise<Campaign | null> {
+    return getById<Campaign>('campaigns', id)
+  },
+
+  async create(data: Omit<Campaign, 'id' | 'createdAt'>): Promise<string> {
+    return create('campaigns', data)
+  },
+
+  async update(id: string, data: Partial<Campaign>): Promise<void> {
+    return update('campaigns', id, { ...data, updatedAt: Timestamp.now() })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('campaigns', id)
+  },
+}
+
+export const campaignPosts = {
+  async getAllForCampaign(campaignId: string): Promise<CampaignPost[]> {
+    const results = await getAll<CampaignPost>('campaignPosts', where('campaignId', '==', campaignId))
+    return results.sort((a, b) => (a.order || 0) - (b.order || 0))
+  },
+
+  async create(data: Omit<CampaignPost, 'id' | 'createdAt'>): Promise<string> {
+    return create('campaignPosts', data)
+  },
+
+  async update(id: string, data: Partial<CampaignPost>): Promise<void> {
+    return update('campaignPosts', id, { ...data, updatedAt: Timestamp.now() })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('campaignPosts', id)
   },
 }
 

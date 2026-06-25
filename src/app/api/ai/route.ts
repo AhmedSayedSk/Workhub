@@ -12,6 +12,7 @@ import {
   generateMarketPlan,
   generateMarketPlaybook,
   generateMarketCampaigns,
+  generateCampaignPosts,
   generateMarketListings,
   generateShape,
   generateShapeDecisions,
@@ -89,6 +90,15 @@ export async function POST(request: NextRequest) {
         const { question, context } = data
         const response = await askAI(question, context, model)
         return NextResponse.json({ success: true, data: { response } })
+      }
+
+      case 'campaign_plan': {
+        const { context, brandName, goal, audience, tone, count, language } = data
+        const posts = await generateCampaignPosts(
+          { context, brandName, goal, audience, tone, count, language },
+          model
+        )
+        return NextResponse.json({ success: true, data: { posts } })
       }
 
       case 'suggest_task_icon': {

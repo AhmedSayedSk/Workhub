@@ -751,6 +751,71 @@ Respond with ONLY a JSON array (no fences), 2-4 items, ranked by fit:
   }
 }
 
+export interface GeneratedCampaignPost {
+  caption: string
+  hashtags: string[]
+  imagePrompt: string
+}
+
+// Plan a cohesive multi-post social campaign (caption + hashtags + image prompt
+// per post). Powers the Image Generator's Campaign wizard.
+export async function generateCampaignPosts(
+  params: {
+    context: string
+    brandName: string
+    goal: string
+    audience: string
+    tone: string
+    count: number
+    language: 'en' | 'ar'
+  },
+  model?: GeminiModel
+): Promise<GeneratedCampaignPost[]> {
+  const count = Math.max(1, Math.min(20, Math.round(params.count || 4)))
+  const langLine =
+    params.language === 'ar'
+      ? 'Write the "caption" and "hashtags" in ARABIC (Modern Standard, natural marketing tone). Keep "imagePrompt" in ENGLISH.'
+      : 'Write everything in English.'
+  const prompt = `You are a senior social-media creative producing a cohesive ${count}-post campaign for the brand "${params.brandName}".
+
+Campaign goal: ${params.goal || 'grow awareness and drive signups'}
+Audience: ${params.audience || "the product's ideal customers"}
+Tone: ${params.tone || 'confident, friendly, concrete'}
+${langLine}
+
+Product/brand context (description, repos, domains):
+"""
+${(params.context || '').slice(0, 12_000)}
+"""
+
+Produce exactly ${count} DISTINCT posts that build on each other (vary the angle: hook/benefit, key feature, how-it-works, social proof, clear CTA). Respond with ONLY a JSON array (no markdown fences), ${count} items:
+[{"caption":"<1-3 short sentences ending in a clear CTA; platform-ready; use \\n for line breaks>","hashtags":["<3-6 relevant tags WITHOUT the # symbol>"],"imagePrompt":"<a vivid brand-consistent image-generation prompt in English: subject, style, color palette, composition, mood. NO text overlays, NO logos.>"}]`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('[')
+    const end = text.lastIndexOf(']')
+    if (start === -1 || end === -1) return []
+    const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedCampaignPost[]
+    return parsed
+      .filter((p) => p && typeof p.caption === 'string')
+      .map((p) => ({
+        caption: String(p.caption ?? '').slice(0, 2200),
+        hashtags: Array.isArray(p.hashtags)
+          ? p.hashtags.map((h) => String(h).replace(/^#/, '').trim()).filter(Boolean).slice(0, 8)
+          : [],
+        imagePrompt: String(p.imagePrompt ?? '').slice(0, 1000),
+      }))
+      .slice(0, count)
+  } catch (error) {
+    console.error('Error generating campaign posts:', error)
+    throw error
+  }
+}
+
 export interface GeneratedPlaybookItem {
   phase: 'pre_launch' | 'launch' | 'post_launch'
   title: string

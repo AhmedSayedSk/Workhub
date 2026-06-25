@@ -555,6 +555,60 @@ export interface ImageGenSession {
   lastUsedAt?: Timestamp
 }
 
+// ── Campaign Creator ────────────────────────────────────────────────────────
+// Authoring layer: a campaign holds a plan + draft posts; on schedule each post
+// is handed off to the existing socialPosts system for FB/IG publishing.
+export type CampaignLanguage = 'en' | 'ar'
+export type CampaignStatus = 'draft' | 'planning' | 'ready' | 'scheduled' | 'done'
+export type CampaignPostStatus = 'planned' | 'approved' | 'generating' | 'ready' | 'scheduled'
+export type CampaignAspect = 'landscape' | 'square' | 'portrait'
+
+export interface CampaignBrief {
+  goal: string
+  audience: string
+  tone: string
+  count: number
+  startDate: string // ISO date YYYY-MM-DD
+  cadenceDays: number // days between posts
+  postTime: string // HH:mm local, e.g. "18:00"
+}
+
+export interface CampaignBrand {
+  name: string
+  colors: string[]
+  logoUrl: string | null
+}
+
+export interface Campaign {
+  id: string
+  projectId: string
+  name: string
+  brief: CampaignBrief
+  brand: CampaignBrand
+  language: CampaignLanguage
+  platforms: SocialPlatform[]
+  status: CampaignStatus
+  createdBy: string
+  createdAt: Timestamp
+  updatedAt?: Timestamp
+}
+
+export interface CampaignPost {
+  id: string
+  campaignId: string
+  order: number
+  caption: string
+  hashtags: string[]
+  imagePrompt: string
+  aspect: CampaignAspect
+  imageUrl: string | null
+  status: CampaignPostStatus
+  socialPostId: string | null
+  scheduledAt: Timestamp | null
+  createdAt: Timestamp
+  updatedAt?: Timestamp
+}
+
 // AI Image Generation Log (persistent, never deleted with images)
 export interface ImageGenLog {
   id: string

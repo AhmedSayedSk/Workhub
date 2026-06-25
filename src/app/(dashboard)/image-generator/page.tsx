@@ -7,6 +7,7 @@ import { useImageGenerator } from '@/hooks/useImageGenerator'
 import { useImageApi } from '@/hooks/useImageApi'
 import { useImageSessions } from '@/hooks/useImageSessions'
 import { SessionSidebar } from '@/components/image-generator/SessionSidebar'
+import { CampaignTab } from '@/components/image-generator/campaign/CampaignTab'
 import { HeaderActions } from '@/components/layout/HeaderActions'
 import type { ImageGenSession } from '@/types'
 import { useSettings } from '@/hooks/useSettings'
@@ -81,6 +82,7 @@ import {
   Pencil,
   CalendarDays,
   CalendarPlus,
+  Megaphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -939,6 +941,7 @@ export default function ImageGeneratorPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-8">
             <TabsTrigger value="generate" className="text-xs px-3 h-7"><Sparkles className="h-3 w-3 mr-1" />Generate</TabsTrigger>
+            <TabsTrigger value="campaign" className="text-xs px-3 h-7"><Megaphone className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
             <TabsTrigger value="accounts" className="text-xs px-3 h-7"><Mail className="h-3 w-3 mr-1" />Accounts{accounts.length > 0 && <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{accounts.length}</Badge>}</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs px-3 h-7"><Settings className="h-3 w-3 mr-1" />Settings</TabsTrigger>
           </TabsList>
@@ -1390,6 +1393,10 @@ export default function ImageGeneratorPage() {
               </div>
             </div>
           </div>
+        </div>
+      ) : activeTab === 'campaign' ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <CampaignTab />
         </div>
       ) : activeTab === 'settings' ? (
         <div className="flex-1 overflow-y-auto px-1">
