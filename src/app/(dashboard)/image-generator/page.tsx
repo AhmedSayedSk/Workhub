@@ -5,6 +5,9 @@ import { authFetch } from '@/lib/api-client'
 import { useAuth } from '@/hooks/useAuth'
 import { useImageGenerator } from '@/hooks/useImageGenerator'
 import { useImageApi } from '@/hooks/useImageApi'
+import { useImageSessions } from '@/hooks/useImageSessions'
+import { SessionSidebar } from '@/components/image-generator/SessionSidebar'
+import type { ImageGenSession } from '@/types'
 import { useSettings } from '@/hooks/useSettings'
 import { ImageGeneration, ImageGenModel, ImageGenAspectRatio, ImageAsset, ImageAssetFolder, ImageGenLog, CalendarEvent } from '@/types'
 import { imageAssets, imageAssetFolders, imageGenLogs } from '@/lib/firestore'
@@ -230,7 +233,7 @@ export default function ImageGeneratorPage() {
   } = useImageGenerator()
   const {
     settings, updateSettings,
-    setImageGenApiToken, setImageGenModel, setImageGenEnabled, setImageGenStandingPrompt,
+    setImageGenApiToken, setImageGenModel, setImageGenEnabled,
   } = useSettings()
   // True when the server has a managed USEAPI_TOKEN (no per-user token needed).
   const [managed, setManaged] = useState(false)
@@ -240,6 +243,11 @@ export default function ImageGeneratorPage() {
     fetchAccounts, registerAccount, deleteAccount, fetchJobs,
     fetchCaptchaProviders, setCaptchaProviders, uploadAsset,
   } = useImageApi(settings?.imageGenApiToken, managed)
+  const {
+    sessions, activeSessionId, activeSession,
+    setActiveSessionId, createSession, renameSession,
+    setStandingPrompt: setSessionStandingPrompt, removeSession, touchSession,
+  } = useImageSessions(settings?.imageGenStandingPrompt || '')
 
   const [prompt, setPrompt] = useState('')
   const promptHistoryRef = useRef<string[]>([])
@@ -752,9 +760,10 @@ export default function ImageGeneratorPage() {
       }
     }
 
-    const standingPrompt = settings?.imageGenStandingPrompt?.trim()
+    const standingPrompt = activeSession?.standingPrompt?.trim()
     const fullPrompt = standingPrompt ? `${standingPrompt}\n${prompt.trim()}` : prompt.trim()
-    await generate(fullPrompt, aspectRatio, imageCount, settings, references?.length ? references : undefined)
+    if (activeSessionId) touchSession(activeSessionId)
+    await generate(fullPrompt, aspectRatio, imageCount, settings, references?.length ? references : undefined, activeSessionId || undefined)
   }
 
   // Auto-resize textarea when tab switches back or prompt is pre-filled
@@ -893,10 +902,59 @@ export default function ImageGeneratorPage() {
 
   const hasToken = !!settings?.imageGenApiToken || managed
 
+  // Sessions: the oldest session is the "Default" and also surfaces legacy
+  // (pre-sessions) images that have no sessionId.
+  const defaultSessionId = sessions.length
+    ? [...sessions].sort(
+        (a, b) =>
+          ((a.createdAt as unknown as { toMillis?: () => number })?.toMillis?.() || 0) -
+          ((b.createdAt as unknown as { toMillis?: () => number })?.toMillis?.() || 0)
+      )[0].id
+    : null
+  const visibleGenerations = generations.filter(
+    (g) => g.sessionId === activeSessionId || (!g.sessionId && activeSessionId === defaultSessionId)
+  )
+  const sessionCounts = generations.reduce<Record<string, number>>((acc, g) => {
+    const sid = g.sessionId || defaultSessionId
+    if (sid) acc[sid] = (acc[sid] || 0) + 1
+    return acc
+  }, {})
+
+  const handleNewSession = async () => {
+    await createSession(`Session ${sessions.length + 1}`, '')
+  }
+  const handleDeleteSession = async (s: ImageGenSession) => {
+    if (sessions.length <= 1) {
+      toast.info('You need at least one session.')
+      return
+    }
+    const owned = generations.filter((g) => g.sessionId === s.id)
+    if (
+      !window.confirm(
+        `Delete session "${s.name}"${owned.length ? ` and its ${owned.length} image${owned.length > 1 ? 's' : ''}` : ''}? This cannot be undone.`
+      )
+    )
+      return
+    owned.forEach((g) => deleteGeneration(g.id))
+    await removeSession(s.id)
+  }
+
   if (!user) return null
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] relative overflow-hidden">
+    <div className="flex h-[calc(100vh-7rem)] relative overflow-hidden">
+      {hasToken && activeTab === 'generate' && (
+        <SessionSidebar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          counts={sessionCounts}
+          onSelect={setActiveSessionId}
+          onNew={handleNewSession}
+          onRename={renameSession}
+          onDelete={handleDeleteSession}
+        />
+      )}
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-1 pb-3 flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -1072,18 +1130,19 @@ export default function ImageGeneratorPage() {
                   <button
                     className={cn(
                       "flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium transition-colors flex-1 min-w-0",
-                      settings?.imageGenStandingPrompt
+                      activeSession?.standingPrompt
                         ? "bg-primary text-primary-foreground hover:bg-primary/90"
                         : "bg-muted text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => {
-                      setStandingPromptDraft(settings?.imageGenStandingPrompt || '')
+                      setStandingPromptDraft(activeSession?.standingPrompt || '')
                       setStandingPromptOpen(true)
                     }}
+                    title={activeSession ? `Standing prompt for "${activeSession.name}"` : 'Standing prompt'}
                   >
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
                     <span className="truncate">
-                      {settings?.imageGenStandingPrompt || 'Default Prompt'}
+                      {activeSession?.standingPrompt || `${activeSession?.name || 'Session'} prompt`}
                     </span>
                   </button>
                   <button
@@ -1138,7 +1197,7 @@ export default function ImageGeneratorPage() {
               ) : (
                 <div className="grid gap-3 items-start" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
                   {/* Image cards */}
-                  {generations.map(gen => (
+                  {visibleGenerations.map(gen => (
                     <ImageCard key={gen.id} gen={gen} onPreview={openPreview} onDownload={handleDownload} onDelete={handleDelete} onAssignEvent={g => setAssignEventOpen(g.id)} />
                   ))}
                 </div>
@@ -1968,8 +2027,8 @@ export default function ImageGeneratorPage() {
       <Dialog open={standingPromptOpen} onOpenChange={setStandingPromptOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />Standing Prompt</DialogTitle>
-            <DialogDescription>This text is automatically prepended to every prompt you send.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />Standing Prompt{activeSession ? ` · ${activeSession.name}` : ''}</DialogTitle>
+            <DialogDescription>Prepended to every prompt in this session, so its images stay coherent.</DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Textarea
@@ -1981,13 +2040,14 @@ export default function ImageGeneratorPage() {
             />
           </div>
           <DialogFooter>
-            {settings?.imageGenStandingPrompt && (
+            {activeSession?.standingPrompt && (
               <Button
                 variant="ghost"
                 className="mr-auto text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
                 onClick={async () => {
+                  if (!activeSessionId) return
                   setSavingStandingPrompt(true)
-                  await setImageGenStandingPrompt(null)
+                  await setSessionStandingPrompt(activeSessionId, '')
                   setSavingStandingPrompt(false)
                   setStandingPromptOpen(false)
                 }}
@@ -1999,12 +2059,13 @@ export default function ImageGeneratorPage() {
             <Button variant="outline" onClick={() => setStandingPromptOpen(false)}>Cancel</Button>
             <Button
               onClick={async () => {
+                if (!activeSessionId) return
                 setSavingStandingPrompt(true)
-                await setImageGenStandingPrompt(standingPromptDraft.trim() || null)
+                await setSessionStandingPrompt(activeSessionId, standingPromptDraft.trim())
                 setSavingStandingPrompt(false)
                 setStandingPromptOpen(false)
               }}
-              disabled={savingStandingPrompt}
+              disabled={savingStandingPrompt || !activeSessionId}
             >
               {savingStandingPrompt ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Saving...</> : 'Save'}
             </Button>
@@ -2073,7 +2134,7 @@ export default function ImageGeneratorPage() {
         </DialogContent>
       </Dialog>
 
-
+      </div>
     </div>
   )
 }

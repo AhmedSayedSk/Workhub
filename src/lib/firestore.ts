@@ -60,6 +60,7 @@ import {
   CalendarEvent,
   CalendarEventInput,
   ImageGeneration,
+  ImageGenSession,
   ImageAsset,
   ImageAssetFolder,
   ImageAssetFolderInput,
@@ -1409,6 +1410,38 @@ export const imageGenerations = {
 
   async delete(id: string): Promise<void> {
     return remove('imageGenerations', id)
+  },
+}
+
+// Image Generation Sessions (threads, each with its own standing prompt)
+export const imageGenSessions = {
+  async getAll(userId: string): Promise<ImageGenSession[]> {
+    const results = await getAll<ImageGenSession>(
+      'imageGenSessions',
+      where('userId', '==', userId)
+    )
+    // Sort client-side (most-recently-used first) to avoid a composite index.
+    return results.sort((a, b) => {
+      const am = (a.lastUsedAt || a.createdAt)?.toMillis?.() || 0
+      const bm = (b.lastUsedAt || b.createdAt)?.toMillis?.() || 0
+      return bm - am
+    })
+  },
+
+  async create(data: Omit<ImageGenSession, 'id' | 'createdAt'>): Promise<string> {
+    return create('imageGenSessions', data)
+  },
+
+  async update(id: string, data: Partial<ImageGenSession>): Promise<void> {
+    return update('imageGenSessions', id, { ...data, updatedAt: Timestamp.now() })
+  },
+
+  async touch(id: string): Promise<void> {
+    return update('imageGenSessions', id, { lastUsedAt: Timestamp.now() })
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('imageGenSessions', id)
   },
 }
 

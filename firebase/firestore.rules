@@ -175,6 +175,11 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // AI Image Generation Sessions (threads)
+    match /imageGenSessions/{sessionId} {
+      allow read, write: if isAuthenticated();
+    }
+
     match /imageAssets/{assetId} {
       allow read, write: if isAuthenticated();
     }

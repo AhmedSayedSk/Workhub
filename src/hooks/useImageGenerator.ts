@@ -139,7 +139,8 @@ export function useImageGenerator() {
     aspectRatio: ImageGenAspectRatio,
     count: number,
     settings: AppSettings | null,
-    references?: string[]
+    references?: string[],
+    sessionId?: string
   ) => {
     if (!user) return null
 
@@ -211,6 +212,7 @@ export function useImageGenerator() {
         seed: img.seed,
         savedToMedia: false,
         userId: user.uid,
+        sessionId,
         createdAt: { toMillis: () => Date.now() } as ImageGeneration['createdAt'],
       } as ImageGeneration))
 
@@ -254,6 +256,7 @@ export function useImageGenerator() {
               fileSize,
               savedToMedia: false,
               userId: user.uid,
+              ...(sessionId ? { sessionId } : {}),
             })
 
             // Silently update metadata — keep original imageUrl to prevent flash

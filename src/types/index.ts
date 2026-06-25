@@ -539,7 +539,20 @@ export interface ImageGeneration {
   savedToMedia: boolean
   mediaFileId?: string
   userId: string
+  sessionId?: string
   createdAt: Timestamp
+}
+
+// A named image-generation "session" (thread) with its own standing prompt, so
+// images created within it stay stylistically coherent with each other.
+export interface ImageGenSession {
+  id: string
+  userId: string
+  name: string
+  standingPrompt: string
+  createdAt: Timestamp
+  updatedAt?: Timestamp
+  lastUsedAt?: Timestamp
 }
 
 // AI Image Generation Log (persistent, never deleted with images)
