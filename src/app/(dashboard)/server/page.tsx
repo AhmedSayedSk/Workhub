@@ -115,12 +115,12 @@ export default function ServerPage() {
 
           <div className="grid gap-4 lg:grid-cols-12">
             {stats.containers && (
-              <div className="lg:col-span-6">
+              <div className="lg:col-span-5">
                 <ContainerTable containers={stats.containers} />
               </div>
             )}
             {stats.apps && (
-              <div className="lg:col-span-6">
+              <div className="lg:col-span-7">
                 <AppsTable apps={stats.apps} />
               </div>
             )}

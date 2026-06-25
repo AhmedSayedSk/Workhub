@@ -22,6 +22,8 @@ const NUMERIC: Record<SortKey, boolean> = { name: false, status: false, cpu: tru
 
 export function ContainerTable({ containers }: { containers: ContainerStat[] }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'cpu', dir: 'desc' })
+  // Containers share the host RAM limit — surface it once in the column header.
+  const memTotal = containers.reduce((m, c) => Math.max(m, c.memLimitBytes || 0), 0)
 
   const sorted = useMemo(() => {
     const acc = ACCESSORS[sort.key]
@@ -42,7 +44,7 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
         : { key, dir: NUMERIC[key] ? 'desc' : 'asc' }
     )
 
-  const SortHeader = ({ label, k, align = 'left' }: { label: string; k: SortKey; align?: 'left' | 'right' }) => {
+  const SortHeader = ({ label, k, align = 'left', hint }: { label: string; k: SortKey; align?: 'left' | 'right'; hint?: string }) => {
     const active = sort.key === k
     return (
       <th className={cn('px-4 py-2 font-medium', align === 'right' ? 'text-right' : 'text-left')}>
@@ -66,6 +68,7 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
             <ChevronsUpDown className="h-3 w-3 opacity-40" />
           )}
         </button>
+        {hint && <span className="ml-1.5 normal-case font-normal text-muted-foreground/60">{hint}</span>}
       </th>
     )
   }
@@ -87,7 +90,7 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
                 <SortHeader label="Name" k="name" />
                 <SortHeader label="Status" k="status" />
                 <SortHeader label="CPU" k="cpu" align="right" />
-                <SortHeader label="Memory" k="memory" align="right" />
+                <SortHeader label="Memory" k="memory" align="right" hint={memTotal ? formatBytes(memTotal) : undefined} />
                 <SortHeader label="Net I/O" k="net" align="right" />
               </tr>
             </thead>
@@ -112,9 +115,6 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
                       <span className={memPct ? usageColor(memPct) : undefined}>{formatBytes(c.memUsedBytes)}</span>
-                      {c.memLimitBytes > 0 && (
-                        <span className="text-muted-foreground"> / {formatBytes(c.memLimitBytes)}</span>
-                      )}
                       {memPct > 0 && (
                         <span className={cn('ml-1.5 text-xs', usageColor(memPct))}>· {memPct}%</span>
                       )}
