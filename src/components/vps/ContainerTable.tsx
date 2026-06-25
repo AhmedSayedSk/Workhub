@@ -80,9 +80,9 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
+        <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-card">
               <tr className="border-y text-xs uppercase tracking-wide text-muted-foreground">
                 <SortHeader label="Name" k="name" />
                 <SortHeader label="Status" k="status" />
