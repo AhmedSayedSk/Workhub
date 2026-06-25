@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Boxes, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import type { ContainerStat } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
@@ -88,7 +87,6 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
             <thead className="sticky top-0 z-10 bg-card">
               <tr className="border-y text-xs uppercase tracking-wide text-muted-foreground">
                 <SortHeader label="Name" k="name" />
-                <SortHeader label="Status" k="status" />
                 <SortHeader label="CPU" k="cpu" align="right" />
                 <SortHeader label="Memory" k="memory" align="right" hint={memTotal ? formatBytes(memTotal) : undefined} />
                 <SortHeader label="Net I/O" k="net" align="right" />
@@ -100,15 +98,19 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
                 return (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-4 py-2.5">
-                      <div className="font-medium">{c.name}</div>
-                      <div className="text-xs text-muted-foreground truncate max-w-[220px]" title={c.image}>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={cn('h-2 w-2 shrink-0 rounded-full', c.state === 'running' ? 'bg-emerald-500' : 'bg-red-500')}
+                          title={c.state}
+                        />
+                        <span className="font-medium">{c.name}</span>
+                      </div>
+                      <div className={cn('mt-0.5 text-xs', c.state === 'running' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500')}>
+                        {c.status}
+                      </div>
+                      <div className="text-xs text-muted-foreground/70 truncate max-w-[220px]" title={c.image}>
                         {c.image}
                       </div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <Badge variant={c.state === 'running' ? 'secondary' : 'destructive'} className="font-normal">
-                        {c.status}
-                      </Badge>
                     </td>
                     <td className={cn('px-4 py-2.5 text-right tabular-nums', usageColor(c.cpuPct))}>
                       {c.cpuPct.toFixed(1)}%
