@@ -35,6 +35,22 @@ export function cpuUsagePct(a: CpuTimes, b: CpuTimes): number {
   return Math.max(0, Math.min(100, Math.round(pct * 10) / 10))
 }
 
+// Rolling CPU% over the full interval since the previous call (~60s for the
+// once-a-minute dashboard sampler). The crons fire on the :00 second and
+// briefly spike CPU; a short in-request window is phase-locked to that spike
+// and reads 70-100% on an otherwise idle box. Averaging cumulative jiffies
+// across the whole minute reflects the true (few-percent) duty cycle.
+let _prevCpu: CpuTimes | null = null
+
+export async function rollingCpuPct(): Promise<number | null> {
+  const now = await sampleCpu()
+  if (!now) return null
+  const prev = _prevCpu
+  _prevCpu = now
+  if (!prev) return null // first call after boot: no baseline yet
+  return cpuUsagePct(prev, now)
+}
+
 // Parse /proc/meminfo (values are in kB) into bytes.
 export function parseMeminfo(meminfo: string): Record<string, number> {
   const out: Record<string, number> = {}

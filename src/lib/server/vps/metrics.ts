@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin'
-import { collectHost } from './host'
+import { collectHost, rollingCpuPct } from './host'
 import type { MetricPoint } from './types'
 
 // Persistent time-series for the Server dashboard charts. A once-a-minute cron
@@ -27,10 +27,12 @@ function pct(used: number, total: number): number {
 }
 
 export async function sampleAndStore(): Promise<MetricPoint> {
-  const host = await collectHost()
+  const [host, rollingCpu] = await Promise.all([collectHost(), rollingCpuPct()])
   const point: MetricPoint = {
     ts: Date.now(),
-    cpuPct: host.cpu.usagePct,
+    // Prefer the rolling ~60s average; fall back to the in-request sample only
+    // on the first tick after a restart (before a baseline exists).
+    cpuPct: rollingCpu ?? host.cpu.usagePct,
     memPct: pct(host.memory.usedBytes, host.memory.totalBytes),
     diskPct: pct(host.disk.usedBytes, host.disk.totalBytes),
     load1: host.cpu.load1,
