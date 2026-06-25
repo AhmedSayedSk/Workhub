@@ -165,6 +165,13 @@ function ImageCard({ gen, onPreview, onDownload, onDelete, onAssignEvent }: {
             </div>
           )}
 
+          {/* Always-visible model badge (yields to the richer info on hover) */}
+          <div className="absolute bottom-2 left-2 opacity-100 group-hover:opacity-0 transition-opacity">
+            <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+              {IMAGE_GEN_MODELS.find(m => m.value === gen.model)?.label || gen.model}
+            </span>
+          </div>
+
           {/* Bottom info overlay */}
           <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2 pt-6 opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="flex items-center gap-1 text-[10px] text-white/70">
@@ -321,33 +328,6 @@ export default function ImageGeneratorPage() {
   const [assignEventOpen, setAssignEventOpen] = useState<string | null>(null)
   const [eventSearchQuery, setEventSearchQuery] = useState('')
 
-  // Resizable prompt panel
-  const [promptPanelWidth, setPromptPanelWidth] = useState(320)
-  const isResizingPrompt = useRef(false)
-
-  const handlePromptResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault()
-    isResizingPrompt.current = true
-    const startX = e.clientX
-    const startWidth = promptPanelWidth
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!isResizingPrompt.current) return
-      const newWidth = Math.min(Math.max(startWidth + (ev.clientX - startX), 240), 600)
-      setPromptPanelWidth(newWidth)
-    }
-    const onMouseUp = () => {
-      isResizingPrompt.current = false
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
-  }
 
   const filteredCalendarEvents = calendarEvents
     .filter(e => {
@@ -1026,151 +1006,8 @@ export default function ImageGeneratorPage() {
 
       {/* Main Content Area */}
       {activeTab === 'generate' ? (
-        <div className="flex-1 flex min-h-0 relative">
-          {/* Left Panel — Prompt */}
-          <div className="flex-shrink-0 bg-background flex flex-col relative" style={{ width: promptPanelWidth }}>
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Generating overlay */}
-              {(isGenerating || uploadingAssets) && (
-                <div className="px-3 py-3 border-b bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <div className="relative h-5 w-5 flex-shrink-0">
-                      <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
-                      <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
-                    </div>
-                    <p className="text-xs font-medium text-primary flex-1">
-                      {uploadingAssets ? 'Uploading assets...' : `Generating ${imageCount} image${imageCount > 1 ? 's' : ''}...`}
-                    </p>
-                    <Button onClick={cancelGeneration} variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-500 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30">
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Selected assets preview */}
-              {selectedRefs.length > 0 && (
-                <div className="flex items-center gap-1.5 px-3 pt-3 pb-1 overflow-x-auto flex-shrink-0">
-                  {selectedRefs.map((id) => {
-                    const asset = allAssets.find(a => a.id === id)
-                    if (!asset) return null
-                    return (
-                      <div key={id} className="relative flex-shrink-0 group/att">
-                        <img src={asset.thumbnailUrl} alt={asset.name} className="h-14 w-14 rounded-lg object-cover border border-primary/20" />
-                        <button
-                          onClick={() => setSelectedRefs(prev => prev.filter(r => r !== id))}
-                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-foreground/80 text-background flex items-center justify-center opacity-0 group-hover/att:opacity-100 transition-opacity"
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Textarea */}
-              <div className="flex-1 px-3 pt-3 pb-1 overflow-y-auto min-h-0 flex flex-col">
-                <textarea
-                  ref={textareaRef}
-                  placeholder={selectedRefs.length > 0 ? "Describe how to use the reference image..." : "Describe the image you want to create..."}
-                  value={prompt}
-                  onChange={e => {
-                    setPrompt(e.target.value)
-                  }}
-                  onKeyDown={handleKeyDown}
-                  rows={4}
-                  disabled={isGenerating}
-                  className="w-full flex-1 resize-none bg-transparent border rounded-lg outline-none text-sm placeholder:text-muted-foreground/40 p-2.5 leading-relaxed focus:ring-1 focus:ring-primary/30 focus:border-primary/40 min-h-[100px]"
-                />
-              </div>
-
-              {/* Options */}
-              <div className="px-3 py-2.5 space-y-2.5 flex-shrink-0">
-                {/* Aspect ratio + count */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                    {([['landscape', RectangleHorizontal], ['square', Square], ['portrait', RectangleVertical]] as const).map(([val, Icon]) => (
-                      <Button
-                        key={val}
-                        variant={aspectRatio === val ? 'default' : 'ghost'}
-                        size="sm" className="h-7 w-7 rounded-md p-0"
-                        onClick={() => setAspectRatio(val)}
-                        disabled={isGenerating}
-                        title={val}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="w-px h-5 bg-border" />
-                  <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                    {[2, 4, 6, 8].map(n => (
-                      <Button
-                        key={n}
-                        variant={imageCount === n ? 'default' : 'ghost'}
-                        size="sm" className="h-7 w-7 rounded-md text-[11px] font-medium p-0"
-                        onClick={() => setImageCount(n)}
-                        disabled={isGenerating}
-                      >
-                        {n}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Standing prompt + Event */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    className={cn(
-                      "flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium transition-colors flex-1 min-w-0",
-                      activeSession?.standingPrompt
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                    onClick={() => {
-                      setStandingPromptDraft(activeSession?.standingPrompt || '')
-                      setStandingPromptOpen(true)
-                    }}
-                    title={activeSession ? `Standing prompt for "${activeSession.name}"` : 'Standing prompt'}
-                  >
-                    <Sparkles className="h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">
-                      {activeSession?.standingPrompt || `${activeSession?.name || 'Session'} prompt`}
-                    </span>
-                  </button>
-                  <button
-                    className="flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setEventPopoverOpen(true)}
-                  >
-                    <CalendarDays className="h-3 w-3" />
-                    Event
-                  </button>
-                </div>
-
-                {/* Generate button */}
-                <div className="pt-0.5">
-                  {isGenerating || uploadingAssets ? (
-                    <Button onClick={cancelGeneration} className="w-full h-9 bg-red-500 hover:bg-red-600 text-white">
-                      {uploadingAssets ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <CircleStop className="h-4 w-4 mr-1.5" />}
-                      Cancel
-                    </Button>
-                  ) : (
-                    <Button onClick={handleGenerate} disabled={!prompt.trim()} className="w-full h-9">
-                      <Send className="h-4 w-4 mr-1.5" />
-                      Generate
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-            {/* Resize handle */}
-            <div
-              className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
-              onMouseDown={handlePromptResizeStart}
-            />
-          </div>
-
+        <div className="flex-1 flex flex-col min-h-0 relative">
+          <div className="flex min-h-0 flex-1">
           {/* Center — Scrollable Image Grid */}
           <div className="flex-1 min-h-0 relative flex flex-col">
             <div className="flex-1 overflow-y-auto px-1 pt-2 pb-4">
@@ -1449,6 +1286,89 @@ export default function ImageGeneratorPage() {
                 </div>
               </button>
             )}
+          </div>
+          </div>
+
+          {/* Bottom composer — horizontal prompt + params */}
+          <div className="flex-shrink-0 border-t bg-background px-3 py-2.5 space-y-2">
+            {(selectedRefs.length > 0 || isGenerating || uploadingAssets) && (
+              <div className="flex items-center gap-2 overflow-x-auto">
+                {selectedRefs.map((id) => {
+                  const asset = allAssets.find(a => a.id === id)
+                  if (!asset) return null
+                  return (
+                    <div key={id} className="relative flex-shrink-0 group/att">
+                      <img src={asset.thumbnailUrl} alt={asset.name} className="h-11 w-11 rounded-lg object-cover border border-primary/20" />
+                      <button
+                        onClick={() => setSelectedRefs(prev => prev.filter(r => r !== id))}
+                        className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-foreground/80 text-background flex items-center justify-center opacity-0 group-hover/att:opacity-100 transition-opacity"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  )
+                })}
+                {(isGenerating || uploadingAssets) && (
+                  <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {uploadingAssets ? 'Uploading assets…' : `Generating ${imageCount} image${imageCount > 1 ? 's' : ''}…`}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-2">
+              <textarea
+                ref={textareaRef}
+                placeholder={selectedRefs.length > 0 ? "Describe how to use the reference image..." : "Describe the image you want to create..."}
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={2}
+                disabled={isGenerating}
+                className="flex-1 min-w-[260px] resize-none rounded-lg border bg-transparent p-2.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/30 min-h-[56px] max-h-[140px]"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                  {([['landscape', RectangleHorizontal], ['square', Square], ['portrait', RectangleVertical]] as const).map(([val, Icon]) => (
+                    <Button key={val} variant={aspectRatio === val ? 'default' : 'ghost'} size="sm" className="h-7 w-7 rounded-md p-0" onClick={() => setAspectRatio(val)} disabled={isGenerating} title={val}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                  {[2, 4, 6, 8].map(n => (
+                    <Button key={n} variant={imageCount === n ? 'default' : 'ghost'} size="sm" className="h-7 w-7 rounded-md text-[11px] font-medium p-0" onClick={() => setImageCount(n)} disabled={isGenerating}>{n}</Button>
+                  ))}
+                </div>
+                <button
+                  className={cn(
+                    "flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium transition-colors max-w-[180px]",
+                    activeSession?.standingPrompt ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => { setStandingPromptDraft(activeSession?.standingPrompt || ''); setStandingPromptOpen(true) }}
+                  title={activeSession ? `Standing prompt for "${activeSession.name}"` : 'Standing prompt'}
+                >
+                  <Sparkles className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{activeSession?.standingPrompt || `${activeSession?.name || 'Session'} prompt`}</span>
+                </button>
+                <button
+                  className="flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setEventPopoverOpen(true)}
+                >
+                  <CalendarDays className="h-3 w-3" />Event
+                </button>
+                {isGenerating || uploadingAssets ? (
+                  <Button onClick={cancelGeneration} className="h-9 bg-red-500 hover:bg-red-600 text-white">
+                    {uploadingAssets ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <CircleStop className="h-4 w-4 mr-1.5" />}Cancel
+                  </Button>
+                ) : (
+                  <Button onClick={handleGenerate} disabled={!prompt.trim()} className="h-9">
+                    <Send className="h-4 w-4 mr-1.5" />Generate
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       ) : activeTab === 'settings' ? (
