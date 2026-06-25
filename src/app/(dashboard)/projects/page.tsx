@@ -684,7 +684,7 @@ export default function ProjectsPage() {
                               <p className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{groupName || 'No group'}</p>
                               <div className="h-px flex-1 bg-border/60" />
                             </div>
-                            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                            <div className="grid grid-cols-2 gap-2.5">
                     {items.map((sub, localIdx) => (
                       <TooltipProvider key={sub.id} delayDuration={350}>
                         <Tooltip>
@@ -722,21 +722,32 @@ export default function ProjectsPage() {
                                 router.push(`/projects/${sub.id}`)
                               }}
                               className={cn(
-                                'flex cursor-pointer items-center gap-2 rounded-md py-1.5 transition hover:bg-muted',
+                                'group flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-2.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
                                 draggedSubId === sub.id && 'opacity-40',
-                                panelDrop?.group === groupName && panelDrop.index === localIdx && 'border-t-2 border-primary',
-                                panelDrop?.group === groupName && panelDrop.index === localIdx + 1 && localIdx === items.length - 1 && 'border-b-2 border-primary',
+                                panelDrop?.group === groupName && panelDrop.index === localIdx && 'ring-2 ring-primary ring-offset-1',
+                                panelDrop?.group === groupName && panelDrop.index === localIdx + 1 && localIdx === items.length - 1 && 'ring-2 ring-primary ring-offset-1',
                               )}
                             >
-                              <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="sm" />
-                              <span className="min-w-0 flex-1 truncate text-sm font-medium">{sub.name}</span>
-                              {(subTaskCounts[sub.id] ?? 0) > 0 && (
-                                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 py-0 text-[10px] tabular-nums text-muted-foreground">
-                                  <ListTodo className="h-2.5 w-2.5" />
-                                  {subTaskCounts[sub.id]}
-                                </span>
-                              )}
-                              <StageBadge stage={sub.lastTouchedStage ?? null} className="shrink-0 gap-0.5 px-1.5 py-0 text-[10px]" />
+                              <div className="flex items-center gap-2">
+                                <ProjectIcon src={sub.coverImageUrl} name={sub.name} size="md" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold leading-tight">{sub.name}</p>
+                                  {sub.projectType && sub.projectType !== 'other' && (
+                                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                      {projectTypes.find((t) => t.value === sub.projectType)?.label}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <StageBadge stage={sub.lastTouchedStage ?? null} className="gap-0.5 px-1.5 py-0 text-[10px]" />
+                                {(subTaskCounts[sub.id] ?? 0) > 0 && (
+                                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 py-0 text-[10px] tabular-nums text-muted-foreground">
+                                    <ListTodo className="h-2.5 w-2.5" />
+                                    {subTaskCounts[sub.id]}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </TooltipTrigger>
                           <TooltipContent side="left" className="w-72 p-3">

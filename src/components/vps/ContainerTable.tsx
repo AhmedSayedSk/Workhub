@@ -115,6 +115,9 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
                       {c.memLimitBytes > 0 && (
                         <span className="text-muted-foreground"> / {formatBytes(c.memLimitBytes)}</span>
                       )}
+                      {memPct > 0 && (
+                        <span className={cn('ml-1.5 text-xs', usageColor(memPct))}>· {memPct}%</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                       ↓ {formatBytes(c.netRxBytes)} · ↑ {formatBytes(c.netTxBytes)}

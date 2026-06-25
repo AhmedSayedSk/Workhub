@@ -80,8 +80,22 @@ export function AppsTable({ apps }: { apps: AppInfo[] }) {
                         </div>
                       )}
                       {a.services.length > 0 && (
-                        <div className="mt-0.5 text-[11px] text-muted-foreground truncate max-w-[220px]">
-                          {a.services.map((s) => s.name).join(', ')}
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {a.services.map((s) => (
+                            <span
+                              key={s.name}
+                              title={s.status}
+                              className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                            >
+                              <span
+                                className={cn(
+                                  'h-1.5 w-1.5 rounded-full',
+                                  s.state === 'running' ? 'bg-emerald-500' : 'bg-red-500'
+                                )}
+                              />
+                              {s.name}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </td>
