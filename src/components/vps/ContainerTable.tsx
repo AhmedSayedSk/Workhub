@@ -82,7 +82,7 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-card">
               <tr className="border-y text-xs uppercase tracking-wide text-muted-foreground">

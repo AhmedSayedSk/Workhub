@@ -722,7 +722,7 @@ export default function ProjectsPage() {
                                 router.push(`/projects/${sub.id}`)
                               }}
                               className={cn(
-                                'group flex w-[170px] cursor-pointer flex-col gap-2 rounded-xl border bg-card p-2.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
+                                'group flex min-w-0 shrink-0 grow-0 basis-[calc((100%-1.25rem)/3)] cursor-pointer flex-col gap-2 rounded-xl border bg-card p-2.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
                                 draggedSubId === sub.id && 'opacity-40',
                                 panelDrop?.group === groupName && panelDrop.index === localIdx && 'ring-2 ring-primary ring-offset-1',
                                 panelDrop?.group === groupName && panelDrop.index === localIdx + 1 && localIdx === items.length - 1 && 'ring-2 ring-primary ring-offset-1',
