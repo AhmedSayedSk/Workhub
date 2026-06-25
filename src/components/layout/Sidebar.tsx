@@ -23,7 +23,6 @@ import {
   Wand2,
   User,
   ScrollText,
-  Server,
   Cog,
   ChevronUp,
 } from 'lucide-react'
@@ -64,7 +63,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { settings } = useSettings()
   const { canModule } = useModulePermissions()
   const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
-  const isAdminActive = ['/server', '/audit-logs', '/settings'].some((p) => (pathname ?? '').startsWith(p))
+  const isAdminActive = ['/audit-logs', '/settings'].some((p) => (pathname ?? '').startsWith(p))
 
   const mainNavItems = useMemo(() =>
     allMainNavItems.filter((item) => {
@@ -299,11 +298,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="end" className="w-48">
-                <DropdownMenuItem asChild>
-                  <Link href="/server">
-                    <Server className="mr-2 h-4 w-4" /> Server
-                  </Link>
-                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/audit-logs">
                     <ScrollText className="mr-2 h-4 w-4" /> Audit Logs
