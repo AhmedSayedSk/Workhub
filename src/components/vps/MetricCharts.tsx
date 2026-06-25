@@ -65,6 +65,27 @@ function buildTicks(start: number, end: number): number[] {
   return Array.from({ length: n + 1 }, (_, i) => Math.round(start + ((end - start) * i) / n))
 }
 
+// Auto-fit the Y axis to the data range (with padding) so low or flat series
+// fill the panel instead of hugging the baseline. Percentages stay clamped to
+// 0-100; a near-flat series gets breathing room around its value.
+function fitDomain(values: number[], isPct: boolean): [number, number] {
+  if (!values.length) return isPct ? [0, 100] : [0, 1]
+  let min = Math.min(...values)
+  let max = Math.max(...values)
+  const flat = isPct ? 2 : 0.2
+  if (max - min < flat) {
+    const mid = (min + max) / 2
+    min = mid - flat
+    max = mid + flat
+  }
+  const pad = (max - min) * 0.2
+  let lo = Math.max(0, min - pad)
+  let hi = max + pad
+  if (isPct) hi = Math.min(100, hi)
+  if (isPct) return [Math.floor(lo), Math.ceil(hi)]
+  return [Math.floor(lo * 10) / 10, Math.ceil(hi * 10) / 10]
+}
+
 function ChartTooltip(props: any) {
   const { active, payload, label, color, unit, metricLabel } = props
   if (!active || !payload?.length) return null
@@ -146,6 +167,11 @@ function MetricPanel({
   // Show sample dots when the series is sparse (reads better than a thin line);
   // hide them once the line is dense enough to be smooth on its own.
   const showDots = points.length > 0 && points.length <= 60
+  // Auto-scale the Y axis to the visible data so low/flat series are readable.
+  const yValues = points
+    .map((p) => p[def.key])
+    .filter((v): v is number => typeof v === 'number')
+  const yDomain = fitDomain(yValues, def.isPct)
 
   return (
     <div className="rounded-xl border bg-muted/20 p-3">
@@ -163,7 +189,7 @@ function MetricPanel({
           </span>
         )}
       </div>
-      <div className="h-28">
+      <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={points} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
             <defs>
@@ -187,12 +213,13 @@ function MetricPanel({
               minTickGap={16}
             />
             <YAxis
-              domain={def.domain as [number, number]}
+              domain={yDomain}
+              allowDecimals={!def.isPct}
               tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
               width={40}
-              tickCount={def.isPct ? 3 : 4}
+              tickCount={4}
             />
             {def.threshold != null && (
               <ReferenceLine

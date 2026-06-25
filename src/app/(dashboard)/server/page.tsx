@@ -113,9 +113,18 @@ export default function ServerPage() {
             </div>
           </div>
 
-          {stats.containers && <ContainerTable containers={stats.containers} />}
-
-          {stats.apps && <AppsTable apps={stats.apps} />}
+          <div className="grid gap-4 lg:grid-cols-12">
+            {stats.containers && (
+              <div className="lg:col-span-6">
+                <ContainerTable containers={stats.containers} />
+              </div>
+            )}
+            {stats.apps && (
+              <div className="lg:col-span-6">
+                <AppsTable apps={stats.apps} />
+              </div>
+            )}
+          </div>
 
           {stats.errors.length > 0 && (
             <div className="space-y-1 text-xs text-muted-foreground">

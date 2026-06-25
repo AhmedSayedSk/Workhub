@@ -63,6 +63,22 @@ const EXTRA: AppInfo[] = [
   },
 ]
 
+// Sibling app keys that belong to one umbrella system get folded together so
+// they show as a single row with all their containers/domains. Keyed by the
+// shared prefix (e.g. coffeepos-landing / -leads / -license -> coffeepos).
+const PARENTS: Record<string, { name: string; description: string; type: string }> = {
+  coffeepos: {
+    name: 'CoffeePOS',
+    description: 'Coffee-shop POS — landing site, leads API & license server',
+    type: 'system',
+  },
+}
+
+function parentKeyOf(key: string): string | null {
+  const base = key.split('-')[0]
+  return PARENTS[base] ? base : null
+}
+
 interface ContainerSummary {
   Id: string
   Names: string[]
@@ -123,5 +139,40 @@ export async function collectApps(): Promise<AppInfo[]> {
     }
   })
 
-  return [...discovered, ...EXTRA].sort((a, b) => a.name.localeCompare(b.name))
+  // Fold umbrella siblings (e.g. coffeepos-*) into a single parent system.
+  const merged = new Map<string, AppInfo>()
+  for (const app of discovered) {
+    const pkey = parentKeyOf(app.id)
+    if (!pkey) {
+      merged.set(app.id, app)
+      continue
+    }
+    const meta = PARENTS[pkey]
+    const existing = merged.get(pkey)
+    if (existing) {
+      existing.services.push(...app.services)
+      existing.domains = Array.from(new Set([...existing.domains, ...app.domains]))
+      existing.running += app.running
+      existing.total += app.total
+    } else {
+      merged.set(pkey, {
+        id: pkey,
+        name: meta.name,
+        description: meta.description,
+        type: meta.type,
+        path: `/opt/${pkey}-*`,
+        domains: [...app.domains],
+        services: [...app.services],
+        running: app.running,
+        total: app.total,
+      })
+    }
+  }
+
+  const result = [...merged.values()].map((a) => ({
+    ...a,
+    services: a.services.sort((x, y) => x.name.localeCompare(y.name)),
+  }))
+
+  return [...result, ...EXTRA].sort((a, b) => a.name.localeCompare(b.name))
 }
