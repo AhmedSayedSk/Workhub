@@ -7,6 +7,7 @@ import { useImageGenerator } from '@/hooks/useImageGenerator'
 import { useImageApi } from '@/hooks/useImageApi'
 import { useImageSessions } from '@/hooks/useImageSessions'
 import { SessionSidebar } from '@/components/image-generator/SessionSidebar'
+import { HeaderActions } from '@/components/layout/HeaderActions'
 import type { ImageGenSession } from '@/types'
 import { useSettings } from '@/hooks/useSettings'
 import { ImageGeneration, ImageGenModel, ImageGenAspectRatio, ImageAsset, ImageAssetFolder, ImageGenLog, CalendarEvent } from '@/types'
@@ -20,7 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import {
   Select,
@@ -56,7 +57,6 @@ import {
   RefreshCw,
   Activity,
   Shield,
-  Clock,
   Mail,
   RectangleHorizontal,
   Square,
@@ -287,7 +287,6 @@ export default function ImageGeneratorPage() {
   const zoomContainerRef = useRef<HTMLDivElement>(null)
 
   // Settings modal
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsToken, setSettingsToken] = useState('')
   const [settingsModel, setSettingsModel] = useState<ImageGenModel | ''>('')
   const [settingsEnabled, setSettingsEnabled] = useState(true)
@@ -641,7 +640,7 @@ export default function ImageGeneratorPage() {
       setSettingsEnabled(settings.imageGenEnabled !== false)
     }
     setShowToken(false)
-    setSettingsOpen(true)
+    setActiveTab('settings')
   }
 
   const handleSaveSettings = async () => {
@@ -650,7 +649,7 @@ export default function ImageGeneratorPage() {
       await setImageGenApiToken(settingsToken || null)
       if (settingsModel) await setImageGenModel(settingsModel)
       await setImageGenEnabled(settingsEnabled)
-      setSettingsOpen(false)
+      toast.success('Settings saved')
     } catch {} finally { setSavingSettings(false) }
   }
 
@@ -955,21 +954,16 @@ export default function ImageGeneratorPage() {
         />
       )}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-1 pb-3 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="h-8">
-              <TabsTrigger value="generate" className="text-xs px-3 h-7"><Sparkles className="h-3 w-3 mr-1" />Generate</TabsTrigger>
-              <TabsTrigger value="accounts" className="text-xs px-3 h-7"><Mail className="h-3 w-3 mr-1" />Accounts{accounts.length > 0 && <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{accounts.length}</Badge>}</TabsTrigger>
-              <TabsTrigger value="jobs" className="text-xs px-3 h-7"><Activity className="h-3 w-3 mr-1" />Jobs</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenSettings}>
-          <Settings className="h-4 w-4" />
-        </Button>
-      </div>
+      {/* Tabs live in the global top header bar */}
+      <HeaderActions>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="h-8">
+            <TabsTrigger value="generate" className="text-xs px-3 h-7"><Sparkles className="h-3 w-3 mr-1" />Generate</TabsTrigger>
+            <TabsTrigger value="accounts" className="text-xs px-3 h-7"><Mail className="h-3 w-3 mr-1" />Accounts{accounts.length > 0 && <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{accounts.length}</Badge>}</TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs px-3 h-7"><Settings className="h-3 w-3 mr-1" />Settings</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </HeaderActions>
 
       {/* Error Display */}
       {generationError && (
@@ -1457,11 +1451,47 @@ export default function ImageGeneratorPage() {
             )}
           </div>
         </div>
-      ) : (
-        /* Accounts & Jobs tabs */
+      ) : activeTab === 'settings' ? (
         <div className="flex-1 overflow-y-auto px-1">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsContent value="accounts" className="space-y-4 mt-0">
+          <div className="mx-auto w-full max-w-xl space-y-5 py-4">
+            <h2 className="text-lg font-semibold">Image Generator Settings</h2>
+            <div className="flex items-center justify-between">
+              <div><Label htmlFor="ig-enabled" className="text-sm font-medium">Enable Image Generation</Label><p className="text-xs text-muted-foreground mt-0.5">Turn on or off</p></div>
+              <Switch id="ig-enabled" checked={settingsEnabled} onCheckedChange={setSettingsEnabled} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ig-token">useapi.net API Token{managed ? ' · optional (server-managed)' : ''}</Label>
+              <div className="relative">
+                <Input id="ig-token" type={showToken ? 'text' : 'password'} placeholder="user:XXXX-XXXXXXXXX" value={settingsToken} onChange={e => setSettingsToken(e.target.value)} className="pr-10" />
+                <button type="button" onClick={() => setShowToken(!showToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Model</Label>
+              <Select value={settingsModel} onValueChange={(v) => setSettingsModel(v as ImageGenModel)}>
+                <SelectTrigger><SelectValue placeholder="Select a model..." /></SelectTrigger>
+                <SelectContent>
+                  {IMAGE_GEN_MODELS.map(m => (
+                    <SelectItem key={m.value} value={m.value}>
+                      <div><div className="font-medium">{m.label}</div><div className="text-xs text-muted-foreground">{m.description}</div></div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleSaveSettings} disabled={savingSettings}>
+                {savingSettings ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Saving...</> : 'Save Settings'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Accounts + usage stats */
+        <div className="flex-1 space-y-6 overflow-y-auto px-1 pb-6">
+            <div className="space-y-4 mt-0">
               {!hasToken ? (
                 <Card><CardContent className="pt-6">
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -1497,69 +1527,64 @@ export default function ImageGeneratorPage() {
                       </div>
                     </CardContent></Card>
                   ) : (
-                    <div className="grid gap-4">
+                    <div className="space-y-2">
                       {accounts.map(acc => {
                         const isDisabled = settings?.imageGenDisabledEmails?.includes(acc.email) ?? false
                         const isDefault = settings?.imageGenPreferredEmail === acc.email
                         return (
-                          <Card key={acc.email} className={cn(isDisabled && "opacity-60", isDefault && "ring-1 ring-primary/30")}>
-                            <CardContent className="pt-5 pb-5">
-                              <div className="flex items-start justify-between">
-                                <div className="space-y-2 flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <Switch
-                                      checked={!isDisabled}
-                                      onCheckedChange={async (checked) => {
-                                        const current = settings?.imageGenDisabledEmails || []
-                                        const updated = checked
-                                          ? current.filter(e => e !== acc.email)
-                                          : [...current, acc.email]
-                                        await updateSettings({ imageGenDisabledEmails: updated })
-                                      }}
-                                    />
-                                    <Mail className="h-4 w-4 text-muted-foreground" />
-                                    <span className={cn("font-medium", isDisabled && "line-through text-muted-foreground")}>{acc.email}</span>
-                                    <Badge variant={acc.health === 'OK' ? 'default' : 'destructive'} className={cn("text-xs", acc.health === 'OK' && "bg-green-500")}>
-                                      {acc.health}
-                                    </Badge>
-                                    {isDisabled && <Badge variant="outline" className="text-xs text-muted-foreground">Disabled</Badge>}
-                                    {isDefault && <Badge className="text-xs bg-primary">Default</Badge>}
-                                    {!isDefault && !isDisabled && (
-                                      <button
-                                        className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
-                                        onClick={() => updateSettings({ imageGenPreferredEmail: acc.email })}
-                                      >
-                                        Set as default
-                                      </button>
-                                    )}
-                                  </div>
-                                  {acc.error && <p className="text-sm text-red-500">{acc.error}</p>}
-                                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" />Created: {new Date(acc.created).toLocaleDateString()}</span>
-                                    <span className="flex items-center gap-1"><Shield className="h-3 w-3" />Session expires: {acc.sessionExpires ? new Date(acc.sessionExpires).toLocaleString() : 'N/A'}</span>
-                                    <span className="flex items-center gap-1"><RefreshCw className="h-3 w-3" />Next refresh: {acc.nextRefresh ? new Date(acc.nextRefresh).toLocaleString() : 'N/A'}</span>
-                                  </div>
-                                  {acc.projectTitle && <p className="text-xs text-muted-foreground">Project: {acc.projectTitle}</p>}
-                                </div>
-                                <div className="flex gap-2 flex-shrink-0">
-                                  <Button
-                                    variant="outline" size="sm"
-                                    onClick={() => openRefreshSession(acc.email)}
-                                  >
-                                    <RefreshCw className="h-4 w-4 mr-1.5" />Refresh
-                                  </Button>
-                                  <Button
-                                    variant="outline" size="sm"
-                                    onClick={() => deleteAccount(acc.email)}
-                                    disabled={deletingEmail === acc.email}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    {deletingEmail === acc.email ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1.5" />Remove</>}
-                                  </Button>
-                                </div>
+                          <div
+                            key={acc.email}
+                            className={cn(
+                              "flex items-center gap-3 rounded-lg border px-3 py-2",
+                              isDisabled && "opacity-60",
+                              isDefault && "ring-1 ring-primary/30"
+                            )}
+                          >
+                            <Switch
+                              checked={!isDisabled}
+                              onCheckedChange={async (checked) => {
+                                const current = settings?.imageGenDisabledEmails || []
+                                const updated = checked ? current.filter(e => e !== acc.email) : [...current, acc.email]
+                                await updateSettings({ imageGenDisabledEmails: updated })
+                              }}
+                            />
+                            <span
+                              className={cn("h-2 w-2 flex-shrink-0 rounded-full", acc.health === 'OK' ? 'bg-green-500' : 'bg-red-500')}
+                              title={acc.health}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={cn("truncate text-sm font-medium", isDisabled && "line-through text-muted-foreground")}>{acc.email}</span>
+                                {isDefault && <Badge className="h-4 flex-shrink-0 bg-primary px-1.5 text-[10px]">Default</Badge>}
                               </div>
-                            </CardContent>
-                          </Card>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {acc.error ? (
+                                  <span className="text-red-500">{acc.error}</span>
+                                ) : (
+                                  <span title={acc.sessionExpires ? new Date(acc.sessionExpires).toLocaleString() : ''}>
+                                    Session {acc.sessionExpires ? `expires ${new Date(acc.sessionExpires).toLocaleDateString()}` : 'N/A'}
+                                  </span>
+                                )}
+                                {!isDefault && !isDisabled && (
+                                  <button className="ml-2 text-primary hover:underline" onClick={() => updateSettings({ imageGenPreferredEmail: acc.email })}>
+                                    Set default
+                                  </button>
+                                )}
+                              </p>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => openRefreshSession(acc.email)} title="Refresh session">
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-7 w-7 flex-shrink-0 text-destructive hover:text-destructive"
+                              onClick={() => deleteAccount(acc.email)}
+                              disabled={deletingEmail === acc.email}
+                              title="Remove account"
+                            >
+                              {deletingEmail === acc.email ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
                         )
                       })}
                     </div>
@@ -1652,44 +1677,12 @@ export default function ImageGeneratorPage() {
                     )}
                   </Card>
 
-                  <Card className="mt-6">
-                    <CardHeader>
-                      <CardTitle className="text-base">Available API Endpoints</CardTitle>
-                      <CardDescription>All useapi.net Google Flow features accessible from this app</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        {[
-                          { method: 'POST', path: '/images', label: 'Generate Images', desc: 'Generate 1-4 images from text prompt', available: true },
-                          { method: 'POST', path: '/images/upscale', label: 'Upscale Image', desc: '2K/4K upscale (nano-banana-2, pro only)', available: true },
-                          { method: 'POST', path: '/assets', label: 'Upload Reference', desc: 'Upload reference images for guided generation', available: true },
-                          { method: 'GET', path: '/accounts', label: 'List Accounts', desc: 'View connected Google accounts', available: true },
-                          { method: 'POST', path: '/accounts', label: 'Register Account', desc: 'Connect a Google account via cookies', available: true },
-                          { method: 'DELETE', path: '/accounts/{email}', label: 'Remove Account', desc: 'Disconnect a Google account', available: true },
-                          { method: 'GET', path: '/jobs', label: 'Job Stats', desc: 'View generation stats and load balancing', available: true },
-                          { method: 'POST', path: '/videos', label: 'Generate Videos', desc: 'Requires Google AI Pro/Ultra subscription', available: false },
-                        ].map((ep) => (
-                          <div key={ep.path + ep.method} className={cn("flex items-start gap-3 rounded-lg border p-3", !ep.available && "opacity-50")}>
-                            <Badge variant="outline" className={cn("text-xs font-mono flex-shrink-0 mt-0.5",
-                              ep.method === 'GET' && 'border-green-500 text-green-600',
-                              ep.method === 'POST' && 'border-blue-500 text-blue-600',
-                              ep.method === 'DELETE' && 'border-red-500 text-red-600',
-                            )}>{ep.method}</Badge>
-                            <div>
-                              <p className="text-sm font-medium">{ep.label}</p>
-                              <p className="text-xs text-muted-foreground">{ep.desc}</p>
-                              <code className="text-xs text-muted-foreground/60">{ep.path}</code>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
                 </>
               )}
-            </TabsContent>
+            </div>
 
-            <TabsContent value="jobs" className="space-y-4 mt-0">
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Usage</h2>
               {(() => {
                 // Build stats from persistent generation logs
                 const successLogs = genLogs.filter(l => l.status === 'success')
@@ -1803,8 +1796,7 @@ export default function ImageGeneratorPage() {
                   </div>
                 )
               })()}
-            </TabsContent>
-          </Tabs>
+            </div>
         </div>
       )}
 
@@ -1979,49 +1971,6 @@ export default function ImageGeneratorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Settings Dialog */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Settings className="h-5 w-5" />Image Generator Settings</DialogTitle>
-            <DialogDescription>Configure your useapi.net token and model.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-5 py-2">
-            <div className="flex items-center justify-between">
-              <div><Label htmlFor="ig-enabled" className="text-sm font-medium">Enable Image Generation</Label><p className="text-xs text-muted-foreground mt-0.5">Turn on or off</p></div>
-              <Switch id="ig-enabled" checked={settingsEnabled} onCheckedChange={setSettingsEnabled} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ig-token">useapi.net API Token</Label>
-              <div className="relative">
-                <Input id="ig-token" type={showToken ? 'text' : 'password'} placeholder="user:XXXX-XXXXXXXXX" value={settingsToken} onChange={e => setSettingsToken(e.target.value)} className="pr-10" />
-                <button type="button" onClick={() => setShowToken(!showToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Model</Label>
-              <Select value={settingsModel} onValueChange={(v) => setSettingsModel(v as ImageGenModel)}>
-                <SelectTrigger><SelectValue placeholder="Select a model..." /></SelectTrigger>
-                <SelectContent>
-                  {IMAGE_GEN_MODELS.map(m => (
-                    <SelectItem key={m.value} value={m.value}>
-                      <div><div className="font-medium">{m.label}</div><div className="text-xs text-muted-foreground">{m.description}</div></div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveSettings} disabled={savingSettings}>
-              {savingSettings ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Saving...</> : 'Save Settings'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Standing Prompt Dialog */}
       <Dialog open={standingPromptOpen} onOpenChange={setStandingPromptOpen}>
