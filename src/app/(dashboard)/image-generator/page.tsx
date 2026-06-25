@@ -122,7 +122,7 @@ function ImageCard({ gen, onPreview, onDownload, onDelete, onAssignEvent }: {
 
   return (
     <div
-      className="group relative rounded-xl overflow-hidden border bg-muted cursor-pointer hover:ring-2 hover:ring-primary hover:shadow-lg transition-all"
+      className="group relative rounded-2xl overflow-hidden border bg-muted cursor-pointer hover:ring-2 hover:ring-primary/50 hover:shadow-lg transition-all"
       onClick={() => onPreview(gen)}
     >
       {/* Image always renders for natural sizing — spinner overlays until loaded */}
@@ -1016,14 +1016,12 @@ export default function ImageGeneratorPage() {
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : generations.length === 0 && !isGenerating ? (
-                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-                  <div className="relative mb-6">
-                    <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 flex items-center justify-center">
-                      <Wand2 className="h-10 w-10 text-primary/70" />
-                    </div>
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border bg-gradient-to-br from-muted/60 to-muted/10 shadow-sm">
+                    <Wand2 className="h-9 w-9 text-primary/60" />
                   </div>
-                  <p className="text-lg font-medium text-foreground">Create something amazing</p>
-                  <p className="text-sm mt-1">Describe the image you want to generate below</p>
+                  <p className="text-base font-semibold text-foreground">Create something amazing</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Describe your image in the composer below to get started</p>
                 </div>
               ) : (
                 <div className="grid gap-3 items-start" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
@@ -1036,15 +1034,16 @@ export default function ImageGeneratorPage() {
             </div>
             {/* Grid columns selector */}
             <div className="absolute bottom-3 right-3 z-10">
-              <div className="flex items-center gap-0.5 bg-background/90 backdrop-blur-sm border rounded-lg p-0.5 shadow-sm">
+              <div className="flex items-center gap-0.5 rounded-xl border bg-background/80 p-1 shadow-md backdrop-blur-md">
                 {[3, 4, 5, 6, 8].map(n => (
                   <button
                     key={n}
+                    title={`${n} columns`}
                     className={cn(
-                      "h-6 w-6 rounded text-[10px] font-medium transition-colors",
+                      "flex h-6 w-6 items-center justify-center rounded-lg text-[11px] font-semibold transition-all",
                       gridCols === n
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                     onClick={() => handleSetGridCols(n)}
                   >
@@ -1072,7 +1071,7 @@ export default function ImageGeneratorPage() {
                       <span className="truncate">{assetFolders.find(f => f.id === currentFolderId)?.name ?? 'Folder'}</span>
                     </button>
                   ) : (
-                    <h3 className="text-xs font-semibold">Assets</h3>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Assets</span>
                   )}
                   <div className="flex items-center gap-1">
                     {currentFolderId === null && (
@@ -1127,19 +1126,12 @@ export default function ImageGeneratorPage() {
 
                       {/* Combined grid — folders + assets + skeletons */}
                       {(currentFolderId === null ? assetFolders.length : 0) + savedAssets.length + uploadingPlaceholders.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                          {currentFolderId !== null ? (
-                            <>
-                              <Folder className="h-8 w-8 mb-2 opacity-20" />
-                              <p className="text-[10px] text-center">Empty folder</p>
-                            </>
-                          ) : (
-                            <>
-                              <ImageIcon className="h-8 w-8 mb-2 opacity-20" />
-                              <p className="text-[10px] text-center">No assets yet</p>
-                            </>
-                          )}
-                          <Button variant="outline" size="sm" className="mt-2 h-7 text-xs" onClick={() => assetFileInputRef.current?.click()}>
+                        <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border bg-muted/40">
+                            {currentFolderId !== null ? <Folder className="h-5 w-5 opacity-50" /> : <ImageIcon className="h-5 w-5 opacity-50" />}
+                          </div>
+                          <p className="text-xs">{currentFolderId !== null ? 'Empty folder' : 'No assets yet'}</p>
+                          <Button variant="outline" size="sm" className="mt-3 h-7 text-xs" onClick={() => assetFileInputRef.current?.click()}>
                             <Upload className="h-3 w-3 mr-1" />Upload
                           </Button>
                         </div>
