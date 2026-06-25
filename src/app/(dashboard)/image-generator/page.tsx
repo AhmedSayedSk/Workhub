@@ -1289,10 +1289,10 @@ export default function ImageGeneratorPage() {
           </div>
           </div>
 
-          {/* Bottom composer — horizontal prompt + params */}
-          <div className="flex-shrink-0 border-t bg-background px-3 py-2.5 space-y-2">
+          {/* Bottom composer — unified surface (input + docked controls) */}
+          <div className="flex-shrink-0 px-3 pb-3 pt-1.5">
             {(selectedRefs.length > 0 || isGenerating || uploadingAssets) && (
-              <div className="flex items-center gap-2 overflow-x-auto">
+              <div className="mb-2 flex items-center gap-2 overflow-x-auto px-1">
                 {selectedRefs.map((id) => {
                   const asset = allAssets.find(a => a.id === id)
                   if (!asset) return null
@@ -1317,53 +1317,81 @@ export default function ImageGeneratorPage() {
               </div>
             )}
 
-            <div className="flex flex-wrap items-end gap-2">
+            <div className="rounded-2xl border bg-card shadow-sm transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
               <textarea
                 ref={textareaRef}
-                placeholder={selectedRefs.length > 0 ? "Describe how to use the reference image..." : "Describe the image you want to create..."}
+                placeholder={selectedRefs.length > 0 ? "Describe how to use the reference image…" : "Describe the image you want to create…"}
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 onKeyDown={handleKeyDown}
                 rows={2}
                 disabled={isGenerating}
-                className="flex-1 min-w-[260px] resize-none rounded-lg border bg-transparent p-2.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/30 min-h-[56px] max-h-[140px]"
+                className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/50 min-h-[52px] max-h-[180px]"
               />
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+              <div className="flex flex-wrap items-center gap-1.5 px-2.5 pb-2.5 pt-1">
+                {/* Aspect ratio */}
+                <div className="flex items-center rounded-lg bg-muted/60 p-0.5">
                   {([['landscape', RectangleHorizontal], ['square', Square], ['portrait', RectangleVertical]] as const).map(([val, Icon]) => (
-                    <Button key={val} variant={aspectRatio === val ? 'default' : 'ghost'} size="sm" className="h-7 w-7 rounded-md p-0" onClick={() => setAspectRatio(val)} disabled={isGenerating} title={val}>
+                    <button
+                      key={val}
+                      onClick={() => setAspectRatio(val)}
+                      disabled={isGenerating}
+                      title={val}
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-md transition-all",
+                        aspectRatio === val ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
                       <Icon className="h-3.5 w-3.5" />
-                    </Button>
+                    </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                {/* Count */}
+                <div className="flex items-center rounded-lg bg-muted/60 p-0.5">
                   {[2, 4, 6, 8].map(n => (
-                    <Button key={n} variant={imageCount === n ? 'default' : 'ghost'} size="sm" className="h-7 w-7 rounded-md text-[11px] font-medium p-0" onClick={() => setImageCount(n)} disabled={isGenerating}>{n}</Button>
+                    <button
+                      key={n}
+                      onClick={() => setImageCount(n)}
+                      disabled={isGenerating}
+                      title={`${n} images`}
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-semibold transition-all",
+                        imageCount === n ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {n}
+                    </button>
                   ))}
                 </div>
+                {/* Standing prompt */}
                 <button
-                  className={cn(
-                    "flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium transition-colors max-w-[180px]",
-                    activeSession?.standingPrompt ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-muted-foreground hover:text-foreground"
-                  )}
                   onClick={() => { setStandingPromptDraft(activeSession?.standingPrompt || ''); setStandingPromptOpen(true) }}
                   title={activeSession ? `Standing prompt for "${activeSession.name}"` : 'Standing prompt'}
+                  className={cn(
+                    "flex h-8 max-w-[200px] items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors",
+                    activeSession?.standingPrompt ? "bg-primary/10 text-primary hover:bg-primary/15" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
                 >
-                  <Sparkles className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">{activeSession?.standingPrompt || `${activeSession?.name || 'Session'} prompt`}</span>
+                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="truncate">{activeSession?.standingPrompt || 'Session prompt'}</span>
                 </button>
+                {/* Event */}
                 <button
-                  className="flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => setEventPopoverOpen(true)}
+                  className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  <CalendarDays className="h-3 w-3" />Event
+                  <CalendarDays className="h-3.5 w-3.5" />Event
                 </button>
+
+                <div className="flex-1" />
+
+                {/* Generate */}
                 {isGenerating || uploadingAssets ? (
-                  <Button onClick={cancelGeneration} className="h-9 bg-red-500 hover:bg-red-600 text-white">
+                  <Button onClick={cancelGeneration} className="h-9 rounded-xl bg-red-500 px-4 text-white hover:bg-red-600">
                     {uploadingAssets ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <CircleStop className="h-4 w-4 mr-1.5" />}Cancel
                   </Button>
                 ) : (
-                  <Button onClick={handleGenerate} disabled={!prompt.trim()} className="h-9">
+                  <Button onClick={handleGenerate} disabled={!prompt.trim()} className="h-9 rounded-xl px-4">
                     <Send className="h-4 w-4 mr-1.5" />Generate
                   </Button>
                 )}
