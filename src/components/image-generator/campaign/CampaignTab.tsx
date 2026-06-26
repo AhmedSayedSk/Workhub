@@ -25,8 +25,11 @@ import {
   ArrowLeft,
   Images,
   Plus,
+  Sparkles,
 } from 'lucide-react'
 import { CampaignPostCard } from './CampaignPostCard'
+import { authFetch } from '@/lib/api-client'
+import { toast } from 'react-toastify'
 import type { CampaignLanguage, SocialPlatform } from '@/types'
 
 function todayISO(): string {
@@ -59,6 +62,50 @@ export function CampaignTab() {
   })
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
 
+  // Project context fed to the AI for both the brief suggestion and the plan.
+  const buildContext = () =>
+    project
+      ? [
+          project.name,
+          project.description,
+          project.projectType ? `Type: ${project.projectType}` : '',
+          project.clientName ? `Client: ${project.clientName}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : ''
+
+  const [suggesting, setSuggesting] = useState(false)
+  const handleSuggest = async () => {
+    if (!project) return
+    setSuggesting(true)
+    try {
+      const res = await authFetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'campaign_brief', data: { context: buildContext() } }),
+      })
+      const json = await res.json()
+      if (!json.success || !json.data?.brief) throw new Error(json.error || 'Could not suggest a brief')
+      const b = json.data.brief
+      setForm((f) => ({
+        ...f,
+        name: b.name || f.name,
+        goal: b.goal || f.goal,
+        audience: b.audience || f.audience,
+        tone: b.tone || f.tone,
+        language: b.language || f.language,
+        count: b.count || f.count,
+        cadenceDays: b.cadenceDays || f.cadenceDays,
+      }))
+      toast.success('Brief suggested from project')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to suggest brief')
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
   const togglePlatform = (p: SocialPlatform) =>
     set('platforms', form.platforms.includes(p) ? form.platforms.filter((x) => x !== p) : [...form.platforms, p])
 
@@ -87,15 +134,7 @@ export function CampaignTab() {
 
   const handlePlan = () => {
     if (!project) return
-    const context = [
-      project.name,
-      project.description,
-      project.projectType ? `Type: ${project.projectType}` : '',
-      project.clientName ? `Client: ${project.clientName}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n')
-    c.generatePlan(context)
+    c.generatePlan(buildContext())
   }
 
   // ── Active campaign view ──────────────────────────────────────────────────
@@ -238,9 +277,26 @@ export function CampaignTab() {
 
           {/* New campaign brief */}
           <div className="space-y-4 rounded-xl border bg-card p-4">
-            <div className="flex items-center gap-2">
-              <Plus className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">New campaign</h3>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Plus className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">New campaign</h3>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={handleSuggest}
+                disabled={suggesting}
+                title="Read the project and propose the brief"
+              >
+                {suggesting ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1 h-3 w-3" />
+                )}
+                Suggest with AI
+              </Button>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">

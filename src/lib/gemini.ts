@@ -816,6 +816,64 @@ Produce exactly ${count} DISTINCT posts that build on each other (vary the angle
   }
 }
 
+export interface GeneratedCampaignBrief {
+  name: string
+  goal: string
+  audience: string
+  tone: string
+  language: 'en' | 'ar'
+  count: number
+  cadenceDays: number
+}
+
+// Read a project's details and propose a sensible campaign brief to pre-fill the
+// Campaign wizard. The user can edit anything before generating the plan.
+export async function generateCampaignBrief(
+  params: { context: string },
+  model?: GeminiModel
+): Promise<GeneratedCampaignBrief | null> {
+  const prompt = `You are a social-media strategist. Read the product/project details below and propose a sensible social-media campaign brief tailored to THIS product.
+
+Project details (name, description, type, client, domains):
+"""
+${(params.context || '').slice(0, 12_000)}
+"""
+
+Respond with ONLY a JSON object (no markdown fences):
+{
+  "name": "<short campaign name, max 6 words, referencing the product>",
+  "goal": "<1-2 sentences: the concrete goal of this campaign for this specific product>",
+  "audience": "<1 sentence: the specific target audience and where they are>",
+  "tone": "<3-5 comma-separated adjectives that fit the brand voice>",
+  "language": "en or ar — pick the audience's primary language; use ar ONLY if the product clearly targets an Arabic-speaking market",
+  "count": <integer 4-8: how many posts this campaign should have>,
+  "cadenceDays": <integer 1-4: days between posts>
+}`
+
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim()
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    if (start === -1 || end === -1) return null
+    const p = JSON.parse(text.slice(start, end + 1))
+    return {
+      name: String(p.name ?? '').slice(0, 80),
+      goal: String(p.goal ?? '').slice(0, 500),
+      audience: String(p.audience ?? '').slice(0, 300),
+      tone: String(p.tone ?? '').slice(0, 120),
+      language: p.language === 'ar' ? 'ar' : 'en',
+      count: Math.max(1, Math.min(20, Math.round(Number(p.count) || 6))),
+      cadenceDays: Math.max(1, Math.min(14, Math.round(Number(p.cadenceDays) || 2))),
+    }
+  } catch (error) {
+    console.error('Error generating campaign brief:', error)
+    throw error
+  }
+}
+
 export interface GeneratedPlaybookItem {
   phase: 'pre_launch' | 'launch' | 'post_launch'
   title: string

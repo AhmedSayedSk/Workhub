@@ -13,6 +13,7 @@ import {
   generateMarketPlaybook,
   generateMarketCampaigns,
   generateCampaignPosts,
+  generateCampaignBrief,
   generateMarketListings,
   generateShape,
   generateShapeDecisions,
@@ -99,6 +100,12 @@ export async function POST(request: NextRequest) {
           model
         )
         return NextResponse.json({ success: true, data: { posts } })
+      }
+
+      case 'campaign_brief': {
+        const { context } = data
+        const brief = await generateCampaignBrief({ context }, model)
+        return NextResponse.json({ success: true, data: { brief } })
       }
 
       case 'suggest_task_icon': {
