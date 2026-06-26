@@ -33,6 +33,10 @@ import { updateSocialPostSchema, updateSocialPost } from './tools/update-social-
 import { cancelSocialPostSchema, cancelSocialPost } from './tools/cancel-social-post.js';
 import { setSocialAccountSchema, setSocialAccount } from './tools/set-social-account.js';
 import { listSocialAccountsSchema, listSocialAccounts } from './tools/list-social-accounts.js';
+import { listCampaignsSchema, listCampaigns } from './tools/list-campaigns.js';
+import { getCampaignSchema, getCampaign } from './tools/get-campaign.js';
+import { updateCampaignPostSchema, updateCampaignPost } from './tools/update-campaign-post.js';
+import { scheduleCampaignSchema, scheduleCampaign } from './tools/schedule-campaign.js';
 
 const server = new McpServer({
   name: 'workhub',
@@ -258,6 +262,35 @@ server.tool(
   'List the per-project Meta accounts configured (Facebook Page, Instagram user, Graph version; token shown masked).',
   listSocialAccountsSchema,
   async () => listSocialAccounts()
+);
+
+// --- Campaigns (multi-post social campaigns -> socialPosts) ---
+server.tool(
+  'list_campaigns',
+  'List social-media campaigns (optionally for one project) with status and per-campaign post counts (total + how many scheduled).',
+  listCampaignsSchema,
+  async (args) => listCampaigns(args)
+);
+
+server.tool(
+  'get_campaign',
+  'Get a campaign with its brief and all its posts (order, status, caption, hashtags, image, scheduled time, and post IDs for editing).',
+  getCampaignSchema,
+  async (args) => getCampaign(args)
+);
+
+server.tool(
+  'update_campaign_post',
+  'Edit a campaign post (caption, hashtags, imagePrompt, or status: planned/approved/ready). Once a post is scheduled, edit the live post via update_social_post instead.',
+  updateCampaignPostSchema,
+  async (args) => updateCampaignPost(args)
+);
+
+server.tool(
+  'schedule_campaign',
+  'Schedule a campaign: for every post that has an image and is not yet scheduled, create a scheduled socialPosts entry spaced by the brief cadence, link it back, and advance the campaign status.',
+  scheduleCampaignSchema,
+  async (args) => scheduleCampaign(args)
 );
 
 // Connect via stdio

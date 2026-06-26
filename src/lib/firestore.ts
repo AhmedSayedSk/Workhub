@@ -1455,6 +1455,14 @@ export const campaigns = {
     return results.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
   },
 
+  // Every campaign across all projects (newest first) — for the cross-project browser.
+  async getAllRecent(max = 50): Promise<Campaign[]> {
+    const results = await getAll<Campaign>('campaigns')
+    return results
+      .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+      .slice(0, max)
+  },
+
   async get(id: string): Promise<Campaign | null> {
     return getById<Campaign>('campaigns', id)
   },

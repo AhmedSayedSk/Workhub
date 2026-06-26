@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProjects } from '@/hooks/useProjects'
 import { useCampaigns } from '@/hooks/useCampaigns'
+import { campaigns as campaignsApi } from '@/lib/firestore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,9 +29,10 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { CampaignPostCard } from './CampaignPostCard'
+import { CampaignPreview } from './CampaignPreview'
 import { authFetch } from '@/lib/api-client'
 import { toast } from 'react-toastify'
-import type { CampaignLanguage, SocialPlatform } from '@/types'
+import type { Campaign, CampaignLanguage, SocialPlatform, Project } from '@/types'
 
 function todayISO(): string {
   const d = new Date()
@@ -46,7 +48,22 @@ export function CampaignTab() {
   const { projects } = useProjects()
   const [projectId, setProjectId] = useState<string | null>(null)
   const c = useCampaigns(projectId)
-  const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId])
+  const project = projects.find((p) => p.id === projectId) || null
+
+  // The project a given campaign belongs to (for context/brand) — may differ from
+  // the picker when a campaign was opened from the cross-project browser.
+  const ac = c.activeCampaign
+  const activeProject: Project | null = ac ? projects.find((p) => p.id === ac.projectId) || null : project
+
+  // Cross-project browser — every campaign in the system.
+  const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([])
+  useEffect(() => {
+    campaignsApi.getAllRecent().then(setAllCampaigns).catch(() => {})
+  }, [c.campaigns, c.activeCampaign])
+  const projectName = (id: string) => projects.find((p) => p.id === id)?.name || 'Project'
+
+  const [preview, setPreview] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
 
   const [form, setForm] = useState({
     name: '',
@@ -62,20 +79,13 @@ export function CampaignTab() {
   })
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
 
-  // Project context fed to the AI for both the brief suggestion and the plan.
-  const buildContext = () =>
-    project
-      ? [
-          project.name,
-          project.description,
-          project.projectType ? `Type: ${project.projectType}` : '',
-          project.clientName ? `Client: ${project.clientName}` : '',
-        ]
+  const buildContext = (p: Project | null) =>
+    p
+      ? [p.name, p.description, p.projectType ? `Type: ${p.projectType}` : '', p.clientName ? `Client: ${p.clientName}` : '']
           .filter(Boolean)
           .join('\n')
       : ''
 
-  const [suggesting, setSuggesting] = useState(false)
   const handleSuggest = async () => {
     if (!project) return
     setSuggesting(true)
@@ -83,7 +93,7 @@ export function CampaignTab() {
       const res = await authFetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'campaign_brief', data: { context: buildContext() } }),
+        body: JSON.stringify({ action: 'campaign_brief', data: { context: buildContext(project) } }),
       })
       const json = await res.json()
       if (!json.success || !json.data?.brief) throw new Error(json.error || 'Could not suggest a brief')
@@ -111,6 +121,7 @@ export function CampaignTab() {
 
   const handleCreate = async () => {
     if (!project) return
+    setPreview(false)
     await c.createCampaign({
       name: form.name.trim() || `${project.name} Campaign`,
       brief: {
@@ -133,8 +144,30 @@ export function CampaignTab() {
   }
 
   const handlePlan = () => {
-    if (!project) return
-    c.generatePlan(buildContext())
+    if (!activeProject) return
+    c.generatePlan(buildContext(activeProject))
+  }
+
+  const openAny = (camp: Campaign) => {
+    setPreview(false)
+    c.openCampaign(camp)
+  }
+
+  // ── Preview & schedule ────────────────────────────────────────────────────
+  if (c.activeCampaign && preview) {
+    return (
+      <CampaignPreview
+        campaign={c.activeCampaign}
+        posts={c.posts}
+        slotFor={c.slotFor}
+        scheduling={c.schedulingAll}
+        onBack={() => setPreview(false)}
+        onConfirm={async (ids) => {
+          await c.scheduleAll(ids)
+          setPreview(false)
+        }}
+      />
+    )
   }
 
   // ── Active campaign view ──────────────────────────────────────────────────
@@ -145,14 +178,22 @@ export function CampaignTab() {
     return (
       <div className="flex flex-col gap-4 overflow-y-auto p-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => c.selectCampaign(null)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2"
+            onClick={() => {
+              setPreview(false)
+              c.selectCampaign(null)
+            }}
+          >
             <ArrowLeft className="mr-1 h-4 w-4" /> Campaigns
           </Button>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-semibold leading-tight">{cam.name}</h2>
             <p className="text-xs text-muted-foreground">
-              {cam.platforms.map((p) => p.toUpperCase()).join(' · ')} · {cam.language.toUpperCase()} ·{' '}
-              {c.posts.length} posts
+              {projectName(cam.projectId)} · {cam.platforms.map((p) => p.toUpperCase()).join(' · ')} ·{' '}
+              {cam.language.toUpperCase()} · {c.posts.length} posts
             </p>
           </div>
           <Badge variant="outline" className="capitalize">{cam.status}</Badge>
@@ -201,13 +242,9 @@ export function CampaignTab() {
               <span className="text-xs text-muted-foreground">
                 {readyCount}/{c.posts.length} images · {scheduledCount} scheduled
               </span>
-              <Button size="sm" onClick={c.scheduleAll} disabled={c.schedulingAll || readyCount === 0}>
-                {c.schedulingAll ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <CalendarClock className="mr-1.5 h-4 w-4" />
-                )}
-                Schedule all
+              <Button onClick={() => setPreview(true)} disabled={readyCount === 0}>
+                <CalendarClock className="mr-1.5 h-4 w-4" />
+                Preview &amp; schedule
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -228,14 +265,37 @@ export function CampaignTab() {
     )
   }
 
-  // ── Setup view (pick project → brief → existing campaigns) ────────────────
+  // ── Setup view: browse any campaign + create a new one ────────────────────
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 overflow-y-auto p-4">
+      {/* Cross-project campaign browser */}
+      {allCampaigns.length > 0 && (
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">All campaigns</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {allCampaigns.map((cam) => (
+              <button
+                key={cam.id}
+                onClick={() => openAny(cam)}
+                className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-muted"
+              >
+                <Megaphone className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{cam.name}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">{projectName(cam.projectId)}</p>
+                </div>
+                <Badge variant="outline" className="flex-shrink-0 text-[10px] capitalize">{cam.status}</Badge>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <Label className="text-xs">Project</Label>
         <Select value={projectId ?? undefined} onValueChange={(v) => setProjectId(v)}>
           <SelectTrigger>
-            <SelectValue placeholder="Choose a project to build a campaign for" />
+            <SelectValue placeholder="Choose a project to build a new campaign for" />
           </SelectTrigger>
           <SelectContent>
             {projects.map((p) => (
@@ -248,153 +308,108 @@ export function CampaignTab() {
       </div>
 
       {!project ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-center text-muted-foreground">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl border bg-muted/40">
             <Megaphone className="h-7 w-7 text-primary/60" />
           </div>
-          <p className="text-sm">Pick a project to plan a branded social campaign.</p>
+          <p className="text-sm">Pick a project to plan a new campaign, or open one above.</p>
         </div>
       ) : (
-        <>
-          {c.campaigns.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Existing campaigns</Label>
-              <div className="flex flex-wrap gap-2">
-                {c.campaigns.map((cam) => (
+        <div className="space-y-4 rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">New campaign</h3>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={handleSuggest}
+              disabled={suggesting}
+              title="Read the project and propose the brief"
+            >
+              {suggesting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
+              Suggest with AI
+            </Button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs">Campaign name</Label>
+              <Input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={`${project.name} Campaign`} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs">Goal</Label>
+              <Textarea
+                value={form.goal}
+                onChange={(e) => set('goal', e.target.value)}
+                rows={2}
+                className="resize-none"
+                placeholder="e.g. drive signups for the new launch; build awareness in the GCC market"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Audience</Label>
+              <Input value={form.audience} onChange={(e) => set('audience', e.target.value)} placeholder="who it's for" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tone</Label>
+              <Input value={form.tone} onChange={(e) => set('tone', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Number of posts</Label>
+              <Input type="number" min={1} max={20} value={form.count} onChange={(e) => set('count', Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Language</Label>
+              <Select value={form.language} onValueChange={(v) => set('language', v as CampaignLanguage)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="ar">Arabic</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Start date</Label>
+              <Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Post time</Label>
+              <Input type="time" value={form.postTime} onChange={(e) => set('postTime', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Every N days</Label>
+              <Input type="number" min={1} value={form.cadenceDays} onChange={(e) => set('cadenceDays', Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Platforms</Label>
+              <div className="flex gap-1.5">
+                {PLATFORMS.map((p) => (
                   <button
-                    key={cam.id}
-                    onClick={() => c.selectCampaign(cam.id)}
-                    className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm transition-colors hover:border-primary/40 hover:bg-muted"
+                    key={p.value}
+                    onClick={() => togglePlatform(p.value)}
+                    className={cn(
+                      'flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors',
+                      form.platforms.includes(p.value)
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted'
+                    )}
                   >
-                    <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="font-medium">{cam.name}</span>
-                    <Badge variant="outline" className="text-[10px] capitalize">{cam.status}</Badge>
+                    {p.label}
                   </button>
                 ))}
               </div>
             </div>
-          )}
-
-          {/* New campaign brief */}
-          <div className="space-y-4 rounded-xl border bg-card p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Plus className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">New campaign</h3>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={handleSuggest}
-                disabled={suggesting}
-                title="Read the project and propose the brief"
-              >
-                {suggesting ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                ) : (
-                  <Sparkles className="mr-1 h-3 w-3" />
-                )}
-                Suggest with AI
-              </Button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs">Campaign name</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => set('name', e.target.value)}
-                  placeholder={`${project.name} Campaign`}
-                />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs">Goal</Label>
-                <Textarea
-                  value={form.goal}
-                  onChange={(e) => set('goal', e.target.value)}
-                  rows={2}
-                  className="resize-none"
-                  placeholder="e.g. drive signups for the new launch; build awareness in the GCC market"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Audience</Label>
-                <Input
-                  value={form.audience}
-                  onChange={(e) => set('audience', e.target.value)}
-                  placeholder="who it's for"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tone</Label>
-                <Input value={form.tone} onChange={(e) => set('tone', e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Number of posts</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={form.count}
-                  onChange={(e) => set('count', Number(e.target.value))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Language</Label>
-                <Select value={form.language} onValueChange={(v) => set('language', v as CampaignLanguage)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="ar">Arabic</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Start date</Label>
-                <Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Post time</Label>
-                <Input type="time" value={form.postTime} onChange={(e) => set('postTime', e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Every N days</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={form.cadenceDays}
-                  onChange={(e) => set('cadenceDays', Number(e.target.value))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Platforms</Label>
-                <div className="flex gap-1.5">
-                  {PLATFORMS.map((p) => (
-                    <button
-                      key={p.value}
-                      onClick={() => togglePlatform(p.value)}
-                      className={cn(
-                        'flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors',
-                        form.platforms.includes(p.value)
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-muted'
-                      )}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <Button onClick={handleCreate} disabled={c.loading} className="w-full">
-              <Megaphone className="mr-2 h-4 w-4" /> Create campaign
-            </Button>
           </div>
-        </>
+
+          <Button onClick={handleCreate} disabled={c.loading} className="w-full">
+            <Megaphone className="mr-2 h-4 w-4" /> Create campaign
+          </Button>
+        </div>
       )}
     </div>
   )
