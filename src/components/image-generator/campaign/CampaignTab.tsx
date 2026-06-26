@@ -217,7 +217,7 @@ export function CampaignTab() {
                 size="sm"
                 variant="outline"
                 onClick={c.generateAllImages}
-                disabled={c.imagePostIds.size > 0 || readyCount === c.posts.length}
+                disabled={c.imagePostIds.size > 0 || c.posts.every((p) => p.status === 'scheduled')}
               >
                 {c.imagePostIds.size > 0 ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

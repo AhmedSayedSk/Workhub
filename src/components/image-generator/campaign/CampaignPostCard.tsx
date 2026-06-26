@@ -31,7 +31,7 @@ export function CampaignPostCard({
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
-      <div className="relative flex aspect-[4/5] items-center justify-center bg-muted">
+      <div className="relative flex aspect-square items-center justify-center bg-muted">
         {post.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={post.imageUrl} alt="" className="h-full w-full object-cover" />
@@ -53,7 +53,7 @@ export function CampaignPostCard({
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           onBlur={() => caption !== post.caption && onChange({ caption })}
-          rows={3}
+          rows={2}
           disabled={scheduled}
           className="resize-none text-xs leading-relaxed"
           placeholder="Caption"
