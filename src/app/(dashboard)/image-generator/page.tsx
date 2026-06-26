@@ -365,8 +365,9 @@ export default function ImageGeneratorPage() {
 
   useEffect(() => {
     if (activeTab === 'accounts' && (settings?.imageGenApiToken || managed)) fetchAccounts()
-    if (activeTab === 'jobs' && (settings?.imageGenApiToken || managed)) fetchJobs()
-    if (activeTab === 'jobs' && user) {
+    // Usage stats live under the Accounts tab (Jobs was merged in), so load the
+    // generation logs whenever Accounts is open.
+    if (activeTab === 'accounts' && user) {
       imageGenLogs.getAll(user.uid).then(setGenLogs).catch(() => {})
     }
   }, [activeTab, settings?.imageGenApiToken, managed, fetchAccounts, fetchJobs, user])
