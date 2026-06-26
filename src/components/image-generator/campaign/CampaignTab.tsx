@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useProjects } from '@/hooks/useProjects'
 import { useCampaigns } from '@/hooks/useCampaigns'
-import { campaigns as campaignsApi } from '@/lib/firestore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,6 +26,7 @@ import {
   Images,
   Plus,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react'
 import { CampaignPostCard } from './CampaignPostCard'
 import { CampaignPreview } from './CampaignPreview'
@@ -49,17 +49,6 @@ export function CampaignTab() {
   const [projectId, setProjectId] = useState<string | null>(null)
   const c = useCampaigns(projectId)
   const project = projects.find((p) => p.id === projectId) || null
-
-  // The project a given campaign belongs to (for context/brand) — may differ from
-  // the picker when a campaign was opened from the cross-project browser.
-  const ac = c.activeCampaign
-  const activeProject: Project | null = ac ? projects.find((p) => p.id === ac.projectId) || null : project
-
-  // Cross-project browser — every campaign in the system.
-  const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([])
-  useEffect(() => {
-    campaignsApi.getAllRecent().then(setAllCampaigns).catch(() => {})
-  }, [c.campaigns, c.activeCampaign])
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name || 'Project'
 
   const [preview, setPreview] = useState(false)
@@ -143,11 +132,6 @@ export function CampaignTab() {
     })
   }
 
-  const handlePlan = () => {
-    if (!activeProject) return
-    c.generatePlan(buildContext(activeProject))
-  }
-
   const openAny = (camp: Campaign) => {
     setPreview(false)
     c.openCampaign(camp)
@@ -178,15 +162,7 @@ export function CampaignTab() {
     return (
       <div className="flex flex-col gap-4 overflow-y-auto p-4">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2"
-            onClick={() => {
-              setPreview(false)
-              c.selectCampaign(null)
-            }}
-          >
+          <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setPreview(false); c.selectCampaign(null) }}>
             <ArrowLeft className="mr-1 h-4 w-4" /> Campaigns
           </Button>
           <div className="min-w-0 flex-1">
@@ -196,7 +172,7 @@ export function CampaignTab() {
               {cam.language.toUpperCase()} · {c.posts.length} posts
             </p>
           </div>
-          <Badge variant="outline" className="capitalize">{cam.status}</Badge>
+          <Badge variant="outline" className="capitalize">{cam.status === 'planning' ? 'Planning…' : cam.status}</Badge>
           <Button
             variant="ghost"
             size="icon"
@@ -207,23 +183,35 @@ export function CampaignTab() {
           </Button>
         </div>
 
-        {c.posts.length === 0 ? (
+        {c.planning ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm font-medium">Planning in the background…</p>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Generating {cam.brief.count} posts. You can leave this page or switch tabs — it keeps running and will
+              be here when you come back.
+            </p>
+          </div>
+        ) : c.posts.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl border bg-muted/40">
               <Wand2 className="h-7 w-7 text-primary/60" />
             </div>
+            {cam.planError && (
+              <p className="flex items-center gap-1.5 text-xs text-red-500">
+                <AlertCircle className="h-3.5 w-3.5" /> {cam.planError}
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">Generate {cam.brief.count} branded posts from this brief.</p>
-            <Button onClick={handlePlan} disabled={c.planning}>
-              {c.planning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-              {c.planning ? 'Planning…' : 'Generate plan'}
+            <Button onClick={c.generatePlan}>
+              <Wand2 className="mr-2 h-4 w-4" /> Generate plan
             </Button>
           </div>
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" onClick={handlePlan} disabled={c.planning}>
-                {c.planning ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Wand2 className="mr-1.5 h-4 w-4" />}
-                Re-plan
+              <Button size="sm" variant="outline" onClick={c.generatePlan}>
+                <Wand2 className="mr-1.5 h-4 w-4" /> Re-plan
               </Button>
               <Button
                 size="sm"
@@ -243,8 +231,7 @@ export function CampaignTab() {
                 {readyCount}/{c.posts.length} images · {scheduledCount} scheduled
               </span>
               <Button onClick={() => setPreview(true)} disabled={readyCount === 0}>
-                <CalendarClock className="mr-1.5 h-4 w-4" />
-                Preview &amp; schedule
+                <CalendarClock className="mr-1.5 h-4 w-4" /> Preview &amp; schedule
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -265,26 +252,34 @@ export function CampaignTab() {
     )
   }
 
-  // ── Setup view: browse any campaign + create a new one ────────────────────
+  // ── Overview: all campaigns + create for any project ──────────────────────
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 overflow-y-auto p-4">
-      {/* Cross-project campaign browser */}
-      {allCampaigns.length > 0 && (
+      {c.allCampaigns.length > 0 && (
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">All campaigns</Label>
           <div className="grid gap-2 sm:grid-cols-2">
-            {allCampaigns.map((cam) => (
+            {c.allCampaigns.map((cam) => (
               <button
                 key={cam.id}
                 onClick={() => openAny(cam)}
                 className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-muted"
               >
-                <Megaphone className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                {cam.status === 'planning' ? (
+                  <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-primary" />
+                ) : (
+                  <Megaphone className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{cam.name}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">{projectName(cam.projectId)}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {projectName(cam.projectId)} · {cam.postCount ?? 0} posts
+                    {cam.scheduledCount ? ` · ${cam.scheduledCount} scheduled` : ''}
+                  </p>
                 </div>
-                <Badge variant="outline" className="flex-shrink-0 text-[10px] capitalize">{cam.status}</Badge>
+                <Badge variant="outline" className="flex-shrink-0 text-[10px] capitalize">
+                  {cam.status === 'planning' ? 'Planning…' : cam.status}
+                </Badge>
               </button>
             ))}
           </div>
@@ -321,14 +316,7 @@ export function CampaignTab() {
               <Plus className="h-4 w-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold">New campaign</h3>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              onClick={handleSuggest}
-              disabled={suggesting}
-              title="Read the project and propose the brief"
-            >
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleSuggest} disabled={suggesting} title="Read the project and propose the brief">
               {suggesting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
               Suggest with AI
             </Button>
@@ -341,13 +329,7 @@ export function CampaignTab() {
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Goal</Label>
-              <Textarea
-                value={form.goal}
-                onChange={(e) => set('goal', e.target.value)}
-                rows={2}
-                className="resize-none"
-                placeholder="e.g. drive signups for the new launch; build awareness in the GCC market"
-              />
+              <Textarea value={form.goal} onChange={(e) => set('goal', e.target.value)} rows={2} className="resize-none" placeholder="e.g. drive signups for the new launch; build awareness in the GCC market" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Audience</Label>
@@ -394,9 +376,7 @@ export function CampaignTab() {
                     onClick={() => togglePlatform(p.value)}
                     className={cn(
                       'flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors',
-                      form.platforms.includes(p.value)
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted'
+                      form.platforms.includes(p.value) ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
                     )}
                   >
                     {p.label}

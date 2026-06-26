@@ -588,6 +588,9 @@ export interface Campaign {
   language: CampaignLanguage
   platforms: SocialPlatform[]
   status: CampaignStatus
+  postCount?: number
+  scheduledCount?: number
+  planError?: string | null
   createdBy: string
   createdAt: Timestamp
   updatedAt?: Timestamp

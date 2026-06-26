@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'react-toastify'
 import { useAuth } from '@/hooks/useAuth'
 import { authFetch } from '@/lib/api-client'
 import { campaigns as campaignsApi, campaignPosts as postsApi } from '@/lib/firestore'
 import { uploadSocialMedia } from '@/lib/storage'
-import { Timestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore'
 import type {
   Campaign,
   CampaignPost,
@@ -24,16 +25,9 @@ export interface NewCampaignInput {
   platforms: SocialPlatform[]
 }
 
-interface PlannedPost {
-  caption: string
-  hashtags: string[]
-  imagePrompt: string
-}
-
 const DAY_MS = 86_400_000
 
 // Slot for post #i: startDate@postTime + i*cadence days, but never in the past.
-// Exported shape used by both the scheduler and the preview so the times match.
 function slotForOrder(brief: CampaignBrief, order: number): number {
   const base = new Date(`${brief.startDate}T${brief.postTime || '18:00'}:00`).getTime()
   const start = Number.isNaN(base) ? Date.now() + 5 * 60_000 : base
@@ -43,64 +37,51 @@ function slotForOrder(brief: CampaignBrief, order: number): number {
 
 export function useCampaigns(projectId: string | null) {
   const { user } = useAuth()
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [loading, setLoading] = useState(false)
-  const [activeCampaign, setActiveCampaign] = useState<Campaign | null>(null)
+  const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [posts, setPosts] = useState<CampaignPost[]>([])
-  const [planning, setPlanning] = useState(false)
   const [schedulingAll, setSchedulingAll] = useState(false)
   const [imagePostIds, setImagePostIds] = useState<Set<string>>(new Set())
 
-  // Load the selected project's campaigns (the setup-view list).
-  const loadCampaigns = useCallback(async () => {
-    if (!projectId) {
-      setCampaigns([])
-      return
-    }
-    setLoading(true)
-    try {
-      setCampaigns(await campaignsApi.getAllForProject(projectId))
-    } catch (e) {
-      console.error('load campaigns', e)
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId])
-
-  // Switching the project picker resets the active campaign + list.
+  // Live: every campaign in the system (small dataset). Drives the overview AND
+  // reflects background status changes (planning → ready) everywhere, live.
   useEffect(() => {
-    loadCampaigns()
-    setActiveCampaign(null)
-    setPosts([])
-  }, [loadCampaigns])
-
-  const loadPosts = useCallback(async (campaignId: string) => {
-    try {
-      setPosts(await postsApi.getAllForCampaign(campaignId))
-    } catch (e) {
-      console.error('load posts', e)
-    }
+    const unsub = onSnapshot(collection(db, 'campaigns'), (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Campaign[]
+      list.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+      setAllCampaigns(list)
+    })
+    return () => unsub()
   }, [])
 
-  // Open a campaign from the current project's list.
-  const selectCampaign = useCallback((id: string | null) => {
-    if (!id) {
-      setActiveCampaign(null)
+  // Live: the active campaign's posts (so background plan/image writes appear).
+  useEffect(() => {
+    if (!activeId) {
       setPosts([])
       return
     }
-    const found = campaigns.find((c) => c.id === id) || null
-    setActiveCampaign(found)
-    setPosts([])
-    if (found) loadPosts(found.id)
-  }, [campaigns, loadPosts])
+    const q = query(collection(db, 'campaignPosts'), where('campaignId', '==', activeId))
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as CampaignPost[]
+      list.sort((a, b) => (a.order || 0) - (b.order || 0))
+      setPosts(list)
+    })
+    return () => unsub()
+  }, [activeId])
 
-  // Open any campaign (possibly from another project) by full object.
-  const openCampaign = useCallback((camp: Campaign) => {
-    setActiveCampaign(camp)
-    setPosts([])
-    loadPosts(camp.id)
-  }, [loadPosts])
+  const activeCampaign = useMemo(
+    () => allCampaigns.find((c) => c.id === activeId) || null,
+    [allCampaigns, activeId]
+  )
+  const campaigns = useMemo(
+    () => (projectId ? allCampaigns.filter((c) => c.projectId === projectId) : []),
+    [allCampaigns, projectId]
+  )
+  const loading = false
+  const planning = activeCampaign?.status === 'planning'
+
+  const selectCampaign = useCallback((id: string | null) => setActiveId(id), [])
+  const openCampaign = useCallback((camp: Campaign) => setActiveId(camp.id), [])
 
   const createCampaign = useCallback(async (input: NewCampaignInput): Promise<Campaign | null> => {
     if (!user || !projectId) return null
@@ -113,92 +94,50 @@ export function useCampaigns(projectId: string | null) {
         language: input.language,
         platforms: input.platforms,
         status: 'draft',
+        postCount: 0,
+        scheduledCount: 0,
         createdBy: user.uid,
       })
-      const camp: Campaign = { id, projectId, ...input, status: 'draft', createdBy: user.uid, createdAt: Timestamp.now() }
-      await loadCampaigns()
-      setActiveCampaign(camp)
-      setPosts([])
-      return camp
+      setActiveId(id)
+      return { id, projectId, ...input, status: 'draft', createdBy: user.uid, createdAt: Timestamp.now() }
     } catch (e) {
       console.error('create campaign', e)
       toast.error('Failed to create campaign')
       return null
     }
-  }, [user, projectId, loadCampaigns])
+  }, [user, projectId])
 
   const deleteCampaign = useCallback(async (id: string) => {
     try {
       const ps = await postsApi.getAllForCampaign(id)
       await Promise.all(ps.map((p) => postsApi.delete(p.id)))
       await campaignsApi.delete(id)
-      if (activeCampaign?.id === id) {
-        setActiveCampaign(null)
-        setPosts([])
-      }
-      await loadCampaigns()
+      if (activeId === id) setActiveId(null)
     } catch (e) {
       console.error('delete campaign', e)
       toast.error('Failed to delete campaign')
     }
-  }, [activeCampaign, loadCampaigns])
+  }, [activeId])
 
-  // Generate the post plan (Gemini) and persist each as a draft post.
-  const generatePlan = useCallback(async (context: string) => {
-    if (!activeCampaign) return
-    setPlanning(true)
+  // Trigger background planning on the server — returns immediately. The campaign
+  // status flips to 'planning' and the posts stream in via the listener.
+  const generatePlan = useCallback(async () => {
+    if (!activeId) return
     try {
-      const res = await authFetch('/api/ai', {
+      const res = await authFetch('/api/campaigns/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'campaign_plan',
-          data: {
-            context,
-            brandName: activeCampaign.brand.name,
-            goal: activeCampaign.brief.goal,
-            audience: activeCampaign.brief.audience,
-            tone: activeCampaign.brief.tone,
-            count: activeCampaign.brief.count,
-            language: activeCampaign.language,
-          },
-        }),
+        body: JSON.stringify({ campaignId: activeId }),
       })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error || 'Plan failed')
-      const planned: PlannedPost[] = json.data?.posts || []
-      if (planned.length === 0) throw new Error('No posts were generated')
-
-      const existing = await postsApi.getAllForCampaign(activeCampaign.id)
-      await Promise.all(existing.map((p) => postsApi.delete(p.id)))
-
-      await Promise.all(
-        planned.map((p, i) =>
-          postsApi.create({
-            campaignId: activeCampaign.id,
-            order: i,
-            caption: p.caption,
-            hashtags: p.hashtags,
-            imagePrompt: p.imagePrompt,
-            aspect: 'portrait',
-            imageUrl: null,
-            status: 'planned',
-            socialPostId: null,
-            scheduledAt: null,
-          })
-        )
-      )
-      await campaignsApi.update(activeCampaign.id, { status: 'planning' })
-      await loadCampaigns()
-      await loadPosts(activeCampaign.id)
-      toast.success(`Planned ${planned.length} posts`)
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j.error || 'Failed to start planning')
+      }
+      toast.info('Planning started — runs in the background')
     } catch (e) {
-      console.error('generate plan', e)
-      toast.error(e instanceof Error ? e.message : 'Failed to generate plan')
-    } finally {
-      setPlanning(false)
+      toast.error(e instanceof Error ? e.message : 'Failed to start planning')
     }
-  }, [activeCampaign, loadCampaigns, loadPosts])
+  }, [activeId])
 
   const updatePost = useCallback(async (postId: string, patch: Partial<CampaignPost>) => {
     setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, ...patch } : p)))
@@ -219,13 +158,7 @@ export function useCampaigns(projectId: string | null) {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generate',
-          prompt: post.imagePrompt,
-          aspectRatio: post.aspect,
-          model: 'nano-banana-pro',
-          count: 1,
-        }),
+        body: JSON.stringify({ action: 'generate', prompt: post.imagePrompt, aspectRatio: post.aspect, model: 'nano-banana-pro', count: 1 }),
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error || 'Image generation failed')
@@ -237,7 +170,6 @@ export function useCampaigns(projectId: string | null) {
       const imageUrl = await uploadSocialMedia(file, pid)
 
       await postsApi.update(post.id, { imageUrl, status: 'ready' })
-      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, imageUrl, status: 'ready' } : p)))
     } catch (e) {
       console.error('generate image', e)
       toast.error(e instanceof Error ? e.message : 'Failed to generate image')
@@ -258,7 +190,6 @@ export function useCampaigns(projectId: string | null) {
     }
   }, [posts, generateImage])
 
-  // Compute the real post time for a given order (for the preview).
   const slotFor = useCallback(
     (order: number): number | null => (activeCampaign ? slotForOrder(activeCampaign.brief, order) : null),
     [activeCampaign]
@@ -279,9 +210,7 @@ export function useCampaigns(projectId: string | null) {
     try {
       for (const post of ready) {
         const scheduledAt = slotForOrder(activeCampaign.brief, post.order)
-        const caption = [post.caption, post.hashtags.map((h) => `#${h}`).join(' ')]
-          .filter(Boolean)
-          .join('\n\n')
+        const caption = [post.caption, post.hashtags.map((h) => `#${h}`).join(' ')].filter(Boolean).join('\n\n')
         try {
           const res = await authFetch('/api/social/schedule', {
             method: 'POST',
@@ -307,16 +236,20 @@ export function useCampaigns(projectId: string | null) {
           console.error('schedule post', e)
         }
       }
-      const allReadyNow = posts.filter((p) => p.imageUrl).length
-      await campaignsApi.update(activeCampaign.id, { status: okCount >= allReadyNow ? 'scheduled' : 'ready' })
-      await loadPosts(activeCampaign.id)
+      const withImages = posts.filter((p) => p.imageUrl).length
+      const newScheduled = posts.filter((p) => p.status === 'scheduled').length + okCount
+      await campaignsApi.update(activeCampaign.id, {
+        status: newScheduled >= withImages ? 'scheduled' : 'ready',
+        scheduledCount: newScheduled,
+      })
       toast.success(`Scheduled ${okCount}/${ready.length} posts`)
     } finally {
       setSchedulingAll(false)
     }
-  }, [activeCampaign, projectId, posts, loadPosts])
+  }, [activeCampaign, projectId, posts])
 
   return {
+    allCampaigns,
     campaigns,
     loading,
     activeCampaign,
@@ -334,6 +267,5 @@ export function useCampaigns(projectId: string | null) {
     generateAllImages,
     slotFor,
     scheduleAll,
-    reload: loadCampaigns,
   }
 }
