@@ -144,10 +144,11 @@ export function useCampaigns() {
     }
   }, [])
 
-  // Generate an image for one post, host it (+ a thumbnail) for FB/IG, store the URLs.
-  const generateImage = useCallback(async (post: CampaignPost) => {
+  // Core: generate one image, host it (+ a thumbnail), store the URLs. Returns an
+  // error message (or null on success) WITHOUT toasting — callers decide how to surface.
+  const runImage = useCallback(async (post: CampaignPost): Promise<string | null> => {
     const pid = activeCampaign?.projectId
-    if (!user || !pid) return
+    if (!user || !pid) return 'No project for this campaign'
     setImagePostIds((prev) => new Set(prev).add(post.id))
     try {
       const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors)
@@ -176,9 +177,10 @@ export function useCampaigns() {
       }
 
       await postsApi.update(post.id, { imageUrl, thumbnailUrl, status: 'ready' })
+      return null
     } catch (e) {
       console.error('generate image', e)
-      toast.error(e instanceof Error ? e.message : 'Failed to generate image')
+      return e instanceof Error ? e.message : 'Failed to generate image'
     } finally {
       setImagePostIds((prev) => {
         const next = new Set(prev)
@@ -188,10 +190,22 @@ export function useCampaigns() {
     }
   }, [user, activeCampaign])
 
+  // Single post (e.g. Regenerate) — one toast.
+  const generateImage = useCallback(async (post: CampaignPost) => {
+    const err = await runImage(post)
+    if (err) toast.error(err)
+  }, [runImage])
+
+  // Bulk: run all in parallel, then ONE summary toast (no 6-way toast spam).
   const generateAllImages = useCallback(async () => {
     const targets = posts.filter((p) => p.status !== 'scheduled')
-    await Promise.all(targets.map((p) => generateImage(p)))
-  }, [posts, generateImage])
+    if (targets.length === 0) return
+    const results = await Promise.all(targets.map((p) => runImage(p)))
+    const errs = results.filter((e): e is string => !!e)
+    if (errs.length === 0) toast.success(`Generated ${targets.length} image${targets.length > 1 ? 's' : ''}`)
+    else if (errs.length === targets.length) toast.error(errs[0])
+    else toast.info(`${targets.length - errs.length}/${targets.length} generated · ${errs[0]}`)
+  }, [posts, runImage])
 
   const slotFor = useCallback(
     (order: number): number | null => (activeCampaign ? slotForOrder(activeCampaign.brief, order) : null),

@@ -40,6 +40,9 @@ function errorResponse(status: number, data?: Record<string, unknown>) {
   if (/UNUSUAL_ACTIVITY|TOO_MUCH_TRAFFIC/i.test(detail)) {
     message =
       'Google is temporarily rate-limiting this account (too much traffic). Wait a few minutes and retry, or add/refresh a second Google account to share the load (Accounts tab).'
+  } else if (/CapSolver|Captcha service failed|balance is insufficient/i.test(detail)) {
+    message =
+      'The captcha solver (CapSolver) has run out of balance, so Google captchas can’t be solved. Top up CapSolver in Accounts → Captcha Providers, then retry.'
   }
   return NextResponse.json({ success: false, error: message }, { status })
 }
