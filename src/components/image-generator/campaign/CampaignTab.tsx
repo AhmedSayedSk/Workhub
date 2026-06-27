@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useProjects } from '@/hooks/useProjects'
+import { useAuth } from '@/hooks/useAuth'
 import { useCampaigns } from '@/hooks/useCampaigns'
+import { projects as projectsApi } from '@/lib/firestore'
+import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,7 +47,19 @@ const PLATFORMS: { value: SocialPlatform; label: string }[] = [
 ]
 
 export function CampaignTab() {
-  const { projects } = useProjects()
+  const { user } = useAuth()
+  // All projects INCLUDING sub-projects (so campaigns can target a sub-project).
+  const [projects, setProjects] = useState<Project[]>([])
+  useEffect(() => {
+    projectsApi.getAll(user?.uid).then(setProjects).catch(() => {})
+  }, [user?.uid])
+  const sortedProjects = [...projects].sort((a, b) => {
+    const ap = a.parentProjectId ? 1 : 0
+    const bp = b.parentProjectId ? 1 : 0
+    if (ap !== bp) return ap - bp
+    return a.name.localeCompare(b.name)
+  })
+
   const [projectId, setProjectId] = useState<string | null>(null)
   const c = useCampaigns(projectId)
   const project = projects.find((p) => p.id === projectId) || null
@@ -301,18 +315,28 @@ export function CampaignTab() {
 
       <div className="space-y-1.5">
         <Label className="text-xs">Project</Label>
-        <Select value={projectId ?? undefined} onValueChange={(v) => setProjectId(v)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Choose a project to build a new campaign for" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {sortedProjects.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setProjectId(p.id)}
+              className={cn(
+                'flex items-center gap-2 rounded-lg border bg-card p-2 text-left transition-colors hover:border-primary/40 hover:bg-muted',
+                projectId === p.id && 'border-primary ring-1 ring-primary/30'
+              )}
+            >
+              <ProjectIcon src={p.coverImageUrl} name={p.name} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{p.name}</p>
+                {p.parentProjectId ? (
+                  <p className="truncate text-[10px] text-muted-foreground">↳ {projectName(p.parentProjectId)}</p>
+                ) : (
+                  p.clientName && <p className="truncate text-[10px] text-muted-foreground">{p.clientName}</p>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {!project ? (
