@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { projects as projectsApi } from '@/lib/firestore'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
+import { CAMPAIGN_STYLES, DEFAULT_CAMPAIGN_STYLE } from '@/lib/campaignStyles'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -90,11 +91,19 @@ export function CampaignTab() {
     count: 6,
     language: 'en' as CampaignLanguage,
     platforms: ['fb', 'ig'] as SocialPlatform[],
+    style: DEFAULT_CAMPAIGN_STYLE,
+    colors: [] as string[],
     startDate: todayISO(),
     cadenceDays: 2,
     postTime: '18:00',
   })
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
+
+  // Seed the brand colors from the selected project's color.
+  useEffect(() => {
+    const proj = projects.find((p) => p.id === projectId)
+    setForm((f) => ({ ...f, colors: proj?.color ? [proj.color] : [] }))
+  }, [projectId, projects])
 
   const buildContext = (p: Project | null) =>
     p
@@ -152,11 +161,12 @@ export function CampaignTab() {
       },
       brand: {
         name: project.name,
-        colors: project.color ? [project.color] : [],
+        colors: form.colors.length ? form.colors : project.color ? [project.color] : [],
         logoUrl: project.coverImageUrl || null,
       },
       language: form.language,
       platforms: form.platforms.length ? form.platforms : ['fb', 'ig'],
+      style: form.style,
     })
     if (camp) setUrlParam('campaign', camp.id)
   }
@@ -417,6 +427,61 @@ export function CampaignTab() {
                     )}
                   >
                     {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Brand colors — applied to every generated image */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs">Brand colors (applied to every image)</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                {form.colors.map((col, i) => (
+                  <div key={i} className="group/clr relative">
+                    <input
+                      type="color"
+                      value={col}
+                      onChange={(e) => set('colors', form.colors.map((c, j) => (j === i ? e.target.value : c)))}
+                      className="h-8 w-10 cursor-pointer rounded border bg-transparent p-0"
+                      title={col}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => set('colors', form.colors.filter((_, j) => j !== i))}
+                      className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-foreground/80 text-[10px] leading-none text-background group-hover/clr:flex"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {form.colors.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={() => set('colors', [...form.colors, project.color || '#6B8DD6'])}
+                    className="flex h-8 items-center gap-1 rounded-lg border border-dashed px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" /> Color
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Image style */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs">Image style</Label>
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                {CAMPAIGN_STYLES.map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => set('style', s.key)}
+                    title={s.prompt}
+                    className={cn(
+                      'rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors',
+                      form.style === s.key ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {s.label}
                   </button>
                 ))}
               </div>

@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { authFetch } from '@/lib/api-client'
 import { campaigns as campaignsApi, campaignPosts as postsApi } from '@/lib/firestore'
 import { uploadSocialMedia } from '@/lib/storage'
+import { buildImagePrompt } from '@/lib/campaignStyles'
 import { db } from '@/lib/firebase'
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore'
 import type {
@@ -23,6 +24,7 @@ export interface NewCampaignInput {
   brand: CampaignBrand
   language: CampaignLanguage
   platforms: SocialPlatform[]
+  style: string
 }
 
 const DAY_MS = 86_400_000
@@ -93,6 +95,7 @@ export function useCampaigns(projectId: string | null) {
         brand: input.brand,
         language: input.language,
         platforms: input.platforms,
+        style: input.style,
         status: 'draft',
         postCount: 0,
         scheduledCount: 0,
@@ -155,10 +158,12 @@ export function useCampaigns(projectId: string | null) {
     setImagePostIds((prev) => new Set(prev).add(post.id))
     setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, status: 'generating' } : p)))
     try {
+      // Apply the campaign's style + brand colors to every image for a consistent identity.
+      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors)
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate', prompt: post.imagePrompt, aspectRatio: post.aspect, model: 'nano-banana-pro', count: 1 }),
+        body: JSON.stringify({ action: 'generate', prompt: fullPrompt, aspectRatio: post.aspect, model: 'nano-banana-pro', count: 1 }),
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error || 'Image generation failed')

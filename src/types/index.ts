@@ -587,6 +587,7 @@ export interface Campaign {
   brand: CampaignBrand
   language: CampaignLanguage
   platforms: SocialPlatform[]
+  style?: string // image style key (see lib/campaignStyles)
   status: CampaignStatus
   postCount?: number
   scheduledCount?: number
