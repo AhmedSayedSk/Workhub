@@ -99,7 +99,7 @@ export function CampaignPostCard({
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           onBlur={() => caption !== post.caption && onChange({ caption })}
-          rows={5}
+          rows={4}
           dir={rtl ? 'rtl' : undefined}
           disabled={scheduled}
           className={cn('resize-none text-sm leading-relaxed', rtl && 'text-right')}
