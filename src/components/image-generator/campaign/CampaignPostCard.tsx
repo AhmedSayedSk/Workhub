@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Loader2, ImageIcon, RefreshCw, Sparkles, FileText } from 'lucide-react'
+import { Loader2, ImageIcon, RefreshCw, Sparkles, FileText, AlertCircle } from 'lucide-react'
 import { CampaignImageDialog } from './CampaignImageDialog'
 import type { CampaignPost } from '@/types'
 
@@ -19,6 +20,7 @@ export function CampaignPostCard({
   index,
   generating,
   rtl = false,
+  error,
   onChange,
   onGenerateImage,
 }: {
@@ -26,6 +28,7 @@ export function CampaignPostCard({
   index: number
   generating: boolean
   rtl?: boolean
+  error?: string
   onChange: (patch: Partial<CampaignPost>) => void
   onGenerateImage: () => void
 }) {
@@ -49,6 +52,14 @@ export function CampaignPostCard({
           />
         ) : generating ? (
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        ) : error ? (
+          <div className="flex flex-col items-center gap-2 px-3 text-center">
+            <AlertCircle className="h-6 w-6 text-red-500" />
+            <p className="line-clamp-3 text-[11px] text-red-500">{error}</p>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onGenerateImage}>
+              <RefreshCw className="mr-1 h-3 w-3" /> Retry
+            </Button>
+          </div>
         ) : (
           <ImageIcon className="h-8 w-8 cursor-pointer text-muted-foreground/40" onClick={() => setDialogOpen(true)} />
         )}
@@ -99,7 +110,7 @@ export function CampaignPostCard({
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           onBlur={() => caption !== post.caption && onChange({ caption })}
-          rows={4}
+          rows={3}
           dir={rtl ? 'rtl' : undefined}
           disabled={scheduled}
           className={cn('resize-none text-sm leading-relaxed', rtl && 'text-right')}

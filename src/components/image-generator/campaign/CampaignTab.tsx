@@ -142,6 +142,7 @@ export function CampaignTab() {
                 index={i}
                 generating={c.imagePostIds.has(post.id)}
                 rtl={cam.language === 'ar'}
+                error={c.imageErrors[post.id]}
                 onChange={(patch) => c.updatePost(post.id, patch)}
                 onGenerateImage={() => c.generateImage(post)}
               />

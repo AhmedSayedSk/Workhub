@@ -43,6 +43,7 @@ export function useCampaigns() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [schedulingAll, setSchedulingAll] = useState(false)
   const [imagePostIds, setImagePostIds] = useState<Set<string>>(new Set())
+  const [imageErrors, setImageErrors] = useState<Record<string, string>>({})
 
   // Live: every campaign + every post (small dataset). Drives the overview,
   // per-campaign image previews, and live background-status updates.
@@ -150,6 +151,12 @@ export function useCampaigns() {
     const pid = activeCampaign?.projectId
     if (!user || !pid) return 'No project for this campaign'
     setImagePostIds((prev) => new Set(prev).add(post.id))
+    setImageErrors((prev) => {
+      if (!prev[post.id]) return prev
+      const n = { ...prev }
+      delete n[post.id]
+      return n
+    })
     try {
       const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors, activeCampaign?.language)
       const res = await authFetch('/api/ai/image', {
@@ -180,7 +187,9 @@ export function useCampaigns() {
       return null
     } catch (e) {
       console.error('generate image', e)
-      return e instanceof Error ? e.message : 'Failed to generate image'
+      const msg = e instanceof Error ? e.message : 'Failed to generate image'
+      setImageErrors((prev) => ({ ...prev, [post.id]: msg }))
+      return msg
     } finally {
       setImagePostIds((prev) => {
         const next = new Set(prev)
@@ -272,6 +281,7 @@ export function useCampaigns() {
     planning,
     schedulingAll,
     imagePostIds,
+    imageErrors,
     selectCampaign,
     openCampaign,
     createCampaign,
