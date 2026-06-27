@@ -188,12 +188,10 @@ export function useCampaigns(projectId: string | null) {
     }
   }, [user, projectId, activeCampaign])
 
-  // Generate an image for EVERY post (skip only already-scheduled/locked ones).
+  // Generate images for EVERY post in PARALLEL (skip only scheduled/locked ones).
   const generateAllImages = useCallback(async () => {
     const targets = posts.filter((p) => p.status !== 'scheduled')
-    for (const p of targets) {
-      await generateImage(p)
-    }
+    await Promise.all(targets.map((p) => generateImage(p)))
   }, [posts, generateImage])
 
   const slotFor = useCallback(

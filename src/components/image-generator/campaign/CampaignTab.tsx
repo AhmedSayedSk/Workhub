@@ -469,7 +469,7 @@ export function CampaignTab() {
             {/* Image style */}
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Image style</Label>
-              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {CAMPAIGN_STYLES.map((s) => (
                   <button
                     key={s.key}
@@ -477,11 +477,14 @@ export function CampaignTab() {
                     onClick={() => set('style', s.key)}
                     title={s.prompt}
                     className={cn(
-                      'rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors',
-                      form.style === s.key ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                      'overflow-hidden rounded-lg border text-left transition-all',
+                      form.style === s.key ? 'border-primary ring-1 ring-primary/30' : 'hover:border-primary/40'
                     )}
                   >
-                    {s.label}
+                    <div className="h-12 w-full" style={{ background: s.swatch }} />
+                    <p className={cn('truncate px-1.5 py-1 text-[11px] font-medium', form.style === s.key ? 'text-primary' : 'text-muted-foreground')}>
+                      {s.label}
+                    </p>
                   </button>
                 ))}
               </div>

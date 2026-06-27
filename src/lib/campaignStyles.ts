@@ -5,21 +5,22 @@ export interface CampaignStyleDef {
   key: string
   label: string
   prompt: string
+  swatch: string // CSS background that previews the style's look
 }
 
 export const CAMPAIGN_STYLES: CampaignStyleDef[] = [
-  { key: 'realistic', label: 'Realistic', prompt: 'photorealistic, professional commercial photography, natural lighting, crisp high detail, DSLR quality' },
-  { key: 'cinematic', label: 'Cinematic', prompt: 'cinematic photography, dramatic moody lighting, shallow depth of field, filmic color grade' },
-  { key: '3d', label: '3D Render', prompt: 'polished 3D render, soft studio lighting, smooth materials, subtle reflections, octane-render look' },
-  { key: 'cartoon', label: 'Cartoon', prompt: 'playful cartoon illustration, bold clean outlines, vibrant flat colors, friendly characters' },
-  { key: 'flat', label: 'Flat Illustration', prompt: 'modern flat vector illustration, clean geometric shapes, minimal shading, corporate-memphis style' },
-  { key: 'minimal', label: 'Minimal', prompt: 'minimalist design, generous negative space, simple refined composition, clean and uncluttered' },
-  { key: 'gradient', label: 'Gradient / Abstract', prompt: 'vibrant gradient background, smooth abstract shapes, modern tech aesthetic, soft glassmorphism' },
-  { key: 'isometric', label: 'Isometric', prompt: 'isometric illustration, clean lines, soft long shadows, tidy product/tech scene' },
-  { key: 'watercolor', label: 'Watercolor', prompt: 'soft watercolor painting, organic textures, gentle color bleeds, hand-painted feel' },
-  { key: 'layout', label: 'Editorial Layout', prompt: 'editorial poster layout, structured grid composition, bold negative space for text, magazine-style graphic design' },
-  { key: 'neon', label: 'Neon / Cyber', prompt: 'neon-lit cyberpunk aesthetic, glowing accents, dark moody background, futuristic vibe' },
-  { key: 'collage', label: 'Collage', prompt: 'modern mixed-media collage, layered cut-out shapes, textured paper, eclectic energetic composition' },
+  { key: 'realistic', label: 'Realistic', prompt: 'photorealistic, professional commercial photography, natural lighting, crisp high detail, DSLR quality', swatch: 'linear-gradient(135deg,#9aa7b6,#54637a)' },
+  { key: 'cinematic', label: 'Cinematic', prompt: 'cinematic photography, dramatic moody lighting, shallow depth of field, filmic color grade', swatch: 'linear-gradient(135deg,#0b3d4d,#1f6f7e 45%,#e08a3c)' },
+  { key: '3d', label: '3D Render', prompt: 'polished 3D render, soft studio lighting, smooth materials, subtle reflections, octane-render look', swatch: 'linear-gradient(135deg,#c4b5fd,#818cf8 60%,#6366f1)' },
+  { key: 'cartoon', label: 'Cartoon', prompt: 'playful cartoon illustration, bold clean outlines, vibrant flat colors, friendly characters', swatch: 'linear-gradient(135deg,#ffd23f,#ff8a3c 55%,#ff5d5d)' },
+  { key: 'flat', label: 'Flat Illustration', prompt: 'modern flat vector illustration, clean geometric shapes, minimal shading, corporate-memphis style', swatch: 'linear-gradient(135deg,#7bd0c1,#4a7bd6)' },
+  { key: 'minimal', label: 'Minimal', prompt: 'minimalist design, generous negative space, simple refined composition, clean and uncluttered', swatch: 'linear-gradient(135deg,#f3f4f6,#cdd3db)' },
+  { key: 'gradient', label: 'Gradient / Abstract', prompt: 'vibrant gradient background, smooth abstract shapes, modern tech aesthetic, soft glassmorphism', swatch: 'linear-gradient(135deg,#ff6ec4,#7873f5 50%,#42e695)' },
+  { key: 'isometric', label: 'Isometric', prompt: 'isometric illustration, clean lines, soft long shadows, tidy product/tech scene', swatch: 'linear-gradient(135deg,#8aa0f5,#4458a8)' },
+  { key: 'watercolor', label: 'Watercolor', prompt: 'soft watercolor painting, organic textures, gentle color bleeds, hand-painted feel', swatch: 'linear-gradient(135deg,#f9c5d1,#a0e7e5 55%,#fbe7a1)' },
+  { key: 'layout', label: 'Editorial Layout', prompt: 'editorial poster layout, structured grid composition, bold negative space for text, magazine-style graphic design', swatch: 'linear-gradient(90deg,#1f2937 0 38%,#e5e7eb 38% 100%)' },
+  { key: 'neon', label: 'Neon / Cyber', prompt: 'neon-lit cyberpunk aesthetic, glowing accents, dark moody background, futuristic vibe', swatch: 'linear-gradient(135deg,#0f1020,#ff2bd6 55%,#21f0ff)' },
+  { key: 'collage', label: 'Collage', prompt: 'modern mixed-media collage, layered cut-out shapes, textured paper, eclectic energetic composition', swatch: 'conic-gradient(from 35deg,#f6b73c,#c97ba3,#5ba6a0,#c97575,#f6b73c)' },
 ]
 
 export const DEFAULT_CAMPAIGN_STYLE = 'realistic'
