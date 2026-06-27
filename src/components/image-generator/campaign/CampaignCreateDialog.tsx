@@ -145,7 +145,7 @@ export function CampaignCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New campaign</DialogTitle>
         </DialogHeader>
@@ -154,7 +154,7 @@ export function CampaignCreateDialog({
           {/* Project picker grid */}
           <div className="space-y-1.5">
             <Label className="text-xs">Project</Label>
-            <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+            <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">
               {sortedProjects.map((p) => (
                 <button
                   key={p.id}
@@ -178,19 +178,20 @@ export function CampaignCreateDialog({
             </div>
           </div>
 
-          {project && (
-            <>
-              <div className="flex items-center justify-end">
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleSuggest} disabled={suggesting}>
-                  {suggesting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
-                  Suggest with AI
-                </Button>
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {project ? `Brand & images from “${project.name}”` : 'Pick a project above to enable creating.'}
+            </p>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleSuggest} disabled={suggesting || !project}>
+              {suggesting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
+              Suggest with AI
+            </Button>
+          </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs">Campaign name</Label>
-                  <Input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={`${project.name} Campaign`} />
+                  <Input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={project ? `${project.name} Campaign` : 'Campaign name'} />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs">Goal</Label>
@@ -273,7 +274,7 @@ export function CampaignCreateDialog({
                     {form.colors.length < 4 && (
                       <button
                         type="button"
-                        onClick={() => set('colors', [...form.colors, project.color || '#6B8DD6'])}
+                        onClick={() => set('colors', [...form.colors, project?.color || '#6B8DD6'])}
                         className="flex h-8 items-center gap-1 rounded-lg border border-dashed px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <Plus className="h-3 w-3" /> Color
@@ -285,7 +286,7 @@ export function CampaignCreateDialog({
                 {/* Image style */}
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs">Image style</Label>
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                     {CAMPAIGN_STYLES.map((s) => (
                       <button
                         key={s.key}
@@ -299,9 +300,9 @@ export function CampaignCreateDialog({
                       >
                         {s.example ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={s.example} alt={s.label} className="h-12 w-full object-cover" loading="lazy" />
+                          <img src={s.example} alt={s.label} className="aspect-square w-full object-contain" loading="lazy" />
                         ) : (
-                          <div className="h-12 w-full" style={{ background: s.swatch }} />
+                          <div className="aspect-square w-full" style={{ background: s.swatch }} />
                         )}
                         <p className={cn('truncate px-1.5 py-1 text-[11px] font-medium', form.style === s.key ? 'text-primary' : 'text-muted-foreground')}>
                           {s.label}
@@ -312,12 +313,10 @@ export function CampaignCreateDialog({
                 </div>
               </div>
 
-              <Button onClick={handleCreate} disabled={creating} className="w-full">
+              <Button onClick={handleCreate} disabled={creating || !project} className="w-full">
                 {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Megaphone className="mr-2 h-4 w-4" />}
-                Create campaign
+                {project ? 'Create campaign' : 'Select a project to create'}
               </Button>
-            </>
-          )}
         </div>
       </DialogContent>
     </Dialog>

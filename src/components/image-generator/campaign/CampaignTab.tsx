@@ -12,6 +12,7 @@ import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Pl
 import { CampaignPostCard } from './CampaignPostCard'
 import { CampaignPreview } from './CampaignPreview'
 import { CampaignCreateDialog } from './CampaignCreateDialog'
+import { CAMPAIGN_STYLES } from '@/lib/campaignStyles'
 import type { Project } from '@/types'
 
 export function CampaignTab() {
@@ -23,6 +24,7 @@ export function CampaignTab() {
   }, [user?.uid])
   const projectOf = (id: string) => projects.find((p) => p.id === id) || null
   const projectName = (id: string) => projectOf(id)?.name || 'Project'
+  const styleLabel = (key?: string) => CAMPAIGN_STYLES.find((s) => s.key === key)?.label
 
   const [preview, setPreview] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -182,7 +184,12 @@ export function CampaignTab() {
                 className="group overflow-hidden rounded-xl border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
               >
                 {/* Generated-image preview */}
-                <div className="grid aspect-[16/9] grid-cols-3 gap-px bg-muted">
+                <div className="relative grid aspect-[16/9] grid-cols-3 gap-px bg-muted">
+                  {styleLabel(cam.style) && (
+                    <span className="absolute left-1.5 top-1.5 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+                      {styleLabel(cam.style)}
+                    </span>
+                  )}
                   {thumbs.length > 0 ? (
                     [0, 1, 2].map((i) =>
                       thumbs[i] ? (
