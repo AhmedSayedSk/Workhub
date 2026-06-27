@@ -22,6 +22,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['workhub.sikasio.com'],
   },
+  'extension-manager-api': {
+    name: 'Extensions API',
+    description: 'Centralized API for Sikasio browser extensions (Gemini SEO proxy)',
+    type: 'app',
+    domains: ['extensions-api.sikasio.com'],
+  },
   'coffeepos-landing': {
     name: 'CoffeePOS — Landing',
     description: 'Marketing landing site',
