@@ -34,7 +34,7 @@ export function CampaignPostCard({
       <div className="relative flex h-44 items-center justify-center bg-muted">
         {post.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={post.imageUrl} alt="" className="h-full w-full object-cover" />
+          <img src={post.imageUrl} alt="" className="h-full w-full object-contain" />
         ) : generating ? (
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         ) : (
