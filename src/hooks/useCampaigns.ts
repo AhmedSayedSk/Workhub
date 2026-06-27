@@ -151,7 +151,7 @@ export function useCampaigns() {
     if (!user || !pid) return 'No project for this campaign'
     setImagePostIds((prev) => new Set(prev).add(post.id))
     try {
-      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors)
+      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors, activeCampaign?.language)
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

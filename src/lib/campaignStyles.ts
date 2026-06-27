@@ -30,14 +30,23 @@ export function campaignStylePrompt(key?: string): string {
   return CAMPAIGN_STYLES.find((s) => s.key === key)?.prompt || ''
 }
 
-// Compose the final image-gen prompt: subject (from the plan) + style + brand colors.
-export function buildImagePrompt(basePrompt: string, styleKey?: string, colors?: string[]): string {
+// Compose the final image-gen prompt: subject (from the plan) + style + brand
+// colors + (for Arabic campaigns) a rule that any rendered text must be Arabic.
+export function buildImagePrompt(
+  basePrompt: string,
+  styleKey?: string,
+  colors?: string[],
+  language?: 'en' | 'ar'
+): string {
   const style = campaignStylePrompt(styleKey)
   const palette = (colors || []).filter(Boolean)
   return [
     basePrompt,
     style ? `Visual style: ${style}.` : '',
     palette.length ? `Feature this brand color palette prominently throughout: ${palette.join(', ')}.` : '',
+    language === 'ar'
+      ? 'IMPORTANT: any text that appears in the image MUST be written in correct Arabic (العربية), right-to-left, properly spelled and shaped — never English or Latin letters.'
+      : '',
   ]
     .filter(Boolean)
     .join(' ')
