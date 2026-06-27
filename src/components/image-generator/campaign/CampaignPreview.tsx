@@ -108,7 +108,7 @@ export function CampaignPreview({
               <div className="relative flex aspect-[4/5] items-center justify-center bg-muted">
                 {post.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={post.imageUrl} alt="" className="h-full w-full object-cover" />
+                  <img src={post.thumbnailUrl || post.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex flex-col items-center gap-1 text-muted-foreground">
                     <ImageOff className="h-7 w-7 opacity-40" />
