@@ -154,7 +154,7 @@ export function CampaignCreateDialog({
           {/* Project picker grid */}
           <div className="space-y-1.5">
             <Label className="text-xs">Project</Label>
-            <div className="grid max-h-44 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+            <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
               {sortedProjects.map((p) => (
                 <button
                   key={p.id}
