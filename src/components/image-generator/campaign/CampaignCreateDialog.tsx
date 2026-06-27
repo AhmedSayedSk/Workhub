@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { authFetch } from '@/lib/api-client'
 import { toast } from 'react-toastify'
@@ -64,6 +65,7 @@ export function CampaignCreateDialog({
     language: 'en' as CampaignLanguage,
     platforms: ['fb', 'ig'] as SocialPlatform[],
     style: DEFAULT_CAMPAIGN_STYLE,
+    consistentIdentity: true,
     colors: [] as string[],
     startDate: todayISO(),
     cadenceDays: 2,
@@ -138,6 +140,7 @@ export function CampaignCreateDialog({
       language: form.language,
       platforms: form.platforms.length ? form.platforms : ['fb', 'ig'],
       style: form.style,
+      consistentIdentity: form.consistentIdentity,
     })
     setCreating(false)
     if (camp) onOpenChange(false)
@@ -310,6 +313,15 @@ export function CampaignCreateDialog({
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Consistent visual identity */}
+                <div className="flex items-center justify-between gap-3 rounded-lg border p-2.5 sm:col-span-2">
+                  <div className="min-w-0">
+                    <Label className="text-xs font-medium">Consistent visual identity</Label>
+                    <p className="text-[11px] text-muted-foreground">Generate one shared art direction so all posts look like the same set.</p>
+                  </div>
+                  <Switch checked={form.consistentIdentity} onCheckedChange={(v) => set('consistentIdentity', v)} />
                 </div>
               </div>
 

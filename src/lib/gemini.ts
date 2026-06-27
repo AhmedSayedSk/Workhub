@@ -874,6 +874,40 @@ Respond with ONLY a JSON object (no markdown fences):
   }
 }
 
+// One shared "art direction" for a campaign so every post looks like the same set.
+export async function generateCampaignArtDirection(
+  params: { context: string; brandName: string; goal: string; tone: string; style: string; colors: string[] },
+  model?: GeminiModel
+): Promise<string> {
+  const prompt = `You are an art director defining ONE consistent visual identity for a brand's social campaign, so every post looks unmistakably part of the same set.
+
+Brand: ${params.brandName}
+Goal: ${params.goal || 'grow awareness'}
+Tone: ${params.tone || 'confident, friendly'}
+Base visual style: ${params.style || 'realistic'}
+Brand colors: ${(params.colors || []).join(', ') || 'the brand palette'}
+
+Product/brand context:
+"""
+${(params.context || '').slice(0, 6000)}
+"""
+
+Write ONE concise art-direction paragraph (3-5 sentences, English) describing the SHARED visual identity to apply IDENTICALLY to every image: lighting, composition & framing, color treatment, mood, background treatment, recurring motifs/props, and the rendering finish. Be specific and decisive so all posts feel cohesive and recognizably one campaign. Output ONLY the paragraph — no preamble, no markdown.`
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    return result.response
+      .text()
+      .trim()
+      .replace(/^```[a-z]*\s*/i, '')
+      .replace(/\s*```$/, '')
+      .slice(0, 1500)
+  } catch (error) {
+    console.error('Error generating campaign art direction:', error)
+    return ''
+  }
+}
+
 export interface GeneratedPlaybookItem {
   phase: 'pre_launch' | 'launch' | 'post_launch'
   title: string

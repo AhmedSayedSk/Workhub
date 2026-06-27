@@ -3,7 +3,8 @@ import { after } from 'next/server'
 import * as admin from 'firebase-admin'
 import '@/lib/api-auth' // side-effect: ensures the Admin app is initialized
 import { requireAuth } from '@/lib/api-auth'
-import { generateCampaignPosts } from '@/lib/gemini'
+import { generateCampaignPosts, generateCampaignArtDirection } from '@/lib/gemini'
+import { campaignStylePrompt } from '@/lib/campaignStyles'
 
 // Background campaign planning. The request returns immediately after flipping the
 // campaign to `planning`; the Gemini call + post writes run in `after()` on the
@@ -16,9 +17,11 @@ const T = admin.firestore.Timestamp
 
 interface CampaignDoc {
   projectId: string
-  brand?: { name?: string }
+  brand?: { name?: string; colors?: string[] }
   brief?: { goal?: string; audience?: string; tone?: string; count?: number }
   language?: string
+  style?: string
+  consistentIdentity?: boolean
 }
 
 export async function POST(request: NextRequest) {
@@ -70,6 +73,19 @@ export async function POST(request: NextRequest) {
         })
         if (posts.length === 0) throw new Error('No posts were generated')
 
+        // Optional: one shared art direction so every post has the same identity.
+        let artDirection = ''
+        if (camp.consistentIdentity) {
+          artDirection = await generateCampaignArtDirection({
+            context,
+            brandName: camp.brand?.name || '',
+            goal: camp.brief?.goal || '',
+            tone: camp.brief?.tone || '',
+            style: campaignStylePrompt(camp.style),
+            colors: camp.brand?.colors || [],
+          })
+        }
+
         // Replace any existing draft posts.
         const old = await db().collection('campaignPosts').where('campaignId', '==', campaignId).get()
         const batch = db().batch()
@@ -96,6 +112,7 @@ export async function POST(request: NextRequest) {
           status: 'ready',
           postCount: posts.length,
           scheduledCount: 0,
+          artDirection,
           planError: null,
           updatedAt: T.now(),
         })

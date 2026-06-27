@@ -36,12 +36,16 @@ export function buildImagePrompt(
   basePrompt: string,
   styleKey?: string,
   colors?: string[],
-  language?: 'en' | 'ar'
+  language?: 'en' | 'ar',
+  artDirection?: string
 ): string {
   const style = campaignStylePrompt(styleKey)
   const palette = (colors || []).filter(Boolean)
   return [
     basePrompt,
+    artDirection
+      ? `Cohesive campaign art direction — every post in this campaign MUST share this exact visual identity so they look like one set: ${artDirection}`
+      : '',
     style ? `Visual style: ${style}.` : '',
     palette.length ? `Feature this brand color palette prominently throughout: ${palette.join(', ')}.` : '',
     language === 'ar'
