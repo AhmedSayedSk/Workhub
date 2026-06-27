@@ -43,6 +43,9 @@ function errorResponse(status: number, data?: Record<string, unknown>) {
   } else if (/CapSolver|Captcha service failed|balance is insufficient/i.test(detail)) {
     message =
       'The captcha solver (CapSolver) has run out of balance, so Google captchas can’t be solved. Top up CapSolver in Accounts → Captcha Providers, then retry.'
+  } else if (/DAILY_QUOTA/i.test(detail)) {
+    message =
+      'This Google account hit its daily image quota — every model is used up for today. It resets in ~24h, or add/refresh a second account to share the quota.'
   }
   return NextResponse.json({ success: false, error: message }, { status })
 }
@@ -138,9 +141,10 @@ export async function POST(request: NextRequest) {
 
       const disabledEmails: string[] = body.disabledEmails || []
 
-      const buildReqBody = (targetEmail?: string) => {
+      const buildReqBody = (targetEmail?: string, modelOverride?: string) => {
         const reqBody: Record<string, unknown> = {
-          prompt, model,
+          prompt,
+          model: modelOverride || model,
           count: count || 1,
           captchaRetry: 5,
         }
@@ -191,19 +195,29 @@ export async function POST(request: NextRequest) {
         } catch {}
       }
 
-      const reqPayload = buildReqBody(initialEmail)
-      const res = await fetch(`${USEAPI_BASE}/images`, {
-        method: 'POST',
-        headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
-        body: JSON.stringify(reqPayload),
-      })
-
-      const data = await res.json()
+      // Try the chosen model; if its DAILY quota is exhausted, fall back to other models.
+      const tryModels = [model, 'nano-banana-2', 'imagen-4', 'nano-banana-pro'].filter((m, i, a) => a.indexOf(m) === i)
+      let res!: Response
+      let data: Record<string, unknown> = {}
+      let reqPayload: Record<string, unknown> = {}
+      for (const m of tryModels) {
+        reqPayload = buildReqBody(initialEmail, m)
+        res = await fetch(`${USEAPI_BASE}/images`, {
+          method: 'POST',
+          headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqPayload),
+        })
+        data = await res.json()
+        if (res.ok) break
+        // Only switch models when THIS model's daily quota is reached; otherwise stop.
+        if (!/DAILY_QUOTA/i.test(JSON.stringify(data))) break
+        console.warn(`[image] model ${m} daily quota reached — trying next model`)
+      }
 
       if (!res.ok) {
         console.error('useapi.net generate error:', res.status, JSON.stringify(data))
         // Include the email that was actually used in the error response
-        const usedEmail = data?.email || reqPayload.email || ''
+        const usedEmail = (data?.email as string) || (reqPayload.email as string) || ''
         const baseError = errorResponse(res.status, data)
         const errorBody = await baseError.json()
         return NextResponse.json({ ...errorBody, usedEmail }, { status: baseError.status })
