@@ -35,7 +35,12 @@ function errorResponse(status: number, data?: Record<string, unknown>) {
     if (reason) detail = `${detail} [${reason}]`
   }
   if (!detail) detail = (data?.message || data?.detail || '') as string
-  const message = detail || ERROR_MAP[status] || `Request failed (${status})`
+  let message = detail || ERROR_MAP[status] || `Request failed (${status})`
+  // Google temporarily rate-limits an account after heavy traffic — make it actionable.
+  if (/UNUSUAL_ACTIVITY|TOO_MUCH_TRAFFIC/i.test(detail)) {
+    message =
+      'Google is temporarily rate-limiting this account (too much traffic). Wait a few minutes and retry, or add/refresh a second Google account to share the load (Accounts tab).'
+  }
   return NextResponse.json({ success: false, error: message }, { status })
 }
 
@@ -166,16 +171,19 @@ export async function POST(request: NextRequest) {
       // Always use preferred email when set
       let initialEmail: string | undefined = email || body.preferredEmail || undefined
 
-      // If no email chosen yet, and there are disabled emails, we must pick an enabled one
-      if (!initialEmail && disabledEmails.length > 0) {
+      // No explicit account chosen → pick a HEALTHY, enabled one (skip accounts
+      // whose Google session has failed/expired) so we don't waste attempts on a dead session.
+      if (!initialEmail) {
         try {
           const accsRes = await fetch(`${USEAPI_BASE}/accounts`, { headers: authHeader(apiToken) })
           if (accsRes.ok) {
-            const accsData = await accsRes.json()
-            initialEmail = Object.keys(accsData).find(e => !disabledEmails.includes(e))
-            if (!initialEmail) {
+            const accsData = (await accsRes.json()) as Record<string, { health?: string }>
+            const enabled = Object.entries(accsData).filter(([e]) => !disabledEmails.includes(e))
+            if (enabled.length === 0) {
               return NextResponse.json({ success: false, error: 'All accounts are disabled. Enable at least one in the Accounts tab.' }, { status: 400 })
             }
+            const healthy = enabled.find(([, v]) => v?.health === 'OK')
+            initialEmail = (healthy ? healthy[0] : enabled[0][0])
           }
         } catch {}
       }
