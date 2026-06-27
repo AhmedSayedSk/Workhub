@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { Loader2, ImageIcon, RefreshCw, Sparkles } from 'lucide-react'
 import type { CampaignPost } from '@/types'
 
@@ -11,12 +12,14 @@ export function CampaignPostCard({
   post,
   index,
   generating,
+  rtl = false,
   onChange,
   onGenerateImage,
 }: {
   post: CampaignPost
   index: number
   generating: boolean
+  rtl?: boolean
   onChange: (patch: Partial<CampaignPost>) => void
   onGenerateImage: () => void
 }) {
@@ -53,15 +56,16 @@ export function CampaignPostCard({
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           onBlur={() => caption !== post.caption && onChange({ caption })}
-          rows={2}
+          rows={3}
+          dir={rtl ? 'rtl' : undefined}
           disabled={scheduled}
-          className="resize-none text-xs leading-relaxed"
+          className={cn('resize-none text-sm leading-relaxed', rtl && 'text-right')}
           placeholder="Caption"
         />
         {post.hashtags.length > 0 && (
-          <div className="flex flex-wrap gap-x-1.5 gap-y-0.5">
+          <div dir={rtl ? 'rtl' : undefined} className={cn('flex flex-wrap gap-x-1.5 gap-y-0.5', rtl && 'justify-end')}>
             {post.hashtags.map((h) => (
-              <span key={h} className="text-[10px] font-medium text-primary">#{h}</span>
+              <span key={h} className="text-[11px] font-medium text-primary">#{h}</span>
             ))}
           </div>
         )}

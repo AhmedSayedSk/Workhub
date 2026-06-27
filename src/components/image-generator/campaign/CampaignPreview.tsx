@@ -34,6 +34,7 @@ export function CampaignPreview({
   onBack: () => void
 }) {
   // Schedulable = has an image and isn't already scheduled. Default all included.
+  const rtl = campaign.language === 'ar'
   const schedulable = posts.filter((p) => p.imageUrl && p.status !== 'scheduled')
   const [included, setIncluded] = useState<Set<string>>(() => new Set(schedulable.map((p) => p.id)))
   const toggle = (id: string) =>
@@ -127,9 +128,11 @@ export function CampaignPreview({
 
               {/* caption + meta */}
               <div className="space-y-1.5 p-3">
-                <p className="whitespace-pre-wrap text-xs leading-relaxed">{post.caption}</p>
+                <p dir={rtl ? 'rtl' : undefined} className={cn('whitespace-pre-wrap text-sm leading-relaxed', rtl && 'text-right')}>
+                  {post.caption}
+                </p>
                 {post.hashtags.length > 0 && (
-                  <p className="text-[11px] font-medium text-primary">
+                  <p dir={rtl ? 'rtl' : undefined} className={cn('text-[11px] font-medium text-primary', rtl && 'text-right')}>
                     {post.hashtags.map((h) => `#${h}`).join(' ')}
                   </p>
                 )}
