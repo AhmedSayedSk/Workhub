@@ -200,6 +200,7 @@ export async function POST(request: NextRequest) {
       let res!: Response
       let data: Record<string, unknown> = {}
       let reqPayload: Record<string, unknown> = {}
+      let usedModel = model
       for (const m of tryModels) {
         reqPayload = buildReqBody(initialEmail, m)
         res = await fetch(`${USEAPI_BASE}/images`, {
@@ -208,7 +209,7 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify(reqPayload),
         })
         data = await res.json()
-        if (res.ok) break
+        if (res.ok) { usedModel = m; break }
         // Only switch models when THIS model's daily quota is reached; otherwise stop.
         if (!/DAILY_QUOTA/i.test(JSON.stringify(data))) break
         console.warn(`[image] model ${m} daily quota reached — trying next model`)
@@ -229,7 +230,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'No images generated. Try a different prompt.' }, { status: 422 })
       }
 
-      return NextResponse.json({ success: true, data: { images, jobId: data.jobId } })
+      return NextResponse.json({ success: true, data: { images, jobId: data.jobId, model: usedModel } })
     }
 
     // Register account

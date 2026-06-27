@@ -607,6 +607,7 @@ export interface CampaignPost {
   aspect: CampaignAspect
   imageUrl: string | null
   thumbnailUrl?: string | null
+  model?: string // the image model that generated it
   status: CampaignPostStatus
   socialPostId: string | null
   scheduledAt: Timestamp | null

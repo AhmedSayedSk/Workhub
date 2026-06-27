@@ -8,6 +8,12 @@ import { Loader2, ImageIcon, RefreshCw, Sparkles, FileText } from 'lucide-react'
 import { CampaignImageDialog } from './CampaignImageDialog'
 import type { CampaignPost } from '@/types'
 
+const MODEL_LABEL: Record<string, string> = {
+  'nano-banana-pro': 'Nano Banana Pro',
+  'nano-banana-2': 'Nano Banana 2',
+  'imagen-4': 'Imagen 4',
+}
+
 export function CampaignPostCard({
   post,
   index,
@@ -53,6 +59,11 @@ export function CampaignPostCard({
         {scheduled && (
           <Badge className="absolute bottom-2 left-2 border-0 bg-emerald-500 text-[10px] text-white">Scheduled</Badge>
         )}
+        {post.imageUrl && post.model && (
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+            {MODEL_LABEL[post.model] || post.model}
+          </span>
+        )}
 
         {/* Floating actions (top-right) */}
         <div className="absolute right-2 top-2 flex gap-1">
@@ -88,7 +99,7 @@ export function CampaignPostCard({
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           onBlur={() => caption !== post.caption && onChange({ caption })}
-          rows={3}
+          rows={5}
           dir={rtl ? 'rtl' : undefined}
           disabled={scheduled}
           className={cn('resize-none text-sm leading-relaxed', rtl && 'text-right')}

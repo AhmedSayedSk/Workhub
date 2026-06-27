@@ -96,7 +96,7 @@ export function CampaignImageDialog({
             <div className="grid grid-cols-2 gap-2">
               <Stat label="Dimensions" value={dims ? `${dims.w} × ${dims.h}` : '—'} />
               <Stat label="Aspect" value={ASPECT_LABEL[post.aspect] || post.aspect} />
-              <Stat label="Model" value="nano-banana-pro" />
+              <Stat label="Model" value={post.model || 'nano-banana-pro'} />
               <Stat label="Order" value={`#${index + 1}`} />
               {scheduledMs && <Stat label="Scheduled" value={new Date(scheduledMs).toLocaleString()} className="col-span-2" />}
             </div>

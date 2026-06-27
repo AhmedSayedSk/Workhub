@@ -176,7 +176,7 @@ export function useCampaigns() {
         console.error('thumbnail', e)
       }
 
-      await postsApi.update(post.id, { imageUrl, thumbnailUrl, status: 'ready' })
+      await postsApi.update(post.id, { imageUrl, thumbnailUrl, model: json.data?.model || 'nano-banana-pro', status: 'ready' })
       return null
     } catch (e) {
       console.error('generate image', e)
