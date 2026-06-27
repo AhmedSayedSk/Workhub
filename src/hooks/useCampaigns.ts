@@ -8,7 +8,7 @@ import { campaigns as campaignsApi, campaignPosts as postsApi } from '@/lib/fire
 import { uploadSocialMedia, optimizeImage } from '@/lib/storage'
 import { buildImagePrompt } from '@/lib/campaignStyles'
 import { db } from '@/lib/firebase'
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore'
+import { collection, onSnapshot, Timestamp } from 'firebase/firestore'
 import type {
   Campaign,
   CampaignPost,
@@ -29,7 +29,6 @@ export interface NewCampaignInput {
 
 const DAY_MS = 86_400_000
 
-// Slot for post #i: startDate@postTime + i*cadence days, but never in the past.
 function slotForOrder(brief: CampaignBrief, order: number): number {
   const base = new Date(`${brief.startDate}T${brief.postTime || '18:00'}:00`).getTime()
   const start = Number.isNaN(base) ? Date.now() + 5 * 60_000 : base
@@ -37,55 +36,51 @@ function slotForOrder(brief: CampaignBrief, order: number): number {
   return Math.max(start, floor) + order * Math.max(1, brief.cadenceDays || 1) * DAY_MS
 }
 
-export function useCampaigns(projectId: string | null) {
+export function useCampaigns() {
   const { user } = useAuth()
   const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([])
+  const [allPosts, setAllPosts] = useState<CampaignPost[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [posts, setPosts] = useState<CampaignPost[]>([])
   const [schedulingAll, setSchedulingAll] = useState(false)
   const [imagePostIds, setImagePostIds] = useState<Set<string>>(new Set())
 
-  // Live: every campaign in the system (small dataset). Drives the overview AND
-  // reflects background status changes (planning → ready) everywhere, live.
+  // Live: every campaign + every post (small dataset). Drives the overview,
+  // per-campaign image previews, and live background-status updates.
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'campaigns'), (snap) => {
+    const unsubC = onSnapshot(collection(db, 'campaigns'), (snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Campaign[]
       list.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
       setAllCampaigns(list)
     })
-    return () => unsub()
+    const unsubP = onSnapshot(collection(db, 'campaignPosts'), (snap) => {
+      setAllPosts(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as CampaignPost[])
+    })
+    return () => { unsubC(); unsubP() }
   }, [])
 
-  // Live: the active campaign's posts (so background plan/image writes appear).
-  useEffect(() => {
-    if (!activeId) {
-      setPosts([])
-      return
+  const activeCampaign = useMemo(() => allCampaigns.find((c) => c.id === activeId) || null, [allCampaigns, activeId])
+  const posts = useMemo(
+    () => allPosts.filter((p) => p.campaignId === activeId).sort((a, b) => (a.order || 0) - (b.order || 0)),
+    [allPosts, activeId]
+  )
+  // campaignId -> ordered image thumbnails (for overview previews)
+  const postThumbs = useMemo(() => {
+    const map: Record<string, { order: number; url: string }[]> = {}
+    for (const p of allPosts) {
+      const url = p.thumbnailUrl || p.imageUrl
+      if (url) (map[p.campaignId] ||= []).push({ order: p.order || 0, url })
     }
-    const q = query(collection(db, 'campaignPosts'), where('campaignId', '==', activeId))
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as CampaignPost[]
-      list.sort((a, b) => (a.order || 0) - (b.order || 0))
-      setPosts(list)
-    })
-    return () => unsub()
-  }, [activeId])
+    const out: Record<string, string[]> = {}
+    for (const k of Object.keys(map)) out[k] = map[k].sort((a, b) => a.order - b.order).map((x) => x.url)
+    return out
+  }, [allPosts])
 
-  const activeCampaign = useMemo(
-    () => allCampaigns.find((c) => c.id === activeId) || null,
-    [allCampaigns, activeId]
-  )
-  const campaigns = useMemo(
-    () => (projectId ? allCampaigns.filter((c) => c.projectId === projectId) : []),
-    [allCampaigns, projectId]
-  )
-  const loading = false
   const planning = activeCampaign?.status === 'planning'
 
   const selectCampaign = useCallback((id: string | null) => setActiveId(id), [])
   const openCampaign = useCallback((camp: Campaign) => setActiveId(camp.id), [])
 
-  const createCampaign = useCallback(async (input: NewCampaignInput): Promise<Campaign | null> => {
+  const createCampaign = useCallback(async (projectId: string, input: NewCampaignInput): Promise<Campaign | null> => {
     if (!user || !projectId) return null
     try {
       const id = await campaignsApi.create({
@@ -108,7 +103,7 @@ export function useCampaigns(projectId: string | null) {
       toast.error('Failed to create campaign')
       return null
     }
-  }, [user, projectId])
+  }, [user])
 
   const deleteCampaign = useCallback(async (id: string) => {
     try {
@@ -122,8 +117,7 @@ export function useCampaigns(projectId: string | null) {
     }
   }, [activeId])
 
-  // Trigger background planning on the server — returns immediately. The campaign
-  // status flips to 'planning' and the posts stream in via the listener.
+  // Trigger background planning on the server — returns immediately.
   const generatePlan = useCallback(async () => {
     if (!activeId) return
     try {
@@ -143,7 +137,6 @@ export function useCampaigns(projectId: string | null) {
   }, [activeId])
 
   const updatePost = useCallback(async (postId: string, patch: Partial<CampaignPost>) => {
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, ...patch } : p)))
     try {
       await postsApi.update(postId, patch)
     } catch (e) {
@@ -151,14 +144,12 @@ export function useCampaigns(projectId: string | null) {
     }
   }, [])
 
-  // Generate an image for one post, host it for FB/IG, store the URL.
+  // Generate an image for one post, host it (+ a thumbnail) for FB/IG, store the URLs.
   const generateImage = useCallback(async (post: CampaignPost) => {
-    const pid = activeCampaign?.projectId ?? projectId
+    const pid = activeCampaign?.projectId
     if (!user || !pid) return
     setImagePostIds((prev) => new Set(prev).add(post.id))
-    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, status: 'generating' } : p)))
     try {
-      // Apply the campaign's style + brand colors to every image for a consistent identity.
       const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors)
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
@@ -174,7 +165,6 @@ export function useCampaigns(projectId: string | null) {
       const file = new File([blob], `campaign_${post.id}.png`, { type: blob.type || 'image/png' })
       const imageUrl = await uploadSocialMedia(file, pid)
 
-      // Also store a small thumbnail so the grid loads fast (full size only in the dialog).
       let thumbnailUrl: string | null = null
       try {
         const { blob: tb } = await optimizeImage(file, { maxWidth: 480, maxHeight: 480, quality: 0.7 })
@@ -189,7 +179,6 @@ export function useCampaigns(projectId: string | null) {
     } catch (e) {
       console.error('generate image', e)
       toast.error(e instanceof Error ? e.message : 'Failed to generate image')
-      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, status: 'approved' } : p)))
     } finally {
       setImagePostIds((prev) => {
         const next = new Set(prev)
@@ -197,9 +186,8 @@ export function useCampaigns(projectId: string | null) {
         return next
       })
     }
-  }, [user, projectId, activeCampaign])
+  }, [user, activeCampaign])
 
-  // Generate images for EVERY post in PARALLEL (skip only scheduled/locked ones).
   const generateAllImages = useCallback(async () => {
     const targets = posts.filter((p) => p.status !== 'scheduled')
     await Promise.all(targets.map((p) => generateImage(p)))
@@ -210,9 +198,8 @@ export function useCampaigns(projectId: string | null) {
     [activeCampaign]
   )
 
-  // Hand selected ready posts to the existing social scheduler at their slots.
   const scheduleAll = useCallback(async (onlyIds?: string[]) => {
-    const pid = activeCampaign?.projectId ?? projectId
+    const pid = activeCampaign?.projectId
     if (!activeCampaign || !pid) return
     let ready = posts.filter((p) => p.imageUrl && p.status !== 'scheduled')
     if (onlyIds) ready = ready.filter((p) => onlyIds.includes(p.id))
@@ -261,14 +248,13 @@ export function useCampaigns(projectId: string | null) {
     } finally {
       setSchedulingAll(false)
     }
-  }, [activeCampaign, projectId, posts])
+  }, [activeCampaign, posts])
 
   return {
     allCampaigns,
-    campaigns,
-    loading,
     activeCampaign,
     posts,
+    postThumbs,
     planning,
     schedulingAll,
     imagePostIds,

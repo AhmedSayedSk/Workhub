@@ -6,14 +6,15 @@ export interface CampaignStyleDef {
   label: string
   prompt: string
   swatch: string // CSS background that previews the style's look
+  example?: string // optional real example image
 }
 
 export const CAMPAIGN_STYLES: CampaignStyleDef[] = [
-  { key: 'realistic', label: 'Realistic', prompt: 'photorealistic, professional commercial photography, natural lighting, crisp high detail, DSLR quality', swatch: 'linear-gradient(135deg,#9aa7b6,#54637a)' },
-  { key: 'cinematic', label: 'Cinematic', prompt: 'cinematic photography, dramatic moody lighting, shallow depth of field, filmic color grade', swatch: 'linear-gradient(135deg,#0b3d4d,#1f6f7e 45%,#e08a3c)' },
-  { key: '3d', label: '3D Render', prompt: 'polished 3D render, soft studio lighting, smooth materials, subtle reflections, octane-render look', swatch: 'linear-gradient(135deg,#c4b5fd,#818cf8 60%,#6366f1)' },
-  { key: 'cartoon', label: 'Cartoon', prompt: 'playful cartoon illustration, bold clean outlines, vibrant flat colors, friendly characters', swatch: 'linear-gradient(135deg,#ffd23f,#ff8a3c 55%,#ff5d5d)' },
-  { key: 'flat', label: 'Flat Illustration', prompt: 'modern flat vector illustration, clean geometric shapes, minimal shading, corporate-memphis style', swatch: 'linear-gradient(135deg,#7bd0c1,#4a7bd6)' },
+  { key: 'realistic', label: 'Realistic', prompt: 'photorealistic, professional commercial photography, natural lighting, crisp high detail, DSLR quality', swatch: 'linear-gradient(135deg,#9aa7b6,#54637a)', example: '/campaign-styles/realistic.jpg' },
+  { key: 'cinematic', label: 'Cinematic', prompt: 'cinematic photography, dramatic moody lighting, shallow depth of field, filmic color grade', swatch: 'linear-gradient(135deg,#0b3d4d,#1f6f7e 45%,#e08a3c)', example: '/campaign-styles/cinematic.jpg' },
+  { key: '3d', label: '3D Render', prompt: 'polished 3D render, soft studio lighting, smooth materials, subtle reflections, octane-render look', swatch: 'linear-gradient(135deg,#c4b5fd,#818cf8 60%,#6366f1)', example: '/campaign-styles/3d.jpg' },
+  { key: 'cartoon', label: 'Cartoon', prompt: 'playful cartoon illustration, bold clean outlines, vibrant flat colors, friendly characters', swatch: 'linear-gradient(135deg,#ffd23f,#ff8a3c 55%,#ff5d5d)', example: '/campaign-styles/cartoon.jpg' },
+  { key: 'flat', label: 'Flat Illustration', prompt: 'modern flat vector illustration, clean geometric shapes, minimal shading, corporate-memphis style', swatch: 'linear-gradient(135deg,#7bd0c1,#4a7bd6)', example: '/campaign-styles/flat.jpg' },
   { key: 'minimal', label: 'Minimal', prompt: 'minimalist design, generous negative space, simple refined composition, clean and uncluttered', swatch: 'linear-gradient(135deg,#f3f4f6,#cdd3db)' },
   { key: 'gradient', label: 'Gradient / Abstract', prompt: 'vibrant gradient background, smooth abstract shapes, modern tech aesthetic, soft glassmorphism', swatch: 'linear-gradient(135deg,#ff6ec4,#7873f5 50%,#42e695)' },
   { key: 'isometric', label: 'Isometric', prompt: 'isometric illustration, clean lines, soft long shadows, tidy product/tech scene', swatch: 'linear-gradient(135deg,#8aa0f5,#4458a8)' },
