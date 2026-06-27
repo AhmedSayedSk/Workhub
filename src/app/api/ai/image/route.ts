@@ -175,44 +175,49 @@ export async function POST(request: NextRequest) {
           })
       }
 
-      // Always use preferred email when set
-      let initialEmail: string | undefined = email || body.preferredEmail || undefined
-
-      // No explicit account chosen → pick a HEALTHY, enabled one (skip accounts
-      // whose Google session has failed/expired) so we don't waste attempts on a dead session.
-      if (!initialEmail) {
-        try {
-          const accsRes = await fetch(`${USEAPI_BASE}/accounts`, { headers: authHeader(apiToken) })
-          if (accsRes.ok) {
-            const accsData = (await accsRes.json()) as Record<string, { health?: string }>
-            const enabled = Object.entries(accsData).filter(([e]) => !disabledEmails.includes(e))
-            if (enabled.length === 0) {
-              return NextResponse.json({ success: false, error: 'All accounts are disabled. Enable at least one in the Accounts tab.' }, { status: 400 })
-            }
-            const healthy = enabled.find(([, v]) => v?.health === 'OK')
-            initialEmail = (healthy ? healthy[0] : enabled[0][0])
+      // Build the ordered list of accounts to try: explicit/preferred first, then
+      // other HEALTHY accounts (so we auto-rotate when one is rate-limited).
+      const explicitEmail = email || body.preferredEmail || undefined
+      let candidates: (string | undefined)[] = explicitEmail ? [explicitEmail] : []
+      try {
+        const accsRes = await fetch(`${USEAPI_BASE}/accounts`, { headers: authHeader(apiToken) })
+        if (accsRes.ok) {
+          const accsData = (await accsRes.json()) as Record<string, { health?: string }>
+          const enabled = Object.keys(accsData).filter((e) => !disabledEmails.includes(e))
+          if (enabled.length === 0) {
+            return NextResponse.json({ success: false, error: 'All accounts are disabled. Enable at least one in the Accounts tab.' }, { status: 400 })
           }
-        } catch {}
-      }
+          const healthy = enabled.filter((e) => accsData[e]?.health === 'OK')
+          // preferred first, then the rest of the healthy accounts, deduped
+          candidates = [...new Set([...candidates, ...healthy])]
+          if (candidates.length === 0) candidates = [enabled[0]]
+        }
+      } catch {}
+      if (candidates.length === 0) candidates = [explicitEmail]
 
-      // Try the chosen model; if its DAILY quota is exhausted, fall back to other models.
       const tryModels = [model, 'nano-banana-2', 'imagen-4', 'nano-banana-pro'].filter((m, i, a) => a.indexOf(m) === i)
+      const RATE_LIMIT_RE = /UNUSUAL_ACTIVITY|TOO_MUCH_TRAFFIC/i
       let res!: Response
       let data: Record<string, unknown> = {}
       let reqPayload: Record<string, unknown> = {}
       let usedModel = model
-      for (const m of tryModels) {
-        reqPayload = buildReqBody(initialEmail, m)
-        res = await fetch(`${USEAPI_BASE}/images`, {
-          method: 'POST',
-          headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
-          body: JSON.stringify(reqPayload),
-        })
-        data = await res.json()
-        if (res.ok) { usedModel = m; break }
-        // Only switch models when THIS model's daily quota is reached; otherwise stop.
-        if (!/DAILY_QUOTA/i.test(JSON.stringify(data))) break
-        console.warn(`[image] model ${m} daily quota reached — trying next model`)
+
+      // Account rotation × model fallback.
+      outer: for (const acc of candidates) {
+        for (const m of tryModels) {
+          reqPayload = buildReqBody(acc, m)
+          res = await fetch(`${USEAPI_BASE}/images`, {
+            method: 'POST',
+            headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
+            body: JSON.stringify(reqPayload),
+          })
+          data = await res.json()
+          if (res.ok) { usedModel = m; break outer }
+          const errStr = JSON.stringify(data)
+          if (/DAILY_QUOTA/i.test(errStr)) { console.warn(`[image] ${acc || 'auto'}/${m} daily quota — next model`); continue }
+          if (RATE_LIMIT_RE.test(errStr)) { console.warn(`[image] ${acc || 'auto'} rate-limited — next account`); break }
+          break outer // non-recoverable error (moderation, captcha balance, etc.)
+        }
       }
 
       if (!res.ok) {
