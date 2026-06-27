@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProjects } from '@/hooks/useProjects'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,7 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
 import {
   Loader2,
   Megaphone,
@@ -53,6 +53,20 @@ export function CampaignTab() {
 
   const [preview, setPreview] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
+
+  // On load, reopen the campaign from the URL (?campaign=) so a refresh restores it.
+  useEffect(() => {
+    const id = getUrlParam('campaign')
+    if (id) c.selectCampaign(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Navigation helpers keep ?campaign= in sync (explicit, race-free).
+  const goToCampaign = (id: string | null) => {
+    setPreview(false)
+    setUrlParam('campaign', id)
+    c.selectCampaign(id)
+  }
 
   const [form, setForm] = useState({
     name: '',
@@ -111,7 +125,7 @@ export function CampaignTab() {
   const handleCreate = async () => {
     if (!project) return
     setPreview(false)
-    await c.createCampaign({
+    const camp = await c.createCampaign({
       name: form.name.trim() || `${project.name} Campaign`,
       brief: {
         goal: form.goal,
@@ -130,12 +144,10 @@ export function CampaignTab() {
       language: form.language,
       platforms: form.platforms.length ? form.platforms : ['fb', 'ig'],
     })
+    if (camp) setUrlParam('campaign', camp.id)
   }
 
-  const openAny = (camp: Campaign) => {
-    setPreview(false)
-    c.openCampaign(camp)
-  }
+  const openAny = (camp: Campaign) => goToCampaign(camp.id)
 
   // ── Preview & schedule ────────────────────────────────────────────────────
   if (c.activeCampaign && preview) {
@@ -162,7 +174,7 @@ export function CampaignTab() {
     return (
       <div className="flex flex-col gap-4 overflow-y-auto p-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setPreview(false); c.selectCampaign(null) }}>
+          <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => goToCampaign(null)}>
             <ArrowLeft className="mr-1 h-4 w-4" /> Campaigns
           </Button>
           <div className="min-w-0 flex-1">
@@ -177,7 +189,7 @@ export function CampaignTab() {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            onClick={() => c.deleteCampaign(cam.id)}
+            onClick={() => { c.deleteCampaign(cam.id); setUrlParam('campaign', null) }}
           >
             <Trash2 className="h-4 w-4" />
           </Button>

@@ -45,5 +45,12 @@ service firebase.storage {
       allow create, update: if isAuthenticated() && isOwner(userId) && isValidSize();
       allow delete: if isAuthenticated() && isOwner(userId);
     }
+
+    // Social media uploads (campaign + composer) — keyed by projectId, not userId.
+    // FB/IG fetch these via the download-token URL; SDK reads allowed for signed-in users.
+    match /social/{projectId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidSize();
+    }
   }
 }

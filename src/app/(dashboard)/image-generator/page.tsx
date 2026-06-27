@@ -84,7 +84,7 @@ import {
   CalendarPlus,
   Megaphone,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
 
 const IMAGE_GEN_MODELS: { value: ImageGenModel; label: string; description: string }[] = [
   { value: 'imagen-4', label: 'Imagen 4', description: 'Google Imagen 4 — high quality generation' },
@@ -323,6 +323,16 @@ export default function ImageGeneratorPage() {
 
   // Active tab
   const [activeTab, setActiveTab] = useState('generate')
+
+  // Persist the active tab in the URL (?tab=) so a refresh restores it.
+  useEffect(() => {
+    const t = getUrlParam('tab')
+    if (t && t !== activeTab) setActiveTab(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    setUrlParam('tab', activeTab === 'generate' ? null : activeTab)
+  }, [activeTab])
 
   // Calendar events integration
   const { events: calendarEvents, updateEvent } = useCalendarEvents()

@@ -384,3 +384,18 @@ export const folderColors = [
   { name: 'Red', value: '#C97575' },
   { name: 'Yellow', value: '#C9B56B' },
 ]
+
+// Read/write a single URL query param WITHOUT a Next navigation (no re-render,
+// no Suspense boundary needed). Used to make tab/campaign state refresh-proof.
+export function getUrlParam(key: string): string | null {
+  if (typeof window === 'undefined') return null
+  return new URLSearchParams(window.location.search).get(key)
+}
+
+export function setUrlParam(key: string, value: string | null): void {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  if (value) url.searchParams.set(key, value)
+  else url.searchParams.delete(key)
+  window.history.replaceState(null, '', url.toString())
+}
