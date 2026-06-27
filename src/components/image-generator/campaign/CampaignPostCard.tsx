@@ -31,7 +31,7 @@ export function CampaignPostCard({
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
-      <div className="group relative flex h-52 items-center justify-center bg-muted">
+      <div className="group relative flex h-64 items-center justify-center bg-muted">
         {post.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
