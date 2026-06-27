@@ -5,24 +5,27 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { Loader2, RefreshCw, Download } from 'lucide-react'
 import type { CampaignPost } from '@/types'
 
 const ASPECT_LABEL: Record<string, string> = {
-  portrait: 'Portrait (4:5)',
-  square: 'Square (1:1)',
-  landscape: 'Landscape (16:9)',
+  portrait: 'Portrait · 4:5',
+  square: 'Square · 1:1',
+  landscape: 'Landscape · 16:9',
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium tabular-nums">{value}</span>
+    <div className={cn('rounded-lg border bg-muted/30 px-2.5 py-1.5', className)}>
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="truncate text-xs font-semibold tabular-nums">{value}</p>
     </div>
   )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</p>
 }
 
 export function CampaignImageDialog({
@@ -63,67 +66,81 @@ export function CampaignImageDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">Post #{index + 1} image</DialogTitle>
-        <div className="grid md:grid-cols-[1fr_300px]">
+        <div className="grid md:grid-cols-[1fr_340px]">
           {/* Full image */}
-          <div className="flex max-h-[82vh] min-h-[300px] items-center justify-center bg-black/90 p-2">
+          <div className="flex max-h-[82vh] min-h-[320px] items-center justify-center bg-neutral-950 p-3">
             {post.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={post.imageUrl}
                 alt=""
                 onLoad={(e) => setDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-                className="max-h-[80vh] w-auto object-contain"
+                className="max-h-[80vh] w-auto rounded-md object-contain shadow-lg"
               />
             ) : (
-              <p className="py-20 text-sm text-white/60">No image generated yet</p>
+              <p className="py-20 text-sm text-white/50">No image generated yet</p>
             )}
           </div>
 
           {/* Details */}
-          <div className="flex max-h-[82vh] flex-col gap-3 overflow-y-auto p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Post #{index + 1}</h3>
-              <Badge variant="outline" className="text-[10px] capitalize">{post.status}</Badge>
+          <div className="flex max-h-[82vh] flex-col gap-4 overflow-y-auto p-5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold leading-tight">Post #{index + 1}</h3>
+                <p className="text-xs text-muted-foreground">Campaign post</p>
+              </div>
+              <Badge variant="outline" className="shrink-0 capitalize">{post.status}</Badge>
             </div>
 
-            <div className="space-y-1.5 text-xs">
-              <Row label="Dimensions" value={dims ? `${dims.w} × ${dims.h} px` : '—'} />
-              <Row label="Aspect" value={ASPECT_LABEL[post.aspect] || post.aspect} />
-              <Row label="Model" value="nano-banana-pro" />
-              {scheduledMs && <Row label="Scheduled" value={new Date(scheduledMs).toLocaleString()} />}
+            {/* Metadata */}
+            <div className="grid grid-cols-2 gap-2">
+              <Stat label="Dimensions" value={dims ? `${dims.w} × ${dims.h}` : '—'} />
+              <Stat label="Aspect" value={ASPECT_LABEL[post.aspect] || post.aspect} />
+              <Stat label="Model" value="nano-banana-pro" />
+              <Stat label="Order" value={`#${index + 1}`} />
+              {scheduledMs && <Stat label="Scheduled" value={new Date(scheduledMs).toLocaleString()} className="col-span-2" />}
             </div>
 
-            <Separator />
-
-            <div>
-              <p className="mb-1 text-[11px] font-medium text-muted-foreground">Caption</p>
-              <p dir={rtl ? 'rtl' : undefined} className={cn('whitespace-pre-wrap text-xs leading-relaxed', rtl && 'text-right')}>
-                {post.caption}
-              </p>
-              {post.hashtags.length > 0 && (
-                <p dir={rtl ? 'rtl' : undefined} className={cn('mt-1 text-[11px] font-medium text-primary', rtl && 'text-right')}>
-                  {post.hashtags.map((h) => `#${h}`).join(' ')}
+            {/* Caption */}
+            <section className="space-y-1.5">
+              <SectionLabel>Caption</SectionLabel>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p
+                  dir={rtl ? 'rtl' : undefined}
+                  className={cn('whitespace-pre-wrap text-sm leading-relaxed', rtl && 'text-right')}
+                >
+                  {post.caption}
                 </p>
-              )}
-            </div>
+                {post.hashtags.length > 0 && (
+                  <p
+                    dir={rtl ? 'rtl' : undefined}
+                    className={cn('mt-2 text-xs font-medium leading-relaxed text-primary', rtl && 'text-right')}
+                  >
+                    {post.hashtags.map((h) => `#${h}`).join(' ')}
+                  </p>
+                )}
+              </div>
+            </section>
 
-            <div>
-              <p className="mb-1 text-[11px] font-medium text-muted-foreground">Image prompt</p>
+            {/* Image prompt */}
+            <section className="space-y-1.5">
+              <SectionLabel>Image prompt</SectionLabel>
               <Textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onBlur={() => prompt !== post.imagePrompt && onChange({ imagePrompt: prompt })}
                 rows={5}
                 disabled={post.status === 'scheduled'}
-                className="resize-none text-xs leading-relaxed"
+                className="resize-none text-sm leading-relaxed"
               />
-            </div>
+            </section>
 
+            {/* Actions */}
             <div className="mt-auto flex gap-2 pt-1">
               <Button
                 size="sm"
-                variant="outline"
                 className="flex-1"
+                variant="outline"
                 onClick={onGenerate}
                 disabled={generating || post.status === 'scheduled'}
               >
