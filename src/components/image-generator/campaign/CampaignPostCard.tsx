@@ -35,8 +35,9 @@ export function CampaignPostCard({
         {post.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={post.imageUrl}
+            src={post.thumbnailUrl || post.imageUrl}
             alt=""
+            loading="lazy"
             onClick={() => setDialogOpen(true)}
             className="h-full w-full cursor-zoom-in object-contain"
           />

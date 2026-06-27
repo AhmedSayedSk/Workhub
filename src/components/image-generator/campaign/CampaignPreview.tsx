@@ -56,7 +56,7 @@ export function CampaignPreview({
       : '—'
 
   return (
-    <div className="flex flex-col gap-4 overflow-y-auto p-4">
+    <div className="flex flex-col gap-3 overflow-y-auto p-3">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onBack}>

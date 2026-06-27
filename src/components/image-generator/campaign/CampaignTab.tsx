@@ -196,19 +196,42 @@ export function CampaignTab() {
     const readyCount = c.posts.filter((p) => p.imageUrl).length
     const scheduledCount = c.posts.filter((p) => p.status === 'scheduled').length
     return (
-      <div className="flex flex-col gap-4 overflow-y-auto p-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 overflow-y-auto p-3">
+        {/* Single toolbar row: name + status + actions + delete */}
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => goToCampaign(null)}>
             <ArrowLeft className="mr-1 h-4 w-4" /> Campaigns
           </Button>
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-base font-semibold leading-tight">{cam.name}</h2>
-            <p className="text-xs text-muted-foreground">
-              {projectName(cam.projectId)} · {cam.platforms.map((p) => p.toUpperCase()).join(' · ')} ·{' '}
-              {cam.language.toUpperCase()} · {c.posts.length} posts
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold leading-tight">{cam.name}</h2>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {projectName(cam.projectId)} · {cam.platforms.map((p) => p.toUpperCase()).join('·')} · {c.posts.length} posts
             </p>
           </div>
           <Badge variant="outline" className="capitalize">{cam.status === 'planning' ? 'Planning…' : cam.status}</Badge>
+          <div className="flex-1" />
+          {!c.planning && c.posts.length > 0 && (
+            <>
+              <Button size="sm" variant="outline" onClick={c.generatePlan}>
+                <Wand2 className="mr-1.5 h-4 w-4" /> Re-plan
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={c.generateAllImages}
+                disabled={c.imagePostIds.size > 0 || c.posts.every((p) => p.status === 'scheduled')}
+              >
+                {c.imagePostIds.size > 0 ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Images className="mr-1.5 h-4 w-4" />}
+                Generate all
+              </Button>
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {readyCount}/{c.posts.length} · {scheduledCount} sched
+              </span>
+              <Button size="sm" onClick={() => setPreview(true)} disabled={readyCount === 0}>
+                <CalendarClock className="mr-1.5 h-4 w-4" /> Preview &amp; schedule
+              </Button>
+            </>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -244,46 +267,19 @@ export function CampaignTab() {
             </Button>
           </div>
         ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" onClick={c.generatePlan}>
-                <Wand2 className="mr-1.5 h-4 w-4" /> Re-plan
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={c.generateAllImages}
-                disabled={c.imagePostIds.size > 0 || c.posts.every((p) => p.status === 'scheduled')}
-              >
-                {c.imagePostIds.size > 0 ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Images className="mr-1.5 h-4 w-4" />
-                )}
-                Generate all images
-              </Button>
-              <div className="flex-1" />
-              <span className="text-xs text-muted-foreground">
-                {readyCount}/{c.posts.length} images · {scheduledCount} scheduled
-              </span>
-              <Button onClick={() => setPreview(true)} disabled={readyCount === 0}>
-                <CalendarClock className="mr-1.5 h-4 w-4" /> Preview &amp; schedule
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {c.posts.map((post, i) => (
-                <CampaignPostCard
-                  key={post.id}
-                  post={post}
-                  index={i}
-                  generating={c.imagePostIds.has(post.id)}
-                  rtl={cam.language === 'ar'}
-                  onChange={(patch) => c.updatePost(post.id, patch)}
-                  onGenerateImage={() => c.generateImage(post)}
-                />
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {c.posts.map((post, i) => (
+              <CampaignPostCard
+                key={post.id}
+                post={post}
+                index={i}
+                generating={c.imagePostIds.has(post.id)}
+                rtl={cam.language === 'ar'}
+                onChange={(patch) => c.updatePost(post.id, patch)}
+                onGenerateImage={() => c.generateImage(post)}
+              />
+            ))}
+          </div>
         )}
       </div>
     )
@@ -291,7 +287,7 @@ export function CampaignTab() {
 
   // ── Overview: all campaigns + create for any project ──────────────────────
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 overflow-y-auto p-4">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 overflow-y-auto p-3">
       {c.allCampaigns.length > 0 && (
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">All campaigns</Label>

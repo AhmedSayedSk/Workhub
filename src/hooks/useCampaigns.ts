@@ -5,7 +5,7 @@ import { toast } from 'react-toastify'
 import { useAuth } from '@/hooks/useAuth'
 import { authFetch } from '@/lib/api-client'
 import { campaigns as campaignsApi, campaignPosts as postsApi } from '@/lib/firestore'
-import { uploadSocialMedia } from '@/lib/storage'
+import { uploadSocialMedia, optimizeImage } from '@/lib/storage'
 import { buildImagePrompt } from '@/lib/campaignStyles'
 import { db } from '@/lib/firebase'
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore'
@@ -174,7 +174,18 @@ export function useCampaigns(projectId: string | null) {
       const file = new File([blob], `campaign_${post.id}.png`, { type: blob.type || 'image/png' })
       const imageUrl = await uploadSocialMedia(file, pid)
 
-      await postsApi.update(post.id, { imageUrl, status: 'ready' })
+      // Also store a small thumbnail so the grid loads fast (full size only in the dialog).
+      let thumbnailUrl: string | null = null
+      try {
+        const { blob: tb } = await optimizeImage(file, { maxWidth: 480, maxHeight: 480, quality: 0.7 })
+        const ext = tb.type.includes('webp') ? 'webp' : tb.type.includes('png') ? 'png' : 'jpg'
+        const tf = new File([tb], `campaign_${post.id}_thumb.${ext}`, { type: tb.type || 'image/jpeg' })
+        thumbnailUrl = await uploadSocialMedia(tf, pid)
+      } catch (e) {
+        console.error('thumbnail', e)
+      }
+
+      await postsApi.update(post.id, { imageUrl, thumbnailUrl, status: 'ready' })
     } catch (e) {
       console.error('generate image', e)
       toast.error(e instanceof Error ? e.message : 'Failed to generate image')

@@ -606,6 +606,7 @@ export interface CampaignPost {
   imagePrompt: string
   aspect: CampaignAspect
   imageUrl: string | null
+  thumbnailUrl?: string | null
   status: CampaignPostStatus
   socialPostId: string | null
   scheduledAt: Timestamp | null
