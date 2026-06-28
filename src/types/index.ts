@@ -595,6 +595,7 @@ export interface Campaign {
   imageInstructions?: string // user's custom instructions applied to every image
   textOnImage?: CampaignTextOption // render post headline/body text on the generated image
   brandImageUrl?: string // logo/custom image fed as a reference into every generation
+  brandImageRefs?: Record<string, string> // per-account mediaGenerationIds for the brand reference
   status: CampaignStatus
   postCount?: number
   scheduledCount?: number

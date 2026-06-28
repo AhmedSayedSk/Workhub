@@ -140,6 +140,8 @@ export async function POST(request: NextRequest) {
       }
 
       const disabledEmails: string[] = body.disabledEmails || []
+      // Per-account reference image: { email -> mediaGenerationId } from upload_asset.
+      const referenceByEmail: Record<string, string> | undefined = body.referenceByEmail
 
       const buildReqBody = (targetEmail?: string, modelOverride?: string) => {
         const reqBody: Record<string, unknown> = {
@@ -155,7 +157,10 @@ export async function POST(request: NextRequest) {
         if (seed !== undefined) reqBody.seed = seed
         if (targetEmail) reqBody.email = targetEmail
         else if (email) reqBody.email = email
-        if (body.references && Array.isArray(body.references)) {
+        // reference_N must be a mediaGenerationId. Use the chosen account's id when provided.
+        if (referenceByEmail && targetEmail && referenceByEmail[targetEmail]) {
+          reqBody.reference_1 = referenceByEmail[targetEmail]
+        } else if (body.references && Array.isArray(body.references)) {
           body.references.forEach((ref: string, i: number) => {
             if (i < 10) reqBody[`reference_${i + 1}`] = ref
           })
