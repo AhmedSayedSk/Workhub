@@ -28,6 +28,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['extensions-api.sikasio.com'],
   },
+  'whatsapp-server': {
+    name: 'WhatsApp Server',
+    description: 'UpSmart WhatsApp messaging backend (Baileys) — send API + AI customer service',
+    type: 'app',
+    domains: ['whatsapp-api.sikasio.com'],
+  },
   'coffeepos-landing': {
     name: 'CoffeePOS — Landing',
     description: 'Marketing landing site',
