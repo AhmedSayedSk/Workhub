@@ -1412,7 +1412,7 @@ export default function ImageGeneratorPage() {
       ) : activeTab === 'settings' ? (
         <div className="flex-1 overflow-y-auto px-1">
           <div className="mx-auto w-full max-w-xl space-y-5 py-4">
-            <h2 className="text-lg font-semibold">Image Generator Settings</h2>
+            <h2 className="text-lg font-semibold">Content Studio Settings</h2>
             <div className="flex items-center justify-between">
               <div><Label htmlFor="ig-enabled" className="text-sm font-medium">Enable Image Generation</Label><p className="text-xs text-muted-foreground mt-0.5">Turn on or off</p></div>
               <Switch id="ig-enabled" checked={settingsEnabled} onCheckedChange={setSettingsEnabled} />

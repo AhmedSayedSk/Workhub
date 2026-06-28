@@ -42,7 +42,7 @@ const trackingNavItems = [
 
 const aiNavItems = [
   { href: '/assistant', label: 'AI Assistant', icon: Sparkles, moduleKey: 'accessAiAssistant' as const },
-  { href: '/image-generator', label: 'Image Generator', icon: Wand2, moduleKey: 'accessImageGenerator' as const },
+  { href: '/image-generator', label: 'Content Studio', icon: Wand2, moduleKey: 'accessImageGenerator' as const },
 ]
 
 interface SidebarProps {
