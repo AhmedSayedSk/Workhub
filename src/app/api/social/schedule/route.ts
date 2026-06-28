@@ -5,6 +5,32 @@ import * as store from '@/lib/server/meta/store'
 import { AdminTimestamp } from '@/lib/server/meta/store'
 import type { SocialMediaType, SocialPlatform, SocialPost } from '@/types'
 
+// When a Market post that came from a campaign is removed, free its campaign post so
+// the campaign can re-schedule it (otherwise it stays 'scheduled' with a dead link).
+async function releaseCampaignPost(socialPostId: string): Promise<void> {
+  const db = admin.firestore()
+  const linked = await db.collection('campaignPosts').where('socialPostId', '==', socialPostId).get()
+  if (linked.empty) return
+  const batch = db.batch()
+  const campaignIds = new Set<string>()
+  linked.docs.forEach((d) => {
+    batch.update(d.ref, { status: 'ready', socialPostId: null, scheduledAt: null, updatedAt: AdminTimestamp.now() })
+    const cid = (d.data() as { campaignId?: string }).campaignId
+    if (cid) campaignIds.add(cid)
+  })
+  await batch.commit()
+  // Recompute each affected campaign's scheduled count + status.
+  for (const cid of campaignIds) {
+    const all = await db.collection('campaignPosts').where('campaignId', '==', cid).get()
+    const schedCount = all.docs.filter((d) => (d.data() as { status?: string }).status === 'scheduled').length
+    await db
+      .collection('campaigns')
+      .doc(cid)
+      .update({ scheduledCount: schedCount, status: schedCount > 0 ? 'scheduled' : 'ready', updatedAt: AdminTimestamp.now() })
+      .catch(() => {})
+  }
+}
+
 function toMillis(value: unknown): number | null {
   if (typeof value === 'number') return value
   if (typeof value === 'string') {
@@ -150,6 +176,8 @@ export async function DELETE(request: NextRequest) {
     // hard = permanently delete the post; otherwise just unschedule (revert to draft).
     if (hard) {
       await store.deletePost(id)
+      // Post is gone from Market — release its campaign post for re-scheduling.
+      await releaseCampaignPost(id).catch(() => {})
     } else {
       await store.setPostStatus(id, 'draft', { scheduledAt: null })
     }
