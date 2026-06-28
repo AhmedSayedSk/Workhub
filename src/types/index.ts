@@ -588,8 +588,10 @@ export interface Campaign {
   language: CampaignLanguage
   platforms: SocialPlatform[]
   style?: string // image style key (see lib/campaignStyles)
+  aspect?: CampaignAspect // image aspect for all posts (portrait/square/landscape)
   consistentIdentity?: boolean // generate one shared art direction for all posts
   artDirection?: string // the shared visual identity, applied to every image
+  imageInstructions?: string // user's custom instructions applied to every image
   status: CampaignStatus
   postCount?: number
   scheduledCount?: number

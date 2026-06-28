@@ -37,12 +37,14 @@ export function buildImagePrompt(
   styleKey?: string,
   colors?: string[],
   language?: 'en' | 'ar',
-  artDirection?: string
+  artDirection?: string,
+  instructions?: string
 ): string {
   const style = campaignStylePrompt(styleKey)
   const palette = (colors || []).filter(Boolean)
   return [
     basePrompt,
+    instructions?.trim() ? `Custom instructions (must be followed in EVERY image): ${instructions.trim()}` : '',
     artDirection
       ? `Cohesive campaign art direction — every post in this campaign MUST share this exact visual identity so they look like one set: ${artDirection}`
       : '',

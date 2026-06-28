@@ -14,10 +14,16 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { authFetch } from '@/lib/api-client'
 import { toast } from 'react-toastify'
 import { cn } from '@/lib/utils'
-import { Loader2, Sparkles, Plus, Megaphone } from 'lucide-react'
+import { Loader2, Sparkles, Plus, Megaphone, RectangleHorizontal, RectangleVertical, Square } from 'lucide-react'
 import { CAMPAIGN_STYLES, DEFAULT_CAMPAIGN_STYLE } from '@/lib/campaignStyles'
 import type { NewCampaignInput } from '@/hooks/useCampaigns'
-import type { Campaign, CampaignLanguage, Project, SocialPlatform } from '@/types'
+import type { Campaign, CampaignAspect, CampaignLanguage, Project, SocialPlatform } from '@/types'
+
+const ASPECTS: { value: CampaignAspect; label: string; Icon: typeof Square }[] = [
+  { value: 'portrait', label: 'Portrait', Icon: RectangleVertical },
+  { value: 'square', label: 'Square', Icon: Square },
+  { value: 'landscape', label: 'Landscape', Icon: RectangleHorizontal },
+]
 
 function todayISO(): string {
   const d = new Date()
@@ -65,7 +71,9 @@ export function CampaignCreateDialog({
     language: 'en' as CampaignLanguage,
     platforms: ['fb', 'ig'] as SocialPlatform[],
     style: DEFAULT_CAMPAIGN_STYLE,
+    aspect: 'portrait' as CampaignAspect,
     consistentIdentity: true,
+    imageInstructions: '',
     colors: [] as string[],
     startDate: todayISO(),
     cadenceDays: 2,
@@ -140,7 +148,9 @@ export function CampaignCreateDialog({
       language: form.language,
       platforms: form.platforms.length ? form.platforms : ['fb', 'ig'],
       style: form.style,
+      aspect: form.aspect,
       consistentIdentity: form.consistentIdentity,
+      imageInstructions: form.imageInstructions,
     })
     setCreating(false)
     if (camp) onOpenChange(false)
@@ -286,6 +296,26 @@ export function CampaignCreateDialog({
                   </div>
                 </div>
 
+                {/* Aspect ratio */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs">Aspect ratio</Label>
+                  <div className="flex gap-1.5">
+                    {ASPECTS.map(({ value, label, Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => set('aspect', value)}
+                        className={cn(
+                          'flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors',
+                          form.aspect === value ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" /> {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Image style */}
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label className="text-xs">Image style</Label>
@@ -322,6 +352,18 @@ export function CampaignCreateDialog({
                     <p className="text-[11px] text-muted-foreground">Generate one shared art direction so all posts look like the same set.</p>
                   </div>
                   <Switch checked={form.consistentIdentity} onCheckedChange={(v) => set('consistentIdentity', v)} />
+                </div>
+
+                {/* Custom image instructions */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs">Custom image instructions (applied to every image)</Label>
+                  <Textarea
+                    value={form.imageInstructions}
+                    onChange={(e) => set('imageInstructions', e.target.value)}
+                    rows={2}
+                    className="resize-none"
+                    placeholder="e.g. always show our coffee cup; no people; clean minimal background; leave space for a headline"
+                  />
                 </div>
               </div>
 

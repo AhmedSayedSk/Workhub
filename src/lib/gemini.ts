@@ -876,7 +876,7 @@ Respond with ONLY a JSON object (no markdown fences):
 
 // One shared "art direction" for a campaign so every post looks like the same set.
 export async function generateCampaignArtDirection(
-  params: { context: string; brandName: string; goal: string; tone: string; style: string; colors: string[] },
+  params: { context: string; brandName: string; goal: string; tone: string; style: string; colors: string[]; instructions?: string },
   model?: GeminiModel
 ): Promise<string> {
   const prompt = `You are an art director defining ONE consistent visual identity for a brand's social campaign, so every post looks unmistakably part of the same set.
@@ -886,6 +886,7 @@ Goal: ${params.goal || 'grow awareness'}
 Tone: ${params.tone || 'confident, friendly'}
 Base visual style: ${params.style || 'realistic'}
 Brand colors: ${(params.colors || []).join(', ') || 'the brand palette'}
+${params.instructions?.trim() ? `MUST honor these custom instructions: ${params.instructions.trim()}` : ''}
 
 Product/brand context:
 """

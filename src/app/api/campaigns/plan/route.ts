@@ -21,7 +21,9 @@ interface CampaignDoc {
   brief?: { goal?: string; audience?: string; tone?: string; count?: number }
   language?: string
   style?: string
+  aspect?: string
   consistentIdentity?: boolean
+  imageInstructions?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -83,6 +85,7 @@ export async function POST(request: NextRequest) {
             tone: camp.brief?.tone || '',
             style: campaignStylePrompt(camp.style),
             colors: camp.brand?.colors || [],
+            instructions: camp.imageInstructions || '',
           })
         }
 
@@ -97,7 +100,7 @@ export async function POST(request: NextRequest) {
             caption: p.caption,
             hashtags: p.hashtags,
             imagePrompt: p.imagePrompt,
-            aspect: 'portrait',
+            aspect: camp.aspect || 'portrait',
             imageUrl: null,
             status: 'planned',
             socialPostId: null,
