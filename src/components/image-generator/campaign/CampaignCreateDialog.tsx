@@ -174,7 +174,7 @@ export function CampaignCreateDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[90vh] max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b px-5 py-3.5">
+        <DialogHeader className="shrink-0 border-b px-5 py-3.5">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Megaphone className="h-4 w-4 text-primary" /> New campaign
           </DialogTitle>
@@ -397,7 +397,7 @@ export function CampaignCreateDialog({
         </div>
 
         {/* Sticky action footer */}
-        <DialogFooter className="flex-row items-center justify-between gap-2 border-t px-5 py-3 sm:justify-between">
+        <DialogFooter className="shrink-0 flex-row items-center justify-between gap-2 border-t px-5 py-3 sm:justify-between">
           <p className="min-w-0 truncate text-xs text-muted-foreground">
             {project ? `Brand & images from “${project.name}”` : 'Pick a project to enable creating.'}
           </p>
