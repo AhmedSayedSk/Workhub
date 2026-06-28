@@ -36,19 +36,6 @@ const PLATFORMS: { value: SocialPlatform; label: string }[] = [
 ]
 
 // Numbered column heading — gives the wide modal a clear left-to-right flow.
-function SectionHeader({ n, title, hint }: { n: number; title: string; hint?: string }) {
-  return (
-    <div className="flex items-center gap-2 border-b pb-2">
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-        {n}
-      </span>
-      <div className="min-w-0">
-        <h3 className="text-xs font-semibold uppercase tracking-wide">{title}</h3>
-        {hint && <p className="truncate text-[10px] text-muted-foreground">{hint}</p>}
-      </div>
-    </div>
-  )
-}
 
 export function CampaignCreateDialog({
   open,
@@ -195,11 +182,10 @@ export function CampaignCreateDialog({
         <div className="grid grid-cols-1 divide-y md:grid-cols-[4fr_3fr_3fr] md:divide-x md:divide-y-0">
           {/* ── 1 · Project & brief ────────────────────────────────── */}
           <div className="flex flex-col gap-4 p-5">
-            <SectionHeader n={1} title="Project & brief" hint="Who it's for and what it should achieve" />
 
             <div className="space-y-1.5">
               <Label className="text-xs">Project</Label>
-              <div className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto pr-1">
+              <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto pr-1">
                 {sortedProjects.map((p) => (
                   <button
                     key={p.id}
@@ -243,7 +229,6 @@ export function CampaignCreateDialog({
 
           {/* ── 2 · Visual identity ────────────────────────────────── */}
           <div className="flex flex-col gap-4 p-5">
-            <SectionHeader n={2} title="Visual identity" hint="How every post should look" />
 
             <div className="space-y-1.5">
               <Label className="text-xs">Aspect ratio</Label>
@@ -347,7 +332,6 @@ export function CampaignCreateDialog({
 
           {/* ── 3 · Schedule & reach ───────────────────────────────── */}
           <div className="flex flex-col gap-4 p-5">
-            <SectionHeader n={3} title="Schedule & reach" hint="When and where it posts" />
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
