@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
           count: count || 1,
           captchaRetry: 5,
         }
-        if (aspectRatio && aspectRatio !== 'square') {
+        if (aspectRatio) {
           reqBody.aspectRatio = aspectRatio
         }
         if (seed !== undefined) reqBody.seed = seed
