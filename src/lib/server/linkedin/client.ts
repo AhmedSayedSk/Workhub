@@ -1,9 +1,10 @@
 import 'server-only'
 
 // LinkedIn REST API base + versioned API (LinkedIn-Version header is YYYYMM).
+// Versions are only active ~12 months; override via env when LinkedIn rotates them.
 export const LI_API = 'https://api.linkedin.com'
 export const LI_OAUTH = 'https://www.linkedin.com/oauth/v2'
-export const LI_VERSION = '202505'
+export const LI_VERSION = process.env.LINKEDIN_VERSION || '202606'
 
 export class LinkedInError extends Error {
   status: number
