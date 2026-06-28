@@ -162,7 +162,13 @@ function MetricPanel({
   xTicks: number[]
   host: HostStats | null
 }) {
-  const latest = current ?? (points.length ? (points[points.length - 1][def.key] as number) : null)
+  // Prefer the latest recorded point so the headline number matches the chart's
+  // right edge. The live host snapshot computes CPU over a ~1s window that is
+  // phase-locked to the once-a-minute cron spike (reads ~80% on an idle box),
+  // while the recorded series is a rolling 60s average (the true value). Falls
+  // back to the live value only before any history has loaded.
+  const lastPoint = points.length ? (points[points.length - 1][def.key] as number) : null
+  const latest = (typeof lastPoint === 'number' ? lastPoint : null) ?? current ?? null
   const gid = `vps-grad-${def.key}`
   // Show sample dots when the series is sparse (reads better than a thin line);
   // hide them once the line is dense enough to be smooth on its own.
