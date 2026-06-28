@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Facebook,
   Instagram,
+  Linkedin,
   Loader2,
   RefreshCw,
   AlertCircle,
@@ -31,6 +32,7 @@ interface GroupState {
 const PLATFORMS: { platform: SocialPlatform; label: string; Icon: typeof Facebook }[] = [
   { platform: 'fb', label: 'Facebook', Icon: Facebook },
   { platform: 'ig', label: 'Instagram', Icon: Instagram },
+  { platform: 'li', label: 'LinkedIn', Icon: Linkedin },
 ]
 
 function humanize(key: string): string {
@@ -120,7 +122,8 @@ export function InsightsTab({ project }: { project: Project }) {
       ) : (
         <div className="space-y-6">
           {PLATFORMS.map(({ platform, label, Icon }) => {
-            const state = platform === 'fb' ? fbState : igState
+            // LinkedIn analytics aren't fetched yet — show the platform with an empty state.
+            const state = platform === 'fb' ? fbState : platform === 'ig' ? igState : { data: null, error: null }
             const metricKeys = state.data ? Object.keys(state.data.metrics) : []
             const captured = formatCaptured(state.data?.capturedAt ?? null)
             return (

@@ -16,7 +16,7 @@ export function SocialPanel({ project, canEdit }: { project: Project; canEdit: b
           Sikasio · Connected
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Publish, schedule, and measure Facebook &amp; Instagram
+          Publish, schedule, and measure Facebook, Instagram &amp; LinkedIn
         </p>
       </div>
 
