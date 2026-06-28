@@ -177,9 +177,9 @@ export function CampaignCreateDialog({
         // Anchor with fixed top/bottom insets (no vertical transform), so the modal's
         // bottom edge is always at 93vh — the footer can never go off-screen.
         style={{ top: '7vh', bottom: '7vh', transform: 'translateX(-50%)' }}
-        className="flex w-[86vw] max-w-[86vw] flex-col gap-0 overflow-hidden p-0"
+        className="block w-[86vw] max-w-[86vw] gap-0 overflow-y-auto p-0"
       >
-        <DialogHeader className="shrink-0 space-y-1 border-b px-6 py-4">
+        <DialogHeader className="sticky top-0 z-20 space-y-1 border-b bg-background px-6 py-4">
           <DialogTitle className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <Megaphone className="h-4 w-4 text-primary" />
@@ -191,8 +191,8 @@ export function CampaignCreateDialog({
           </p>
         </DialogHeader>
 
-        {/* Header & footer are flex shrink-0; the columns area is the only flexible/scrolling part. */}
-        <div className="grid flex-1 min-h-0 grid-cols-1 divide-y overflow-y-auto md:grid-cols-[4fr_3fr_3fr] md:divide-x md:divide-y-0">
+        {/* Whole modal (DialogContent) is the single scroll box; header & footer are sticky bars. */}
+        <div className="grid grid-cols-1 divide-y md:grid-cols-[4fr_3fr_3fr] md:divide-x md:divide-y-0">
           {/* ── 1 · Project & brief ────────────────────────────────── */}
           <div className="flex flex-col gap-4 p-5">
             <SectionHeader n={1} title="Project & brief" hint="Who it's for and what it should achieve" />
@@ -408,7 +408,7 @@ export function CampaignCreateDialog({
         </div>
 
         {/* Sticky action footer */}
-        <DialogFooter className="min-h-[68px] shrink-0 flex-row items-center justify-between gap-2 border-t bg-background px-6 py-4 sm:justify-between">
+        <DialogFooter className="sticky bottom-0 z-20 min-h-[68px] flex-row items-center justify-between gap-2 border-t bg-background px-6 py-4 sm:justify-between">
           <p className="min-w-0 truncate text-xs text-muted-foreground">
             {project ? `Brand & images from “${project.name}”` : 'Pick a project to enable creating.'}
           </p>
