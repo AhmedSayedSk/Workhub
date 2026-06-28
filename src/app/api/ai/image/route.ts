@@ -197,21 +197,37 @@ export async function POST(request: NextRequest) {
 
       const tryModels = [model, 'nano-banana-2', 'imagen-4', 'nano-banana-pro'].filter((m, i, a) => a.indexOf(m) === i)
       const RATE_LIMIT_RE = /UNUSUAL_ACTIVITY|TOO_MUCH_TRAFFIC/i
-      let res!: Response
+      // Bound total time well under Node's 300s request timeout (which otherwise
+      // surfaces to the client as an empty-body 502).
+      const deadline = Date.now() + 130_000
+      let res: Response | null = null
       let data: Record<string, unknown> = {}
       let reqPayload: Record<string, unknown> = {}
       let usedModel = model
+      let netError = ''
 
-      // Account rotation × model fallback.
+      // Account rotation × model fallback (each call timeout-guarded).
       outer: for (const acc of candidates) {
         for (const m of tryModels) {
+          if (Date.now() > deadline) { netError = 'Image generation took too long. Please retry.'; break outer }
           reqPayload = buildReqBody(acc, m)
-          res = await fetch(`${USEAPI_BASE}/images`, {
-            method: 'POST',
-            headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
-            body: JSON.stringify(reqPayload),
-          })
-          data = await res.json()
+          const ctrl = new AbortController()
+          const to = setTimeout(() => ctrl.abort(), 75_000)
+          try {
+            res = await fetch(`${USEAPI_BASE}/images`, {
+              method: 'POST',
+              headers: { ...authHeader(apiToken), 'Content-Type': 'application/json' },
+              body: JSON.stringify(reqPayload),
+              signal: ctrl.signal,
+            })
+            data = await res.json().catch(() => ({}))
+          } catch (e) {
+            netError = (e as Error)?.name === 'AbortError' ? 'Image service timed out.' : `Image service unreachable (${(e as Error)?.message || 'network error'}).`
+            res = null
+            break // transient — try the next account
+          } finally {
+            clearTimeout(to)
+          }
           if (res.ok) { usedModel = m; break outer }
           const errStr = JSON.stringify(data)
           if (/DAILY_QUOTA/i.test(errStr)) { console.warn(`[image] ${acc || 'auto'}/${m} daily quota — next model`); continue }
@@ -220,10 +236,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (!res.ok) {
-        console.error('useapi.net generate error:', res.status, JSON.stringify(data))
-        // Include the email that was actually used in the error response
+      if (!res || !res.ok) {
         const usedEmail = (data?.email as string) || (reqPayload.email as string) || ''
+        if (!res) {
+          // Never got a usable response (timeout/network) — clean retryable error.
+          return NextResponse.json({ success: false, error: netError || 'Image service is unavailable. Please retry.', usedEmail }, { status: 503 })
+        }
+        console.error('useapi.net generate error:', res.status, JSON.stringify(data))
         const baseError = errorResponse(res.status, data)
         const errorBody = await baseError.json()
         return NextResponse.json({ ...errorBody, usedEmail }, { status: baseError.status })

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Loader2, RefreshCw, Download } from 'lucide-react'
+import { Loader2, RefreshCw, Download, ZoomIn, ZoomOut } from 'lucide-react'
 import type { CampaignPost } from '@/types'
 
 const ASPECT_LABEL: Record<string, string> = {
@@ -48,8 +48,10 @@ export function CampaignImageDialog({
   onGenerate: () => void
 }) {
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
+  const [zoomed, setZoomed] = useState(false)
   const [prompt, setPrompt] = useState(post.imagePrompt)
   useEffect(() => setPrompt(post.imagePrompt), [post.imagePrompt])
+  useEffect(() => { if (!open) setZoomed(false) }, [open])
 
   const scheduledMs = post.scheduledAt?.toMillis?.() ?? null
   const download = () => {
@@ -64,26 +66,40 @@ export function CampaignImageDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0">
+      <DialogContent className="h-[90vh] w-[92vw] max-w-[92vw] gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">Post #{index + 1} image</DialogTitle>
-        <div className="grid md:grid-cols-[1fr_340px]">
-          {/* Full image */}
-          <div className="flex max-h-[82vh] min-h-[320px] items-center justify-center bg-neutral-950 p-3">
+        <div className="grid h-full md:grid-cols-[1fr_360px]">
+          {/* Full image (click or button to zoom; scroll when zoomed) */}
+          <div className="relative flex h-full min-h-[320px] items-center justify-center overflow-auto bg-neutral-950 p-3">
             {post.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={post.imageUrl}
-                alt=""
-                onLoad={(e) => setDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-                className="max-h-[80vh] w-auto rounded-md object-contain shadow-lg"
-              />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.imageUrl}
+                  alt=""
+                  onLoad={(e) => setDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                  onClick={() => setZoomed((z) => !z)}
+                  className={cn(
+                    'rounded-md shadow-lg',
+                    zoomed ? 'max-w-none cursor-zoom-out' : 'max-h-full max-w-full cursor-zoom-in object-contain'
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => setZoomed((z) => !z)}
+                  title={zoomed ? 'Fit to screen' : 'Zoom in (100%)'}
+                  className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+                >
+                  {zoomed ? <ZoomOut className="h-4 w-4" /> : <ZoomIn className="h-4 w-4" />}
+                </button>
+              </>
             ) : (
               <p className="py-20 text-sm text-white/50">No image generated yet</p>
             )}
           </div>
 
           {/* Details */}
-          <div className="flex max-h-[82vh] flex-col gap-4 overflow-y-auto p-5">
+          <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="text-base font-semibold leading-tight">Post #{index + 1}</h3>

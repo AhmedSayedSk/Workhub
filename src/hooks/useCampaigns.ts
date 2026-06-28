@@ -171,8 +171,13 @@ export function useCampaigns() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate', prompt: fullPrompt, aspectRatio: post.aspect, model: 'nano-banana-pro', count: 1 }),
       })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error || 'Image generation failed')
+      // Parse defensively — a 502/timeout can return an empty/non-JSON body.
+      const text = await res.text()
+      let json: { success?: boolean; error?: string; data?: { images?: { url: string }[]; model?: string } } | null = null
+      try { json = text ? JSON.parse(text) : null } catch { json = null }
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || `Image service error (HTTP ${res.status}) — please retry.`)
+      }
       const img = (json.data?.images || [])[0]
       if (!img?.url) throw new Error('No image returned')
 

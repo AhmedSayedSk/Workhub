@@ -12,6 +12,7 @@ import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Pl
 import { CampaignPostCard } from './CampaignPostCard'
 import { CampaignPreview } from './CampaignPreview'
 import { CampaignCreateDialog } from './CampaignCreateDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CAMPAIGN_STYLES } from '@/lib/campaignStyles'
 import type { Project } from '@/types'
 
@@ -28,6 +29,7 @@ export function CampaignTab() {
 
   const [preview, setPreview] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   // Reopen the campaign from the URL on load.
   useEffect(() => {
@@ -104,7 +106,7 @@ export function CampaignTab() {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            onClick={() => { c.deleteCampaign(cam.id); setUrlParam('campaign', null) }}
+            onClick={() => setConfirmDelete(true)}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -149,6 +151,19 @@ export function CampaignTab() {
             ))}
           </div>
         )}
+        <ConfirmDialog
+          open={confirmDelete}
+          onOpenChange={setConfirmDelete}
+          title="Delete campaign?"
+          description="This permanently deletes the campaign and all its posts. This can’t be undone."
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={() => {
+            c.deleteCampaign(cam.id)
+            setUrlParam('campaign', null)
+            setConfirmDelete(false)
+          }}
+        />
       </div>
     )
   }
