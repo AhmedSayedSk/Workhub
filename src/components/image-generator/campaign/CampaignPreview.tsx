@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
-import { ArrowLeft, CalendarClock, Loader2, Facebook, Instagram, ImageOff } from 'lucide-react'
+import { authFetch } from '@/lib/api-client'
+import { ArrowLeft, CalendarClock, Loader2, Facebook, Instagram, Linkedin, AlertCircle, ImageOff } from 'lucide-react'
 import type { Campaign, CampaignPost } from '@/types'
 
 function fmtSlot(ms: number | null): string {
@@ -36,6 +38,17 @@ export function CampaignPreview({
   // Schedulable = has an image and isn't already scheduled. Default all included.
   const rtl = campaign.language === 'ar'
   const schedulable = posts.filter((p) => p.imageUrl && p.status !== 'scheduled')
+
+  // Warn if the campaign targets LinkedIn but the project isn't connected (posts would fail).
+  const needsLinkedIn = campaign.platforms.includes('li')
+  const [liConnected, setLiConnected] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!needsLinkedIn) return
+    authFetch(`/api/social/linkedin/status?projectId=${campaign.projectId}`)
+      .then((r) => r.json())
+      .then((d) => setLiConnected(!!d.connected))
+      .catch(() => setLiConnected(null))
+  }, [needsLinkedIn, campaign.projectId])
   const [included, setIncluded] = useState<Set<string>>(() => new Set(schedulable.map((p) => p.id)))
   const toggle = (id: string) =>
     setIncluded((prev) => {
@@ -74,6 +87,16 @@ export function CampaignPreview({
         </Button>
       </div>
 
+      {needsLinkedIn && liConnected === false && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">LinkedIn isn&apos;t connected for this project — its posts will fail until you connect it.</span>
+          <Button asChild size="sm" variant="outline" className="h-7">
+            <Link href={`/projects/${campaign.projectId}?stage=market`}>Connect</Link>
+          </Button>
+        </div>
+      )}
+
       {/* Feed-style preview cards */}
       <div className="mx-auto grid w-full max-w-4xl gap-4 sm:grid-cols-2">
         {posts.map((post) => {
@@ -102,6 +125,7 @@ export function CampaignPreview({
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold">{campaign.brand.name}</span>
                 {campaign.platforms.includes('fb') && <Facebook className="h-3.5 w-3.5 text-muted-foreground" />}
                 {campaign.platforms.includes('ig') && <Instagram className="h-3.5 w-3.5 text-muted-foreground" />}
+                {campaign.platforms.includes('li') && <Linkedin className="h-3.5 w-3.5 text-muted-foreground" />}
               </div>
 
               {/* image */}
