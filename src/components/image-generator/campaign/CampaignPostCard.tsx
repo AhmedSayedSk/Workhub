@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Loader2, ImageIcon, RefreshCw, Sparkles, FileText, AlertCircle, Download } from 'lucide-react'
-import { CampaignImageDialog } from './CampaignImageDialog'
 import type { CampaignPost } from '@/types'
 
 const MODEL_LABEL: Record<string, string> = {
@@ -23,6 +22,7 @@ export function CampaignPostCard({
   error,
   onChange,
   onGenerateImage,
+  onOpen,
 }: {
   post: CampaignPost
   index: number
@@ -31,10 +31,10 @@ export function CampaignPostCard({
   error?: string
   onChange: (patch: Partial<CampaignPost>) => void
   onGenerateImage: () => void
+  onOpen: () => void
 }) {
   const [caption, setCaption] = useState(post.caption)
   useEffect(() => setCaption(post.caption), [post.caption])
-  const [dialogOpen, setDialogOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
 
   const scheduled = post.status === 'scheduled'
@@ -70,7 +70,7 @@ export function CampaignPostCard({
             src={post.thumbnailUrl || post.imageUrl}
             alt=""
             loading="lazy"
-            onClick={() => setDialogOpen(true)}
+            onClick={onOpen}
             className="h-full w-full cursor-zoom-in object-contain"
           />
         ) : generating ? (
@@ -84,7 +84,7 @@ export function CampaignPostCard({
             </Button>
           </div>
         ) : (
-          <ImageIcon className="h-8 w-8 cursor-pointer text-muted-foreground/40" onClick={() => setDialogOpen(true)} />
+          <ImageIcon className="h-8 w-8 cursor-pointer text-muted-foreground/40" onClick={onOpen} />
         )}
 
         <span className="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
@@ -128,7 +128,7 @@ export function CampaignPostCard({
             </button>
           )}
           <button
-            onClick={() => setDialogOpen(true)}
+            onClick={onOpen}
             title="Image prompt & details"
             className="flex h-7 w-7 items-center justify-center rounded-md bg-background/85 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
           >
@@ -158,16 +158,6 @@ export function CampaignPostCard({
         )}
       </div>
 
-      <CampaignImageDialog
-        post={post}
-        index={index}
-        rtl={rtl}
-        generating={generating}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onChange={onChange}
-        onGenerate={onGenerateImage}
-      />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Loader2, RefreshCw, Download, ZoomIn, ZoomOut } from 'lucide-react'
+import { Loader2, RefreshCw, Download, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { CampaignPost } from '@/types'
 
 const ASPECT_LABEL: Record<string, string> = {
@@ -37,6 +37,8 @@ export function CampaignImageDialog({
   onOpenChange,
   onChange,
   onGenerate,
+  onPrev,
+  onNext,
 }: {
   post: CampaignPost
   index: number
@@ -46,12 +48,26 @@ export function CampaignImageDialog({
   onOpenChange: (v: boolean) => void
   onChange: (patch: Partial<CampaignPost>) => void
   onGenerate: () => void
+  onPrev?: () => void
+  onNext?: () => void
 }) {
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
   const [zoomed, setZoomed] = useState(false)
   const [prompt, setPrompt] = useState(post.imagePrompt)
   useEffect(() => setPrompt(post.imagePrompt), [post.imagePrompt])
   useEffect(() => { if (!open) setZoomed(false) }, [open])
+  // Reset zoom + dims when navigating to another post.
+  useEffect(() => { setZoomed(false); setDims(null) }, [post.id])
+  // Arrow keys navigate between posts.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && onPrev) onPrev()
+      else if (e.key === 'ArrowRight' && onNext) onNext()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onPrev, onNext])
 
   const scheduledMs = post.scheduledAt?.toMillis?.() ?? null
   const download = () => {
@@ -95,6 +111,28 @@ export function CampaignImageDialog({
               </>
             ) : (
               <p className="py-20 text-sm text-white/50">No image generated yet</p>
+            )}
+
+            {/* Navigate between posts */}
+            {onPrev && (
+              <button
+                type="button"
+                onClick={onPrev}
+                title="Previous post (←)"
+                className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/25"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            {onNext && (
+              <button
+                type="button"
+                onClick={onNext}
+                title="Next post (→)"
+                className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/25"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
             )}
           </div>
 

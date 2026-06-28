@@ -8,8 +8,10 @@ import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
-import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Plus, AlertCircle, ImageIcon } from 'lucide-react'
+import Link from 'next/link'
+import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Plus, AlertCircle, ImageIcon, ExternalLink } from 'lucide-react'
 import { CampaignPostCard } from './CampaignPostCard'
+import { CampaignImageDialog } from './CampaignImageDialog'
 import { CampaignPreview } from './CampaignPreview'
 import { CampaignCreateDialog } from './CampaignCreateDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -30,6 +32,7 @@ export function CampaignTab() {
   const [preview, setPreview] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [viewIndex, setViewIndex] = useState<number | null>(null)
 
   // Reopen the campaign from the URL on load.
   useEffect(() => {
@@ -102,6 +105,11 @@ export function CampaignTab() {
               </Button>
             </>
           )}
+          <Button asChild size="sm" variant="outline" title="Open this project's Market tab">
+            <Link href={`/projects/${cam.projectId}?stage=market`}>
+              <ExternalLink className="mr-1.5 h-4 w-4" /> Market
+            </Link>
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -147,9 +155,25 @@ export function CampaignTab() {
                 error={c.imageErrors[post.id]}
                 onChange={(patch) => c.updatePost(post.id, patch)}
                 onGenerateImage={() => c.generateImage(post)}
+                onOpen={() => setViewIndex(i)}
               />
             ))}
           </div>
+        )}
+
+        {viewIndex !== null && c.posts[viewIndex] && (
+          <CampaignImageDialog
+            post={c.posts[viewIndex]}
+            index={viewIndex}
+            rtl={cam.language === 'ar'}
+            generating={c.imagePostIds.has(c.posts[viewIndex].id)}
+            open
+            onOpenChange={(o) => !o && setViewIndex(null)}
+            onChange={(patch) => c.updatePost(c.posts[viewIndex].id, patch)}
+            onGenerate={() => c.generateImage(c.posts[viewIndex])}
+            onPrev={viewIndex > 0 ? () => setViewIndex(viewIndex - 1) : undefined}
+            onNext={viewIndex < c.posts.length - 1 ? () => setViewIndex(viewIndex + 1) : undefined}
+          />
         )}
         <ConfirmDialog
           open={confirmDelete}
