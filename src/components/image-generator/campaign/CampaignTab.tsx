@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
 import Link from 'next/link'
-import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Plus, AlertCircle, ImageIcon, ExternalLink } from 'lucide-react'
+import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Plus, AlertCircle, ImageIcon, ExternalLink, MoreVertical } from 'lucide-react'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { CampaignPostCard } from './CampaignPostCard'
 import { CampaignImageDialog } from './CampaignImageDialog'
 import { CampaignPreview } from './CampaignPreview'
@@ -85,9 +86,6 @@ export function CampaignTab() {
           <div className="flex-1" />
           {!c.planning && c.posts.length > 0 && (
             <>
-              <Button size="sm" variant="outline" onClick={c.generatePlan}>
-                <Wand2 className="mr-1.5 h-4 w-4" /> Re-plan
-              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -105,19 +103,32 @@ export function CampaignTab() {
               </Button>
             </>
           )}
-          <Button asChild size="sm" variant="outline" title="Open this project's Market tab">
-            <Link href={`/projects/${cam.projectId}?stage=market`}>
-              <ExternalLink className="mr-1.5 h-4 w-4" /> Market
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            onClick={() => setConfirmDelete(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="More actions">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {!c.planning && c.posts.length > 0 && (
+                <DropdownMenuItem onClick={c.generatePlan}>
+                  <Wand2 className="mr-2 h-4 w-4" /> Re-plan
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem asChild>
+                <Link href={`/projects/${cam.projectId}?stage=market`}>
+                  <ExternalLink className="mr-2 h-4 w-4" /> Open in Market
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete campaign
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {c.planning ? (
