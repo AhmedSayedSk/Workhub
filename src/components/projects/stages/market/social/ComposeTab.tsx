@@ -14,6 +14,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Plus,
   X,
   Play,
   ImageOff,
@@ -30,6 +31,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { PostScheduleDialog } from './PostScheduleDialog'
 
@@ -107,6 +109,7 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editPost, setEditPost] = useState<SocialPost | null>(null)
   const [confirm, setConfirm] = useState<{ post: SocialPost; action: 'unschedule' | 'delete' } | null>(null)
+  const [composeOpen, setComposeOpen] = useState(false)
 
   const platforms: SocialPlatform[] = [...(fb ? (['fb'] as const) : []), ...(ig ? (['ig'] as const) : [])]
 
@@ -211,6 +214,7 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
         return
       }
       resetForm()
+      setComposeOpen(false)
       await loadPosts()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Request failed')
@@ -275,21 +279,28 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
   const disabled = !canEdit || submitting || uploading
 
   return (
-    <div className="space-y-5">
-      {/* Composer */}
-      <div
-        className={cn(
-          'rounded-lg border bg-card p-4',
-          !canEdit && 'opacity-70',
+    <div className="space-y-4">
+      {/* Header + composer trigger */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-muted-foreground">Posts</h3>
+        {canEdit && (
+          <Button size="sm" onClick={() => setComposeOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" /> New post
+          </Button>
         )}
-      >
-        {!canEdit && (
-          <p className="mb-3 text-xs text-muted-foreground">
-            You have read-only access to this stage.
-          </p>
-        )}
+      </div>
 
-        <div className="space-y-4">
+      {/* Compose modal — all create-post inputs live here */}
+      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
+        <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>New post</DialogTitle>
+          </DialogHeader>
+          {!canEdit && (
+            <p className="text-xs text-muted-foreground">You have read-only access to this stage.</p>
+          )}
+
+          <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="social-caption">Caption</Label>
             <Textarea
@@ -433,7 +444,10 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
             </p>
           )}
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setComposeOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
             <Button type="button" onClick={handleSubmit} disabled={disabled}>
               {submitting ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -445,8 +459,9 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
               {mode === 'schedule' ? 'Schedule post' : 'Publish now'}
             </Button>
           </div>
-        </div>
-      </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Posts list */}
       <div className="space-y-3">
@@ -461,11 +476,21 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
           </div>
         ) : (
           STATUS_GROUPS.map((group) => {
-            const rows = posts.filter((p) =>
-              group.status === 'published'
-                ? p.status === 'published' || p.status === 'publishing'
-                : p.status === group.status,
-            )
+            const tsMs = (p: SocialPost) =>
+              (group.status === 'scheduled'
+                ? p.scheduledAt
+                : group.status === 'published'
+                  ? (p.publishedAt ?? p.scheduledAt)
+                  : (p.updatedAt ?? p.createdAt)
+              )?.toMillis() ?? 0
+            const rows = posts
+              .filter((p) =>
+                group.status === 'published'
+                  ? p.status === 'published' || p.status === 'publishing'
+                  : p.status === group.status,
+              )
+              // Scheduled: chronological (asc) so AI/campaign posts read in order; others newest-first.
+              .sort((a, b) => (group.status === 'scheduled' ? tsMs(a) - tsMs(b) : tsMs(b) - tsMs(a)))
             if (rows.length === 0) return null
             return (
               <div key={group.status} className="space-y-2">
@@ -475,7 +500,7 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
                   </span>
                   <Separator className="flex-1" />
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
                   {rows.map((post) => {
                     const when =
                       formatTs(post.publishedAt) ?? formatTs(post.scheduledAt)
