@@ -35,6 +35,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { PostScheduleDialog } from './PostScheduleDialog'
+import { RemoveFromPlatformsDialog } from './RemoveFromPlatformsDialog'
 
 type Mode = 'now' | 'schedule'
 
@@ -112,6 +113,7 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
   const [retryingId, setRetryingId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editPost, setEditPost] = useState<SocialPost | null>(null)
+  const [removePost, setRemovePost] = useState<SocialPost | null>(null)
   const [confirm, setConfirm] = useState<{ post: SocialPost; action: 'unschedule' | 'delete' } | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
 
@@ -620,7 +622,7 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
                             ) : (
                               <span />
                             )}
-                            {canEdit && post.status !== 'publishing' && post.status !== 'published' && (
+                            {canEdit && post.status !== 'publishing' && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={busyId === post.id || retryingId === post.id}>
@@ -656,12 +658,21 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
                                       <Pencil className="mr-2 h-4 w-4" /> Edit &amp; schedule
                                     </DropdownMenuItem>
                                   )}
-                                  <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => setConfirm({ post, action: 'delete' })}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                  </DropdownMenuItem>
+                                  {post.status === 'published' ? (
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => setRemovePost(post)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" /> Remove from platforms
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => setConfirm({ post, action: 'delete' })}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}
@@ -690,6 +701,12 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
         open={!!editPost}
         onOpenChange={(o) => !o && setEditPost(null)}
         onSaved={loadPosts}
+      />
+      <RemoveFromPlatformsDialog
+        post={removePost}
+        open={!!removePost}
+        onOpenChange={(o) => !o && setRemovePost(null)}
+        onDone={loadPosts}
       />
       <ConfirmDialog
         open={!!confirm}
