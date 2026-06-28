@@ -13,9 +13,9 @@ import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Pl
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { CampaignPostCard } from './CampaignPostCard'
 import { CampaignImageDialog } from './CampaignImageDialog'
-import { CampaignPreview } from './CampaignPreview'
 import { CampaignCreateDialog } from './CampaignCreateDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { authFetch } from '@/lib/api-client'
 import { CAMPAIGN_STYLES } from '@/lib/campaignStyles'
 import type { Project } from '@/types'
 
@@ -30,7 +30,8 @@ export function CampaignTab() {
   const projectName = (id: string) => projectOf(id)?.name || 'Project'
   const styleLabel = (key?: string) => CAMPAIGN_STYLES.find((s) => s.key === key)?.label
 
-  const [preview, setPreview] = useState(false)
+  const [scheduleMode, setScheduleMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [createOpen, setCreateOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [viewIndex, setViewIndex] = useState<number | null>(null)
@@ -42,27 +43,26 @@ export function CampaignTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // LinkedIn connection status (for the schedule guard) when the active campaign targets it.
+  const activeNeedsLi = c.activeCampaign?.platforms.includes('li')
+  const activeProjectId = c.activeCampaign?.projectId
+  const [liConnected, setLiConnected] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!activeNeedsLi || !activeProjectId) {
+      setLiConnected(null)
+      return
+    }
+    authFetch(`/api/social/linkedin/status?projectId=${activeProjectId}`)
+      .then((r) => r.json())
+      .then((d) => setLiConnected(!!d.connected))
+      .catch(() => setLiConnected(null))
+  }, [activeNeedsLi, activeProjectId])
+
   const goToCampaign = (id: string | null) => {
-    setPreview(false)
+    setScheduleMode(false)
+    setSelected(new Set())
     setUrlParam('campaign', id)
     c.selectCampaign(id)
-  }
-
-  // ── Preview & schedule ────────────────────────────────────────────────────
-  if (c.activeCampaign && preview) {
-    return (
-      <CampaignPreview
-        campaign={c.activeCampaign}
-        posts={c.posts}
-        slotFor={c.slotFor}
-        scheduling={c.schedulingAll}
-        onBack={() => setPreview(false)}
-        onConfirm={async (ids) => {
-          await c.scheduleAll(ids)
-          setPreview(false)
-        }}
-      />
-    )
   }
 
   // ── Active campaign view ──────────────────────────────────────────────────
@@ -70,6 +70,34 @@ export function CampaignTab() {
     const cam = c.activeCampaign
     const readyCount = c.posts.filter((p) => p.imageUrl).length
     const scheduledCount = c.posts.filter((p) => p.status === 'scheduled').length
+    const schedulable = c.posts.filter((p) => p.imageUrl && p.status !== 'scheduled')
+    const fmtSlot = (ms: number | null) =>
+      ms == null ? '' : new Date(ms).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    const selectedSlots = schedulable
+      .filter((p) => selected.has(p.id))
+      .map((p) => c.slotFor(p.order))
+      .filter((s): s is number => s != null)
+      .sort((a, b) => a - b)
+    const scheduleRange = selectedSlots.length ? `${fmtSlot(selectedSlots[0])} → ${fmtSlot(selectedSlots[selectedSlots.length - 1])}` : '—'
+    const enterSchedule = () => {
+      setSelected(new Set(schedulable.map((p) => p.id)))
+      setScheduleMode(true)
+    }
+    const exitSchedule = () => {
+      setScheduleMode(false)
+      setSelected(new Set())
+    }
+    const toggleSelect = (id: string) =>
+      setSelected((prev) => {
+        const n = new Set(prev)
+        if (n.has(id)) n.delete(id)
+        else n.add(id)
+        return n
+      })
+    const confirmSchedule = async () => {
+      await c.scheduleAll([...selected])
+      exitSchedule()
+    }
     return (
       <div className="flex flex-col gap-3 overflow-y-auto p-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -85,49 +113,75 @@ export function CampaignTab() {
           </div>
           <Badge variant="outline" className="capitalize">{cam.status === 'planning' ? 'Planning…' : cam.status}</Badge>
           <div className="flex-1" />
-          {!c.planning && c.posts.length > 0 && (
+          {!scheduleMode && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={c.generateAllImages}
-                disabled={c.imagePostIds.size > 0 || c.posts.every((p) => p.status === 'scheduled')}
-              >
-                {c.imagePostIds.size > 0 ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Images className="mr-1.5 h-4 w-4" />}
-                Generate all
-              </Button>
-              <Button size="sm" onClick={() => setPreview(true)} disabled={readyCount === 0}>
-                <CalendarClock className="mr-1.5 h-4 w-4" /> Preview &amp; schedule
-              </Button>
+              {!c.planning && c.posts.length > 0 && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={c.generateAllImages}
+                    disabled={c.imagePostIds.size > 0 || c.posts.every((p) => p.status === 'scheduled')}
+                  >
+                    {c.imagePostIds.size > 0 ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Images className="mr-1.5 h-4 w-4" />}
+                    Generate all
+                  </Button>
+                  <Button size="sm" onClick={enterSchedule} disabled={readyCount === 0}>
+                    <CalendarClock className="mr-1.5 h-4 w-4" /> Schedule
+                  </Button>
+                </>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="More actions">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {!c.planning && c.posts.length > 0 && (
+                    <DropdownMenuItem onClick={c.generatePlan}>
+                      <Wand2 className="mr-2 h-4 w-4" /> Re-plan
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem asChild>
+                    <Link href={`/projects/${cam.projectId}?stage=market`}>
+                      <ExternalLink className="mr-2 h-4 w-4" /> Open in Market
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete campaign
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" title="More actions">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {!c.planning && c.posts.length > 0 && (
-                <DropdownMenuItem onClick={c.generatePlan}>
-                  <Wand2 className="mr-2 h-4 w-4" /> Re-plan
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem asChild>
-                <Link href={`/projects/${cam.projectId}?stage=market`}>
-                  <ExternalLink className="mr-2 h-4 w-4" /> Open in Market
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => setConfirmDelete(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete campaign
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
+
+        {scheduleMode && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-primary/5 px-3 py-2">
+            <span className="text-sm font-medium">Select posts to schedule</span>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {selected.size}/{schedulable.length} · {scheduleRange}
+            </span>
+            {activeNeedsLi && liConnected === false && (
+              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                <AlertCircle className="h-3.5 w-3.5" /> LinkedIn not connected
+              </span>
+            )}
+            <div className="flex-1" />
+            <Button variant="ghost" size="sm" onClick={exitSchedule}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={confirmSchedule} disabled={selected.size === 0 || c.schedulingAll}>
+              {c.schedulingAll ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-1.5 h-4 w-4" />}
+              Schedule {selected.size}
+            </Button>
+          </div>
+        )}
 
         {c.planning ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
@@ -165,6 +219,10 @@ export function CampaignTab() {
                 onChange={(patch) => c.updatePost(post.id, patch)}
                 onGenerateImage={() => c.generateImage(post)}
                 onOpen={() => setViewIndex(i)}
+                selectMode={scheduleMode}
+                selected={selected.has(post.id)}
+                onSelect={scheduleMode && post.imageUrl && post.status !== 'scheduled' ? () => toggleSelect(post.id) : undefined}
+                slotLabel={scheduleMode && post.imageUrl && post.status !== 'scheduled' ? fmtSlot(c.slotFor(post.order)) : undefined}
               />
             ))}
           </div>

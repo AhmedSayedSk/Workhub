@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Loader2, ImageIcon, RefreshCw, Sparkles, FileText, AlertCircle, Download } from 'lucide-react'
+import { Loader2, ImageIcon, RefreshCw, Sparkles, FileText, AlertCircle, Download, Check } from 'lucide-react'
 import type { CampaignPost } from '@/types'
 
 const MODEL_LABEL: Record<string, string> = {
@@ -23,6 +23,10 @@ export function CampaignPostCard({
   onChange,
   onGenerateImage,
   onOpen,
+  selectMode = false,
+  selected = false,
+  onSelect,
+  slotLabel,
 }: {
   post: CampaignPost
   index: number
@@ -32,6 +36,10 @@ export function CampaignPostCard({
   onChange: (patch: Partial<CampaignPost>) => void
   onGenerateImage: () => void
   onOpen: () => void
+  selectMode?: boolean
+  selected?: boolean
+  onSelect?: () => void
+  slotLabel?: string
 }) {
   const [caption, setCaption] = useState(post.caption)
   useEffect(() => setCaption(post.caption), [post.caption])
@@ -61,8 +69,17 @@ export function CampaignPostCard({
     }
   }
 
+  const selectable = selectMode && !!onSelect
+
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
+    <div
+      className={cn(
+        'flex flex-col overflow-hidden rounded-xl border bg-card transition',
+        selectable && 'cursor-pointer',
+        selectMode && (selected ? 'ring-2 ring-primary ring-offset-1' : selectable ? 'opacity-80 hover:opacity-100' : 'opacity-50')
+      )}
+      onClick={selectable ? onSelect : undefined}
+    >
       <div className="group relative flex h-64 items-center justify-center bg-muted">
         {post.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -70,8 +87,8 @@ export function CampaignPostCard({
             src={post.thumbnailUrl || post.imageUrl}
             alt=""
             loading="lazy"
-            onClick={onOpen}
-            className="h-full w-full cursor-zoom-in object-contain"
+            onClick={selectMode ? undefined : onOpen}
+            className={cn('h-full w-full object-contain', selectMode ? '' : 'cursor-zoom-in')}
           />
         ) : generating ? (
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -93,14 +110,31 @@ export function CampaignPostCard({
         {scheduled && (
           <Badge className="absolute bottom-2 left-2 border-0 bg-emerald-500 text-[10px] text-white">Scheduled</Badge>
         )}
-        {post.imageUrl && post.model && (
+        {post.imageUrl && post.model && !selectMode && (
           <span className="absolute bottom-2 right-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
             {MODEL_LABEL[post.model] || post.model}
           </span>
         )}
 
-        {/* Floating actions (top-right) */}
-        <div className="absolute right-2 top-2 flex gap-1">
+        {/* Schedule selection: checkbox + slot time */}
+        {selectable && (
+          <span
+            className={cn(
+              'absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-sm transition-colors',
+              selected ? 'border-primary bg-primary text-primary-foreground' : 'border-white/90 bg-black/40 text-transparent'
+            )}
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          </span>
+        )}
+        {selectMode && slotLabel && (
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+            {slotLabel}
+          </span>
+        )}
+
+        {/* Floating actions (top-right) — hidden during schedule selection */}
+        <div className={cn('absolute right-2 top-2 flex gap-1', selectMode && 'hidden')}>
           {post.imageUrl && (
             <button
               onClick={handleDownload}
@@ -145,7 +179,7 @@ export function CampaignPostCard({
           onBlur={() => caption !== post.caption && onChange({ caption })}
           rows={3}
           dir={rtl ? 'rtl' : undefined}
-          disabled={scheduled}
+          disabled={scheduled || selectMode}
           className={cn('resize-none text-sm leading-relaxed', rtl && 'text-right')}
           placeholder="Caption"
         />
