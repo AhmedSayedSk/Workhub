@@ -1476,7 +1476,7 @@ export interface DeployDomainInput {
 
 // ===== Social Media =====
 
-export type SocialPlatform = 'fb' | 'ig'
+export type SocialPlatform = 'fb' | 'ig' | 'li'
 export type SocialPostStatus = 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
 export type SocialMediaType = 'none' | 'image' | 'video'
 
@@ -1492,6 +1492,7 @@ export interface SocialPost {
   publishedAt: Timestamp | null
   fbPostId: string | null
   igMediaId: string | null
+  liPostId: string | null
   error: string | null
   attempts: number
   createdBy: string

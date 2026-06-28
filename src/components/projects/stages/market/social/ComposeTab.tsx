@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Facebook,
   Instagram,
+  Linkedin,
   Loader2,
   Paperclip,
   Send,
@@ -83,6 +84,7 @@ function PlatformIcons({ platforms }: { platforms: SocialPlatform[] }) {
     <span className="flex items-center gap-1 text-muted-foreground">
       {platforms.includes('fb') && <Facebook className="h-4 w-4" />}
       {platforms.includes('ig') && <Instagram className="h-4 w-4" />}
+      {platforms.includes('li') && <Linkedin className="h-4 w-4" />}
     </span>
   )
 }
@@ -96,6 +98,8 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
   const [uploading, setUploading] = useState(false)
   const [fb, setFb] = useState(true)
   const [ig, setIg] = useState(false)
+  const [li, setLi] = useState(false)
+  const [liStatus, setLiStatus] = useState<{ connected: boolean; name?: string; expired?: boolean } | null>(null)
   const [mode, setMode] = useState<Mode>('now')
   const [scheduledAt, setScheduledAt] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -111,7 +115,34 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
   const [confirm, setConfirm] = useState<{ post: SocialPost; action: 'unschedule' | 'delete' } | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
 
-  const platforms: SocialPlatform[] = [...(fb ? (['fb'] as const) : []), ...(ig ? (['ig'] as const) : [])]
+  const platforms: SocialPlatform[] = [
+    ...(fb ? (['fb'] as const) : []),
+    ...(ig ? (['ig'] as const) : []),
+    ...(li ? (['li'] as const) : []),
+  ]
+
+  const loadLiStatus = useCallback(async () => {
+    try {
+      const res = await authFetch(`/api/social/linkedin/status?projectId=${project.id}`)
+      if (res.ok) setLiStatus(await res.json())
+    } catch {
+      /* ignore */
+    }
+  }, [project.id])
+  useEffect(() => {
+    loadLiStatus()
+  }, [loadLiStatus])
+
+  const connectLinkedIn = async () => {
+    try {
+      const res = await authFetch(`/api/social/linkedin/oauth/start?projectId=${project.id}`)
+      const data = await res.json().catch(() => ({}))
+      if (data.url) window.location.href = data.url
+      else setError(data.error || 'LinkedIn is not configured yet')
+    } catch {
+      setError('Could not start the LinkedIn connection')
+    }
+  }
 
   const loadPosts = useCallback(async () => {
     setLoadingList(true)
@@ -283,11 +314,24 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
       {/* Header + composer trigger */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-muted-foreground">Posts</h3>
-        {canEdit && (
-          <Button size="sm" onClick={() => setComposeOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" /> New post
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canEdit && liStatus && (
+            liStatus.connected ? (
+              <Badge variant="secondary" className="gap-1 font-normal">
+                <Linkedin className="h-3 w-3 text-[#0a66c2]" /> {liStatus.name || 'LinkedIn'}
+              </Badge>
+            ) : (
+              <Button size="sm" variant="outline" onClick={connectLinkedIn} title={liStatus.expired ? 'LinkedIn token expired — reconnect' : 'Connect your LinkedIn'}>
+                <Linkedin className="mr-1.5 h-4 w-4 text-[#0a66c2]" /> {liStatus.expired ? 'Reconnect LinkedIn' : 'Connect LinkedIn'}
+              </Button>
+            )
+          )}
+          {canEdit && (
+            <Button size="sm" onClick={() => setComposeOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> New post
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Compose modal — all create-post inputs live here */}
@@ -390,11 +434,28 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
                   <Instagram className="h-4 w-4" /> Instagram
                 </Label>
               </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="platform-li"
+                  checked={li}
+                  onCheckedChange={setLi}
+                  disabled={!canEdit || !liStatus?.connected}
+                />
+                <Label htmlFor="platform-li" className="flex items-center gap-1.5 font-normal">
+                  <Linkedin className="h-4 w-4" /> LinkedIn
+                </Label>
+              </div>
             </div>
             {igNeedsMedia && (
               <p className="flex items-center gap-1.5 text-xs text-destructive">
                 <AlertCircle className="h-3.5 w-3.5" />
                 Instagram requires an image or video
+              </p>
+            )}
+            {li && !liStatus?.connected && (
+              <p className="flex items-center gap-1.5 text-xs text-destructive">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Connect LinkedIn first (button above).
               </p>
             )}
           </div>

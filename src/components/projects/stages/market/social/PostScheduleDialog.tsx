@@ -21,6 +21,7 @@ function toLocalInput(ms: number): string {
 const PLATFORMS: { value: SocialPlatform; label: string }[] = [
   { value: 'fb', label: 'Facebook' },
   { value: 'ig', label: 'Instagram' },
+  { value: 'li', label: 'LinkedIn' },
 ]
 
 const SHIFTS = [

@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       publishedAt: null,
       fbPostId: null,
       igMediaId: null,
+      liPostId: null,
       error: null,
       attempts: 0,
       createdBy: uid,

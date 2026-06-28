@@ -39,6 +39,7 @@ function todayISO(): string {
 const PLATFORMS: { value: SocialPlatform; label: string }[] = [
   { value: 'fb', label: 'Facebook' },
   { value: 'ig', label: 'Instagram' },
+  { value: 'li', label: 'LinkedIn' },
 ]
 
 // Numbered column heading — gives the wide modal a clear left-to-right flow.
