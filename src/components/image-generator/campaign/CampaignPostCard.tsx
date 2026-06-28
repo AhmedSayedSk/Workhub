@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type MouseEvent } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Loader2, ImageIcon, RefreshCw, Sparkles, FileText, AlertCircle } from 'lucide-react'
+import { Loader2, ImageIcon, RefreshCw, Sparkles, FileText, AlertCircle, Download } from 'lucide-react'
 import { CampaignImageDialog } from './CampaignImageDialog'
 import type { CampaignPost } from '@/types'
 
@@ -35,8 +35,31 @@ export function CampaignPostCard({
   const [caption, setCaption] = useState(post.caption)
   useEffect(() => setCaption(post.caption), [post.caption])
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   const scheduled = post.status === 'scheduled'
+
+  const handleDownload = async (e: MouseEvent) => {
+    e.stopPropagation()
+    if (!post.imageUrl) return
+    setDownloading(true)
+    try {
+      const blob = await (await fetch(post.imageUrl)).blob()
+      const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `campaign-post-${index + 1}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      window.open(post.imageUrl, '_blank') // fallback
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
@@ -78,6 +101,16 @@ export function CampaignPostCard({
 
         {/* Floating actions (top-right) */}
         <div className="absolute right-2 top-2 flex gap-1">
+          {post.imageUrl && (
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              title="Download image"
+              className="flex h-7 w-7 items-center justify-center rounded-md bg-background/85 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background disabled:opacity-60"
+            >
+              {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            </button>
+          )}
           {!scheduled && (
             <button
               onClick={onGenerateImage}
