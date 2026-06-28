@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
       await store.setPostStatus(post.id, 'publishing')
       const r = await publishOne(post)
       if (r.igMediaId) igUsed++
-      published++
+      if (r.failures.length) failed++
+      else published++
     } catch { failed++ }
   }
   return NextResponse.json({ processed: due.length, published, failed, skipped })

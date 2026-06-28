@@ -24,6 +24,7 @@ import type { Project, SocialMediaType, SocialPlatform, SocialPost, SocialPostSt
 import { socialPosts } from '@/lib/firestore'
 import { uploadSocialMedia } from '@/lib/storage'
 import { authFetch } from '@/lib/api-client'
+import { toast } from 'react-toastify'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -246,6 +247,14 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
         setError(data?.error ?? 'Request failed')
         return
       }
+      if (mode === 'schedule') {
+        toast.success('Post scheduled')
+      } else {
+        const published: string[] = data.published || []
+        const failures: string[] = data.failures || []
+        if (failures.length) toast.info(`Published to ${published.join(', ') || 'none'} — failed: ${failures.join(' · ')}`)
+        else toast.success(`Published to ${published.join(', ') || 'the selected platforms'}`)
+      }
       resetForm()
       setComposeOpen(false)
       await loadPosts()
@@ -283,12 +292,26 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
   async function handlePublishNow(post: SocialPost) {
     setBusyId(post.id)
     try {
-      await authFetch('/api/social/publish', {
+      const res = await authFetch('/api/social/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: post.id }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error || 'Publishing failed')
+      } else {
+        const published: string[] = data.published || []
+        const failures: string[] = data.failures || []
+        if (failures.length) {
+          toast.info(`Published to ${published.join(', ') || 'none'} — failed: ${failures.join(' · ')}`)
+        } else {
+          toast.success(`Published to ${published.join(', ') || 'the selected platforms'}`)
+        }
+      }
       await loadPosts()
+    } catch {
+      toast.error('Publishing failed')
     } finally {
       setBusyId(null)
     }

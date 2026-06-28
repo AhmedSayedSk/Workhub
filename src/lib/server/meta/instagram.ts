@@ -14,13 +14,16 @@ export async function publishMedia(opts: {
       : { image_url: opts.mediaUrl, caption: opts.caption },
   })
 
-  if (opts.mediaType === 'video') {
-    for (let i = 0; i < 20; i++) {
-      const s = await graphFetch<{ status_code: string }>(`${container.id}`, { params: { fields: 'status_code' } })
-      if (s.status_code === 'FINISHED') break
-      if (s.status_code === 'ERROR') throw new MetaApiError(502, s, 'IG media processing failed')
-      await new Promise((r) => setTimeout(r, 3000))
-    }
+  // Wait for the container to finish processing before publishing — for IMAGES too:
+  // IG fetches the remote URL asynchronously, and publishing too early fails with
+  // "Media ID is not available". (Images finish fast; video can take longer.)
+  const maxTries = opts.mediaType === 'video' ? 20 : 12
+  const waitMs = opts.mediaType === 'video' ? 3000 : 1500
+  for (let i = 0; i < maxTries; i++) {
+    const s = await graphFetch<{ status_code: string }>(`${container.id}`, { params: { fields: 'status_code' } })
+    if (s.status_code === 'FINISHED') break
+    if (s.status_code === 'ERROR') throw new MetaApiError(502, s, 'IG media processing failed')
+    await new Promise((r) => setTimeout(r, waitMs))
   }
 
   return graphFetch<{ id: string }>(`${igUserId}/media_publish`, {
