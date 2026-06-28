@@ -80,6 +80,7 @@ export function CampaignTab() {
             <h2 className="truncate text-sm font-semibold leading-tight">{cam.name}</h2>
             <p className="truncate text-[11px] text-muted-foreground">
               {projectName(cam.projectId)} · {cam.platforms.map((p) => p.toUpperCase()).join('·')} · {c.posts.length} posts
+              {c.posts.length > 0 && ` · ${readyCount} generated · ${scheduledCount} scheduled`}
             </p>
           </div>
           <Badge variant="outline" className="capitalize">{cam.status === 'planning' ? 'Planning…' : cam.status}</Badge>
@@ -95,9 +96,6 @@ export function CampaignTab() {
                 {c.imagePostIds.size > 0 ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Images className="mr-1.5 h-4 w-4" />}
                 Generate all
               </Button>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {readyCount}/{c.posts.length} · {scheduledCount} sched
-              </span>
               <Button size="sm" onClick={() => setPreview(true)} disabled={readyCount === 0}>
                 <CalendarClock className="mr-1.5 h-4 w-4" /> Preview &amp; schedule
               </Button>
