@@ -180,10 +180,11 @@ export function CampaignCreateDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Three themed columns. On desktop each scrolls independently; on mobile the whole area scrolls. min-h-0 lets the flex child shrink so the footer never gets clipped. */}
-        <div className="grid flex-1 min-h-0 grid-cols-1 divide-y overflow-y-auto md:grid-cols-[4fr_3fr_3fr] md:grid-rows-1 md:divide-x md:divide-y-0 md:overflow-hidden">
+        {/* Three themed columns in a single scroll area (flex-1 min-h-0 overflow-y-auto),
+            so the pinned shrink-0 footer is never pushed off-screen. */}
+        <div className="grid flex-1 min-h-0 grid-cols-1 divide-y overflow-y-auto md:grid-cols-[4fr_3fr_3fr] md:divide-x md:divide-y-0">
           {/* ── 1 · Project & brief ────────────────────────────────── */}
-          <div className="flex flex-col gap-4 p-5 md:min-h-0 md:overflow-y-auto">
+          <div className="flex flex-col gap-4 p-5">
             <SectionHeader n={1} title="Project & brief" hint="Who it's for and what it should achieve" />
 
             <div className="space-y-1.5">
@@ -231,7 +232,7 @@ export function CampaignCreateDialog({
           </div>
 
           {/* ── 2 · Visual identity ────────────────────────────────── */}
-          <div className="flex flex-col gap-4 p-5 md:min-h-0 md:overflow-y-auto">
+          <div className="flex flex-col gap-4 p-5">
             <SectionHeader n={2} title="Visual identity" hint="How every post should look" />
 
             <div className="space-y-1.5">
@@ -335,7 +336,7 @@ export function CampaignCreateDialog({
           </div>
 
           {/* ── 3 · Schedule & reach ───────────────────────────────── */}
-          <div className="flex flex-col gap-4 p-5 md:min-h-0 md:overflow-y-auto">
+          <div className="flex flex-col gap-4 p-5">
             <SectionHeader n={3} title="Schedule & reach" hint="When and where it posts" />
 
             <div className="grid grid-cols-2 gap-3">
@@ -397,7 +398,7 @@ export function CampaignCreateDialog({
         </div>
 
         {/* Sticky action footer */}
-        <DialogFooter className="shrink-0 flex-row items-center justify-between gap-2 border-t px-5 py-3 sm:justify-between">
+        <DialogFooter className="shrink-0 flex-row items-center justify-between gap-2 border-t px-5 py-4 sm:justify-between">
           <p className="min-w-0 truncate text-xs text-muted-foreground">
             {project ? `Brand & images from “${project.name}”` : 'Pick a project to enable creating.'}
           </p>
