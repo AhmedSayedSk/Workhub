@@ -173,7 +173,10 @@ export function CampaignCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[90vh] max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0">
+      <DialogContent
+        style={{ height: '90vh', maxHeight: '90vh' }}
+        className="flex w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0"
+      >
         <DialogHeader className="shrink-0 border-b px-5 py-3.5">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Megaphone className="h-4 w-4 text-primary" /> New campaign
