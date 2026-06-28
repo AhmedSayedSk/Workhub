@@ -56,5 +56,18 @@ async function uploadImage(creds: LinkedInCreds, mediaUrl: string): Promise<stri
     body: Buffer.from(bytes),
   })
   if (!put.ok) throw new LinkedInError(put.status, 'LinkedIn image upload failed')
-  return imageUrn
+
+  // LinkedIn processes the upload asynchronously — referencing the image too soon
+  // fails with "Media ID is not available". Poll until it's AVAILABLE (~up to 20s).
+  const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  for (let i = 0; i < 14; i++) {
+    await delay(1400)
+    const check = await liFetch(creds.token, `/rest/images/${encodeURIComponent(imageUrn)}`)
+    if (check.ok) {
+      const d = await check.json().catch(() => ({}))
+      if (d?.status === 'AVAILABLE') return imageUrn
+      if (d?.status === 'FAILED') throw new LinkedInError(502, 'LinkedIn image processing failed')
+    }
+  }
+  return imageUrn // proceed after the wait even if status is still indeterminate
 }
