@@ -16,6 +16,7 @@ import type {
   CampaignBrand,
   CampaignLanguage,
   CampaignAspect,
+  CampaignTextOption,
   SocialPlatform,
 } from '@/types'
 
@@ -29,6 +30,7 @@ export interface NewCampaignInput {
   aspect: CampaignAspect
   consistentIdentity: boolean
   imageInstructions: string
+  textOnImage: CampaignTextOption
 }
 
 const DAY_MS = 86_400_000
@@ -99,6 +101,7 @@ export function useCampaigns() {
         aspect: input.aspect,
         consistentIdentity: input.consistentIdentity,
         imageInstructions: input.imageInstructions,
+        textOnImage: input.textOnImage,
         status: 'draft',
         postCount: 0,
         scheduledCount: 0,
@@ -165,7 +168,7 @@ export function useCampaigns() {
       return n
     })
     try {
-      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors, activeCampaign?.language, activeCampaign?.artDirection, activeCampaign?.imageInstructions)
+      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors, activeCampaign?.language, activeCampaign?.artDirection, activeCampaign?.imageInstructions, activeCampaign?.textOnImage, post.headline, post.body)
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

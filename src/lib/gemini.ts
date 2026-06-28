@@ -755,6 +755,8 @@ export interface GeneratedCampaignPost {
   caption: string
   hashtags: string[]
   imagePrompt: string
+  headline: string // short text to render ON the image (a few words)
+  body: string // longer supporting text to render ON the image (1-2 short sentences)
 }
 
 // Plan a cohesive multi-post social campaign (caption + hashtags + image prompt
@@ -789,7 +791,7 @@ ${(params.context || '').slice(0, 12_000)}
 """
 
 Produce exactly ${count} DISTINCT posts that build on each other (vary the angle: hook/benefit, key feature, how-it-works, social proof, clear CTA). Respond with ONLY a JSON array (no markdown fences), ${count} items:
-[{"caption":"<1-3 short sentences ending in a clear CTA; platform-ready; use \\n for line breaks>","hashtags":["<3-6 relevant tags WITHOUT the # symbol>"],"imagePrompt":"<describe ONLY the SUBJECT, scene, composition and mood in English — do NOT specify an art style or colors (those are applied separately by the campaign). NO text overlays, NO logos.>"}]`
+[{"caption":"<1-3 short sentences ending in a clear CTA; platform-ready; use \\n for line breaks>","hashtags":["<3-6 relevant tags WITHOUT the # symbol>"],"imagePrompt":"<describe ONLY the SUBJECT, scene, composition and mood in English — do NOT specify an art style or colors (those are applied separately by the campaign). NO text overlays, NO logos.>","headline":"<a SHORT punchy headline of 2-6 words to display ON the image${params.language === 'ar' ? ', in ARABIC' : ''}>","body":"<one short supporting sentence (max ~12 words) to display ON the image${params.language === 'ar' ? ', in ARABIC' : ''}>"}]`
 
   try {
     const gemini = getGeminiModel(model)
@@ -808,6 +810,8 @@ Produce exactly ${count} DISTINCT posts that build on each other (vary the angle
           ? p.hashtags.map((h) => String(h).replace(/^#/, '').trim()).filter(Boolean).slice(0, 8)
           : [],
         imagePrompt: String(p.imagePrompt ?? '').slice(0, 1000),
+        headline: String(p.headline ?? '').slice(0, 120),
+        body: String(p.body ?? '').slice(0, 240),
       }))
       .slice(0, count)
   } catch (error) {

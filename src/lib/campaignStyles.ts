@@ -38,12 +38,25 @@ export function buildImagePrompt(
   colors?: string[],
   language?: 'en' | 'ar',
   artDirection?: string,
-  instructions?: string
+  instructions?: string,
+  textOnImage?: 'none' | 'short' | 'long',
+  headline?: string,
+  body?: string
 ): string {
   const style = campaignStylePrompt(styleKey)
   const palette = (colors || []).filter(Boolean)
+  // Bake the post text onto the image when requested.
+  const overlay = (() => {
+    if (!textOnImage || textOnImage === 'none') return ''
+    const h = (headline || '').trim()
+    const b = (body || '').trim()
+    const lines = (textOnImage === 'long' ? [h, b] : [h]).filter(Boolean)
+    if (!lines.length) return ''
+    return `Render this exact text directly ON the image as a bold, legible, professionally-composed typographic overlay — leave clean negative space for it, ensure strong contrast (add a subtle scrim/shadow if needed), and spell it EXACTLY as written, no extra words: ${lines.map((l) => `"${l}"`).join(' and, smaller below it, ')}.`
+  })()
   return [
     basePrompt,
+    overlay,
     instructions?.trim() ? `Custom instructions (must be followed in EVERY image): ${instructions.trim()}` : '',
     artDirection
       ? `Cohesive campaign art direction — every post in this campaign MUST share this exact visual identity so they look like one set: ${artDirection}`

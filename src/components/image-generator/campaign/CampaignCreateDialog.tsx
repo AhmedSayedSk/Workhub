@@ -17,7 +17,13 @@ import { cn } from '@/lib/utils'
 import { Loader2, Sparkles, Plus, Megaphone, RectangleHorizontal, RectangleVertical, Square } from 'lucide-react'
 import { CAMPAIGN_STYLES, DEFAULT_CAMPAIGN_STYLE } from '@/lib/campaignStyles'
 import type { NewCampaignInput } from '@/hooks/useCampaigns'
-import type { Campaign, CampaignAspect, CampaignLanguage, Project, SocialPlatform } from '@/types'
+import type { Campaign, CampaignAspect, CampaignLanguage, CampaignTextOption, Project, SocialPlatform } from '@/types'
+
+const TEXT_OPTIONS: { value: CampaignTextOption; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'short', label: 'Short' },
+  { value: 'long', label: 'Long' },
+]
 
 const ASPECTS: { value: CampaignAspect; label: string; Icon: typeof Square }[] = [
   { value: 'portrait', label: 'Portrait', Icon: RectangleVertical },
@@ -76,6 +82,7 @@ export function CampaignCreateDialog({
     aspect: 'portrait' as CampaignAspect,
     consistentIdentity: true,
     imageInstructions: '',
+    textOnImage: 'none' as CampaignTextOption,
     colors: [] as string[],
     startDate: todayISO(),
     cadenceDays: 2,
@@ -153,6 +160,7 @@ export function CampaignCreateDialog({
       aspect: form.aspect,
       consistentIdentity: form.consistentIdentity,
       imageInstructions: form.imageInstructions,
+      textOnImage: form.textOnImage,
     })
     setCreating(false)
     if (camp) onOpenChange(false)
@@ -328,6 +336,29 @@ export function CampaignCreateDialog({
                 <p className="text-[11px] text-muted-foreground">Generate one shared art direction so all posts look like the same set.</p>
               </div>
               <Switch checked={form.consistentIdentity} onCheckedChange={(v) => set('consistentIdentity', v)} />
+            </div>
+
+            {/* Text on image */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Text on image</Label>
+              <div className="flex gap-1.5">
+                {TEXT_OPTIONS.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => set('textOnImage', t.value)}
+                    className={cn(
+                      'flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors',
+                      form.textOnImage === t.value ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Renders the post text on the image — <b>Short</b> = headline, <b>Long</b> = headline + a line of body.
+              </p>
             </div>
 
             <div className="space-y-1.5">

@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
             caption: p.caption,
             hashtags: p.hashtags,
             imagePrompt: p.imagePrompt,
+            headline: p.headline || '',
+            body: p.body || '',
             aspect: camp.aspect || 'portrait',
             imageUrl: null,
             status: 'planned',

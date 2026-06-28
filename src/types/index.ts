@@ -562,6 +562,7 @@ export type CampaignLanguage = 'en' | 'ar'
 export type CampaignStatus = 'draft' | 'planning' | 'ready' | 'scheduled' | 'done'
 export type CampaignPostStatus = 'planned' | 'approved' | 'generating' | 'ready' | 'scheduled'
 export type CampaignAspect = 'landscape' | 'square' | 'portrait'
+export type CampaignTextOption = 'none' | 'short' | 'long' // render post text ON the image
 
 export interface CampaignBrief {
   goal: string
@@ -592,6 +593,7 @@ export interface Campaign {
   consistentIdentity?: boolean // generate one shared art direction for all posts
   artDirection?: string // the shared visual identity, applied to every image
   imageInstructions?: string // user's custom instructions applied to every image
+  textOnImage?: CampaignTextOption // render post headline/body text on the generated image
   status: CampaignStatus
   postCount?: number
   scheduledCount?: number
@@ -608,6 +610,8 @@ export interface CampaignPost {
   caption: string
   hashtags: string[]
   imagePrompt: string
+  headline?: string // short text to render on the image
+  body?: string // longer text to render on the image
   aspect: CampaignAspect
   imageUrl: string | null
   thumbnailUrl?: string | null
