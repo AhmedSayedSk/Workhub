@@ -149,7 +149,8 @@ export async function POST(request: NextRequest) {
           captchaRetry: 5,
         }
         if (aspectRatio) {
-          reqBody.aspectRatio = aspectRatio
+          // useapi accepts: 16:9,4:3,1:1,3:4,9:16,auto,landscape,portrait — map our 'square' to '1:1'.
+          reqBody.aspectRatio = aspectRatio === 'square' ? '1:1' : aspectRatio
         }
         if (seed !== undefined) reqBody.seed = seed
         if (targetEmail) reqBody.email = targetEmail
