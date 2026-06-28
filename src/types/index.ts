@@ -594,6 +594,7 @@ export interface Campaign {
   artDirection?: string // the shared visual identity, applied to every image
   imageInstructions?: string // user's custom instructions applied to every image
   textOnImage?: CampaignTextOption // render post headline/body text on the generated image
+  brandImageUrl?: string // logo/custom image fed as a reference into every generation
   status: CampaignStatus
   postCount?: number
   scheduledCount?: number

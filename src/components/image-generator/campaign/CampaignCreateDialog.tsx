@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { uploadSocialMedia } from '@/lib/storage'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/hooks/useAuth'
 import { projects as projectsApi } from '@/lib/firestore'
@@ -14,7 +15,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { authFetch } from '@/lib/api-client'
 import { toast } from 'react-toastify'
 import { cn } from '@/lib/utils'
-import { Loader2, Sparkles, Plus, Megaphone, RectangleHorizontal, RectangleVertical, Square } from 'lucide-react'
+import { Loader2, Sparkles, Plus, Megaphone, RectangleHorizontal, RectangleVertical, Square, ImageIcon, Upload } from 'lucide-react'
 import { CAMPAIGN_STYLES, DEFAULT_CAMPAIGN_STYLE } from '@/lib/campaignStyles'
 import type { NewCampaignInput } from '@/hooks/useCampaigns'
 import type { Campaign, CampaignAspect, CampaignLanguage, CampaignTextOption, Project, SocialPlatform } from '@/types'
@@ -84,6 +85,8 @@ export function CampaignCreateDialog({
     consistentIdentity: true,
     imageInstructions: '',
     textOnImage: 'none' as CampaignTextOption,
+    useBrandImage: true,
+    brandImageUrl: '',
     colors: [] as string[],
     startDate: todayISO(),
     cadenceDays: 2,
@@ -91,10 +94,28 @@ export function CampaignCreateDialog({
   })
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
 
+  const brandFileRef = useRef<HTMLInputElement | null>(null)
+  const [uploadingBrand, setUploadingBrand] = useState(false)
+
   useEffect(() => {
     const proj = projects.find((p) => p.id === projectId)
-    setForm((f) => ({ ...f, colors: proj?.color ? [proj.color] : [] }))
+    setForm((f) => ({ ...f, colors: proj?.color ? [proj.color] : [], brandImageUrl: proj?.coverImageUrl || '' }))
   }, [projectId, projects])
+
+  const handleBrandUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !project) return
+    setUploadingBrand(true)
+    try {
+      const url = await uploadSocialMedia(file, project.id)
+      set('brandImageUrl', url)
+    } catch {
+      /* ignore */
+    } finally {
+      setUploadingBrand(false)
+      if (brandFileRef.current) brandFileRef.current.value = ''
+    }
+  }
 
   const buildContext = (p: Project | null) =>
     p
@@ -162,6 +183,7 @@ export function CampaignCreateDialog({
       consistentIdentity: form.consistentIdentity,
       imageInstructions: form.imageInstructions,
       textOnImage: form.textOnImage,
+      brandImageUrl: form.useBrandImage && form.brandImageUrl ? form.brandImageUrl : undefined,
     })
     setCreating(false)
     if (camp) onOpenChange(false)
@@ -337,6 +359,37 @@ export function CampaignCreateDialog({
                 <p className="text-[11px] text-muted-foreground">Generate one shared art direction so all posts look like the same set.</p>
               </div>
               <Switch checked={form.consistentIdentity} onCheckedChange={(v) => set('consistentIdentity', v)} />
+            </div>
+
+            {/* Brand image (reference) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Brand image in designs</Label>
+                <Switch checked={form.useBrandImage} onCheckedChange={(v) => set('useBrandImage', v)} />
+              </div>
+              {form.useBrandImage && (
+                <div className="flex items-center gap-2">
+                  {form.brandImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={form.brandImageUrl} alt="" className="h-12 w-12 shrink-0 rounded-md border bg-muted object-contain" />
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-dashed text-muted-foreground">
+                      <ImageIcon className="h-4 w-4" />
+                    </div>
+                  )}
+                  <input ref={brandFileRef} type="file" accept="image/*" className="hidden" onChange={handleBrandUpload} />
+                  <Button type="button" variant="outline" size="sm" disabled={!project || uploadingBrand} onClick={() => brandFileRef.current?.click()}>
+                    {uploadingBrand ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+                    Upload custom
+                  </Button>
+                  {form.brandImageUrl && project?.coverImageUrl && form.brandImageUrl !== project.coverImageUrl && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => set('brandImageUrl', project.coverImageUrl || '')}>
+                      Use logo
+                    </Button>
+                  )}
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">Fed as a reference so the AI weaves your logo/brand into each image.</p>
             </div>
 
             {/* Text on image */}

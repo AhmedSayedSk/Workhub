@@ -31,6 +31,7 @@ export interface NewCampaignInput {
   consistentIdentity: boolean
   imageInstructions: string
   textOnImage: CampaignTextOption
+  brandImageUrl?: string
 }
 
 const DAY_MS = 86_400_000
@@ -102,6 +103,7 @@ export function useCampaigns() {
         consistentIdentity: input.consistentIdentity,
         imageInstructions: input.imageInstructions,
         textOnImage: input.textOnImage,
+        ...(input.brandImageUrl ? { brandImageUrl: input.brandImageUrl } : {}),
         status: 'draft',
         postCount: 0,
         scheduledCount: 0,
@@ -168,11 +170,19 @@ export function useCampaigns() {
       return n
     })
     try {
-      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors, activeCampaign?.language, activeCampaign?.artDirection, activeCampaign?.imageInstructions, activeCampaign?.textOnImage, post.headline, post.body)
+      const brandImageUrl = activeCampaign?.brandImageUrl
+      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors, activeCampaign?.language, activeCampaign?.artDirection, activeCampaign?.imageInstructions, activeCampaign?.textOnImage, post.headline, post.body, !!brandImageUrl)
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate', prompt: fullPrompt, aspectRatio: post.aspect, model: 'nano-banana-pro', count: 1 }),
+        body: JSON.stringify({
+          action: 'generate',
+          prompt: fullPrompt,
+          aspectRatio: post.aspect,
+          model: 'nano-banana-pro',
+          count: 1,
+          ...(brandImageUrl ? { references: [brandImageUrl] } : {}),
+        }),
       })
       // Parse defensively — a 502/timeout can return an empty/non-JSON body.
       const text = await res.text()

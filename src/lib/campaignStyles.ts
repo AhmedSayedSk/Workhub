@@ -41,7 +41,8 @@ export function buildImagePrompt(
   instructions?: string,
   textOnImage?: 'none' | 'short' | 'long',
   headline?: string,
-  body?: string
+  body?: string,
+  hasBrandImage?: boolean
 ): string {
   const style = campaignStylePrompt(styleKey)
   const palette = (colors || []).filter(Boolean)
@@ -57,6 +58,9 @@ export function buildImagePrompt(
   return [
     basePrompt,
     overlay,
+    hasBrandImage
+      ? 'A brand reference image is provided — tastefully integrate the brand logo/visual identity into the composition (clean, well-placed, on-brand, never stretched or distorted).'
+      : '',
     instructions?.trim() ? `Custom instructions (must be followed in EVERY image): ${instructions.trim()}` : '',
     artDirection
       ? `Cohesive campaign art direction — every post in this campaign MUST share this exact visual identity so they look like one set: ${artDirection}`
