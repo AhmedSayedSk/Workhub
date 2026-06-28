@@ -23,22 +23,26 @@ export async function publishOne(post: SocialPost): Promise<{ fbPostId: string |
     let fbPostId: string | null = post.fbPostId ?? null
     let igMediaId: string | null = post.igMediaId ?? null
     let liPostId: string | null = post.liPostId ?? null
+    let platform = '' // which platform is currently publishing — used to tag errors
     try {
       if (post.platforms.includes('fb') && !fbPostId) {
+        platform = 'Facebook'
         const url = post.mediaUrls?.[0]
         if (post.mediaType === 'image' && url) { const r = await fbPages.publishPhoto(post.caption, url); fbPostId = r.post_id || r.id }
         else if (post.mediaType === 'video' && url) { const r = await fbPages.publishVideo(post.caption, url); fbPostId = r.id }
         else { const r = await fbPages.publishPost(post.caption); fbPostId = r.id }
       }
       if (post.platforms.includes('ig') && !igMediaId) {
+        platform = 'Instagram'
         const url = post.mediaUrls?.[0]
-        if (!url || post.mediaType === 'none') throw new MetaApiError(400, null, 'Instagram requires an image or video')
+        if (!url || post.mediaType === 'none') throw new MetaApiError(400, null, 'requires an image or video')
         const r = await ig.publishMedia({ caption: post.caption, mediaUrl: url, mediaType: post.mediaType === 'video' ? 'video' : 'image' })
         igMediaId = r.id
       }
       if (post.platforms.includes('li') && !liPostId) {
+        platform = 'LinkedIn'
         const liCreds = await getLinkedInCreds(post.projectId)
-        if (!liCreds) throw new MetaApiError(400, null, 'LinkedIn is not connected for this project (or the token expired — reconnect).')
+        if (!liCreds) throw new MetaApiError(400, null, 'is not connected for this project (or the token expired — reconnect).')
         const url = post.mediaUrls?.[0]
         liPostId = await linkedin.publish(liCreds, {
           text: post.caption,
@@ -49,10 +53,12 @@ export async function publishOne(post: SocialPost): Promise<{ fbPostId: string |
       await store.setPostStatus(post.id, 'published', { fbPostId, igMediaId, liPostId, publishedAt: AdminTimestamp.now() as unknown as SocialPost['publishedAt'] })
       return { fbPostId, igMediaId, liPostId }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
+      const raw = e instanceof Error ? e.message : String(e)
+      // Tag the error with the failing platform so it's clear which one failed.
+      const msg = platform ? `${platform}: ${raw}` : raw
       // persist any platform that DID succeed so a retry skips it (idempotency)
       await store.setPostStatus(post.id, 'failed', { error: msg, attempts: (post.attempts || 0) + 1, fbPostId, igMediaId, liPostId })
-      throw e
+      throw new Error(msg)
     }
   })
 }
