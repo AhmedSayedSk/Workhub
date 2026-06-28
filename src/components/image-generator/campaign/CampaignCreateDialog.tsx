@@ -180,15 +180,15 @@ export function CampaignCreateDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Three themed columns, each scrolls independently */}
-        <div className="grid flex-1 grid-cols-1 divide-y overflow-hidden md:grid-cols-3 md:divide-x md:divide-y-0">
+        {/* Three themed columns. On desktop each scrolls independently; on mobile the whole area scrolls. min-h-0 lets the flex child shrink so the footer never gets clipped. */}
+        <div className="grid flex-1 min-h-0 grid-cols-1 divide-y overflow-y-auto md:grid-cols-3 md:divide-x md:divide-y-0 md:overflow-hidden">
           {/* ── 1 · Project & brief ────────────────────────────────── */}
-          <div className="flex flex-col gap-4 overflow-y-auto p-5">
+          <div className="flex flex-col gap-4 p-5 md:min-h-0 md:overflow-y-auto">
             <SectionHeader n={1} title="Project & brief" hint="Who it's for and what it should achieve" />
 
             <div className="space-y-1.5">
               <Label className="text-xs">Project</Label>
-              <div className="grid max-h-64 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+              <div className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto pr-1">
                 {sortedProjects.map((p) => (
                   <button
                     key={p.id}
@@ -231,7 +231,7 @@ export function CampaignCreateDialog({
           </div>
 
           {/* ── 2 · Visual identity ────────────────────────────────── */}
-          <div className="flex flex-col gap-4 overflow-y-auto p-5">
+          <div className="flex flex-col gap-4 p-5 md:min-h-0 md:overflow-y-auto">
             <SectionHeader n={2} title="Visual identity" hint="How every post should look" />
 
             <div className="space-y-1.5">
@@ -335,7 +335,7 @@ export function CampaignCreateDialog({
           </div>
 
           {/* ── 3 · Schedule & reach ───────────────────────────────── */}
-          <div className="flex flex-col gap-4 overflow-y-auto p-5">
+          <div className="flex flex-col gap-4 p-5 md:min-h-0 md:overflow-y-auto">
             <SectionHeader n={3} title="Schedule & reach" hint="When and where it posts" />
 
             <div className="grid grid-cols-2 gap-3">
