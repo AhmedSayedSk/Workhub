@@ -174,18 +174,18 @@ export function CampaignCreateDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        style={{ height: '85vh', maxHeight: '85vh' }}
-        className="flex w-[85vw] max-w-[85vw] flex-col gap-0 overflow-hidden p-0"
+        style={{ maxHeight: '85vh' }}
+        className="flex max-h-[85vh] w-[85vw] max-w-[85vw] flex-col gap-0 overflow-y-auto p-0"
       >
-        <DialogHeader className="shrink-0 border-b px-5 py-3.5">
+        <DialogHeader className="sticky top-0 z-20 shrink-0 border-b bg-background px-5 py-3.5">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Megaphone className="h-4 w-4 text-primary" /> New campaign
           </DialogTitle>
         </DialogHeader>
 
-        {/* Three themed columns in a single scroll area (flex-1 min-h-0 overflow-y-auto),
-            so the pinned shrink-0 footer is never pushed off-screen. */}
-        <div className="grid flex-1 min-h-0 grid-cols-1 divide-y overflow-y-auto md:grid-cols-[4fr_3fr_3fr] md:divide-x md:divide-y-0">
+        {/* The whole modal scrolls (overflow-y-auto on DialogContent); header & footer are
+            position:sticky, so the footer can never be cropped regardless of content height. */}
+        <div className="grid grid-cols-1 divide-y md:grid-cols-[4fr_3fr_3fr] md:divide-x md:divide-y-0">
           {/* ── 1 · Project & brief ────────────────────────────────── */}
           <div className="flex flex-col gap-4 p-5">
             <SectionHeader n={1} title="Project & brief" hint="Who it's for and what it should achieve" />
@@ -401,7 +401,7 @@ export function CampaignCreateDialog({
         </div>
 
         {/* Sticky action footer */}
-        <DialogFooter className="min-h-[68px] shrink-0 flex-row items-center justify-between gap-2 border-t px-5 py-5 sm:justify-between">
+        <DialogFooter className="sticky bottom-0 z-20 min-h-[68px] shrink-0 flex-row items-center justify-between gap-2 border-t bg-background px-5 py-5 sm:justify-between">
           <p className="min-w-0 truncate text-xs text-muted-foreground">
             {project ? `Brand & images from “${project.name}”` : 'Pick a project to enable creating.'}
           </p>
