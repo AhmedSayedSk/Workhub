@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   output: 'standalone',
+  async redirects() {
+    // Image Generator was renamed to Content Studio — keep old links/bookmarks working.
+    return [
+      { source: '/image-generator', destination: '/content-studio', permanent: true },
+      { source: '/image-generator/:path*', destination: '/content-studio/:path*', permanent: true },
+    ]
+  },
 }
 
 export default nextConfig

@@ -47,7 +47,7 @@ const PAGE_TITLES: { prefix: string; title: string; subtitle?: string }[] = [
   { prefix: '/calendar', title: 'Calendar' },
   { prefix: '/audit-logs', title: 'Audit Logs', subtitle: 'Track activity and security events across your workspace' },
   { prefix: '/settings', title: 'Settings', subtitle: 'Manage your account and preferences' },
-  { prefix: '/image-generator', title: 'Content Studio' },
+  { prefix: '/content-studio', title: 'Content Studio' },
   { prefix: '/assistant', title: 'AI Assistant' },
   { prefix: '/', title: 'Dashboard', subtitle: "Welcome back! Here's your work overview." },
 ]
