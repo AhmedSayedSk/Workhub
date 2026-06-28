@@ -177,7 +177,7 @@ export function CampaignCreateDialog({
         // Anchor with fixed top/bottom insets (no vertical transform), so the modal's
         // bottom edge is always at 93vh — the footer can never go off-screen.
         style={{ top: '7vh', bottom: '7vh', transform: 'translateX(-50%)' }}
-        className="block w-[86vw] max-w-[86vw] gap-0 overflow-y-auto p-0"
+        className="block w-[86vw] max-w-[86vw] gap-0 overflow-y-auto overflow-x-hidden p-0"
       >
         <DialogHeader className="sticky top-0 z-20 space-y-1 border-b bg-background px-6 py-4">
           <DialogTitle className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
@@ -408,7 +408,7 @@ export function CampaignCreateDialog({
         </div>
 
         {/* Sticky action footer */}
-        <DialogFooter className="sticky bottom-0 z-20 min-h-[68px] flex-row items-center justify-between gap-2 border-t bg-background px-6 py-4 sm:justify-between">
+        <DialogFooter className="sticky bottom-0 z-20 min-h-[76px] flex-row items-center justify-between gap-3 border-t bg-background px-8 py-5 sm:justify-between">
           <p className="min-w-0 truncate text-xs text-muted-foreground">
             {project ? `Brand & images from “${project.name}”` : 'Pick a project to enable creating.'}
           </p>
