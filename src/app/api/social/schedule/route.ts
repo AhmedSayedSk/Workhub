@@ -87,8 +87,8 @@ export async function PATCH(request: NextRequest) {
     if (!post) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 })
     }
-    if (post.status !== 'scheduled') {
-      return NextResponse.json({ error: 'Only scheduled posts can be edited' }, { status: 409 })
+    if (post.status === 'published' || post.status === 'publishing') {
+      return NextResponse.json({ error: 'Published posts cannot be edited' }, { status: 409 })
     }
 
     const patch: Partial<SocialPost> = {}
@@ -106,6 +106,9 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'scheduledAt must be in the future' }, { status: 400 })
       }
       patch.scheduledAt = AdminTimestamp.fromMillis(ms) as unknown as SocialPost['scheduledAt']
+      // Setting a (future) time (re)schedules the post — promote draft/failed → scheduled.
+      patch.status = 'scheduled'
+      patch.error = null
     }
 
     await admin.firestore().collection('socialPosts').doc(id).update({ ...patch, updatedAt: AdminTimestamp.now() })
@@ -124,20 +127,31 @@ export async function DELETE(request: NextRequest) {
   try {
     await verifyAuth(request)
     let id: string | null = null
+    let hard = false
     try {
       const body = await request.json()
       id = body?.id ?? null
+      hard = body?.hard === true
     } catch {
       // no JSON body
     }
     if (!id) {
       id = request.nextUrl.searchParams.get('id')
     }
+    if (!hard) {
+      const h = request.nextUrl.searchParams.get('hard')
+      hard = h === '1' || h === 'true'
+    }
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    await store.setPostStatus(id, 'draft', { scheduledAt: null })
+    // hard = permanently delete the post; otherwise just unschedule (revert to draft).
+    if (hard) {
+      await store.deletePost(id)
+    } else {
+      await store.setPostStatus(id, 'draft', { scheduledAt: null })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (error) {

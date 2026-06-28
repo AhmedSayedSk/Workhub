@@ -14,6 +14,18 @@ export async function POST(request: NextRequest) {
     const uid = decoded?.uid || 'system'
 
     const body = await request.json()
+
+    // "Publish now" on an already-persisted post (e.g. a scheduled post): publish by id.
+    if (body.id) {
+      const existing = await store.getPost(body.id)
+      if (!existing) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+      if (existing.status === 'published') return NextResponse.json({ error: 'Post is already published' }, { status: 409 })
+      await store.setPostStatus(body.id, 'publishing')
+      const fresh = await store.getPost(body.id)
+      const result = await publishOne(fresh!)
+      return NextResponse.json({ ok: true, id: body.id, ...result })
+    }
+
     const projectId: string = body.projectId
     const platforms: SocialPlatform[] = body.platforms
     const caption: string = body.caption ?? ''

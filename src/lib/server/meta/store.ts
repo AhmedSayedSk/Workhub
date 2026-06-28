@@ -18,6 +18,9 @@ export async function addPost(input: SocialPostInput): Promise<string> {
 export async function setPostStatus(id: string, status: SocialPostStatus, extra: Partial<SocialPost> = {}): Promise<void> {
   await db().collection('socialPosts').doc(id).update({ ...extra, status, updatedAt: AdminTimestamp.now() })
 }
+export async function deletePost(id: string): Promise<void> {
+  await db().collection('socialPosts').doc(id).delete()
+}
 export async function getDuePosts(nowMs: number): Promise<SocialPost[]> {
   const snap = await db().collection('socialPosts').where('status', '==', 'scheduled').get()
   const all = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as SocialPost)

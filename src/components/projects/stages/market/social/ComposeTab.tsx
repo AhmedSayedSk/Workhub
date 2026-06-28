@@ -8,8 +8,12 @@ import {
   Paperclip,
   Send,
   CalendarClock,
+  CalendarOff,
   AlertCircle,
   RefreshCw,
+  MoreVertical,
+  Pencil,
+  Trash2,
   X,
   Play,
   ImageOff,
@@ -25,6 +29,9 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { PostScheduleDialog } from './PostScheduleDialog'
 
 type Mode = 'now' | 'schedule'
 
@@ -97,6 +104,9 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
   const [posts, setPosts] = useState<SocialPost[]>([])
   const [loadingList, setLoadingList] = useState(true)
   const [retryingId, setRetryingId] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [editPost, setEditPost] = useState<SocialPost | null>(null)
+  const [confirm, setConfirm] = useState<{ post: SocialPost; action: 'unschedule' | 'delete' } | null>(null)
 
   const platforms: SocialPlatform[] = [...(fb ? (['fb'] as const) : []), ...(ig ? (['ig'] as const) : [])]
 
@@ -229,6 +239,36 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
       // surfaced via reload; row stays failed if it failed again
     } finally {
       setRetryingId(null)
+    }
+  }
+
+  // Publish a scheduled post immediately (by id).
+  async function handlePublishNow(post: SocialPost) {
+    setBusyId(post.id)
+    try {
+      await authFetch('/api/social/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: post.id }),
+      })
+      await loadPosts()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  // Unschedule (revert to draft) or permanently delete.
+  async function handleRemove(post: SocialPost, hard: boolean) {
+    setBusyId(post.id)
+    try {
+      await authFetch('/api/social/schedule', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: post.id, hard }),
+      })
+      await loadPosts()
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -489,23 +529,55 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
                             )}
                           </p>
                           <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
-                            {when && <span className="text-xs text-muted-foreground">{when}</span>}
-                            {post.status === 'failed' && canEdit && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-7 px-2"
-                                disabled={retryingId === post.id}
-                                onClick={() => handleRetry(post)}
-                                title="Retry"
-                              >
-                                {retryingId === post.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
+                            {when ? (
+                              <span className="truncate text-xs text-muted-foreground">{when}</span>
+                            ) : (
+                              <span />
+                            )}
+                            {canEdit && post.status !== 'publishing' && post.status !== 'published' && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={busyId === post.id || retryingId === post.id}>
+                                    {busyId === post.id || retryingId === post.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <MoreVertical className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {post.status === 'scheduled' && (
+                                    <>
+                                      <DropdownMenuItem onClick={() => setEditPost(post)}>
+                                        <CalendarClock className="mr-2 h-4 w-4" /> Reschedule &amp; edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePublishNow(post)}>
+                                        <Send className="mr-2 h-4 w-4" /> Publish now
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setConfirm({ post, action: 'unschedule' })}>
+                                        <CalendarOff className="mr-2 h-4 w-4" /> Unschedule
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                    </>
+                                  )}
+                                  {post.status === 'failed' && (
+                                    <DropdownMenuItem onClick={() => handleRetry(post)}>
+                                      <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                                    </DropdownMenuItem>
+                                  )}
+                                  {post.status === 'draft' && (
+                                    <DropdownMenuItem onClick={() => setEditPost(post)}>
+                                      <Pencil className="mr-2 h-4 w-4" /> Edit &amp; schedule
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setConfirm({ post, action: 'delete' })}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                           </div>
                           {post.status === 'failed' && post.error && (
@@ -526,6 +598,31 @@ export function ComposeTab({ project, canEdit }: { project: Project; canEdit: bo
           })
         )}
       </div>
+
+      <PostScheduleDialog
+        post={editPost}
+        open={!!editPost}
+        onOpenChange={(o) => !o && setEditPost(null)}
+        onSaved={loadPosts}
+      />
+      <ConfirmDialog
+        open={!!confirm}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={confirm?.action === 'delete' ? 'Delete post?' : 'Unschedule post?'}
+        description={
+          confirm?.action === 'delete'
+            ? 'This permanently deletes the post. This cannot be undone.'
+            : 'This moves the post back to Draft and clears its scheduled time.'
+        }
+        confirmLabel={confirm?.action === 'delete' ? 'Delete' : 'Unschedule'}
+        variant={confirm?.action === 'delete' ? 'destructive' : 'default'}
+        onConfirm={() => {
+          if (!confirm) return
+          if (confirm.action === 'delete') handleRemove(confirm.post, true)
+          else handleRemove(confirm.post, false)
+          setConfirm(null)
+        }}
+      />
     </div>
   )
 }
