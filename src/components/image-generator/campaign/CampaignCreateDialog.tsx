@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/hooks/useAuth'
 import { projects as projectsApi } from '@/lib/firestore'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
@@ -163,19 +163,31 @@ export function CampaignCreateDialog({
       <DialogContent
         // Anchor with fixed top/bottom insets (no vertical transform), so the modal's
         // bottom edge is always at 93vh — the footer can never go off-screen.
-        style={{ top: '7vh', bottom: '7vh', transform: 'translateX(-50%)' }}
+        style={{ top: '5vh', bottom: '5vh', transform: 'translateX(-50%)' }}
         className="block w-[86vw] max-w-[86vw] gap-0 overflow-y-auto overflow-x-hidden p-0"
       >
-        <DialogHeader className="sticky top-0 z-20 space-y-1 border-b bg-background px-6 py-4">
-          <DialogTitle className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-              <Megaphone className="h-4 w-4 text-primary" />
-            </span>
-            Create campaign
-          </DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            Generate a branded multi-post campaign for any project — set the brief, the look, and the schedule.
-          </p>
+        <DialogHeader className="sticky top-0 z-20 flex-row items-center justify-between gap-4 border-b bg-background py-3.5 pl-6 pr-14">
+          <div className="min-w-0 space-y-1">
+            <DialogTitle className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <Megaphone className="h-4 w-4 text-primary" />
+              </span>
+              Create campaign
+            </DialogTitle>
+            <p className="truncate text-xs text-muted-foreground">
+              Generate a branded multi-post campaign for any project — set the brief, the look, and the schedule.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button size="sm" variant="outline" onClick={handleSuggest} disabled={suggesting || !project}>
+              {suggesting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+              Suggest with AI
+            </Button>
+            <Button size="sm" onClick={handleCreate} disabled={creating || !project}>
+              {creating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Megaphone className="mr-1.5 h-3.5 w-3.5" />}
+              {project ? 'Create campaign' : 'Select a project'}
+            </Button>
+          </div>
         </DialogHeader>
 
         {/* Whole modal (DialogContent) is the single scroll box; header & footer are sticky bars. */}
@@ -391,22 +403,6 @@ export function CampaignCreateDialog({
           </div>
         </div>
 
-        {/* Sticky action footer */}
-        <DialogFooter className="sticky bottom-0 z-20 min-h-[76px] flex-row items-center justify-between gap-3 border-t bg-background px-8 py-5 sm:justify-between">
-          <p className="min-w-0 truncate text-xs text-muted-foreground">
-            {project ? `Brand & images from “${project.name}”` : 'Pick a project to enable creating.'}
-          </p>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button size="sm" variant="outline" onClick={handleSuggest} disabled={suggesting || !project}>
-              {suggesting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-              Suggest with AI
-            </Button>
-            <Button size="sm" onClick={handleCreate} disabled={creating || !project}>
-              {creating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Megaphone className="mr-1.5 h-3.5 w-3.5" />}
-              {project ? 'Create campaign' : 'Select a project'}
-            </Button>
-          </div>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
