@@ -181,7 +181,7 @@ export function CampaignCreateDialog({
         </DialogHeader>
 
         {/* Three themed columns. On desktop each scrolls independently; on mobile the whole area scrolls. min-h-0 lets the flex child shrink so the footer never gets clipped. */}
-        <div className="grid flex-1 min-h-0 grid-cols-1 divide-y overflow-y-auto md:grid-cols-3 md:grid-rows-1 md:divide-x md:divide-y-0 md:overflow-hidden">
+        <div className="grid flex-1 min-h-0 grid-cols-1 divide-y overflow-y-auto md:grid-cols-[4fr_3fr_3fr] md:grid-rows-1 md:divide-x md:divide-y-0 md:overflow-hidden">
           {/* ── 1 · Project & brief ────────────────────────────────── */}
           <div className="flex flex-col gap-4 p-5 md:min-h-0 md:overflow-y-auto">
             <SectionHeader n={1} title="Project & brief" hint="Who it's for and what it should achieve" />
