@@ -285,7 +285,7 @@ export function Header() {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-0.5 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         {/* Page-injected actions (HeaderActions portal) */}
         <div id="header-actions-slot" className="mr-3 flex items-center gap-2 empty:mr-0" />
         {/* Server ops — owner only */}
