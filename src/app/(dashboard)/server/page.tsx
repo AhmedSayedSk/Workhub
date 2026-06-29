@@ -13,6 +13,7 @@ import type { VpsStats } from '@/lib/server/vps/types'
 import { AlertBanner } from '@/components/vps/AlertBanner'
 import { ContainerTable } from '@/components/vps/ContainerTable'
 import { StorageCard } from '@/components/vps/StorageCard'
+import { SecurityCard } from '@/components/vps/SecurityCard'
 import { CertList } from '@/components/vps/CertList'
 import { MetricCharts } from '@/components/vps/MetricCharts'
 import { AppsTable } from '@/components/vps/AppsTable'
@@ -109,6 +110,7 @@ export default function ServerPage() {
             </div>
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
+              {stats.security && <SecurityCard security={stats.security} />}
               {stats.certs && <CertList certs={stats.certs} />}
             </div>
           </div>

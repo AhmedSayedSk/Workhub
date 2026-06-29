@@ -118,6 +118,21 @@ export interface VpsStats {
   storage: StorageStats | null
   certs: CertInfo[] | null
   network: { rxBytes: number; txBytes: number } | null // aggregate of container NetIO
+  security: VpsSecurity | null
   alerts: Alert[]
   errors: SectionError[]
+}
+
+export interface SecurityCheck {
+  id: string
+  label: string
+  status: 'pass' | 'warn' | 'fail'
+  detail?: string
+}
+
+export interface VpsSecurity {
+  generatedAtMs: number
+  passed: number
+  total: number
+  checks: SecurityCheck[]
 }
