@@ -102,11 +102,21 @@ export interface MetricPoint {
   memPct: number
   diskPct: number
   load1: number
+  // Per-system rollup at this sample: summed cpuPct + summed memUsedBytes of each
+  // system's running containers, keyed by the same system id collectApps() uses.
+  systems?: Record<string, { cpu: number; mem: number }>
 }
 
 export interface HistoryResponse {
   range: string
   points: MetricPoint[]
+}
+
+// One per-system time-series point (cpu = summed %, mem = summed bytes).
+export interface SystemPoint {
+  ts: number // epoch ms
+  cpu: number
+  mem: number
 }
 
 export interface VpsStats {

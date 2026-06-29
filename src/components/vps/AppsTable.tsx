@@ -1,10 +1,16 @@
+'use client'
+
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { LayoutGrid, ExternalLink } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { LayoutGrid, ExternalLink, BarChart3 } from 'lucide-react'
 import type { AppInfo } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
+import { SystemStatsDialog } from './SystemStatsDialog'
 
 export function AppsTable({ apps }: { apps: AppInfo[] }) {
+  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null)
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -37,6 +43,16 @@ export function AppsTable({ apps }: { apps: AppInfo[] }) {
                         <Badge variant="outline" className="font-normal text-[10px] uppercase">
                           {a.type}
                         </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => setSelected({ id: a.id, name: a.name })}
+                          title="CPU & memory history"
+                        >
+                          <BarChart3 className="h-3.5 w-3.5" />
+                          Stats
+                        </Button>
                       </div>
                       {a.description && <div className="text-xs text-muted-foreground">{a.description}</div>}
                     </td>
@@ -106,6 +122,14 @@ export function AppsTable({ apps }: { apps: AppInfo[] }) {
           </table>
         </div>
       </CardContent>
+      {selected && (
+        <SystemStatsDialog
+          systemId={selected.id}
+          name={selected.name}
+          open={!!selected}
+          onOpenChange={(o) => !o && setSelected(null)}
+        />
+      )}
     </Card>
   )
 }

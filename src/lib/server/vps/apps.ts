@@ -106,6 +106,17 @@ function appKeyFromWorkdir(wd: string): { key: string; path: string } | null {
   return { key: m[1], path: `/opt/${m[1]}` }
 }
 
+// Map a container's compose labels to the FOLDED system id the UI renders — the
+// single source of truth shared with per-system metrics so ids never diverge.
+// Mirrors collectApps(): raw key from working_dir (or project label), then fold
+// umbrella siblings (e.g. coffeepos-* → coffeepos) via PARENTS.
+export function systemIdForLabels(labels: Record<string, string>): string {
+  const wd = labels['com.docker.compose.project.working_dir'] || ''
+  const keyed = appKeyFromWorkdir(wd)
+  const key = keyed?.key || labels['com.docker.compose.project'] || '(other)'
+  return parentKeyOf(key) || key
+}
+
 export async function collectApps(): Promise<AppInfo[]> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), 8000)

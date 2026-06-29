@@ -1,4 +1,5 @@
 import type { ContainerStat, StorageStats } from './types'
+import { systemIdForLabels } from './apps'
 
 // Client for the read-only docker-socket-proxy sidecar (workhub-dockerproxy).
 // The proxy exposes the Docker Engine API over HTTP with a GET-only allowlist,
@@ -134,4 +135,35 @@ export async function collectContainers(): Promise<ContainerStat[]> {
 
 export async function collectStorage(): Promise<StorageStats> {
   return parseStorage(await dockerGet<DfResponse>('/system/df'))
+}
+
+// --- per-system live rollup -----------------------------------------------
+interface LabeledContainer {
+  Id: string
+  Labels?: Record<string, string>
+}
+
+// Group running containers into systems (same ids as collectApps) and sum each
+// system's CPU% + memory bytes. Used by the per-minute sampler to persist a
+// per-system slice alongside the host point.
+export async function collectSystemStats(): Promise<Record<string, { cpu: number; mem: number }>> {
+  const list = await dockerGet<LabeledContainer[]>('/containers/json') // running only
+  const result: Record<string, { cpu: number; mem: number }> = {}
+  await Promise.all(
+    list.map(async (c) => {
+      try {
+        const s = await dockerGet<DockerStats>(`/containers/${c.Id}/stats?stream=false`, 6000)
+        const id = systemIdForLabels(c.Labels || {})
+        const cur = result[id] || { cpu: 0, mem: 0 }
+        cur.cpu += computeCpuPct(s)
+        cur.mem += computeMem(s).used
+        result[id] = cur
+      } catch {
+        /* skip a container whose stats failed; others still count */
+      }
+    })
+  )
+  // Round summed CPU% for compactness; mem stays exact bytes.
+  for (const id of Object.keys(result)) result[id].cpu = Math.round(result[id].cpu * 10) / 10
+  return result
 }

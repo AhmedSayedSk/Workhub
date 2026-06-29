@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin'
 import { collectHost, rollingCpuPct } from './host'
-import type { MetricPoint } from './types'
+import { collectSystemStats } from './docker'
+import type { MetricPoint, SystemPoint } from './types'
 
 // Persistent time-series for the Server dashboard charts. A once-a-minute cron
 // hits /api/vps/sample → sampleAndStore() writes a compact snapshot to Firestore
@@ -10,6 +11,9 @@ import type { MetricPoint } from './types'
 
 const COL = 'vpsMetrics'
 const RETAIN_MS = 7 * 24 * 60 * 60 * 1000
+// Hourly-averaged per-system rollup, kept longer for the 30d per-system view.
+const SYS_COL = 'vpsSystemHourly'
+const SYS_RETAIN_MS = 35 * 24 * 60 * 60 * 1000
 
 // Guarded init — the sample route doesn't import api-auth, so ensure the Admin
 // app exists before using Firestore. No-ops if already initialized elsewhere.
@@ -27,7 +31,12 @@ function pct(used: number, total: number): number {
 }
 
 export async function sampleAndStore(): Promise<MetricPoint> {
-  const [host, rollingCpu] = await Promise.all([collectHost(), rollingCpuPct()])
+  const [host, rollingCpu, systems] = await Promise.all([
+    collectHost(),
+    rollingCpuPct(),
+    // Per-system slice is best-effort: never let it block the host point.
+    collectSystemStats().catch(() => undefined),
+  ])
   const point: MetricPoint = {
     ts: Date.now(),
     // Prefer the rolling ~60s average; fall back to the in-request sample only
@@ -37,6 +46,7 @@ export async function sampleAndStore(): Promise<MetricPoint> {
     diskPct: pct(host.disk.usedBytes, host.disk.totalBytes),
     load1: host.cpu.load1,
   }
+  if (systems && Object.keys(systems).length) point.systems = systems
   await db().collection(COL).add(point)
   // Prune old samples roughly once an hour to bound the collection.
   if (new Date().getMinutes() === 0) await prune()
@@ -46,6 +56,50 @@ export async function sampleAndStore(): Promise<MetricPoint> {
 async function prune(): Promise<void> {
   const cutoff = Date.now() - RETAIN_MS
   const snap = await db().collection(COL).where('ts', '<', cutoff).limit(400).get()
+  if (snap.empty) return
+  const batch = db().batch()
+  snap.docs.forEach((d) => batch.delete(d.ref))
+  await batch.commit()
+}
+
+// One hourly doc in vpsSystemHourly: hourly average of the last ~60 per-minute
+// per-system samples. Hit hourly by a host cron via POST /api/vps/rollup.
+interface SystemHourlyDoc {
+  ts: number
+  systems: Record<string, { cpu: number; mem: number }>
+}
+
+export async function rollupSystemHourly(): Promise<SystemHourlyDoc> {
+  const cutoff = Date.now() - 60 * 60 * 1000
+  const snap = await db().collection(COL).where('ts', '>=', cutoff).get()
+  const acc: Record<string, { cpu: number; mem: number; n: number }> = {}
+  for (const d of snap.docs) {
+    const sys = (d.data() as MetricPoint).systems
+    if (!sys) continue
+    for (const [id, v] of Object.entries(sys)) {
+      const a = acc[id] || { cpu: 0, mem: 0, n: 0 }
+      a.cpu += v.cpu
+      a.mem += v.mem
+      a.n += 1
+      acc[id] = a
+    }
+  }
+  const systems: Record<string, { cpu: number; mem: number }> = {}
+  for (const [id, a] of Object.entries(acc)) {
+    systems[id] = {
+      cpu: Math.round((a.cpu / a.n) * 10) / 10,
+      mem: Math.round(a.mem / a.n),
+    }
+  }
+  const doc: SystemHourlyDoc = { ts: Date.now(), systems }
+  await db().collection(SYS_COL).add(doc)
+  await pruneSystemHourly()
+  return doc
+}
+
+async function pruneSystemHourly(): Promise<void> {
+  const cutoff = Date.now() - SYS_RETAIN_MS
+  const snap = await db().collection(SYS_COL).where('ts', '<', cutoff).limit(400).get()
   if (snap.empty) return
   const batch = db().batch()
   snap.docs.forEach((d) => batch.delete(d.ref))
@@ -106,4 +160,73 @@ export function downsample(points: MetricPoint[], target: number): MetricPoint[]
         load1: Math.round(avg((p) => p.load1) * 100) / 100,
       }
     })
+}
+
+// --- per-system history ----------------------------------------------------
+// 24h/3d/7d read the per-minute vpsMetrics (systems map); 30d reads the
+// hourly-averaged vpsSystemHourly (already coarse) instead.
+const SYS_RANGE_MS: Record<string, number> = {
+  '24h': 24 * 60 * 60 * 1000,
+  '3d': 3 * 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+}
+const SYS_TARGET = 90
+const SYS_CACHE_TTL_MS: Record<string, number> = {
+  '24h': 120_000,
+  '3d': 300_000,
+  '7d': 600_000,
+  '30d': 1_800_000,
+}
+const sysCache: Record<string, { at: number; data: SystemPoint[] }> = {}
+
+// Same time-bucket averaging as downsample(), for {ts,cpu,mem} system points.
+function downsampleSystem(points: SystemPoint[], target: number): SystemPoint[] {
+  if (points.length <= target) return points
+  const first = points[0].ts
+  const last = points[points.length - 1].ts
+  const span = Math.max(1, last - first)
+  const bucketMs = span / target
+  const buckets = new Map<number, SystemPoint[]>()
+  for (const p of points) {
+    const b = Math.floor((p.ts - first) / bucketMs)
+    const arr = buckets.get(b)
+    if (arr) arr.push(p)
+    else buckets.set(b, [p])
+  }
+  return [...buckets.keys()]
+    .sort((a, b) => a - b)
+    .map((k) => {
+      const arr = buckets.get(k)!
+      const avg = (f: (p: SystemPoint) => number) => arr.reduce((s, p) => s + f(p), 0) / arr.length
+      return {
+        ts: Math.round(avg((p) => p.ts)),
+        cpu: Math.round(avg((p) => p.cpu) * 10) / 10,
+        mem: Math.round(avg((p) => p.mem)),
+      }
+    })
+}
+
+export async function readSystemHistory(systemId: string, range: string): Promise<SystemPoint[]> {
+  const rangeMs = SYS_RANGE_MS[range] ?? SYS_RANGE_MS['24h']
+  const useHourly = range === '30d'
+  const cacheKey = `${systemId}:${range}`
+  const ttl = SYS_CACHE_TTL_MS[range] ?? 120_000
+  const cached = sysCache[cacheKey]
+  if (cached && Date.now() - cached.at < ttl) return cached.data
+
+  const cutoff = Date.now() - rangeMs
+  const col = useHourly ? SYS_COL : COL
+  // Single-field range filter only (sort client-side) — no composite index.
+  const snap = await db().collection(col).where('ts', '>=', cutoff).get()
+  const raw: SystemPoint[] = snap.docs
+    .map((d) => {
+      const data = d.data() as { ts: number; systems?: Record<string, { cpu: number; mem: number }> }
+      const v = data.systems?.[systemId]
+      return { ts: data.ts, cpu: v?.cpu ?? 0, mem: v?.mem ?? 0 }
+    })
+    .sort((a, b) => a.ts - b.ts)
+  const data = useHourly ? raw : downsampleSystem(raw, SYS_TARGET)
+  sysCache[cacheKey] = { at: Date.now(), data }
+  return data
 }
