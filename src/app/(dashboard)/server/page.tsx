@@ -13,7 +13,7 @@ import type { VpsStats } from '@/lib/server/vps/types'
 import { AlertBanner } from '@/components/vps/AlertBanner'
 import { ContainerTable } from '@/components/vps/ContainerTable'
 import { StorageCard } from '@/components/vps/StorageCard'
-import { SecurityCard } from '@/components/vps/SecurityCard'
+import { SecurityDialog } from '@/components/vps/SecurityDialog'
 import { CertList } from '@/components/vps/CertList'
 import { MetricCharts } from '@/components/vps/MetricCharts'
 import { AppsTable } from '@/components/vps/AppsTable'
@@ -82,6 +82,7 @@ export default function ServerPage() {
         </div>
       </HeaderTitle>
       <HeaderActions>
+        {stats?.security && <SecurityDialog security={stats.security} />}
         <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading} className="gap-2">
           <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           Refresh
@@ -110,7 +111,6 @@ export default function ServerPage() {
             </div>
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
-              {stats.security && <SecurityCard security={stats.security} />}
               {stats.certs && <CertList certs={stats.certs} />}
             </div>
           </div>
