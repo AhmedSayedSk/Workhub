@@ -292,13 +292,14 @@ export function Header() {
         {isAppOwner && (
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={() => router.push('/server')}
-            className={cn('h-9 w-9', (pathname ?? '').startsWith('/server') && 'bg-muted text-foreground')}
+            className={cn('h-9 gap-1.5 px-2.5', (pathname ?? '').startsWith('/server') && 'bg-muted text-foreground')}
             title="Server"
             aria-label="Server"
           >
             <Server className="h-[18px] w-[18px]" />
+            <span>Server</span>
           </Button>
         )}
         {/* Notification Bell */}
