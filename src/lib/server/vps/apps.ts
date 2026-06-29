@@ -34,6 +34,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['whatsapp-api.sikasio.com'],
   },
+  whisperlock: {
+    name: 'Whisperlock',
+    description: 'AI escape-room game (Gandalf-style) — Gemini gatekeepers, Next.js + Prisma/SQLite',
+    type: 'app',
+    domains: ['whisperlock.sikasio.com'],
+  },
   'coffeepos-landing': {
     name: 'CoffeePOS — Landing',
     description: 'Marketing landing site',
