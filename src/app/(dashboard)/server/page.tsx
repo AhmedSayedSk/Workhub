@@ -81,7 +81,7 @@ export default function ServerPage() {
         </div>
       </HeaderTitle>
       <HeaderActions>
-        <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading} className="gap-2">
           <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           Refresh
         </Button>
