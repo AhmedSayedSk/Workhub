@@ -684,7 +684,7 @@ export default function ProjectsPage() {
                               <p className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{groupName || 'No group'}</p>
                               <div className="h-px flex-1 bg-border/60" />
                             </div>
-                            <div className="flex flex-wrap gap-2.5">
+                            <div className="flex flex-wrap items-start gap-2.5">
                     {items.map((sub, localIdx) => (
                       <TooltipProvider key={sub.id} delayDuration={350}>
                         <Tooltip>
@@ -722,7 +722,7 @@ export default function ProjectsPage() {
                                 router.push(`/projects/${sub.id}`)
                               }}
                               className={cn(
-                                'group flex min-w-0 shrink-0 grow-0 basis-[calc((100%-1.25rem)/3)] cursor-pointer flex-col gap-2 rounded-xl border bg-card px-2.5 pt-2.5 pb-1.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
+                                'group flex min-w-0 shrink-0 grow-0 basis-[calc((100%-1.25rem)/3)] cursor-pointer flex-col gap-2 rounded-xl border bg-card px-2.5 py-2 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
                                 draggedSubId === sub.id && 'opacity-40',
                                 panelDrop?.group === groupName && panelDrop.index === localIdx && 'ring-2 ring-primary ring-offset-1',
                                 panelDrop?.group === groupName && panelDrop.index === localIdx + 1 && localIdx === items.length - 1 && 'ring-2 ring-primary ring-offset-1',
@@ -738,16 +738,6 @@ export default function ProjectsPage() {
                                     </p>
                                   )}
                                 </div>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {(subTaskCounts[sub.id] ?? 0) > 0 && (
-                                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 py-0 text-[10px] tabular-nums text-muted-foreground">
-                                    <ListTodo className="h-2.5 w-2.5" />
-                                    {subTaskCounts[sub.id]}
-                                  </span>
-                                )}
-                                {/* Stage badge: revealed on card hover only */}
-                                <StageBadge stage={sub.lastTouchedStage ?? null} className="hidden gap-0.5 px-1.5 py-0 text-[10px] group-hover:inline-flex" />
                               </div>
                             </div>
                           </TooltipTrigger>
