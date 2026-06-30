@@ -343,15 +343,15 @@ export default function ProjectsPage() {
                   <div className="h-px flex-1 bg-border/60" />
                 </div>
 
-                {/* Projects Grid */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* Projects Grid — items-start so cards size to their content (no bottom stretch gap) */}
+                <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {projectsInGroup.map((project) => {
                     const progress = calculateProgress(project.paidAmount, getEffectiveTotal(project))
                     const PaymentIcon = paymentModelIcons[project.paymentModel]
 
                     return (
                       <div key={project.id} onClick={() => router.push(`/projects/${project.id}`)}>
-                        <Card className="h-full cursor-pointer overflow-hidden border bg-card transition-all duration-150 hover:bg-muted hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5">
+                        <Card className="group h-full cursor-pointer overflow-hidden border bg-card transition-all duration-150 hover:bg-muted hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5">
                           <CardHeader className="pb-1 pt-4 px-4 relative">
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                               <div className="flex items-center gap-1 text-muted-foreground">
@@ -371,7 +371,7 @@ export default function ProjectsPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
                                   <CardTitle className="text-base pr-28 !mt-0 truncate">{project.name}</CardTitle>
-                                  <StageBadge stage={project.lastTouchedStage ?? null} className="shrink-0 mt-0.5" />
+                                  <StageBadge stage={project.lastTouchedStage ?? null} className="shrink-0 mt-0.5 opacity-0 transition-opacity group-hover:opacity-100" />
                                 </div>
                                 {project.paymentModel === 'internal' ? (
                                   <p className="text-xs text-muted-foreground">
