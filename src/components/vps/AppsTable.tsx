@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { LayoutGrid, ExternalLink, BarChart3 } from 'lucide-react'
 import type { AppInfo } from '@/lib/server/vps/types'
@@ -40,15 +39,12 @@ export function AppsTable({ apps }: { apps: AppInfo[] }) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{a.name}</span>
-                        <Badge variant="outline" className="font-normal text-[10px] uppercase">
-                          {a.type}
-                        </Badge>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 gap-1 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                          className="h-6 gap-1 rounded-md border border-transparent px-1.5 text-xs text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
                           onClick={() => setSelected({ id: a.id, name: a.name })}
-                          title="CPU & memory history"
+                          title="View CPU & memory history"
                         >
                           <BarChart3 className="h-3.5 w-3.5" />
                           Stats
@@ -81,19 +77,28 @@ export function AppsTable({ apps }: { apps: AppInfo[] }) {
                     </td>
                     <td className="px-4 py-3">
                       {a.total === 0 ? (
-                        <span className="text-xs text-muted-foreground">non-container</span>
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                          non-container
+                        </span>
                       ) : (
-                        <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums',
+                            allUp
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                              : someDown
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                          )}
+                        >
                           <span
                             className={cn(
-                              'h-2 w-2 rounded-full',
+                              'h-1.5 w-1.5 rounded-full',
                               allUp ? 'bg-emerald-500' : someDown ? 'bg-amber-500' : 'bg-red-500'
                             )}
                           />
-                          <span className="text-xs tabular-nums">
-                            {a.running}/{a.total} up
-                          </span>
-                        </div>
+                          {a.running}/{a.total} up
+                        </span>
                       )}
                       {a.services.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
