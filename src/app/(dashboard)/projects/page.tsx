@@ -343,15 +343,15 @@ export default function ProjectsPage() {
                   <div className="h-px flex-1 bg-border/60" />
                 </div>
 
-                {/* Projects Grid — items-start so cards size to their content (no bottom stretch gap) */}
-                <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* Projects Grid */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {projectsInGroup.map((project) => {
                     const progress = calculateProgress(project.paidAmount, getEffectiveTotal(project))
                     const PaymentIcon = paymentModelIcons[project.paymentModel]
 
                     return (
                       <div key={project.id} onClick={() => router.push(`/projects/${project.id}`)}>
-                        <Card className="group h-full cursor-pointer overflow-hidden border bg-card transition-all duration-150 hover:bg-muted hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5">
+                        <Card className="h-full cursor-pointer overflow-hidden border bg-card transition-all duration-150 hover:bg-muted hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5">
                           <CardHeader className="pb-1 pt-4 px-4 relative">
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                               <div className="flex items-center gap-1 text-muted-foreground">
@@ -371,7 +371,7 @@ export default function ProjectsPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
                                   <CardTitle className="text-base pr-28 !mt-0 truncate">{project.name}</CardTitle>
-                                  <StageBadge stage={project.lastTouchedStage ?? null} className="shrink-0 mt-0.5 opacity-0 transition-opacity group-hover:opacity-100" />
+                                  <StageBadge stage={project.lastTouchedStage ?? null} className="shrink-0 mt-0.5" />
                                 </div>
                                 {project.paymentModel === 'internal' ? (
                                   <p className="text-xs text-muted-foreground">
@@ -722,7 +722,7 @@ export default function ProjectsPage() {
                                 router.push(`/projects/${sub.id}`)
                               }}
                               className={cn(
-                                'group flex min-w-0 shrink-0 grow-0 basis-[calc((100%-1.25rem)/3)] cursor-pointer flex-col gap-2 rounded-xl border bg-card p-2.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
+                                'group flex min-w-0 shrink-0 grow-0 basis-[calc((100%-1.25rem)/3)] cursor-pointer flex-col gap-2 rounded-xl border bg-card px-2.5 pt-2.5 pb-1.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
                                 draggedSubId === sub.id && 'opacity-40',
                                 panelDrop?.group === groupName && panelDrop.index === localIdx && 'ring-2 ring-primary ring-offset-1',
                                 panelDrop?.group === groupName && panelDrop.index === localIdx + 1 && localIdx === items.length - 1 && 'ring-2 ring-primary ring-offset-1',
@@ -740,13 +740,14 @@ export default function ProjectsPage() {
                                 </div>
                               </div>
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <StageBadge stage={sub.lastTouchedStage ?? null} className="gap-0.5 px-1.5 py-0 text-[10px]" />
                                 {(subTaskCounts[sub.id] ?? 0) > 0 && (
                                   <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 py-0 text-[10px] tabular-nums text-muted-foreground">
                                     <ListTodo className="h-2.5 w-2.5" />
                                     {subTaskCounts[sub.id]}
                                   </span>
                                 )}
+                                {/* Stage badge: revealed on card hover only */}
+                                <StageBadge stage={sub.lastTouchedStage ?? null} className="hidden gap-0.5 px-1.5 py-0 text-[10px] group-hover:inline-flex" />
                               </div>
                             </div>
                           </TooltipTrigger>
