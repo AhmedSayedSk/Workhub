@@ -5,7 +5,7 @@ import * as store from '@/lib/server/meta/store'
 import { AdminTimestamp } from '@/lib/server/meta/store'
 import { getAccountCreds } from '@/lib/server/meta/accounts'
 import { metaContext } from '@/lib/server/meta/client'
-import { graphFetch } from '@/lib/server/meta'
+import { graphFetch, MetaApiError } from '@/lib/server/meta'
 import { getLinkedInCreds } from '@/lib/server/linkedin/accounts'
 import { liFetch } from '@/lib/server/linkedin/client'
 import type { SocialPlatform, SocialPost } from '@/types'
@@ -49,7 +49,15 @@ export async function POST(request: NextRequest) {
           fbPostId = null
           results.fb = 'removed'
         } catch (e) {
-          results.fb = e instanceof Error ? e.message : 'Failed to remove from Facebook'
+          // Already gone on Facebook (deleted manually / no longer accessible) → treat as success (idempotent).
+          const gone = e instanceof MetaApiError && ((e.body as any)?.error?.code === 100 || /does not exist|Unsupported delete request/i.test(e.message))
+          if (gone) {
+            patch.fbPostId = null
+            fbPostId = null
+            results.fb = 'already removed'
+          } else {
+            results.fb = e instanceof Error ? e.message : 'Failed to remove from Facebook'
+          }
         }
       }
       if (platforms.includes('ig') && igMediaId) {
@@ -59,8 +67,11 @@ export async function POST(request: NextRequest) {
           igMediaId = null
           results.ig = 'removed'
         } catch {
-          // Meta's API does not support deleting published IG media.
-          results.ig = 'Instagram does not support deletion via API — remove it in the Instagram app.'
+          // Meta's API can't delete published IG media. Since the user explicitly asked to
+          // remove it, clear our tracking and tell them to delete it in the app.
+          patch.igMediaId = null
+          igMediaId = null
+          results.ig = 'Instagram media must be deleted in the app — cleared from WorkHub tracking.'
         }
       }
     }
@@ -77,6 +88,11 @@ export async function POST(request: NextRequest) {
             patch.liPostId = null
             liPostId = null
             results.li = 'removed'
+          } else if (res.status === 404) {
+            // Already gone on LinkedIn (deleted manually) → treat as success (idempotent).
+            patch.liPostId = null
+            liPostId = null
+            results.li = 'already removed'
           } else {
             const t = await res.text().catch(() => '')
             results.li = `Failed (${res.status}) ${t.slice(0, 140)}`
