@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { authFetch } from '@/lib/api-client'
 import { toast } from 'react-toastify'
@@ -77,6 +78,11 @@ export function CampaignCreateDialog({
     goal: '',
     audience: '',
     tone: 'confident, friendly, concrete',
+    includeLink: true,
+    link: '',
+    includeHowTo: true,
+    includeEdge: false,
+    edge: '',
     count: 6,
     language: 'en' as CampaignLanguage,
     platforms: ['fb', 'ig'] as SocialPlatform[],
@@ -170,6 +176,13 @@ export function CampaignCreateDialog({
         startDate: form.startDate,
         cadenceDays: Math.max(1, form.cadenceDays),
         postTime: form.postTime,
+        content: {
+          includeLink: form.includeLink,
+          link: form.includeLink ? form.link.trim() : '',
+          includeHowTo: form.includeHowTo,
+          includeEdge: form.includeEdge,
+          edge: form.includeEdge ? form.edge.trim() : '',
+        },
       },
       brand: {
         name: project.name,
@@ -267,6 +280,43 @@ export function CampaignCreateDialog({
             <div className="space-y-1.5">
               <Label className="text-xs">Tone</Label>
               <Input value={form.tone} onChange={(e) => set('tone', e.target.value)} />
+            </div>
+
+            {/* Content to include — what each generated post should mention */}
+            <div className="space-y-2">
+              <Label className="text-xs">Content to include in posts</Label>
+              <div className="space-y-2.5 rounded-lg border p-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox checked={form.includeLink} onCheckedChange={(v) => set('includeLink', v)} />
+                  <span>Project link (as a call-to-action)</span>
+                </label>
+                {form.includeLink && (
+                  <Input
+                    value={form.link}
+                    onChange={(e) => set('link', e.target.value)}
+                    placeholder="https://… project / repo link"
+                    className="h-8"
+                  />
+                )}
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox checked={form.includeHowTo} onCheckedChange={(v) => set('includeHowTo', v)} />
+                  <span>How to use it</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox checked={form.includeEdge} onCheckedChange={(v) => set('includeEdge', v)} />
+                  <span>Benefits vs competitors</span>
+                </label>
+                {form.includeEdge && (
+                  <Textarea
+                    value={form.edge}
+                    onChange={(e) => set('edge', e.target.value)}
+                    rows={2}
+                    className="resize-none text-sm"
+                    placeholder="Optional: rivals (e.g. GitHub Desktop, GitKraken) and/or your key advantages"
+                  />
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Woven across the generated posts.</p>
             </div>
           </div>
 

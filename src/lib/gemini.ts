@@ -770,6 +770,11 @@ export async function generateCampaignPosts(
     tone: string
     count: number
     language: 'en' | 'ar'
+    includeLink?: boolean
+    link?: string
+    includeHowTo?: boolean
+    includeEdge?: boolean
+    edge?: string
   },
   model?: GeminiModel
 ): Promise<GeneratedCampaignPost[]> {
@@ -778,6 +783,14 @@ export async function generateCampaignPosts(
     params.language === 'ar'
       ? 'Write the "caption" and "hashtags" in ARABIC (Modern Standard, natural marketing tone). Keep "imagePrompt" in ENGLISH.'
       : 'Write everything in English.'
+  // Optional content emphasis toggled per-campaign — woven across the posts.
+  const emphasis: string[] = []
+  if (params.includeLink && params.link) emphasis.push(`Include the link ${params.link} as the call-to-action in at least one post (place it in the caption text).`)
+  if (params.includeHowTo) emphasis.push(`Dedicate at least one post to HOW TO USE it — a concrete quick-start or usage example.`)
+  if (params.includeEdge) emphasis.push(`Dedicate at least one post to why it beats the alternatives${params.edge ? ` (context: ${params.edge})` : ''} — frame it as positive benefits/differentiators, never attacks.`)
+  const emphasisBlock = emphasis.length
+    ? `\nAcross the ${count} posts you MUST also cover these (spread them out — don't cram into one post):\n${emphasis.map((e) => `- ${e}`).join('\n')}\n`
+    : ''
   const prompt = `You are a senior social-media creative producing a cohesive ${count}-post campaign for the brand "${params.brandName}".
 
 Campaign goal: ${params.goal || 'grow awareness and drive signups'}
@@ -789,7 +802,7 @@ Product/brand context (description, repos, domains):
 """
 ${(params.context || '').slice(0, 12_000)}
 """
-
+${emphasisBlock}
 Produce exactly ${count} DISTINCT posts that build on each other (vary the angle: hook/benefit, key feature, how-it-works, social proof, clear CTA). Respond with ONLY a JSON array (no markdown fences), ${count} items:
 [{"caption":"<1-3 short sentences ending in a clear CTA; platform-ready; use \\n for line breaks>","hashtags":["<3-6 relevant tags WITHOUT the # symbol>"],"imagePrompt":"<describe ONLY the SUBJECT, scene, composition and mood in English — do NOT specify an art style or colors (those are applied separately by the campaign). NO text overlays, NO logos.>","headline":"<a SHORT punchy headline of 2-6 words to display ON the image${params.language === 'ar' ? ', in ARABIC' : ''}>","body":"<one short supporting sentence (max ~12 words) to display ON the image${params.language === 'ar' ? ', in ARABIC' : ''}>"}]`
 

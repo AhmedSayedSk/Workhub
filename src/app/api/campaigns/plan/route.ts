@@ -18,7 +18,13 @@ const T = admin.firestore.Timestamp
 interface CampaignDoc {
   projectId: string
   brand?: { name?: string; colors?: string[] }
-  brief?: { goal?: string; audience?: string; tone?: string; count?: number }
+  brief?: {
+    goal?: string
+    audience?: string
+    tone?: string
+    count?: number
+    content?: { includeLink?: boolean; link?: string; includeHowTo?: boolean; includeEdge?: boolean; edge?: string }
+  }
   language?: string
   style?: string
   aspect?: string
@@ -72,6 +78,11 @@ export async function POST(request: NextRequest) {
           tone: camp.brief?.tone || '',
           count: camp.brief?.count || 4,
           language: camp.language === 'ar' ? 'ar' : 'en',
+          includeLink: camp.brief?.content?.includeLink,
+          link: camp.brief?.content?.link,
+          includeHowTo: camp.brief?.content?.includeHowTo,
+          includeEdge: camp.brief?.content?.includeEdge,
+          edge: camp.brief?.content?.edge,
         })
         if (posts.length === 0) throw new Error('No posts were generated')
 

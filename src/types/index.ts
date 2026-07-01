@@ -564,6 +564,14 @@ export type CampaignPostStatus = 'planned' | 'approved' | 'generating' | 'ready'
 export type CampaignAspect = 'landscape' | 'square' | 'portrait'
 export type CampaignTextOption = 'none' | 'short' | 'long' // render post text ON the image
 
+export interface CampaignContentEmphasis {
+  includeLink: boolean // include the project link as a CTA in the posts
+  link?: string // the URL to include (used when includeLink)
+  includeHowTo: boolean // dedicate a post to how to use the product
+  includeEdge: boolean // dedicate a post to benefits vs competitors
+  edge?: string // optional competitors / differentiators context for the AI
+}
+
 export interface CampaignBrief {
   goal: string
   audience: string
@@ -572,6 +580,7 @@ export interface CampaignBrief {
   startDate: string // ISO date YYYY-MM-DD
   cadenceDays: number // days between posts
   postTime: string // HH:mm local, e.g. "18:00"
+  content?: CampaignContentEmphasis // what each post should mention (link / how-to / competitor edge)
 }
 
 export interface CampaignBrand {
