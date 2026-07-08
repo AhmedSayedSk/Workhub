@@ -46,6 +46,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['admin.ftwsport.com'],
   },
+  'img-gen-api': {
+    name: 'Image Gen API',
+    description: 'Public image-generation REST API (useapi.net) — async jobs, API keys, rate limits; /docs + /status',
+    type: 'app',
+    domains: ['img-gen-api.sikasio.com'],
+  },
   'coffeepos-landing': {
     name: 'CoffeePOS — Landing',
     description: 'Marketing landing site',
