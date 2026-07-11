@@ -40,6 +40,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['whisperlock.sikasio.com'],
   },
+  echonote: {
+    name: 'EchoNote',
+    description: 'Voice notes with AI transcription, summaries & smart keywords (Gemini + Firebase).',
+    type: 'app',
+    domains: ['echonote.sikasio.com'],
+  },
   'ftw-admin': {
     name: 'FTW Admin',
     description: 'FTW Fitness admin console (Vite SPA + Supabase) — users, content, marketing & analytics',
