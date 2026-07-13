@@ -19,10 +19,13 @@ const ACCESSORS: Record<SortKey, (c: ContainerStat) => number | string> = {
 }
 const NUMERIC: Record<SortKey, boolean> = { name: false, status: false, cpu: true, memory: true, net: true }
 
-export function ContainerTable({ containers }: { containers: ContainerStat[] }) {
+export function ContainerTable({ containers, hostMemTotalBytes }: { containers: ContainerStat[]; hostMemTotalBytes?: number }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'cpu', dir: 'desc' })
-  // Containers share the host RAM limit — surface it once in the column header.
-  const memTotal = containers.reduce((m, c) => Math.max(m, c.memLimitBytes || 0), 0)
+  // Memory % is measured against the HOST's total RAM (shown once in the header),
+  // NOT each container's own cgroup cap — otherwise a capped container (e.g. an
+  // AI worker limited to 1.4G) would read ~98% while using only ~35% of the box.
+  // Fall back to the largest container limit only if the host total is unknown.
+  const memTotal = hostMemTotalBytes || containers.reduce((m, c) => Math.max(m, c.memLimitBytes || 0), 0)
 
   const sorted = useMemo(() => {
     const acc = ACCESSORS[sort.key]
@@ -94,7 +97,7 @@ export function ContainerTable({ containers }: { containers: ContainerStat[] }) 
             </thead>
             <tbody>
               {sorted.map((c) => {
-                const memPct = pct(c.memUsedBytes, c.memLimitBytes)
+                const memPct = pct(c.memUsedBytes, memTotal)
                 return (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-4 py-2.5">

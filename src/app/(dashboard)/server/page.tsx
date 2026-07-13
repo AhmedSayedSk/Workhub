@@ -118,7 +118,7 @@ export default function ServerPage() {
           <div className="grid gap-4 lg:grid-cols-12">
             {stats.containers && (
               <div className="lg:col-span-5">
-                <ContainerTable containers={stats.containers} />
+                <ContainerTable containers={stats.containers} hostMemTotalBytes={stats.host?.memory.totalBytes} />
               </div>
             )}
             {stats.apps && (
