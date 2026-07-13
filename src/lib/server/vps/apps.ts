@@ -54,7 +54,7 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
   },
   'img-gen-api': {
     name: 'Image Gen API',
-    description: 'Public image-generation REST API (useapi.net) — async jobs, API keys, rate limits; /docs + /status',
+    description: 'Self-serve image-generation SaaS — signup/verify, credit plans & Polar billing, async jobs; /docs + dashboard + /status',
     type: 'app',
     domains: ['img-gen-api.sikasio.com'],
   },
