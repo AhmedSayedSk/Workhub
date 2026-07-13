@@ -58,6 +58,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['img-gen-api.sikasio.com'],
   },
+  'bg-api': {
+    name: 'BG-API',
+    description: 'Background-removal SaaS — self-serve signup, Polar billing, plan quotas; gateway + AI worker',
+    type: 'app',
+    domains: ['bg-api.sikasio.com'],
+  },
   'coffeepos-landing': {
     name: 'CoffeePOS — Landing',
     description: 'Marketing landing site',
