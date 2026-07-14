@@ -98,6 +98,7 @@ export interface VpsMeta {
 // One persisted time-series sample (written every minute, charted over time).
 export interface MetricPoint {
   ts: number // epoch ms
+  serverId?: string // absent on legacy docs → treated as 'primary'
   cpuPct: number
   memPct: number
   diskPct: number
@@ -145,4 +146,32 @@ export interface VpsSecurity {
   passed: number
   total: number
   checks: SecurityCheck[]
+}
+
+export interface ServerDef {
+  id: string
+  name: string
+  subtitle: string
+  mode: 'local' | 'remote'
+}
+
+// One server the ops dashboard can show. 'local' = the WorkHub host (collected
+// in-process, on demand); 'remote' = reports snapshots via the agent.
+export interface ServerSummary {
+  id: string
+  name: string
+  subtitle: string
+  mode: 'local' | 'remote'
+  online: boolean
+  updatedAtMs: number | null // last snapshot/sample time; null if never
+  cpuPct: number | null
+  memPct: number | null
+  diskPct: number | null
+  alertCount: number
+}
+
+// Latest pushed snapshot for a remote server.
+export interface SnapshotEnvelope {
+  stats: VpsStats
+  receivedAtMs: number
 }
