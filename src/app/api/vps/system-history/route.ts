@@ -12,12 +12,13 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const system = url.searchParams.get('system') || ''
   const range = url.searchParams.get('range') || '24h'
+  const serverId = url.searchParams.get('serverId') || 'primary'
   if (!system) {
     return NextResponse.json({ error: 'missing system' }, { status: 400 })
   }
   try {
-    const points = await readSystemHistory(system, range)
-    return NextResponse.json({ system, range, points }, { headers: { 'Cache-Control': 'no-store' } })
+    const points = await readSystemHistory(system, range, serverId)
+    return NextResponse.json({ system, range, serverId, points }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

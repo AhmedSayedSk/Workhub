@@ -9,10 +9,12 @@ export async function GET(request: NextRequest) {
   if (!(await isOwnerRequest(request))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-  const range = new URL(request.url).searchParams.get('range') || '24h'
+  const url = new URL(request.url)
+  const range = url.searchParams.get('range') || '24h'
+  const serverId = url.searchParams.get('serverId') || 'primary'
   try {
-    const points = await readHistory(range)
-    return NextResponse.json({ range, points }, { headers: { 'Cache-Control': 'no-store' } })
+    const points = await readHistory(range, serverId)
+    return NextResponse.json({ range, serverId, points }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rollupSystemHourly } from '@/lib/server/vps/metrics'
+import { SERVERS } from '@/lib/server/vps/servers'
 
 // Secret-gated hourly rollup hit by a host cron. Averages the last ~60 per-minute
 // per-system samples into one vpsSystemHourly doc (and prunes >35d old).
@@ -11,8 +12,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   try {
-    const doc = await rollupSystemHourly()
-    return NextResponse.json({ ok: true, ts: doc.ts, systems: Object.keys(doc.systems).length })
+    const results = []
+    for (const s of SERVERS) {
+      const doc = await rollupSystemHourly(s.id)
+      results.push({ serverId: s.id, systems: Object.keys(doc.systems).length })
+    }
+    return NextResponse.json({ ok: true, results })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
