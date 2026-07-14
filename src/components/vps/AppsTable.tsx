@@ -8,7 +8,7 @@ import type { AppInfo } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
 import { SystemStatsDialog } from './SystemStatsDialog'
 
-export function AppsTable({ apps }: { apps: AppInfo[] }) {
+export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; serverId?: string }) {
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null)
   return (
     <Card>
@@ -133,6 +133,7 @@ export function AppsTable({ apps }: { apps: AppInfo[] }) {
           name={selected.name}
           open={!!selected}
           onOpenChange={(o) => !o && setSelected(null)}
+          serverId={serverId}
         />
       )}
     </Card>

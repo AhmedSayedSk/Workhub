@@ -167,11 +167,13 @@ export function SystemStatsDialog({
   name,
   open,
   onOpenChange,
+  serverId = 'primary',
 }: {
   systemId: string
   name: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  serverId?: string
 }) {
   const [range, setRange] = useState<Range>('24h')
   const [points, setPoints] = useState<SystemPoint[]>([])
@@ -179,7 +181,9 @@ export function SystemStatsDialog({
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await authFetch(`/api/vps/system-history?system=${encodeURIComponent(systemId)}&range=${range}`)
+      const res = await authFetch(
+        `/api/vps/system-history?serverId=${encodeURIComponent(serverId)}&system=${encodeURIComponent(systemId)}&range=${range}`
+      )
       if (res.ok) {
         const data = await res.json()
         setPoints(data.points || [])
@@ -189,7 +193,7 @@ export function SystemStatsDialog({
     } finally {
       setLoading(false)
     }
-  }, [systemId, range])
+  }, [serverId, systemId, range])
 
   useEffect(() => {
     if (!open) return

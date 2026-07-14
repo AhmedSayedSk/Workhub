@@ -262,14 +262,14 @@ function MetricPanel({
   )
 }
 
-export function MetricCharts({ host }: { host: HostStats | null }) {
+export function MetricCharts({ host, serverId = 'primary' }: { host: HostStats | null; serverId?: string }) {
   const [range, setRange] = useState<Range>('24h')
   const [points, setPoints] = useState<MetricPoint[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await authFetch(`/api/vps/history?range=${range}`)
+      const res = await authFetch(`/api/vps/history?serverId=${encodeURIComponent(serverId)}&range=${range}`)
       if (res.ok) {
         const data = await res.json()
         setPoints(data.points || [])
@@ -279,7 +279,7 @@ export function MetricCharts({ host }: { host: HostStats | null }) {
     } finally {
       setLoading(false)
     }
-  }, [range])
+  }, [serverId, range])
 
   useEffect(() => {
     setLoading(true)
