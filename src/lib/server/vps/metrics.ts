@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin'
 import { collectHost, rollingCpuPct } from './host'
 import { collectSystemStats } from './docker'
-import type { MetricPoint, SystemPoint } from './types'
+import type { MetricPoint, SystemPoint, VpsStats, SnapshotEnvelope } from './types'
 
 // Persistent time-series for the Server dashboard charts. A once-a-minute cron
 // hits /api/vps/sample → sampleAndStore() writes a compact snapshot to Firestore
@@ -14,6 +14,7 @@ const RETAIN_MS = 7 * 24 * 60 * 60 * 1000
 // Hourly-averaged per-system rollup, kept longer for the 30d per-system view.
 const SYS_COL = 'vpsSystemHourly'
 const SYS_RETAIN_MS = 35 * 24 * 60 * 60 * 1000
+const SNAP_COL = 'vpsSnapshots'
 
 // Guarded init — the sample route doesn't import api-auth, so ensure the Admin
 // app exists before using Firestore. No-ops if already initialized elsewhere.
@@ -30,7 +31,7 @@ function pct(used: number, total: number): number {
   return total > 0 ? Math.round((used / total) * 1000) / 10 : 0
 }
 
-export async function sampleAndStore(): Promise<MetricPoint> {
+export async function sampleAndStore(serverId: string = 'primary'): Promise<MetricPoint> {
   const [host, rollingCpu, systems] = await Promise.all([
     collectHost(),
     rollingCpuPct(),
@@ -39,6 +40,7 @@ export async function sampleAndStore(): Promise<MetricPoint> {
   ])
   const point: MetricPoint = {
     ts: Date.now(),
+    serverId,
     // Prefer the rolling ~60s average; fall back to the in-request sample only
     // on the first tick after a restart (before a baseline exists).
     cpuPct: rollingCpu ?? host.cpu.usagePct,
@@ -62,19 +64,37 @@ async function prune(): Promise<void> {
   await batch.commit()
 }
 
+export async function storeSnapshot(serverId: string, stats: VpsStats): Promise<void> {
+  await db().collection(SNAP_COL).doc(serverId).set({ stats, receivedAtMs: Date.now() })
+}
+
+export async function readSnapshot(serverId: string): Promise<SnapshotEnvelope | null> {
+  const doc = await db().collection(SNAP_COL).doc(serverId).get()
+  return doc.exists ? (doc.data() as SnapshotEnvelope) : null
+}
+
+// Store a MetricPoint the agent already computed (remote push path).
+export async function storePushedSample(serverId: string, point: MetricPoint): Promise<void> {
+  await db().collection(COL).add({ ...point, serverId, ts: point.ts || Date.now() })
+  if (new Date().getMinutes() === 0) await prune()
+}
+
 // One hourly doc in vpsSystemHourly: hourly average of the last ~60 per-minute
 // per-system samples. Hit hourly by a host cron via POST /api/vps/rollup.
 interface SystemHourlyDoc {
   ts: number
+  serverId?: string
   systems: Record<string, { cpu: number; mem: number }>
 }
 
-export async function rollupSystemHourly(): Promise<SystemHourlyDoc> {
+export async function rollupSystemHourly(serverId: string = 'primary'): Promise<SystemHourlyDoc> {
   const cutoff = Date.now() - 60 * 60 * 1000
   const snap = await db().collection(COL).where('ts', '>=', cutoff).get()
   const acc: Record<string, { cpu: number; mem: number; n: number }> = {}
   for (const d of snap.docs) {
-    const sys = (d.data() as MetricPoint).systems
+    const data = d.data() as MetricPoint
+    if ((data.serverId || 'primary') !== serverId) continue
+    const sys = data.systems
     if (!sys) continue
     for (const [id, v] of Object.entries(sys)) {
       const a = acc[id] || { cpu: 0, mem: 0, n: 0 }
@@ -91,7 +111,7 @@ export async function rollupSystemHourly(): Promise<SystemHourlyDoc> {
       mem: Math.round(a.mem / a.n),
     }
   }
-  const doc: SystemHourlyDoc = { ts: Date.now(), systems }
+  const doc: SystemHourlyDoc & { serverId: string } = { ts: Date.now(), systems, serverId }
   await db().collection(SYS_COL).add(doc)
   await pruneSystemHourly()
   return doc
@@ -118,18 +138,22 @@ const TARGET_POINTS: Record<string, number> = { '1h': 60, '8h': 96, '24h': 72, '
 const CACHE_TTL_MS: Record<string, number> = { '1h': 30_000, '8h': 60_000, '24h': 120_000, '7d': 600_000 }
 const cache: Record<string, { at: number; data: MetricPoint[] }> = {}
 
-export async function readHistory(range: string): Promise<MetricPoint[]> {
+export async function readHistory(range: string, serverId: string = 'primary'): Promise<MetricPoint[]> {
   const rangeMs = RANGE_MS[range] ?? RANGE_MS['24h']
   const ttl = CACHE_TTL_MS[range] ?? 120_000
-  const cached = cache[range]
+  const cacheKey = `${serverId}:${range}`
+  const cached = cache[cacheKey]
   if (cached && Date.now() - cached.at < ttl) return cached.data
 
   const cutoff = Date.now() - rangeMs
   // Single-field range filter only (sort client-side) to avoid composite-index needs.
   const snap = await db().collection(COL).where('ts', '>=', cutoff).get()
-  const raw = snap.docs.map((d) => d.data() as MetricPoint).sort((a, b) => a.ts - b.ts)
+  const raw = snap.docs
+    .map((d) => d.data() as MetricPoint)
+    .filter((p) => (p.serverId || 'primary') === serverId)
+    .sort((a, b) => a.ts - b.ts)
   const data = downsample(raw, TARGET_POINTS[range] ?? 168)
-  cache[range] = { at: Date.now(), data }
+  cache[cacheKey] = { at: Date.now(), data }
   return data
 }
 
@@ -207,10 +231,10 @@ function downsampleSystem(points: SystemPoint[], target: number): SystemPoint[] 
     })
 }
 
-export async function readSystemHistory(systemId: string, range: string): Promise<SystemPoint[]> {
+export async function readSystemHistory(systemId: string, range: string, serverId: string = 'primary'): Promise<SystemPoint[]> {
   const rangeMs = SYS_RANGE_MS[range] ?? SYS_RANGE_MS['24h']
   const useHourly = range === '30d'
-  const cacheKey = `${systemId}:${range}`
+  const cacheKey = `${serverId}:${systemId}:${range}`
   const ttl = SYS_CACHE_TTL_MS[range] ?? 120_000
   const cached = sysCache[cacheKey]
   if (cached && Date.now() - cached.at < ttl) return cached.data
@@ -220,6 +244,7 @@ export async function readSystemHistory(systemId: string, range: string): Promis
   // Single-field range filter only (sort client-side) — no composite index.
   const snap = await db().collection(col).where('ts', '>=', cutoff).get()
   const raw: SystemPoint[] = snap.docs
+    .filter((d) => ((d.data() as { serverId?: string }).serverId || 'primary') === serverId)
     .map((d) => {
       const data = d.data() as { ts: number; systems?: Record<string, { cpu: number; mem: number }> }
       const v = data.systems?.[systemId]
