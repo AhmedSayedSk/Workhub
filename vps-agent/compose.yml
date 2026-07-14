@@ -18,7 +18,7 @@ services:
     image: tecnativa/docker-socket-proxy:latest
     container_name: vps-agent-dockerproxy
     restart: unless-stopped
-    environment: { CONTAINERS: 1, IMAGES: 1, VOLUMES: 1, INFO: 1, PING: 1, POST: 0 }
+    environment: { CONTAINERS: 1, IMAGES: 1, INFO: 1, PING: 1, SYSTEM: 1, POST: 0 }
     volumes: [/var/run/docker.sock:/var/run/docker.sock:ro]
     # No host port published, and no default-network membership — the proxy
     # is reachable only from vps-agent via agent_internal, and (per its own
