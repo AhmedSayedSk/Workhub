@@ -112,7 +112,7 @@ export async function rollupSystemHourly(serverId: string = 'primary'): Promise<
     }
   }
   const doc: SystemHourlyDoc & { serverId: string } = { ts: Date.now(), systems, serverId }
-  await db().collection(SYS_COL).add(doc)
+  if (Object.keys(systems).length) await db().collection(SYS_COL).add(doc)
   await pruneSystemHourly()
   return doc
 }
@@ -244,11 +244,11 @@ export async function readSystemHistory(systemId: string, range: string, serverI
   // Single-field range filter only (sort client-side) — no composite index.
   const snap = await db().collection(col).where('ts', '>=', cutoff).get()
   const raw: SystemPoint[] = snap.docs
-    .filter((d) => ((d.data() as { serverId?: string }).serverId || 'primary') === serverId)
-    .map((d) => {
-      const data = d.data() as { ts: number; systems?: Record<string, { cpu: number; mem: number }> }
-      const v = data.systems?.[systemId]
-      return { ts: data.ts, cpu: v?.cpu ?? 0, mem: v?.mem ?? 0 }
+    .map((d) => ({ raw: d.data() as { ts: number; systems?: Record<string, { cpu: number; mem: number }>; serverId?: string } }))
+    .filter((e) => (e.raw.serverId || 'primary') === serverId)
+    .map((e) => {
+      const v = e.raw.systems?.[systemId]
+      return { ts: e.raw.ts, cpu: v?.cpu ?? 0, mem: v?.mem ?? 0 }
     })
     .sort((a, b) => a.ts - b.ts)
   const data = useHourly ? raw : downsampleSystem(raw, SYS_TARGET)
