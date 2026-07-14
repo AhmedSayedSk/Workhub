@@ -4,9 +4,9 @@
 
 # WorkHub — Open-Source Project Management for Freelancers
 
-**The all-in-one project management, time tracking, and invoicing platform built for freelancers, agencies, and small teams.**
+**The all-in-one project management, time tracking, invoicing, marketing, and ops platform built for freelancers, agencies, and small teams.**
 
-Stop juggling Trello, Toggl, and spreadsheets. WorkHub combines **Kanban boards**, **time tracking**, **financial management**, **calendar scheduling**, **media library**, and **AI-powered assistance** in a single self-hosted app.
+Stop juggling Trello, Toggl, Buffer, and a pile of spreadsheets. WorkHub combines **Kanban boards**, **time tracking**, **financial management**, **calendar scheduling**, **media library**, **AI-powered assistance**, a **Content Studio** (AI image generation + social publishing to Facebook/Instagram/LinkedIn), a **server monitoring** dashboard, **team & audit** tooling, and an **MCP server** for AI agents — all in a single self-hosted app.
 
 [![License](https://img.shields.io/badge/License-Sikasio_Source-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
@@ -150,6 +150,34 @@ Chat-based AI powered by Google Gemini for task breakdowns, time estimates, and 
 - **Web search**: Integrated DuckDuckGo search and URL content fetching
 - **Optional** — gracefully disabled without API key
 
+### Content Studio — Marketing & Social
+- **AI image generation** — create on-brand graphics and images from text prompts (multiple quality tiers), saved straight to the media library
+- **Social post composer** — draft posts pairing generated or uploaded media with copy
+- **Multi-network publishing** — publish and **schedule** to **Facebook**, **Instagram**, and **LinkedIn**
+- **Campaign planning** — plan and lay out multi-post campaigns
+- **Automatic scheduler** — cron-driven auto-publishing at the times you set
+- **Engagement insights** — pull post insights back from connected accounts
+
+### Server Monitoring — Ops Dashboard
+- **Live server stats** — CPU, memory, disk, load average, and uptime for the host(s) WorkHub runs on
+- **Multi-server** — one card per server; click through to a full per-server dashboard
+- **Docker insight** — running containers, images, and storage breakdown
+- **TLS certificate tracking** — expiry monitoring for your domains
+- **Systems & Apps inventory** — auto-discovered from Docker, with per-app CPU/memory history charts
+- **Security posture** — automated checks (SSH hardening, firewall, brute-force protection, auto-updates) scored on a card
+- **Remote agent** — a lightweight push agent reports stats from additional servers
+- **Owner-only** — the whole dashboard is gated to the workspace owner
+
+### Team & Governance
+- **Team management** — invite members, assign tasks, and manage access
+- **Audit logs** — a chronological, filterable record of changes across the workspace
+
+### Integrations & Automation
+- **MCP server** — drive WorkHub time tracking from AI agents (Claude and others) over the **Model Context Protocol** (`list_projects`, `start_timer`, `log_time`, `create_task`, and more)
+- **Email notifications** — transactional deadline and payment emails via your mail provider
+- **Git integration** *(optional)* — browse connected repositories and their READMEs from inside WorkHub
+- **AI session processing** — background AI runs that summarize and organize project work
+
 ### Notifications
 - **Deadline alerts** — configurable days-before warning
 - **Payment reminders** for pending invoices
@@ -185,6 +213,9 @@ Chat-based AI powered by Google Gemini for task breakdowns, time estimates, and 
 | **AI** | [Google Generative AI](https://ai.google.dev/) (Gemini) |
 | **Dates** | [date-fns 4](https://date-fns.org/) |
 | **Slider** | [keen-slider](https://keen-slider.io/) |
+| **Automation** | [Model Context Protocol](https://modelcontextprotocol.io/) server (AI-agent time tracking) |
+| **Social** | Meta Graph API (Facebook / Instagram) + LinkedIn API |
+| **Ops** | Docker Engine API via a read-only socket proxy (server monitoring) |
 
 ---
 
@@ -286,17 +317,35 @@ Organization
               └── VaultEntry (sensitive project data)
 
 MediaFolder / MediaFile  (global media library, linkable to projects/tasks)
-AppSettings              (singleton for AI model configuration)
+Member                   (team members, roles, task assignments)
+SocialPost / Campaign    (Content Studio posts, schedules, campaigns)
+AuditLog                 (workspace-wide change history)
+VpsMetrics / VpsSnapshots (server-monitoring time-series + latest per-server snapshot)
+AppSettings              (singleton for AI model + integration configuration)
 ```
 
 ### API Routes
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/ai` | `POST` | AI: task breakdown, time estimates, insights, Q&A |
-| `/api/ai` | `GET` | Fetch current AI settings |
+| `/api/ai` | `POST` / `GET` | AI: task breakdown, time estimates, insights, Q&A / fetch AI settings |
+| `/api/ai/image` | `POST` | AI image generation for the Content Studio |
 | `/api/web/search` | `POST` | DuckDuckGo web search |
 | `/api/web/fetch` | `POST` | Extract content from URLs |
+| `/api/social/publish` | `POST` | Publish a post to a connected network |
+| `/api/social/schedule` | `POST` | Schedule a post for later |
+| `/api/social/unpublish` | `POST` | Remove a published post |
+| `/api/social/insights` | `GET` | Engagement insights for connected accounts |
+| `/api/social/linkedin/oauth/*` | `GET` | LinkedIn OAuth connect flow |
+| `/api/social/cron/run` | `POST` | Scheduler tick — auto-publishes due posts (secret-gated) |
+| `/api/campaigns/plan` | `POST` | Plan a multi-post campaign |
+| `/api/vps/servers` | `GET` | Multi-server summary for the ops dashboard (owner-only) |
+| `/api/vps/stats` | `GET` | Full live/snapshot stats for one server (owner-only) |
+| `/api/vps/report` | `POST` | Remote-agent snapshot ingest (secret-gated) |
+| `/api/vps/history`, `/api/vps/system-history` | `GET` | Time-series metric history (owner-only) |
+| `/api/vps/sample`, `/api/vps/rollup` | `POST` | Metric sampler + hourly rollup crons (secret-gated) |
+| `/api/email/notify` | `POST` | Send a transactional notification email |
+| `/api/create-user`, `/api/reset-password` | `POST` | Team member provisioning and password reset |
 
 ### Key Design Decisions
 
