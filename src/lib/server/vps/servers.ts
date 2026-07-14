@@ -8,13 +8,13 @@ export const SERVERS: ServerDef[] = [
   {
     id: 'primary',
     name: process.env.VPS_DISPLAY_NAME || 'Primary',
-    subtitle: process.env.VPS_SUBTITLE || 'ask2do · Hetzner fsn1',
+    subtitle: process.env.VPS_SUBTITLE || 'Primary server',
     mode: 'local',
   },
   {
-    id: 'falkenstein',
-    name: process.env.VPS2_DISPLAY_NAME || 'Falkenstein',
-    subtitle: process.env.VPS2_SUBTITLE || 'sikasio · Hetzner fsn1',
+    id: 'secondary',
+    name: process.env.VPS2_DISPLAY_NAME || 'Secondary',
+    subtitle: process.env.VPS2_SUBTITLE || 'Secondary server',
     mode: 'remote',
   },
 ]

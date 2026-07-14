@@ -8,7 +8,7 @@ import { collectSystemStats } from './lib/docker.js'
 
 const URL = process.env.WORKHUB_REPORT_URL
 const SECRET = process.env.INTERNAL_API_TOKEN
-const SERVER_ID = process.env.SERVER_ID || 'falkenstein'
+const SERVER_ID = process.env.SERVER_ID || 'secondary'
 const INTERVAL_MS = Number(process.env.INTERVAL_MS || 60000)
 const pctOf = (u, t) => (t > 0 ? Math.round((u / t) * 1000) / 10 : 0)
 
