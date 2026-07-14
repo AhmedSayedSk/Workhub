@@ -1,0 +1,29 @@
+services:
+  vps-agent:
+    build: { context: .., dockerfile: vps-agent/Dockerfile }
+    container_name: vps-agent
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DOCKER_PROXY_URL: http://vps-agent-dockerproxy:2375
+      SECURITY_STATUS_PATH: /security/status.json
+    volumes:
+      - /opt/_security/status.json:/security/status.json:ro
+    depends_on: [vps-agent-dockerproxy]
+    # Default bridge network — vps-agent needs OUTBOUND egress to reach
+    # WorkHub (WORKHUB_REPORT_URL). It also joins agent_internal so it can
+    # still reach the docker-socket-proxy sidecar by service name.
+    networks: [default, agent_internal]
+  vps-agent-dockerproxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: vps-agent-dockerproxy
+    restart: unless-stopped
+    environment: { CONTAINERS: 1, IMAGES: 1, VOLUMES: 1, INFO: 1, PING: 1, POST: 0 }
+    volumes: [/var/run/docker.sock:/var/run/docker.sock:ro]
+    # No host port published, and no default-network membership — the proxy
+    # is reachable only from vps-agent via agent_internal, and (per its own
+    # POST:0 lockdown) can't be used to mutate the Docker daemon even so.
+    networks: [agent_internal]
+networks:
+  default: {}
+  agent_internal: { internal: true }
