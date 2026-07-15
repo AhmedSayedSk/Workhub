@@ -3,8 +3,10 @@ import type { AppInfo, AppService } from './types'
 // "Systems & Apps" inventory. Auto-discovered from Docker compose labels — every
 // container reports its compose working_dir, which gives the real /opt/<app>
 // path and lets us group a project's containers together. A small curated
-// REGISTRY overlays friendly names, descriptions, and domains, and EXTRA lists
-// systems that aren't containers (e.g. Yarwy). Edit those two to taste.
+// REGISTRY overlays friendly names, descriptions, and domains. Non-container
+// systems (e.g. Yarwy) are declared PER-SERVER via the VPS_EXTRA_APPS env so
+// they only show on the box they actually run on — never hard-coded here, or
+// they'd leak onto every server sharing this collector (the remote agent does).
 
 const BASE = process.env.DOCKER_PROXY_URL || 'http://workhub-dockerproxy:2375'
 
@@ -90,20 +92,32 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
   },
 }
 
-// Non-container systems (not visible via Docker).
-const EXTRA: AppInfo[] = [
-  {
-    id: 'yarwy',
-    name: 'Yarwy',
-    description: 'Brand content auto-generation system',
-    type: 'system',
-    path: '/opt/yarwy/yarwy-auto-generation',
-    domains: [],
-    services: [],
-    running: 0,
-    total: 0,
-  },
-]
+// Non-container systems (not visible via Docker), declared per-server via the
+// VPS_EXTRA_APPS env: pipe-delimited "id|Name|Description|type|/opt/path",
+// multiple separated by ";". Unset/empty => none. Each server only lists its own.
+function extraApps(): AppInfo[] {
+  const raw = process.env.VPS_EXTRA_APPS
+  if (!raw) return []
+  return raw
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [id, name, description, type, path] = entry.split('|').map((x) => (x || '').trim())
+      return {
+        id: id || 'extra',
+        name: name || id || 'System',
+        description: description || '',
+        type: type || 'system',
+        path: path || '',
+        domains: [],
+        services: [],
+        running: 0,
+        total: 0,
+      } as AppInfo
+    })
+    .filter((a) => a.id)
+}
 
 // Sibling app keys that belong to one umbrella system get folded together so
 // they show as a single row with all their containers/domains. Keyed by the
@@ -227,5 +241,5 @@ export async function collectApps(): Promise<AppInfo[]> {
     services: a.services.sort((x, y) => x.name.localeCompare(y.name)),
   }))
 
-  return [...result, ...EXTRA].sort((a, b) => a.name.localeCompare(b.name))
+  return [...result, ...extraApps()].sort((a, b) => a.name.localeCompare(b.name))
 }
