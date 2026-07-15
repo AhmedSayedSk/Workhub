@@ -27,7 +27,7 @@ export default function ServersPage() {
   useEffect(() => {
     if (!isAppOwner) return
     fetchServers()
-    const id = setInterval(fetchServers, 5000)
+    const id = setInterval(fetchServers, 15000)
     return () => clearInterval(id)
   }, [isAppOwner, fetchServers])
 
