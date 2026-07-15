@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
-import { Server, AlertTriangle, Cpu, MemoryStick, HardDrive } from 'lucide-react'
+import { Server, AlertTriangle, Cpu, MemoryStick, HardDrive, Boxes } from 'lucide-react'
 import type { ServerSummary } from '@/lib/server/vps/types'
+import { formatBytes } from './format'
 import { cn } from '@/lib/utils'
 
 // Threshold colouring so a glance reads health: green ok, amber busy, red hot.
@@ -14,13 +15,14 @@ function barColor(pct: number | null): string {
   return 'bg-emerald-500'
 }
 
-function Metric({ icon: Icon, label, pct }: { icon: typeof Cpu; label: string; pct: number | null }) {
+function Metric({ icon: Icon, label, pct, sub }: { icon: typeof Cpu; label: string; pct: number | null; sub: string }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3">
+    <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-3">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <Icon className="h-3.5 w-3.5" /> {label}
       </div>
       <div className="text-2xl font-semibold leading-none tabular-nums">{pct == null ? '—' : `${Math.round(pct)}%`}</div>
+      <div className="text-[11px] tabular-nums text-muted-foreground">{sub}</div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div className={cn('h-full rounded-full transition-all', barColor(pct))} style={{ width: `${Math.min(100, pct ?? 0)}%` }} />
       </div>
@@ -32,7 +34,7 @@ export function ServerCard({ server }: { server: ServerSummary }) {
   const ago = server.updatedAtMs ? `${Math.round((Date.now() - server.updatedAtMs) / 1000)}s ago` : 'never'
   return (
     <Link href={`/server/${server.id}`} className="block h-full">
-      <Card className="flex h-full min-h-[248px] flex-col justify-between gap-5 p-5 transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
+      <Card className="flex h-full min-h-[260px] flex-col justify-between gap-5 p-5 transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -57,24 +59,31 @@ export function ServerCard({ server }: { server: ServerSummary }) {
           </span>
         </div>
 
-        {/* Metrics */}
+        {/* Metrics — % usage with the total capacity underneath */}
         <div className="grid grid-cols-3 gap-2.5">
-          <Metric icon={Cpu} label="CPU" pct={server.cpuPct} />
-          <Metric icon={MemoryStick} label="Memory" pct={server.memPct} />
-          <Metric icon={HardDrive} label="Disk" pct={server.diskPct} />
+          <Metric icon={Cpu} label="CPU" pct={server.cpuPct} sub={server.cpuCores != null ? `${server.cpuCores} vCPU` : '—'} />
+          <Metric icon={MemoryStick} label="Memory" pct={server.memPct} sub={server.memTotalBytes != null ? formatBytes(server.memTotalBytes) : '—'} />
+          <Metric icon={HardDrive} label="Disk" pct={server.diskPct} sub={server.diskTotalBytes != null ? formatBytes(server.diskTotalBytes) : '—'} />
         </div>
 
-        {/* Footer */}
+        {/* Footer — type, container count, alerts, freshness */}
         <div className="flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-2">
             <span className="rounded-md bg-muted px-1.5 py-0.5 font-medium capitalize">{server.mode}</span>
+            {server.containers != null && (
+              <span className="flex items-center gap-1">
+                <Boxes className="h-3.5 w-3.5" /> {server.containers} container{server.containers === 1 ? '' : 's'}
+              </span>
+            )}
+          </span>
+          <span className="flex items-center gap-2">
+            {server.alertCount > 0 && (
+              <span className="flex items-center gap-1 font-medium text-amber-600">
+                <AlertTriangle className="h-3.5 w-3.5" /> {server.alertCount}
+              </span>
+            )}
             <span>updated {ago}</span>
           </span>
-          {server.alertCount > 0 && (
-            <span className="flex items-center gap-1 font-medium text-amber-600">
-              <AlertTriangle className="h-3.5 w-3.5" /> {server.alertCount} alert{server.alertCount > 1 ? 's' : ''}
-            </span>
-          )}
         </div>
       </Card>
     </Link>

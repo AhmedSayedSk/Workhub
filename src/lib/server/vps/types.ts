@@ -168,6 +168,10 @@ export interface ServerSummary {
   memPct: number | null
   diskPct: number | null
   alertCount: number
+  cpuCores: number | null // total vCPU
+  memTotalBytes: number | null // total RAM
+  diskTotalBytes: number | null // total disk
+  containers: number | null // running/total docker container count
 }
 
 // Latest pushed snapshot for a remote server.

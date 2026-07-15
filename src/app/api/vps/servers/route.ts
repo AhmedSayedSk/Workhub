@@ -8,6 +8,12 @@ import type { ServerSummary, VpsStats } from '@/lib/server/vps/types'
 export const dynamic = 'force-dynamic'
 const STALE_MS = 3 * 60 * 1000 // > 3× the ~60s push interval → offline
 
+// Null metrics for a server that's offline / never reported / errored.
+const EMPTY = {
+  cpuPct: null, memPct: null, diskPct: null, alertCount: 0,
+  cpuCores: null, memTotalBytes: null, diskTotalBytes: null, containers: null,
+}
+
 function summarize(stats: VpsStats) {
   const h = stats.host
   const pct = (u: number, t: number) => (t > 0 ? Math.round((u / t) * 1000) / 10 : null)
@@ -16,6 +22,10 @@ function summarize(stats: VpsStats) {
     memPct: h ? pct(h.memory.usedBytes, h.memory.totalBytes) : null,
     diskPct: h ? pct(h.disk.usedBytes, h.disk.totalBytes) : null,
     alertCount: stats.alerts?.length ?? 0,
+    cpuCores: h ? h.cpu.cores : null,
+    memTotalBytes: h ? h.memory.totalBytes : null,
+    diskTotalBytes: h ? h.disk.totalBytes : null,
+    containers: stats.containers ? stats.containers.length : null,
   }
 }
 
@@ -33,14 +43,14 @@ export async function GET(request: NextRequest) {
       } else {
         const snap = await readSnapshot(s.id)
         if (!snap) {
-          out.push({ ...base, online: false, updatedAtMs: null, cpuPct: null, memPct: null, diskPct: null, alertCount: 0 })
+          out.push({ ...base, online: false, updatedAtMs: null, ...EMPTY })
         } else {
           const online = Date.now() - snap.receivedAtMs < STALE_MS
           out.push({ ...base, online, updatedAtMs: snap.receivedAtMs, ...summarize(snap.stats) })
         }
       }
     } catch {
-      out.push({ ...base, online: false, updatedAtMs: null, cpuPct: null, memPct: null, diskPct: null, alertCount: 0 })
+      out.push({ ...base, online: false, updatedAtMs: null, ...EMPTY })
     }
   }
   return NextResponse.json({ servers: out }, { headers: { 'Cache-Control': 'no-store' } })
