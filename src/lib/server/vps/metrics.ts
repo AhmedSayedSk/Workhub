@@ -15,6 +15,9 @@ const RETAIN_MS = 7 * 24 * 60 * 60 * 1000
 const SYS_COL = 'vpsSystemHourly'
 const SYS_RETAIN_MS = 35 * 24 * 60 * 60 * 1000
 const SNAP_COL = 'vpsSnapshots'
+// Hourly-averaged HOST rollup for the 30d resource view — per-minute vpsMetrics
+// only retains 7d, so the long view reads this (same 35d retention as SYS_COL).
+const HOST_COL = 'vpsHostHourly'
 
 // Guarded init — the sample route doesn't import api-auth, so ensure the Admin
 // app exists before using Firestore. No-ops if already initialized elsewhere.
@@ -126,16 +129,51 @@ async function pruneSystemHourly(): Promise<void> {
   await batch.commit()
 }
 
+// Hourly average of the last ~60 per-minute HOST points → one vpsHostHourly doc,
+// so the 30d resource view has data beyond vpsMetrics' 7d window. Hit hourly by
+// the same cron as rollupSystemHourly (POST /api/vps/rollup), per server.
+export async function rollupHostHourly(serverId: string = 'primary'): Promise<MetricPoint | null> {
+  const cutoff = Date.now() - 60 * 60 * 1000
+  const snap = await db().collection(COL).where('ts', '>=', cutoff).get()
+  const pts = snap.docs.map((d) => d.data() as MetricPoint).filter((p) => (p.serverId || 'primary') === serverId)
+  if (!pts.length) {
+    await pruneHostHourly()
+    return null
+  }
+  const avg = (f: (p: MetricPoint) => number) => pts.reduce((s, p) => s + f(p), 0) / pts.length
+  const doc: MetricPoint = {
+    ts: Date.now(),
+    serverId,
+    cpuPct: Math.round(avg((p) => p.cpuPct) * 10) / 10,
+    memPct: Math.round(avg((p) => p.memPct) * 10) / 10,
+    diskPct: Math.round(avg((p) => p.diskPct) * 10) / 10,
+    load1: Math.round(avg((p) => p.load1) * 100) / 100,
+  }
+  await db().collection(HOST_COL).add(doc)
+  await pruneHostHourly()
+  return doc
+}
+
+async function pruneHostHourly(): Promise<void> {
+  const cutoff = Date.now() - SYS_RETAIN_MS
+  const snap = await db().collection(HOST_COL).where('ts', '<', cutoff).limit(400).get()
+  if (snap.empty) return
+  const batch = db().batch()
+  snap.docs.forEach((d) => batch.delete(d.ref))
+  await batch.commit()
+}
+
 const RANGE_MS: Record<string, number> = {
   '1h': 60 * 60 * 1000,
   '8h': 8 * 60 * 60 * 1000,
   '24h': 24 * 60 * 60 * 1000,
   '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
 }
 // Target point count per range so each line is sensibly resolved.
 // Longer ranges use fewer (averaged) points for a smoother, less busy line.
-const TARGET_POINTS: Record<string, number> = { '1h': 60, '8h': 96, '24h': 72, '7d': 84 }
-const CACHE_TTL_MS: Record<string, number> = { '1h': 30_000, '8h': 60_000, '24h': 120_000, '7d': 600_000 }
+const TARGET_POINTS: Record<string, number> = { '1h': 60, '8h': 96, '24h': 72, '7d': 84, '30d': 120 }
+const CACHE_TTL_MS: Record<string, number> = { '1h': 30_000, '8h': 60_000, '24h': 120_000, '7d': 600_000, '30d': 1_800_000 }
 const cache: Record<string, { at: number; data: MetricPoint[] }> = {}
 
 export async function readHistory(range: string, serverId: string = 'primary'): Promise<MetricPoint[]> {
@@ -146,8 +184,11 @@ export async function readHistory(range: string, serverId: string = 'primary'): 
   if (cached && Date.now() - cached.at < ttl) return cached.data
 
   const cutoff = Date.now() - rangeMs
-  // Single-field range filter only (sort client-side) to avoid composite-index needs.
-  const snap = await db().collection(COL).where('ts', '>=', cutoff).get()
+  // 30d reads the hourly-averaged vpsHostHourly (35d retention); shorter ranges
+  // read the per-minute vpsMetrics (7d retention). Single-field range filter only
+  // (sort + serverId filter client-side) to avoid composite indexes.
+  const col = range === '30d' ? HOST_COL : COL
+  const snap = await db().collection(col).where('ts', '>=', cutoff).get()
   const raw = snap.docs
     .map((d) => d.data() as MetricPoint)
     .filter((p) => (p.serverId || 'primary') === serverId)
