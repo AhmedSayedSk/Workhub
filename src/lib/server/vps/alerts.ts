@@ -23,7 +23,7 @@ function pct(used: number, total: number): number {
 export function evaluateAlerts(input: {
   host: HostStats | null
   certs: CertInfo[] | null
-  containers: ContainerStat[] | null
+  containers: Array<Pick<ContainerStat, 'name' | 'state'>> | null
 }): Alert[] {
   const alerts: Alert[] = []
   const { host, certs } = input

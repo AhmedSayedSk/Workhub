@@ -137,6 +137,13 @@ export async function collectStorage(): Promise<StorageStats> {
   return parseStorage(await dockerGet<DfResponse>('/system/df'))
 }
 
+// Lightweight running-container list (name + state only, no per-container stats
+// fan-out) — for the server-list card summary, cheap enough to poll in real time.
+export async function listContainersLite(): Promise<{ name: string; state: string }[]> {
+  const list = await dockerGet<ContainerSummary[]>('/containers/json')
+  return list.map((c) => ({ name: (c.Names?.[0] || c.Id).replace(/^\//, ''), state: c.State }))
+}
+
 // --- per-system live rollup -----------------------------------------------
 interface LabeledContainer {
   Id: string
