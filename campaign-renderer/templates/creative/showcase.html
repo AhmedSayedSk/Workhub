@@ -17,13 +17,9 @@
   .rtl .accent{transform-origin:right center}
   .caption{font-size:52px;font-weight:800;line-height:1.28;color:#fff;letter-spacing:-.5px}
   .sub{font-size:33px;font-weight:500;line-height:1.5;color:rgba(255,255,255,.72);margin-top:22px}
-  .idx{position:absolute;right:90px;top:96px;font-size:30px;font-weight:800;color:var(--c);background:rgba(255,255,255,.07);
-       border:1px solid rgba(255,255,255,.1);padding:8px 18px;border-radius:999px;z-index:3;letter-spacing:2px}
-  .rtl .idx{right:auto;left:90px}
 </style></head>
 <body><div id="s">
   <div class="brand" id="brand"></div>
-  <div class="idx" id="idx"></div>
   <div class="card" id="card">
     <div class="ph" id="ph"></div>
     <img id="img" />
@@ -50,10 +46,6 @@
   brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
   if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
 
-  const idx = document.getElementById('idx')
-  if (D.index && D.total) idx.textContent = `${D.index} / ${D.total}`
-  else idx.style.display = 'none'
-
   const ph = document.getElementById('ph')
   ph.style.background = `radial-gradient(120% 100% at 50% 0%, ${c}44, #0e1424 80%)`
   const imgEl = document.getElementById('img')
@@ -76,9 +68,8 @@
   if (D.caption) M.words(captionEl, 700, 90, 620, { dy: 36 })
   if (D.sub) M.reg(subEl, 1250, 1750, 'rise', { dy: 26 })
   M.reg(brand, 0, 400, 'fade')
-  M.reg(idx, 150, 550, 'rise', { dy: 16 })
 
-  M.sceneExit(D, [document.getElementById('card'), content, idx])
+  M.sceneExit(D, [document.getElementById('card'), content])
 
   window.__ready = new Promise((res) => {
     const done = () => res()
