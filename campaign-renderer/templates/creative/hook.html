@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  #s{position:relative;width:100%;height:100%;background:#0e1424;color:#fff;overflow:hidden}
+  #bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.5}
+  #scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,10,18,.55),rgba(8,10,18,.85))}
+  .wrap{position:absolute;left:90px;right:90px;top:520px}
+  .kicker{font-size:26px;letter-spacing:6px;text-transform:uppercase;color:var(--c);font-weight:700;margin-bottom:26px}
+  h1{font-size:104px;line-height:1.05;font-weight:900;letter-spacing:-1px;white-space:pre-line}
+  .u{position:relative;display:inline-block}
+  .u i{position:absolute;left:0;right:0;bottom:6px;height:14px;background:var(--c);transform-origin:left center;border-radius:8px;z-index:-1;opacity:.9}
+  .brand{position:absolute;left:90px;top:90px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px}
+  .brand img{width:52px;height:52px;border-radius:12px}
+  .chip{position:absolute;right:90px;top:96px;font-size:26px;font-weight:700;color:var(--c);background:rgba(255,255,255,.08);padding:8px 16px;border-radius:999px}
+</style></head>
+<body><div id="s">
+  <div id="bg"></div><div id="scrim"></div>
+  <div class="brand" id="brand"></div><div class="chip" id="chip"></div>
+  <div class="wrap"><div class="kicker" id="kicker"></div><h1 id="h1"></h1></div>
+</div>
+<script src="_motion.js"></script>
+<script>
+  const D = window.__DATA || {}
+  const c = D.brand?.color || '#34e5a4'
+  document.getElementById('s').style.setProperty('--c', c)
+  const bg = document.getElementById('bg'); if (D.bg) bg.style.backgroundImage = `url("${D.bg}")`; else document.getElementById('s').style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+  const brand = document.getElementById('brand')
+  if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
+  brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
+  const chip = document.getElementById('chip'); chip.textContent = D.brand?.domain || ''
+  if (!D.brand?.domain) chip.style.display = 'none'
+  document.getElementById('kicker').textContent = D.kicker || ''
+  // headline with the underline phrase wrapped
+  const h1 = document.getElementById('h1'); const text = D.headline || ''
+  const uWords = []
+  if (D.underline && text.includes(D.underline)) {
+    const [a, b] = text.split(D.underline)
+    h1.append(document.createTextNode(a))
+    const span = document.createElement('span'); span.className = 'u'
+    span.append(document.createTextNode(D.underline))
+    const bar = document.createElement('i'); span.appendChild(bar); uWords.push(bar)
+    h1.appendChild(span); h1.append(document.createTextNode(b))
+  } else { h1.textContent = text }
+  const M = window.__M
+  M.reg(document.getElementById('kicker'), 100, 500, 'rise', { dy: 18 })
+  M.reg(h1, 250, 850, 'rise', { dy: 40 })
+  M.reg(brand, 0, 400, 'fade'); M.reg(chip, 200, 600, 'fade')
+  for (const bar of uWords) { bar.style.transform = 'scaleX(0)'; M.reg(bar, 900, 1500, 'underline') }
+  window.__ready = new Promise((res) => {
+    const done = () => res()
+    const fonts = document.fonts ? document.fonts.ready : Promise.resolve()
+    if (D.bg) { const im = new Image(); im.onload = im.onerror = () => fonts.then(done); im.src = D.bg } else fonts.then(done)
+  })
+  window.render(0)
+</script></body></html>

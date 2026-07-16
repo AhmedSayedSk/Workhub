@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  #s{position:relative;width:100%;height:100%;color:#fff;overflow:hidden}
+  .brand{position:absolute;left:90px;top:90px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.9}
+  .brand img{width:52px;height:52px;border-radius:12px}
+  .wrap{position:absolute;left:110px;right:110px;top:50%;transform:translateY(-50%);text-align:center}
+  .accent{width:90px;height:10px;border-radius:6px;background:var(--c);margin:0 auto 44px;transform-origin:center;transform:scaleY(0)}
+  h1{font-size:88px;line-height:1.08;font-weight:900;letter-spacing:-1px;white-space:pre-line}
+  .sub{font-size:34px;font-weight:500;color:rgba(255,255,255,.72);margin-top:36px;line-height:1.4;white-space:pre-line}
+</style></head>
+<body><div id="s">
+  <div class="brand" id="brand"></div>
+  <div class="wrap">
+    <div class="accent" id="accent"></div>
+    <h1 id="title"></h1>
+    <div class="sub" id="sub"></div>
+  </div>
+</div>
+<script src="_motion.js"></script>
+<script>
+  const D = window.__DATA || {}
+  const c = D.brand?.color || '#34e5a4'
+  const s = document.getElementById('s')
+  s.style.setProperty('--c', c)
+  s.style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+
+  const brand = document.getElementById('brand')
+  if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
+  brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
+  if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
+
+  document.getElementById('title').textContent = D.title || ''
+  const subEl = document.getElementById('sub')
+  subEl.textContent = D.sub || ''
+  if (!D.sub) subEl.style.display = 'none'
+
+  const M = window.__M
+  M.reg(document.getElementById('accent'), 100, 500, 'bar')
+  M.reg(document.getElementById('title'), 200, 800, 'rise', { dy: 44 })
+  M.reg(subEl, 500, 1000, 'rise', { dy: 30 })
+  M.reg(brand, 0, 400, 'fade')
+
+  window.__ready = document.fonts ? document.fonts.ready : Promise.resolve()
+  window.render(0)
+</script></body></html>
