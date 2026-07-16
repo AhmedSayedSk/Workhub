@@ -873,7 +873,7 @@ ${copy.slice(0, 6000)}
 """
 Write a tight, PUNCHY video script — short kinetic lines, not paragraphs. Respond with ONLY a JSON array (no markdown fences) of scene objects, in play order, following EXACTLY:
 - exactly 1 hook: {"type":"hook","headline":"<2 short lines, use \\n between them>","underline":"<the 1-3 word key phrase inside headline to underline>","kicker":"<1-2 word eyebrow, optional>"}
-- 2 to 4 beats: {"type":"beat","title":"<a benefit in <=7 words>","sub":"<supporting line <=10 words, optional>"}
+- exactly ${Math.min(6, Math.max(2, params.posts.length))} beats (one per campaign image, same order as the source copy): {"type":"beat","title":"<a benefit in <=7 words>","sub":"<supporting line <=10 words, optional>"}
 - 0 to 2 stats (only if a number is truthful/likely): {"type":"stat","value":"<e.g. 18% or 3x or $52k>","label":"<what it measures, <=6 words>"}
 - exactly 1 cta LAST: {"type":"cta","text":"<call to action <=6 words>","url":"${params.domain || ''}"}
 Order: hook first, cta last, beats/stats in between. Do NOT include images.`

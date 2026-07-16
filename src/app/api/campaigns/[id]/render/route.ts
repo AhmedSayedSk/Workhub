@@ -78,6 +78,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     const stats = copyScenes.filter((s) => s.type === 'stat')
     // posts here are already filtered to those with imageUrl, so posts[i].imageUrl is defined.
     const maxMid = 9 - (hook ? 1 : 0) - (cta ? 1 : 0)
+    // Short display line from post copy (fallback when Gemini gives fewer beats
+    // than images): strip links/hashtags, keep the first sentence, cap length.
+    const firstLine = (s?: string) => {
+      if (!s) return ''
+      const clean = String(s).replace(/https?:\/\/\S+/g, '').replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim()
+      const m = clean.match(/^[^.!؟?\n]{6,90}[.!؟?]?/)
+      return (m ? m[0] : clean).slice(0, 90).trim()
+    }
     const mid: import('@/types').CreativeScene[] = []
     let bi = 0
     let si = 0
@@ -88,7 +96,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       mid.push({
         type: 'showcase',
         imageUrl: p.imageUrl as string,
-        caption: beat?.title || p.headline || '',
+        caption: beat?.title || p.headline || firstLine(p.caption) || firstLine(p.body) || '',
         ...(beat?.sub ? { sub: beat.sub } : {}),
       })
       // A stat moment after every second image keeps the rhythm varied.
