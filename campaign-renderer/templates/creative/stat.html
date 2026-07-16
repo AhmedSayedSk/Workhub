@@ -58,6 +58,8 @@
   M.words(labelEl, 950, 90, 520, { dy: 26 })
   M.reg(brand, 0, 400, 'fade')
 
+  M.sceneExit(D, [document.querySelector('.wrap')])
+
   window.__ready = document.fonts ? document.fonts.ready : Promise.resolve()
   window.render(0)
 </script></body></html>

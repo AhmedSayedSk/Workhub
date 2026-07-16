@@ -63,6 +63,8 @@
   if (D.headline) M.words(document.getElementById('headline'), 620, 90, 560, { dy: 30 })
   M.reg(capEl, 1000, 1500, 'rise', { dy: 24 })
 
+  M.sceneExit(D, [document.getElementById('card'), document.getElementById('content')])
+
   window.__ready = new Promise((res) => {
     const done = () => res()
     const fonts = document.fonts ? document.fonts.ready : Promise.resolve()

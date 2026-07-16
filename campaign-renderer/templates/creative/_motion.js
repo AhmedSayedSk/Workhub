@@ -44,6 +44,7 @@ window.__M = (() => {
     else if (a.kind === 'slidex') { e.style.opacity = p; e.style.transform = `translateX(${(1 - p) * (o.dx || -40)}px)` }
     else if (a.kind === 'sweep') { e.style.opacity = p > 0 && p < 1 ? 1 : 0; e.style.transform = `translateX(${-130 + 300 * p}%) skewX(-18deg)` }
     else if (a.kind === 'ringdraw') { const c = o.circ || 1508; e.style.strokeDashoffset = String(c * (1 - p)) }
+    else if (a.kind === 'exitfade') { if (p > 0) e.style.opacity = String(1 - p) }
     else if (a.kind === 'countup') {
       // "3x" / "18%" / "$52k" — count the numeric part, keep prefix/suffix.
       if (!o._parsed) { const m = String(o.text || '').match(/^([^0-9]*)([0-9]+(?:\.[0-9]+)?)(.*)$/); o._parsed = m ? { pre: m[1], num: parseFloat(m[2]), suf: m[3], dec: (m[2].split('.')[1] || '').length } : null }
@@ -75,6 +76,17 @@ window.__M = (() => {
       spans.push(s)
     })
     return spans
+  }
+
+  // Scene exit: fades the given content elements out over the scene's final
+  // ~360ms so the next scene's entrance reads as a designed transition, not a
+  // hard cut. Registered AFTER entrances so it wins the opacity write. No-ops
+  // when the job asked for hard cuts or durMs is unknown.
+  function sceneExit(D, els) {
+    if (!D || !D.durMs || D.transition === 'none') return
+    const end = D.durMs - 40
+    const start = Math.max(0, end - 320)
+    for (const el of els) { if (el) reg(el, start, end, 'exitfade') }
   }
 
   // Premium ambient canvas: two large blurred brand-color orbs drifting slowly
@@ -130,5 +142,5 @@ window.__M = (() => {
     document.querySelectorAll('.chip').forEach((el) => { el.style.right = 'auto'; el.style.left = '90px' })
     if (document.fonts && document.fonts.load) { try { document.fonts.load("900 100px 'Cairo'"); document.fonts.load("500 100px 'Cairo'") } catch (e) {} }
   }
-  return { reg, easeOutCubic, easeOutBack, words, decorate, applyLang }
+  return { reg, easeOutCubic, easeOutBack, words, decorate, applyLang, sceneExit }
 })()

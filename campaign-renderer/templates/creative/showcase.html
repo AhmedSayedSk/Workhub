@@ -78,6 +78,8 @@
   M.reg(brand, 0, 400, 'fade')
   M.reg(idx, 150, 550, 'rise', { dy: 16 })
 
+  M.sceneExit(D, [document.getElementById('card'), content, idx])
+
   window.__ready = new Promise((res) => {
     const done = () => res()
     const fonts = document.fonts ? document.fonts.ready : Promise.resolve()

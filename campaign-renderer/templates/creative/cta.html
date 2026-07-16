@@ -47,6 +47,8 @@
   M.reg(document.getElementById('shine'), 1150, 1900, 'sweep')
   M.reg(urlEl, 900, 1350, 'rise', { dy: 22 })
 
+  M.sceneExit(D, [document.querySelector('.wrap')])
+
   window.__ready = new Promise((res) => {
     const done = () => res()
     const fonts = document.fonts ? document.fonts.ready : Promise.resolve()

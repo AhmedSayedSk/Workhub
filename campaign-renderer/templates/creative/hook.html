@@ -66,6 +66,8 @@
   if (D.bg) M.reg(bg, 0, 3400, 'kenburns', { from: 1.03, to: 1.13, dy: -16 })
   for (const bar of uBars) { bar.style.transform = 'scaleX(0)'; M.reg(bar, 1150, 1750, 'underline') }
 
+  M.sceneExit(D, [document.querySelector('.wrap'), chip])
+
   window.__ready = new Promise((res) => {
     const done = () => res()
     const fonts = document.fonts ? document.fonts.ready : Promise.resolve()

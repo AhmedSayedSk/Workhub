@@ -28,6 +28,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const body = await request.json().catch(() => ({}))
   const aspect = ASPECTS.includes(body.aspect) ? body.aspect : 'portrait'
   const mode = body.mode === 'creative' ? 'creative' : 'basic'
+  const transition = ['smooth', 'simple', 'none'].includes(body.transition) ? body.transition : 'smooth'
 
   const cSnap = await db().collection('campaigns').doc(id).get()
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     aspect,
     mode,
     lang: campaignLang,
+    transition,
     ...(voiceover ? { voiceover } : {}),
     ...(script ? { script } : {}),
     hook: {

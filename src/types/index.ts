@@ -649,6 +649,7 @@ export interface RenderJob {
   mode?: RenderMode
   lang?: 'ar' | 'en' // drives RTL + Arabic font in creative templates
   voiceover?: { enabled: boolean; language: 'en' | 'ar'; gender: 'male' | 'female'; model?: 'standard' | 'premium' } // AI narration
+  transition?: 'smooth' | 'simple' | 'none' // scene transitions: exit-fade + dissolve / exit-fade / hard cut
   script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string

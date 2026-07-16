@@ -8,6 +8,7 @@ import { generateHookBg } from './hook.mjs'
 import { encode, thumbFromFrame } from './encode.mjs'
 import { upload } from './upload.mjs'
 import { synthLines, buildVoiceTrack, clampSceneMs, creativeSceneNarration } from './voice.mjs'
+import { applyDissolves } from './transitions.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HOOK_TEMPLATE = path.join(__dirname, '..', 'templates', 'hook.html')
@@ -75,6 +76,9 @@ export async function renderJob(job, onProgress = () => {}) {
     // Optional AI voiceover: synth each scene's line first, so scenes can pace
     // to speech. null-safe — a voiceover failure just yields a silent scene.
     const vo = job.voiceover && job.voiceover.enabled ? job.voiceover : null
+    // Scene transitions: 'smooth' (exit-fade + cross-dissolve, default),
+    // 'simple' (exit-fade only), 'none' (hard cuts, legacy).
+    const transition = ['smooth', 'simple', 'none'].includes(job.transition) ? job.transition : 'smooth'
 
     if (job.mode === 'creative' && Array.isArray(job.script) && job.script.length) {
       const brand = { name: (job.brand || {}).name || '', color, logoUrl: (job.brand || {}).logoUrl || null, domain: (job.brand || {}).domain || null }
@@ -90,6 +94,7 @@ export async function renderJob(job, onProgress = () => {}) {
 
       const tasks = []
       const segments = []
+      const boundaries = []
       let cursor = 0
       let hookStart = 0
       // Per-type ordinals so templates can show "2 / 3" chips / ghost digits.
@@ -101,16 +106,24 @@ export async function renderJob(job, onProgress = () => {}) {
         const seg = voiceSegs ? voiceSegs[i] : null
         const durMs = seg ? clampSceneMs(seg.durationSec * 1000, baseMs) : baseMs
         const start = cursor
+        if (start > 0) boundaries.push(start)
         cursor += framesFor(durMs)
         if (scene.type === 'hook') hookStart = start
         typeSeen[scene.type] = (typeSeen[scene.type] || 0) + 1
-        const data = { ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en', index: typeSeen[scene.type], total: typeTotals[scene.type] }
+        const isLast = i === job.script.length - 1
+        const data = {
+          ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en',
+          index: typeSeen[scene.type], total: typeTotals[scene.type],
+          // The final scene HOLDS (no exit) so the CTA lingers on screen.
+          durMs, transition: isLast ? 'none' : transition,
+        }
         tasks.push(() => renderScene(path.join(CREATIVE_DIR, `${scene.type}.html`), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
         segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
       })
       const thumbFrameIndex = Math.min(hookStart + FPS, Math.max(0, cursor - 1))
       await report(42, 'rendering')
       await runPool(tasks, CONCURRENCY, async (d, total) => { await report(42 + Math.round((d / total) * 43), 'rendering') })
+      if (transition === 'smooth') await applyDissolves(framesDir, boundaries, cursor)
       await report(88, 'encoding')
       const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
       const outMp4 = path.join(scratch, `${job.id}.mp4`)
@@ -151,6 +164,7 @@ export async function renderJob(job, onProgress = () => {}) {
     // concat in order.
     const tasks = []
     const segments = []
+    const boundaries = []
     let cursor = 0
     const hookSeg = voiceSegs ? voiceSegs[0] : null
     const hookDurMs = hookSeg ? clampSceneMs(hookSeg.durationSec * 1000, HOOK_DUR_MS) : HOOK_DUR_MS
@@ -161,12 +175,18 @@ export async function renderJob(job, onProgress = () => {}) {
       renderScene(HOOK_TEMPLATE, hookData, { w: dims.w, h: dims.h, durMs: hookDurMs, fps: FPS, outDir: framesDir, startIndex: hookStart })
     )
     segments.push({ audioPath: hookSeg ? hookSeg.audioPath : null, durMs: hookDurMs })
+    const sceneCount = (job.scenes || []).length
     ;(job.scenes || []).forEach((scene, i) => {
       const seg = voiceSegs ? voiceSegs[i + 1] : null
       const durMs = seg ? clampSceneMs(seg.durationSec * 1000, SCENE_DUR_MS) : SCENE_DUR_MS
       const start = cursor
+      boundaries.push(start)
       cursor += framesFor(durMs)
-      const data = { image: scene.imageUrl || null, headline: scene.headline || '', caption: scene.caption || '', color, lang: job.lang || 'en' }
+      const isLast = i === sceneCount - 1
+      const data = {
+        image: scene.imageUrl || null, headline: scene.headline || '', caption: scene.caption || '', color, lang: job.lang || 'en',
+        durMs, transition: isLast ? 'none' : transition, // final scene holds
+      }
       tasks.push(() =>
         renderScene(SCENE_TEMPLATE, data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start })
       )
@@ -179,6 +199,7 @@ export async function renderJob(job, onProgress = () => {}) {
     await runPool(tasks, CONCURRENCY, async (d, total) => {
       await report(42 + Math.round((d / total) * 43), 'rendering') // 42 → 85
     })
+    if (transition === 'smooth') await applyDissolves(framesDir, boundaries, cursor)
     await report(85, 'rendering')
 
     const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null

@@ -53,6 +53,8 @@
   M.reg(ghost, 0, 900, 'fade')
   M.reg(brand, 0, 400, 'fade')
 
+  M.sceneExit(D, [document.querySelector('.wrap'), ghost])
+
   window.__ready = document.fonts ? document.fonts.ready : Promise.resolve()
   window.render(0)
 </script></body></html>

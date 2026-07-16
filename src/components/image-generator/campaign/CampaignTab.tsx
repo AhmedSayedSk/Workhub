@@ -84,6 +84,7 @@ export function CampaignTab() {
   const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
   const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male'>('female')
   const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('standard')
+  const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
@@ -124,6 +125,7 @@ export function CampaignTab() {
         body: JSON.stringify({
           aspect: videoAspect,
           mode: videoMode,
+          transition: videoTransition,
           voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel } : { enabled: false },
         }),
       })
@@ -360,6 +362,19 @@ export function CampaignTab() {
                     )}
                   </div>
                   <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground">Transitions</span>
+                    <Seg
+                      value={videoTransition}
+                      onChange={setVideoTransition}
+                      options={[
+                        { value: 'smooth' as const, label: 'Smooth' },
+                        { value: 'simple' as const, label: 'Simple' },
+                        { value: 'none' as const, label: 'Cut' },
+                      ]}
+                      disabled={videoRendering}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Voiceover</span>
                     <Switch checked={voiceover} onCheckedChange={setVoiceover} disabled={videoRendering} />
                   </div>
@@ -448,6 +463,9 @@ export function CampaignTab() {
                       <div className="flex flex-wrap gap-1">
                         <Badge variant="secondary" className="capitalize">{videoJob.mode || 'basic'}</Badge>
                         <Badge variant="secondary">{ASPECT_LABEL[videoJob.aspect] || videoJob.aspect}</Badge>
+                        {videoJob.transition && videoJob.transition !== 'none' && (
+                          <Badge variant="secondary" className="capitalize">{videoJob.transition} transitions</Badge>
+                        )}
                         {videoJob.voiceover?.enabled && (
                           <Badge variant="secondary">
                             {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}
