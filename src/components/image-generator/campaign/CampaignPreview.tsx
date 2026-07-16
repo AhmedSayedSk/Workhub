@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { toast } from 'react-toastify'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/api-client'
+import { renderJobs } from '@/lib/firestore'
 import { ArrowLeft, CalendarClock, Loader2, Facebook, Instagram, Linkedin, AlertCircle, ImageOff } from 'lucide-react'
-import type { Campaign, CampaignPost } from '@/types'
+import type { Campaign, CampaignPost, RenderAspect, RenderJob } from '@/types'
 
 function fmtSlot(ms: number | null): string {
   if (ms == null) return ''
@@ -58,6 +60,30 @@ export function CampaignPreview({
       return next
     })
 
+  // Campaign video render
+  const [aspect, setAspect] = useState<RenderAspect>('portrait')
+  const [videoJobId, setVideoJobId] = useState<string | null>(null)
+  const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
+  useEffect(() => {
+    if (!videoJobId) return
+    return renderJobs.subscribe(videoJobId, setVideoJob)
+  }, [videoJobId])
+  const generateVideo = async () => {
+    const res = await authFetch(`/api/campaigns/${campaign.id}/render`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ aspect }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      toast.error(data.error || 'Could not start video')
+      return
+    }
+    setVideoJobId(data.jobId)
+    setVideoJob(null)
+  }
+  const videoRendering = videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+
   const selectedSlots = schedulable
     .filter((p) => included.has(p.id))
     .map((p) => slotFor(p.order))
@@ -96,6 +122,39 @@ export function CampaignPreview({
           </Button>
         </div>
       )}
+
+      {/* Campaign video */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
+        <span className="text-sm font-medium">Campaign video</span>
+        <select
+          value={aspect}
+          onChange={(e) => setAspect(e.target.value as RenderAspect)}
+          className="rounded-md border bg-background px-2 py-1 text-sm"
+        >
+          <option value="portrait">Portrait 9:16</option>
+          <option value="landscape">Landscape 16:9</option>
+          <option value="square">Square 1:1</option>
+        </select>
+        <Button size="sm" onClick={generateVideo} disabled={videoRendering}>
+          {videoRendering ? 'Rendering…' : 'Generate video'}
+        </Button>
+        {videoJob && (
+          <span className="text-xs text-muted-foreground">
+            {videoJob.status === 'queued' && 'Queued…'}
+            {videoJob.status === 'rendering' && 'Rendering on the render server…'}
+            {videoJob.status === 'failed' && <span className="text-red-600">Failed: {videoJob.error}</span>}
+            {videoJob.status === 'done' && 'Done'}
+          </span>
+        )}
+        {videoJob?.status === 'done' && videoJob.videoUrl && (
+          <div className="mt-2 w-full">
+            <video src={videoJob.videoUrl} poster={videoJob.thumbnailUrl || undefined} controls className="max-h-[420px] rounded-lg" />
+            <a href={videoJob.videoUrl} download className="mt-1 inline-block text-xs text-primary underline">
+              Download
+            </a>
+          </div>
+        )}
+      </div>
 
       {/* Feed-style preview cards */}
       <div className="mx-auto grid w-full max-w-4xl gap-4 sm:grid-cols-2">
