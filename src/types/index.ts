@@ -648,7 +648,7 @@ export interface RenderJob {
   scenes: Array<{ imageUrl: string; headline: string; caption: string }>
   mode?: RenderMode
   lang?: 'ar' | 'en' // drives RTL + Arabic font in creative templates
-  voiceover?: { enabled: boolean; language: 'en' | 'ar'; gender: 'male' | 'female' } // AI narration
+  voiceover?: { enabled: boolean; language: 'en' | 'ar'; gender: 'male' | 'female'; model?: 'standard' | 'premium' } // AI narration
   script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string

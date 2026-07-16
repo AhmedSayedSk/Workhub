@@ -41,6 +41,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
         enabled: true,
         language: (vo.language === 'ar' || vo.language === 'en' ? vo.language : campaignLang) as 'en' | 'ar',
         gender: (vo.gender === 'male' ? 'male' : 'female') as 'male' | 'female',
+        model: (vo.model === 'premium' ? 'premium' : 'standard') as 'standard' | 'premium',
       }
     : null
 

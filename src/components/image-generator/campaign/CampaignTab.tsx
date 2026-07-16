@@ -8,9 +8,10 @@ import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
 import Link from 'next/link'
-import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Plus, AlertCircle, ImageIcon, ExternalLink, MoreVertical } from 'lucide-react'
+import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Plus, AlertCircle, ImageIcon, ExternalLink, MoreVertical, Play, Download } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { CampaignPostCard } from './CampaignPostCard'
 import { CampaignImageDialog } from './CampaignImageDialog'
@@ -40,6 +41,8 @@ export function CampaignTab() {
   const [voiceover, setVoiceover] = useState(false)
   const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
   const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male'>('female')
+  const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('standard')
+  const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
   const activeCampaignId = c.activeCampaign?.id ?? null
@@ -78,7 +81,7 @@ export function CampaignTab() {
         body: JSON.stringify({
           aspect: videoAspect,
           mode: videoMode,
-          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender } : { enabled: false },
+          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel } : { enabled: false },
         }),
       })
       const data = await res.json()
@@ -293,6 +296,17 @@ export function CampaignTab() {
                     <option value="female">Female voice</option>
                     <option value="male">Male voice</option>
                   </select>
+                  <select
+                    value={voiceoverModel}
+                    onChange={(e) => setVoiceoverModel(e.target.value as 'standard' | 'premium')}
+                    disabled={videoRendering}
+                    aria-label="Voice quality"
+                    title="Premium is higher quality but a little slower"
+                    className="rounded-md border bg-background px-2 py-1 text-xs disabled:opacity-60"
+                  >
+                    <option value="standard">Standard quality</option>
+                    <option value="premium">Premium quality</option>
+                  </select>
                 </>
               )}
               <Button size="sm" onClick={generateVideo} disabled={videoRendering}>
@@ -326,20 +340,56 @@ export function CampaignTab() {
             )}
 
             {!videoStarting && videoJob?.status === 'done' && videoJob.videoUrl && (
-              <div className="pt-1">
-                <video
-                  src={videoJob.videoUrl}
-                  poster={videoJob.thumbnailUrl || undefined}
-                  controls
-                  className="max-h-[440px] rounded-lg border"
-                />
-                <a href={videoJob.videoUrl} download className="mt-1 inline-block text-xs text-primary underline">
-                  Download video
-                </a>
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setVideoModalOpen(true)}
+                  className="group relative shrink-0 overflow-hidden rounded-lg border"
+                  aria-label="Open video"
+                >
+                  {videoJob.thumbnailUrl ? (
+                    <img src={videoJob.thumbnailUrl} alt="Video preview" className="h-24 w-auto object-cover" />
+                  ) : (
+                    <div className="flex h-24 w-16 items-center justify-center bg-muted"><Play className="h-6 w-6" /></div>
+                  )}
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Play className="h-7 w-7 text-white" fill="currentColor" />
+                  </span>
+                </button>
+                <div className="flex flex-col items-start gap-1.5">
+                  <Button size="sm" variant="secondary" onClick={() => setVideoModalOpen(true)}>
+                    <Play className="mr-1.5 h-4 w-4" /> View video
+                  </Button>
+                  <a href={videoJob.videoUrl} download className="flex items-center gap-1 text-xs text-primary underline">
+                    <Download className="h-3.5 w-3.5" /> Download
+                  </a>
+                </div>
               </div>
             )}
           </div>
         )}
+
+        <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
+          <DialogContent className="max-w-[440px] overflow-hidden p-0">
+            <DialogHeader className="px-4 pt-4">
+              <DialogTitle>Campaign video</DialogTitle>
+            </DialogHeader>
+            {videoJob?.videoUrl && (
+              <div className="px-4 pb-4">
+                <video
+                  src={videoJob.videoUrl}
+                  poster={videoJob.thumbnailUrl || undefined}
+                  controls
+                  autoPlay
+                  className="max-h-[68vh] w-full rounded-lg border bg-black"
+                />
+                <a href={videoJob.videoUrl} download className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline">
+                  <Download className="h-3.5 w-3.5" /> Download video
+                </a>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {c.planning ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">

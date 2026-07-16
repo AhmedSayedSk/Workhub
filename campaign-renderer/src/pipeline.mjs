@@ -84,7 +84,7 @@ export async function renderJob(job, onProgress = () => {}) {
       if (vo) {
         await report(40, 'voiceover')
         const lines = job.script.map((s) => ({ text: creativeSceneNarration(s) }))
-        voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender }, scratch, 3,
+        voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender, model: vo.model }, scratch, 3,
           async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
       }
 
@@ -137,7 +137,7 @@ export async function renderJob(job, onProgress = () => {}) {
         { text: [hookData.headline, hookData.subtext].filter(Boolean).join('. ') },
         ...(job.scenes || []).map((s) => ({ text: s.caption || s.headline || '' })),
       ]
-      voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender }, scratch, 3,
+      voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender, model: vo.model }, scratch, 3,
         async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
     }
 
