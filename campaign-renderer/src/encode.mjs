@@ -12,7 +12,8 @@ export async function encode(framesDir, fps, outMp4) {
   const args = [
     '-y',
     '-framerate', String(fps),
-    '-i', path.join(framesDir, 'f%05d.png'),
+    '-i', path.join(framesDir, 'f%05d.jpg'),
+    '-threads', '0',
     '-f', 'lavfi',
     '-i', 'anullsrc=r=44100:cl=stereo',
     '-shortest',
@@ -32,8 +33,8 @@ export async function encode(framesDir, fps, outMp4) {
 // entrance animation.
 export async function thumbFromFrame(framesDir, outPath, frameIndex = 30) {
   const padded = String(Math.max(0, frameIndex)).padStart(5, '0')
-  let src = path.join(framesDir, `f${padded}.png`)
-  if (!fs.existsSync(src)) src = path.join(framesDir, 'f00000.png')
+  let src = path.join(framesDir, `f${padded}.jpg`)
+  if (!fs.existsSync(src)) src = path.join(framesDir, 'f00000.jpg')
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
   await run('ffmpeg', ['-y', '-i', src, outPath])

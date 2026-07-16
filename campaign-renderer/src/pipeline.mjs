@@ -1,14 +1,16 @@
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { renderScene } from './render.mjs'
-import { renderScenes } from './scenes.mjs'
+import { SCENE_DUR_MS } from './scenes.mjs'
 import { generateHookBg } from './hook.mjs'
 import { encode, thumbFromFrame } from './encode.mjs'
 import { upload } from './upload.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HOOK_TEMPLATE = path.join(__dirname, '..', 'templates', 'hook.html')
+const SCENE_TEMPLATE = path.join(__dirname, '..', 'templates', 'scene.html')
 
 const DIMS = {
   portrait: { w: 1080, h: 1920 },
@@ -17,6 +19,27 @@ const DIMS = {
 }
 const FPS = 30
 const HOOK_DUR_MS = 3000
+// Use every vCPU: the hook + each post scene render in parallel, each writing
+// its own pre-assigned frame range (order preserved). Override with RENDER_CONCURRENCY.
+const CONCURRENCY = Math.max(1, Number(process.env.RENDER_CONCURRENCY) || os.cpus().length)
+
+const framesFor = (durMs) => Math.max(1, Math.round((durMs / 1000) * FPS))
+
+// Runs task thunks with at most `limit` in flight; calls onEach(done,total) as
+// each finishes (for progress). Rejects if any task throws.
+async function runPool(tasks, limit, onEach) {
+  let next = 0
+  let done = 0
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++
+      await tasks[i]()
+      done++
+      if (onEach) await onEach(done, tasks.length)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
+}
 
 // Renders a full campaign post video: hook opener + post scenes, encodes to
 // MP4 (+ silent AAC), uploads the MP4 + a thumbnail to Firebase Storage.
@@ -54,25 +77,31 @@ export async function renderJob(job, onProgress = () => {}) {
       color,
     }
 
-    const hookFrames = await renderScene(HOOK_TEMPLATE, hookData, {
-      w: dims.w,
-      h: dims.h,
-      durMs: HOOK_DUR_MS,
-      fps: FPS,
-      outDir: framesDir,
-      startIndex: 0,
-    })
-    // A frame ~1s in, once the hook's entrance animation has settled.
+    // Pre-assign a contiguous frame range to the hook + each scene, so they can
+    // render in PARALLEL across all vCPUs without frame collisions and still
+    // concat in order.
+    const hookFrames = framesFor(HOOK_DUR_MS)
+    const tasks = []
+    let cursor = 0
+    const hookStart = cursor
+    cursor += hookFrames
+    tasks.push(() =>
+      renderScene(HOOK_TEMPLATE, hookData, { w: dims.w, h: dims.h, durMs: HOOK_DUR_MS, fps: FPS, outDir: framesDir, startIndex: hookStart })
+    )
+    for (const scene of job.scenes || []) {
+      const start = cursor
+      cursor += framesFor(SCENE_DUR_MS)
+      const data = { image: scene.imageUrl || null, headline: scene.headline || '', caption: scene.caption || '', color }
+      tasks.push(() =>
+        renderScene(SCENE_TEMPLATE, data, { w: dims.w, h: dims.h, durMs: SCENE_DUR_MS, fps: FPS, outDir: framesDir, startIndex: start })
+      )
+    }
+    // A frame ~1s into the hook, once its entrance animation has settled.
     const thumbFrameIndex = Math.min(FPS, Math.max(0, hookFrames - 1))
-    await report(55, 'rendering')
 
-    await renderScenes(job.scenes || [], {
-      w: dims.w,
-      h: dims.h,
-      outDir: framesDir,
-      startIndex: hookFrames,
-      color,
-      fps: FPS,
+    await report(42, 'rendering')
+    await runPool(tasks, CONCURRENCY, async (d, total) => {
+      await report(42 + Math.round((d / total) * 43), 'rendering') // 42 → 85
     })
     await report(85, 'rendering')
 

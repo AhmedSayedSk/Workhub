@@ -46,7 +46,9 @@ export async function renderScene(htmlPath, data, { w, h, durMs, fps, outDir, st
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
       const idx = startIndex + i
       await page.screenshot({
-        path: path.join(outDir, `f${String(idx).padStart(5, '0')}.png`),
+        path: path.join(outDir, `f${String(idx).padStart(5, '0')}.jpg`),
+        type: 'jpeg',
+        quality: 92,
         clip: { x: 0, y: 0, width: w, height: h },
       })
     }
