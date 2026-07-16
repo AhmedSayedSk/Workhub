@@ -634,6 +634,27 @@ export interface CampaignPost {
   updatedAt?: Timestamp
 }
 
+export type RenderAspect = 'portrait' | 'landscape' | 'square'
+export type RenderJobStatus = 'queued' | 'rendering' | 'done' | 'failed'
+
+export interface RenderJob {
+  id: string
+  campaignId: string
+  projectId: string
+  status: RenderJobStatus
+  aspect: RenderAspect
+  hook: { headline: string; subtext: string; bgPrompt: string }
+  brand: { name: string; color: string; logoUrl: string | null }
+  scenes: Array<{ imageUrl: string; headline: string; caption: string }>
+  videoUrl?: string
+  thumbnailUrl?: string
+  error?: string
+  workerId?: string
+  createdAt: number
+  startedAt?: number
+  finishedAt?: number
+}
+
 // AI Image Generation Log (persistent, never deleted with images)
 export interface ImageGenLog {
   id: string

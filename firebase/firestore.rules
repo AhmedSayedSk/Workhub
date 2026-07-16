@@ -200,6 +200,12 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Render jobs: authenticated users read; only the server (Admin SDK) writes.
+    match /renderJobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     // Audit Logs — any authenticated user can write (fire-and-forget), only owner reads
     match /auditLogs/{logId} {
       allow read: if isAuthenticated();

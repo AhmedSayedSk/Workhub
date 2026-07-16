@@ -16,6 +16,7 @@ import {
   writeBatch,
   arrayUnion,
   arrayRemove,
+  onSnapshot,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import {
@@ -69,6 +70,7 @@ import {
   ImageGenLog,
   UserProfile,
   MemberPermission,
+  RenderJob,
   ProjectPermissions,
   ModulePermissions,
   AuditLog,
@@ -1496,6 +1498,17 @@ export const campaignPosts = {
 
   async delete(id: string): Promise<void> {
     return remove('campaignPosts', id)
+  },
+}
+
+export const renderJobs = {
+  async get(id: string): Promise<RenderJob | null> {
+    return getById<RenderJob>('renderJobs', id)
+  },
+  subscribe(id: string, cb: (job: RenderJob | null) => void): () => void {
+    return onSnapshot(doc(db, 'renderJobs', id), (snap) =>
+      cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as RenderJob) : null)
+    )
   },
 }
 
