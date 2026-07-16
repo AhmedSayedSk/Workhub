@@ -647,6 +647,7 @@ export interface RenderJob {
   brand: { name: string; color: string; logoUrl: string | null; domain?: string }
   scenes: Array<{ imageUrl: string; headline: string; caption: string }>
   mode?: RenderMode
+  lang?: 'ar' | 'en' // drives RTL + Arabic font in creative templates
   script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string

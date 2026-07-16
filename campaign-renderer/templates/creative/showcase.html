@@ -29,6 +29,7 @@
 <script src="_motion.js"></script>
 <script>
   const D = window.__DATA || {}
+  if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
   const c = D.brand?.color || '#34e5a4'
   const s = document.getElementById('s')
   s.style.setProperty('--c', c)

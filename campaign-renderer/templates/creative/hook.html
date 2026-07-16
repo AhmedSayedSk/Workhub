@@ -22,6 +22,7 @@
 <script src="_motion.js"></script>
 <script>
   const D = window.__DATA || {}
+  if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
   const c = D.brand?.color || '#34e5a4'
   document.getElementById('s').style.setProperty('--c', c)
   const bg = document.getElementById('bg'); if (D.bg) bg.style.backgroundImage = `url("${D.bg}")`; else document.getElementById('s').style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`

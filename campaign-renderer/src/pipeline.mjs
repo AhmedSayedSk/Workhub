@@ -82,7 +82,7 @@ export async function renderJob(job, onProgress = () => {}) {
         const start = cursor
         cursor += framesFor(durMs)
         if (scene.type === 'hook') hookStart = start
-        const data = { ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null }
+        const data = { ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en' }
         tasks.push(() => renderScene(path.join(CREATIVE_DIR, `${scene.type}.html`), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
       })
       const thumbFrameIndex = Math.min(hookStart + FPS, Math.max(0, cursor - 1))

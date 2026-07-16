@@ -86,6 +86,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     status: 'queued',
     aspect,
     mode,
+    lang: c.language === 'ar' ? 'ar' : 'en',
     ...(script ? { script } : {}),
     hook: {
       headline: brandName,
