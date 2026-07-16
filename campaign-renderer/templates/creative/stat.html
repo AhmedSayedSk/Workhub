@@ -3,18 +3,27 @@
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
   #s{position:relative;width:100%;height:100%;color:#fff;overflow:hidden}
-  .brand{position:absolute;left:90px;top:90px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.9}
+  .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:2}
   .brand img{width:52px;height:52px;border-radius:12px}
-  .wrap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center}
-  .core{position:relative;display:inline-block}
-  .ring{position:absolute;left:50%;top:50%;width:640px;height:640px;border-radius:50%;border:6px solid var(--c);opacity:0;transform:translate(-50%,-50%)}
-  .value{font-size:200px;font-weight:900;color:var(--c);letter-spacing:-2px;line-height:1;position:relative;padding:0 40px}
-  .label{font-size:40px;font-weight:600;color:rgba(255,255,255,.78);margin-top:28px;letter-spacing:.5px}
+  .wrap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;z-index:2}
+  .core{position:relative;display:inline-block;width:640px;height:640px}
+  .core svg{position:absolute;inset:0;transform:rotate(-90deg)}
+  .core svg .track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:10}
+  .core svg .prog{fill:none;stroke:var(--c);stroke-width:10;stroke-linecap:round}
+  .value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+         font-size:190px;font-weight:900;color:var(--c);letter-spacing:-2px}
+  .label{font-size:42px;font-weight:600;color:rgba(255,255,255,.8);margin-top:34px;letter-spacing:.5px}
 </style></head>
 <body><div id="s">
   <div class="brand" id="brand"></div>
   <div class="wrap">
-    <div class="core"><div class="ring" id="ring"></div><div class="value" id="value"></div></div>
+    <div class="core">
+      <svg viewBox="0 0 640 640">
+        <circle class="track" cx="320" cy="320" r="300"/>
+        <circle class="prog" id="prog" cx="320" cy="320" r="300"/>
+      </svg>
+      <div class="value" id="value"></div>
+    </div>
     <div class="label" id="label"></div>
   </div>
 </div>
@@ -26,19 +35,27 @@
   const s = document.getElementById('s')
   s.style.setProperty('--c', c)
   s.style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+  window.__M.decorate(s, c)
 
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
   brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
   if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
 
-  document.getElementById('value').textContent = D.value || ''
-  document.getElementById('label').textContent = D.label || ''
+  const valueEl = document.getElementById('value')
+  const labelEl = document.getElementById('label')
+  labelEl.textContent = D.label || ''
 
   const M = window.__M
-  M.reg(document.getElementById('ring'), 0, 900, 'fade')
-  M.reg(document.getElementById('value'), 150, 750, 'pop')
-  M.reg(document.getElementById('label'), 600, 1100, 'rise', { dy: 24 })
+  // Ring draws around while the number counts up — the classic stat moment.
+  const CIRC = 2 * Math.PI * 300
+  const prog = document.getElementById('prog')
+  prog.style.strokeDasharray = String(CIRC)
+  prog.style.strokeDashoffset = String(CIRC)
+  M.reg(prog, 150, 1250, 'ringdraw', { circ: CIRC })
+  valueEl.textContent = D.value || ''
+  M.reg(valueEl, 150, 1100, 'countup', { text: D.value || '' })
+  M.words(labelEl, 950, 90, 520, { dy: 26 })
   M.reg(brand, 0, 400, 'fade')
 
   window.__ready = document.fonts ? document.fonts.ready : Promise.resolve()

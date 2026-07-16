@@ -92,6 +92,10 @@ export async function renderJob(job, onProgress = () => {}) {
       const segments = []
       let cursor = 0
       let hookStart = 0
+      // Per-type ordinals so templates can show "2 / 3" chips / ghost digits.
+      const typeTotals = {}
+      for (const sc of job.script) typeTotals[sc.type] = (typeTotals[sc.type] || 0) + 1
+      const typeSeen = {}
       job.script.forEach((scene, i) => {
         const baseMs = SCENE_DUR[scene.type] || 2800
         const seg = voiceSegs ? voiceSegs[i] : null
@@ -99,7 +103,8 @@ export async function renderJob(job, onProgress = () => {}) {
         const start = cursor
         cursor += framesFor(durMs)
         if (scene.type === 'hook') hookStart = start
-        const data = { ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en' }
+        typeSeen[scene.type] = (typeSeen[scene.type] || 0) + 1
+        const data = { ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en', index: typeSeen[scene.type], total: typeTotals[scene.type] }
         tasks.push(() => renderScene(path.join(CREATIVE_DIR, `${scene.type}.html`), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
         segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
       })
@@ -161,7 +166,7 @@ export async function renderJob(job, onProgress = () => {}) {
       const durMs = seg ? clampSceneMs(seg.durationSec * 1000, SCENE_DUR_MS) : SCENE_DUR_MS
       const start = cursor
       cursor += framesFor(durMs)
-      const data = { image: scene.imageUrl || null, headline: scene.headline || '', caption: scene.caption || '', color }
+      const data = { image: scene.imageUrl || null, headline: scene.headline || '', caption: scene.caption || '', color, lang: job.lang || 'en' }
       tasks.push(() =>
         renderScene(SCENE_TEMPLATE, data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start })
       )
