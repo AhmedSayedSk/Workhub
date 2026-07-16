@@ -68,21 +68,27 @@ export function CampaignPreview({
     if (!videoJobId) return
     return renderJobs.subscribe(videoJobId, setVideoJob)
   }, [videoJobId])
+  const [starting, setStarting] = useState(false)
   const generateVideo = async () => {
-    const res = await authFetch(`/api/campaigns/${campaign.id}/render`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ aspect }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      toast.error(data.error || 'Could not start video')
-      return
+    setStarting(true)
+    try {
+      const res = await authFetch(`/api/campaigns/${campaign.id}/render`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ aspect }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Could not start video')
+        return
+      }
+      setVideoJobId(data.jobId)
+      setVideoJob(null)
+    } finally {
+      setStarting(false)
     }
-    setVideoJobId(data.jobId)
-    setVideoJob(null)
   }
-  const videoRendering = videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+  const videoRendering = starting || videoJob?.status === 'queued' || videoJob?.status === 'rendering'
 
   const selectedSlots = schedulable
     .filter((p) => included.has(p.id))

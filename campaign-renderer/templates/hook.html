@@ -59,7 +59,14 @@
   document.getElementById('subtext').textContent = D.subtext || '';
 
   var logoEl = document.getElementById('logo');
-  if (D.logo) { logoEl.src = D.logo; } else { logoEl.style.display = 'none'; }
+  function preloadLogo() {
+    return new Promise(function (resolve) {
+      if (!D.logo) { logoEl.style.display = 'none'; resolve(); return; }
+      logoEl.onload = function () { resolve(); };
+      logoEl.onerror = function () { resolve(); }; // missing logo never hangs the render
+      logoEl.src = D.logo;
+    });
+  }
 
   var bgEl = document.getElementById('bg');
   function preloadBg() {
@@ -79,6 +86,7 @@
   // render.mjs waits on window.__ready (with a timeout) before it starts capturing frames.
   window.__ready = Promise.all([
     preloadBg(),
+    preloadLogo(),
     (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve(),
   ]);
 

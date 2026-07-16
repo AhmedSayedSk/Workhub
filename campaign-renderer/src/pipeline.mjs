@@ -71,8 +71,9 @@ export async function renderJob(job) {
     await encode(framesDir, FPS, outMp4)
     await thumbFromFrame(framesDir, outThumb, thumbFrameIndex)
 
-    const videoUrl = await upload(outMp4, `campaigns/${job.campaignId}/${job.id}.mp4`, 'video/mp4')
-    const thumbnailUrl = await upload(outThumb, `campaigns/${job.campaignId}/${job.id}.jpg`, 'image/jpeg')
+    const folder = job.campaignId || job.id
+    const videoUrl = await upload(outMp4, `campaigns/${folder}/${job.id}.mp4`, 'video/mp4')
+    const thumbnailUrl = await upload(outThumb, `campaigns/${folder}/${job.id}.jpg`, 'image/jpeg')
 
     return { videoUrl, thumbnailUrl }
   } finally {

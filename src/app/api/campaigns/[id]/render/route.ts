@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       subtext: c.brief?.goal ? String(c.brief.goal).slice(0, 90) : 'See what we made',
       bgPrompt: `Premium cinematic on-brand hero background for "${brandName}", ${c.artDirection || c.style || 'sleek modern tech'}, deep rich colors, volumetric light, negative space for a headline, ${aspect} composition, high detail.`,
     },
-    brand: { name: brandName, color: (c.brand?.colors && c.brand.colors[0]) || '#111827', logoUrl: c.brandImageUrl || null },
+    brand: { name: brandName, color: (c.brand?.colors && c.brand.colors[0]) || '#111827', logoUrl: c.brand?.logoUrl || c.brandImageUrl || null },
     scenes: posts.map((p) => ({ imageUrl: p.imageUrl, headline: p.headline || '', caption: (p.caption || '').slice(0, 140) })),
     createdAt: Date.now(),
   }
