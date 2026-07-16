@@ -667,7 +667,7 @@ export type CreativeScene =
   | { type: 'hook'; headline: string; underline?: string; kicker?: string }
   | { type: 'beat'; title: string; sub?: string }
   | { type: 'stat'; value: string; label: string }
-  | { type: 'showcase'; imageUrl: string; caption?: string }
+  | { type: 'showcase'; imageUrl: string; caption?: string; sub?: string } // one scene: image (top) + its copy (bottom)
   | { type: 'cta'; text: string; url?: string }
 
 // AI Image Generation Log (persistent, never deleted with images)

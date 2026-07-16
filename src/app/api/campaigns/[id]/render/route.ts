@@ -67,28 +67,36 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       domain,
       posts: posts.map((p) => ({ headline: p.headline, body: p.body, caption: p.caption })),
     })
-    // Interleave the real images as showcase scenes: hook, then alternate
-    // copy/showcase, cta last. Reserve slots for hook/cta so the cap never
-    // slices them off. Cap at 9 scenes total.
+    // MERGE each beat's copy INTO an image scene: every showcase = one scene
+    // with the image on top and that beat's text (caption + sub) below it —
+    // never a text-only beat followed by a separate image. Stats stay their own
+    // designed moment, sprinkled between showcases. Reserve hook/cta slots so
+    // the 9-scene cap never slices them off.
     const hook = copyScenes.find((s) => s.type === 'hook')
     const cta = copyScenes.find((s) => s.type === 'cta')
-    const middle = copyScenes.filter((s) => s.type !== 'hook' && s.type !== 'cta')
+    const beats = copyScenes.filter((s): s is Extract<import('@/types').CreativeScene, { type: 'beat' }> => s.type === 'beat')
+    const stats = copyScenes.filter((s) => s.type === 'stat')
     // posts here are already filtered to those with imageUrl, so posts[i].imageUrl is defined.
     const maxMid = 9 - (hook ? 1 : 0) - (cta ? 1 : 0)
     const mid: import('@/types').CreativeScene[] = []
-    let imgI = 0
-    for (const s of middle) {
-      if (mid.length >= maxMid) break
-      mid.push(s)
-      if (imgI < posts.length && mid.length < maxMid) {
-        mid.push({ type: 'showcase', imageUrl: posts[imgI].imageUrl as string, caption: posts[imgI].headline || '' })
-        imgI++
-      }
-    }
-    while (imgI < posts.length && mid.length < maxMid) {
-      mid.push({ type: 'showcase', imageUrl: posts[imgI].imageUrl as string, caption: '' })
-      imgI++
-    }
+    let bi = 0
+    let si = 0
+    posts.forEach((p, i) => {
+      if (mid.length >= maxMid) return
+      const beat = beats[bi]
+      if (beat) bi++
+      mid.push({
+        type: 'showcase',
+        imageUrl: p.imageUrl as string,
+        caption: beat?.title || p.headline || '',
+        ...(beat?.sub ? { sub: beat.sub } : {}),
+      })
+      // A stat moment after every second image keeps the rhythm varied.
+      if (si < stats.length && i % 2 === 1 && mid.length < maxMid) mid.push(stats[si++])
+    })
+    // Leftover copy (more beats/stats than images) still gets its own scene if room.
+    for (; bi < beats.length && mid.length < maxMid; bi++) mid.push(beats[bi])
+    for (; si < stats.length && mid.length < maxMid; si++) mid.push(stats[si])
     script = [...(hook ? [hook] : []), ...mid, ...(cta ? [cta] : [])]
   }
 

@@ -31,10 +31,37 @@ function creativeSceneText(s: CreativeScene): string {
     case 'hook': return (s.headline || '').replace(/\n/g, ' ')
     case 'beat': return [s.title, s.sub].filter(Boolean).join(' — ')
     case 'stat': return [s.value, s.label].filter(Boolean).join('  ')
-    case 'showcase': return s.caption || ''
+    case 'showcase': return [s.caption, s.sub].filter(Boolean).join(' — ')
     case 'cta': return s.text || ''
     default: return ''
   }
+}
+
+// Minimal segmented control used by the video-generation modal.
+function Seg<T extends string>({ value, onChange, options, disabled }: {
+  value: T
+  onChange: (v: T) => void
+  options: Array<{ value: T; label: string }>
+  disabled?: boolean
+}) {
+  return (
+    <div className="inline-flex overflow-hidden rounded-lg border bg-muted/40 p-0.5 text-xs">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'rounded-md px-3 py-1.5 font-medium transition-colors disabled:opacity-50',
+            value === o.value ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 export function CampaignTab() {
@@ -258,210 +285,197 @@ export function CampaignTab() {
         )}
 
         {!scheduleMode && readyCount > 0 && (
-          <div className="space-y-2.5 rounded-lg border p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">Campaign video</span>
-              <div className="inline-flex overflow-hidden rounded-md border text-xs">
-                {(['basic', 'creative'] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => { setVideoMode(m); if (m === 'creative') setVideoAspect('portrait') }}
-                    disabled={videoRendering}
-                    className={`px-2.5 py-1 font-medium capitalize ${videoMode === m ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'}`}
-                  >
-                    {m === 'creative' ? 'Creative' : 'Basic'}
-                  </button>
-                ))}
-              </div>
-              <select
-                value={videoAspect}
-                onChange={(e) => setVideoAspect(e.target.value as RenderAspect)}
-                disabled={videoRendering || videoMode === 'creative'}
-                title={videoMode === 'creative' ? 'Creative reels are vertical (9:16)' : undefined}
-                className="rounded-md border bg-background px-2 py-1 text-sm disabled:opacity-60"
-              >
-                <option value="portrait">Portrait 9:16</option>
-                <option value="landscape">Landscape 16:9</option>
-                <option value="square">Square 1:1</option>
-              </select>
-              <label className="ml-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <Switch checked={voiceover} onCheckedChange={setVoiceover} disabled={videoRendering} className="scale-90" />
-                Voiceover
-              </label>
-              {voiceover && (
-                <>
-                  <select
-                    value={voiceoverLang}
-                    onChange={(e) => setVoiceoverLang(e.target.value as 'en' | 'ar')}
-                    disabled={videoRendering}
-                    aria-label="Voiceover language"
-                    className="rounded-md border bg-background px-2 py-1 text-xs disabled:opacity-60"
-                  >
-                    <option value="en">English</option>
-                    <option value="ar">العربية</option>
-                  </select>
-                  <select
-                    value={voiceoverGender}
-                    onChange={(e) => setVoiceoverGender(e.target.value as 'female' | 'male')}
-                    disabled={videoRendering}
-                    aria-label="Voice"
-                    className="rounded-md border bg-background px-2 py-1 text-xs disabled:opacity-60"
-                  >
-                    <option value="female">Female voice</option>
-                    <option value="male">Male voice</option>
-                  </select>
-                  <select
-                    value={voiceoverModel}
-                    onChange={(e) => setVoiceoverModel(e.target.value as 'standard' | 'premium')}
-                    disabled={videoRendering}
-                    aria-label="Voice quality"
-                    title="Premium is higher quality but a little slower"
-                    className="rounded-md border bg-background px-2 py-1 text-xs disabled:opacity-60"
-                  >
-                    <option value="standard">Standard quality</option>
-                    <option value="premium">Premium quality</option>
-                  </select>
-                </>
-              )}
-              <Button size="sm" onClick={generateVideo} disabled={videoRendering}>
-                {videoRendering ? (
-                  <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Rendering…</>
-                ) : videoJob?.status === 'done' ? 'Regenerate' : 'Generate video'}
-              </Button>
-              {!videoStarting && videoJob?.status === 'failed' && (
-                <span className="flex items-center gap-1 text-xs text-red-600">
-                  <AlertCircle className="h-3.5 w-3.5" /> {videoJob.error || 'Render failed'}
+          <button
+            type="button"
+            onClick={() => setVideoModalOpen(true)}
+            className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/40"
+          >
+            {videoJob?.status === 'done' && videoJob.thumbnailUrl ? (
+              <span className="relative h-14 w-9 shrink-0 overflow-hidden rounded-md border">
+                <img src={videoJob.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                  <Play className="h-4 w-4 text-white" fill="currentColor" />
                 </span>
-              )}
-              {!videoStarting && videoJob?.status === 'done' && (
-                <span className="text-xs font-medium text-emerald-600">Ready</span>
-              )}
-            </div>
-
-            {videoRendering && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{videoStageLabel}</span>
-                  <span className="font-medium tabular-nums text-muted-foreground">{videoPct}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
-                    style={{ width: `${Math.max(4, videoPct)}%` }}
-                  />
-                </div>
-              </div>
+              </span>
+            ) : (
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                {videoRendering ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5" />}
+              </span>
             )}
-
-            {!videoStarting && videoJob?.status === 'done' && videoJob.videoUrl && (
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setVideoModalOpen(true)}
-                  className="group relative shrink-0 overflow-hidden rounded-lg border"
-                  aria-label="Open video"
-                >
-                  {videoJob.thumbnailUrl ? (
-                    <img src={videoJob.thumbnailUrl} alt="Video preview" className="h-24 w-auto object-cover" />
-                  ) : (
-                    <div className="flex h-24 w-16 items-center justify-center bg-muted"><Play className="h-6 w-6" /></div>
-                  )}
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Play className="h-7 w-7 text-white" fill="currentColor" />
-                  </span>
-                </button>
-                <div className="flex flex-col items-start gap-1.5">
-                  <Button size="sm" variant="secondary" onClick={() => setVideoModalOpen(true)}>
-                    <Play className="mr-1.5 h-4 w-4" /> View video
-                  </Button>
-                  <a href={videoJob.videoUrl} download className="flex items-center gap-1 text-xs text-primary underline">
-                    <Download className="h-3.5 w-3.5" /> Download
-                  </a>
-                </div>
-              </div>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">Campaign video</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {videoRendering
+                  ? `${videoStageLabel} ${videoPct}%`
+                  : videoJob?.status === 'done'
+                    ? 'Ready — tap to watch or regenerate'
+                    : videoJob?.status === 'failed'
+                      ? 'Last render failed — tap to retry'
+                      : 'Turn this campaign into an animated reel'}
+              </span>
+            </span>
+            {videoRendering ? (
+              <span className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-muted">
+                <span className="block h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${Math.max(6, videoPct)}%` }} />
+              </span>
+            ) : (
+              <span className="shrink-0 text-xs font-medium text-primary">{videoJob?.status === 'done' ? 'Open' : 'Create'}</span>
             )}
-          </div>
+          </button>
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogContent className="max-h-[92vh] max-w-md overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
-            {videoJob && (
-              <div className="grid gap-5 md:grid-cols-[300px_1fr]">
-                {/* OUTPUT */}
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Output</div>
-                  {videoJob.videoUrl ? (
-                    <>
-                      <video
-                        src={videoJob.videoUrl}
-                        poster={videoJob.thumbnailUrl || undefined}
-                        controls
-                        autoPlay
-                        className="max-h-[62vh] w-full rounded-lg border bg-black"
-                      />
-                      <a href={videoJob.videoUrl} download className="inline-flex items-center gap-1 text-xs text-primary underline">
-                        <Download className="h-3.5 w-3.5" /> Download video
-                      </a>
-                    </>
+            <div className="space-y-5">
+              {/* SETTINGS — all inputs live here */}
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Style</span>
+                  <Seg
+                    value={videoMode}
+                    onChange={(m) => { setVideoMode(m); if (m === 'creative') setVideoAspect('portrait') }}
+                    options={[{ value: 'creative' as const, label: 'Creative' }, { value: 'basic' as const, label: 'Basic' }]}
+                    disabled={videoRendering}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Format</span>
+                  {videoMode === 'creative' ? (
+                    <span className="rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">Portrait 9:16 · Reel</span>
                   ) : (
-                    <div className="flex aspect-[9/16] w-full items-center justify-center rounded-lg border bg-muted text-xs text-muted-foreground">
-                      No video yet
-                    </div>
+                    <Seg
+                      value={videoAspect}
+                      onChange={setVideoAspect}
+                      options={[
+                        { value: 'portrait' as const, label: '9:16' },
+                        { value: 'landscape' as const, label: '16:9' },
+                        { value: 'square' as const, label: '1:1' },
+                      ]}
+                      disabled={videoRendering}
+                    />
                   )}
                 </div>
-
-                {/* INPUT */}
-                <div className="space-y-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Input</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="secondary" className="capitalize">{videoJob.mode || 'basic'} mode</Badge>
-                    <Badge variant="secondary">{ASPECT_LABEL[videoJob.aspect] || videoJob.aspect}</Badge>
-                    {videoJob.voiceover?.enabled ? (
-                      <Badge variant="secondary">
-                        Voiceover · {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">No voiceover</Badge>
-                    )}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Voiceover</span>
+                  <Switch checked={voiceover} onCheckedChange={setVoiceover} disabled={videoRendering} />
+                </div>
+                {voiceover && (
+                  <div className="space-y-3 rounded-lg bg-muted/30 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-muted-foreground">Language</span>
+                      <Seg
+                        value={voiceoverLang}
+                        onChange={setVoiceoverLang}
+                        options={[{ value: 'en' as const, label: 'English' }, { value: 'ar' as const, label: 'العربية' }]}
+                        disabled={videoRendering}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-muted-foreground">Voice</span>
+                      <Seg
+                        value={voiceoverGender}
+                        onChange={setVoiceoverGender}
+                        options={[{ value: 'female' as const, label: 'Female' }, { value: 'male' as const, label: 'Male' }]}
+                        disabled={videoRendering}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-muted-foreground">Quality</span>
+                      <Seg
+                        value={voiceoverModel}
+                        onChange={setVoiceoverModel}
+                        options={[{ value: 'standard' as const, label: 'Standard' }, { value: 'premium' as const, label: 'Premium' }]}
+                        disabled={videoRendering}
+                      />
+                    </div>
                   </div>
-
-                  {/* Creative script */}
-                  {Array.isArray(videoJob.script) && videoJob.script.length > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="text-xs font-medium text-muted-foreground">Scenes ({videoJob.script.length})</div>
-                      <ol className="space-y-1.5">
-                        {videoJob.script.map((s, i) => (
-                          <li key={i} className="flex items-start gap-2 rounded-md border p-1.5">
-                            {s.type === 'showcase' && s.imageUrl ? (
-                              <img src={s.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
-                            ) : (
-                              <span className="mt-0.5 shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">{SCENE_BADGE[s.type] || s.type}</span>
-                            )}
-                            <span className="text-xs leading-snug">{creativeSceneText(s) || <span className="text-muted-foreground">—</span>}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
-
-                  {/* Basic source images */}
-                  {(!videoJob.script || videoJob.script.length === 0) && Array.isArray(videoJob.scenes) && videoJob.scenes.length > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="text-xs font-medium text-muted-foreground">Source images ({videoJob.scenes.length})</div>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {videoJob.scenes.map((s, i) => (
-                          <img key={i} src={s.imageUrl} alt={s.headline || ''} title={s.caption || s.headline || ''} className="aspect-square w-full rounded object-cover border" />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
-            )}
+
+              {/* GENERATE / PROGRESS */}
+              {videoRendering ? (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> {videoStageLabel}
+                    </span>
+                    <span className="font-medium tabular-nums text-muted-foreground">{videoPct}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-primary transition-all duration-700 ease-out" style={{ width: `${Math.max(4, videoPct)}%` }} />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">You can close this — rendering continues in the background.</p>
+                </div>
+              ) : (
+                <Button className="w-full" onClick={generateVideo}>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  {videoJob?.status === 'done' ? 'Regenerate video' : 'Generate video'}
+                </Button>
+              )}
+              {!videoStarting && videoJob?.status === 'failed' && (
+                <p className="flex items-center gap-1.5 text-xs text-red-600">
+                  <AlertCircle className="h-3.5 w-3.5" /> {videoJob.error || 'Render failed — try again'}
+                </p>
+              )}
+
+              {/* RESULT */}
+              {!videoStarting && videoJob?.status === 'done' && videoJob.videoUrl && (
+                <div className="space-y-2">
+                  <video
+                    src={videoJob.videoUrl}
+                    poster={videoJob.thumbnailUrl || undefined}
+                    controls
+                    className="max-h-[46vh] w-full rounded-lg border bg-black"
+                  />
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="secondary" className="capitalize">{videoJob.mode || 'basic'}</Badge>
+                      <Badge variant="secondary">{ASPECT_LABEL[videoJob.aspect] || videoJob.aspect}</Badge>
+                      {videoJob.voiceover?.enabled && (
+                        <Badge variant="secondary">
+                          {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                    <a href={videoJob.videoUrl} download className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary underline">
+                      <Download className="h-3.5 w-3.5" /> Download
+                    </a>
+                  </div>
+                  {(Array.isArray(videoJob.script) && videoJob.script.length > 0) || (Array.isArray(videoJob.scenes) && videoJob.scenes.length > 0) ? (
+                    <details className="group rounded-lg border">
+                      <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-muted-foreground group-open:border-b">
+                        What went into this video
+                      </summary>
+                      <div className="space-y-2 p-3">
+                        {Array.isArray(videoJob.script) && videoJob.script.length > 0 ? (
+                          <ol className="space-y-1.5">
+                            {videoJob.script.map((s, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                {s.type === 'showcase' && s.imageUrl ? (
+                                  <img src={s.imageUrl} alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
+                                ) : (
+                                  <span className="mt-0.5 w-14 shrink-0 rounded bg-muted px-1.5 py-0.5 text-center text-[10px] font-semibold uppercase text-muted-foreground">{SCENE_BADGE[s.type] || s.type}</span>
+                                )}
+                                <span className="text-xs leading-snug">{creativeSceneText(s) || <span className="text-muted-foreground">—</span>}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {(videoJob.scenes || []).map((s, i) => (
+                              <img key={i} src={s.imageUrl} alt={s.headline || ''} title={s.caption || s.headline || ''} className="aspect-square w-full rounded border object-cover" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  ) : null}
+                </div>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
 

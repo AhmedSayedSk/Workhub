@@ -16,6 +16,7 @@
   .accent{width:110px;height:12px;border-radius:8px;background:var(--c);transform-origin:left center;transform:scaleX(0);margin-bottom:34px}
   .rtl .accent{transform-origin:right center}
   .caption{font-size:52px;font-weight:800;line-height:1.28;color:#fff;letter-spacing:-.5px}
+  .sub{font-size:33px;font-weight:500;line-height:1.5;color:rgba(255,255,255,.72);margin-top:22px}
   .idx{position:absolute;right:90px;top:96px;font-size:30px;font-weight:800;color:var(--c);background:rgba(255,255,255,.07);
        border:1px solid rgba(255,255,255,.1);padding:8px 18px;border-radius:999px;z-index:3;letter-spacing:2px}
   .rtl .idx{right:auto;left:90px}
@@ -31,6 +32,7 @@
   <div class="content" id="content">
     <div class="accent" id="accent"></div>
     <div class="caption" id="caption"></div>
+    <div class="sub" id="sub"></div>
   </div>
 </div>
 <script src="_motion.js"></script>
@@ -58,17 +60,21 @@
 
   const captionEl = document.getElementById('caption')
   captionEl.textContent = D.caption || ''
+  const subEl = document.getElementById('sub')
+  subEl.textContent = D.sub || ''
+  if (!D.sub) subEl.style.display = 'none'
   const content = document.getElementById('content')
-  if (!D.caption) content.style.display = 'none'
+  if (!D.caption && !D.sub) content.style.display = 'none'
 
   const M = window.__M
   // Card: clip-reveals downward, then the image ken-burns for the whole scene.
   M.reg(document.getElementById('card'), 60, 700, 'clipup', { r: 44 })
   M.reg(imgEl, 0, 3400, 'kenburns', { from: 1.02, to: 1.12, dy: -18 })
   M.reg(document.getElementById('edge'), 650, 1150, 'draww')
-  // Caption: accent draws, then words cascade in.
+  // Caption: accent draws, words cascade in, sub follows.
   M.reg(document.getElementById('accent'), 500, 950, 'draww')
   if (D.caption) M.words(captionEl, 700, 90, 620, { dy: 36 })
+  if (D.sub) M.reg(subEl, 1250, 1750, 'rise', { dy: 26 })
   M.reg(brand, 0, 400, 'fade')
   M.reg(idx, 150, 550, 'rise', { dy: 16 })
 

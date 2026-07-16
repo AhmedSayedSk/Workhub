@@ -143,7 +143,7 @@ export function creativeSceneNarration(scene) {
     case 'hook': return String(scene.headline || '').replace(/\n/g, ' ')
     case 'beat': return [scene.title, scene.sub].filter(Boolean).join('. ')
     case 'stat': return [scene.value, scene.label].filter(Boolean).join(' ')
-    case 'showcase': return String(scene.caption || '')
+    case 'showcase': return [scene.caption, scene.sub].filter(Boolean).join('. ')
     case 'cta': return String(scene.text || '')
     default: return ''
   }
