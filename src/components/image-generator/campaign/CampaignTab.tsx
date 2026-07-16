@@ -32,20 +32,37 @@ export function CampaignTab() {
   const styleLabel = (key?: string) => CAMPAIGN_STYLES.find((s) => s.key === key)?.label
 
   const [scheduleMode, setScheduleMode] = useState(false)
-  // Campaign video render
+  // Campaign video render — track the LATEST job for the active campaign so the
+  // progress/state survives a page refresh (reconnects instead of resetting).
   const [videoAspect, setVideoAspect] = useState<RenderAspect>('portrait')
-  const [videoJobId, setVideoJobId] = useState<string | null>(null)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
+  const activeCampaignId = c.activeCampaign?.id ?? null
   useEffect(() => {
-    if (!videoJobId) return
-    return renderJobs.subscribe(videoJobId, setVideoJob)
-  }, [videoJobId])
-  const videoRendering = videoStarting || videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+    setVideoJob(null)
+    if (!activeCampaignId) return
+    return renderJobs.subscribeLatestForCampaign(activeCampaignId, setVideoJob)
+  }, [activeCampaignId])
+  const VIDEO_STAGE: Record<string, string> = {
+    preparing: 'Preparing…',
+    hook: 'Generating hook image…',
+    rendering: 'Rendering scenes…',
+    encoding: 'Encoding video…',
+    uploading: 'Uploading…',
+  }
+  const activeVideo = videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+  const videoRendering = videoStarting || activeVideo
+  const videoPct = activeVideo ? Math.min(100, Math.max(0, videoJob?.progress ?? 0)) : 0
+  const videoStageLabel = !activeVideo
+    ? 'Starting…'
+    : videoJob?.status === 'queued'
+      ? 'Queued…'
+      : VIDEO_STAGE[videoJob?.stage || ''] || 'Rendering…'
   const generateVideo = async () => {
     const id = c.activeCampaign?.id
     if (!id) return
     setVideoStarting(true)
+    setVideoJob(null)
     try {
       const res = await authFetch(`/api/campaigns/${id}/render`, {
         method: 'POST',
@@ -54,8 +71,6 @@ export function CampaignTab() {
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error || 'Could not start video'); return }
-      setVideoJobId(data.jobId)
-      setVideoJob(null)
     } finally {
       setVideoStarting(false)
     }
@@ -213,32 +228,60 @@ export function CampaignTab() {
         )}
 
         {!scheduleMode && readyCount > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
-            <span className="text-sm font-medium">Campaign video</span>
-            <select
-              value={videoAspect}
-              onChange={(e) => setVideoAspect(e.target.value as RenderAspect)}
-              className="rounded-md border bg-background px-2 py-1 text-sm"
-            >
-              <option value="portrait">Portrait 9:16</option>
-              <option value="landscape">Landscape 16:9</option>
-              <option value="square">Square 1:1</option>
-            </select>
-            <Button size="sm" onClick={generateVideo} disabled={videoRendering}>
-              {videoRendering ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Rendering…</> : 'Generate video'}
-            </Button>
-            {videoJob && (
-              <span className="text-xs text-muted-foreground">
-                {videoJob.status === 'queued' && 'Queued…'}
-                {videoJob.status === 'rendering' && 'Rendering on the render server…'}
-                {videoJob.status === 'failed' && <span className="text-red-600">Failed: {videoJob.error}</span>}
-                {videoJob.status === 'done' && 'Done'}
-              </span>
+          <div className="space-y-2.5 rounded-lg border p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">Campaign video</span>
+              <select
+                value={videoAspect}
+                onChange={(e) => setVideoAspect(e.target.value as RenderAspect)}
+                disabled={videoRendering}
+                className="rounded-md border bg-background px-2 py-1 text-sm disabled:opacity-60"
+              >
+                <option value="portrait">Portrait 9:16</option>
+                <option value="landscape">Landscape 16:9</option>
+                <option value="square">Square 1:1</option>
+              </select>
+              <Button size="sm" onClick={generateVideo} disabled={videoRendering}>
+                {videoRendering ? (
+                  <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Rendering…</>
+                ) : videoJob?.status === 'done' ? 'Regenerate' : 'Generate video'}
+              </Button>
+              {!videoStarting && videoJob?.status === 'failed' && (
+                <span className="flex items-center gap-1 text-xs text-red-600">
+                  <AlertCircle className="h-3.5 w-3.5" /> {videoJob.error || 'Render failed'}
+                </span>
+              )}
+              {!videoStarting && videoJob?.status === 'done' && (
+                <span className="text-xs font-medium text-emerald-600">Ready</span>
+              )}
+            </div>
+
+            {videoRendering && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{videoStageLabel}</span>
+                  <span className="font-medium tabular-nums text-muted-foreground">{videoPct}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+                    style={{ width: `${Math.max(4, videoPct)}%` }}
+                  />
+                </div>
+              </div>
             )}
-            {videoJob?.status === 'done' && videoJob.videoUrl && (
-              <div className="mt-2 w-full">
-                <video src={videoJob.videoUrl} poster={videoJob.thumbnailUrl || undefined} controls className="max-h-[420px] rounded-lg" />
-                <a href={videoJob.videoUrl} download className="mt-1 inline-block text-xs text-primary underline">Download</a>
+
+            {!videoStarting && videoJob?.status === 'done' && videoJob.videoUrl && (
+              <div className="pt-1">
+                <video
+                  src={videoJob.videoUrl}
+                  poster={videoJob.thumbnailUrl || undefined}
+                  controls
+                  className="max-h-[440px] rounded-lg border"
+                />
+                <a href={videoJob.videoUrl} download className="mt-1 inline-block text-xs text-primary underline">
+                  Download video
+                </a>
               </div>
             )}
           </div>

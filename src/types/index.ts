@@ -649,6 +649,8 @@ export interface RenderJob {
   videoUrl?: string
   thumbnailUrl?: string
   error?: string
+  progress?: number // 0-100, updated live by the render worker
+  stage?: string // 'preparing' | 'hook' | 'rendering' | 'encoding' | 'uploading' | 'done'
   workerId?: string
   createdAt: number
   startedAt?: number

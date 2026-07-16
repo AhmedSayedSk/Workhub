@@ -10,7 +10,7 @@ export function aspectToRatio(aspect) {
   return ASPECT_RATIO[aspect] || '1:1'
 }
 
-async function pollJob(id, { intervalMs = 5000, timeoutMs = 180000 } = {}) {
+async function pollJob(id, { intervalMs = 5000, timeoutMs = 180000, onTick } = {}) {
   const startedAt = Date.now()
   while (Date.now() - startedAt < timeoutMs) {
     const res = await fetch(`${BASE}/v1/jobs/${id}`, { headers: { 'X-API-Key': KEY } })
@@ -18,6 +18,7 @@ async function pollJob(id, { intervalMs = 5000, timeoutMs = 180000 } = {}) {
     const data = await res.json()
     if (data.status === 'done') return data
     if (data.status === 'failed' || data.status === 'error') throw new Error('background job failed')
+    if (onTick) { try { await onTick() } catch { /* progress is best-effort */ } }
     await new Promise((r) => setTimeout(r, intervalMs))
   }
   throw new Error('background job timed out')
@@ -26,7 +27,7 @@ async function pollJob(id, { intervalMs = 5000, timeoutMs = 180000 } = {}) {
 // Generates the hook's AI background image and downloads it to outPath.
 // Returns the local file path, or null on ANY failure — callers fall back
 // to a brand-color gradient background in the template. Never throws.
-export async function generateHookBg(bgPrompt, aspect, outPath) {
+export async function generateHookBg(bgPrompt, aspect, outPath, onTick) {
   if (!BASE || !KEY || !bgPrompt) return null
   try {
     const genRes = await fetch(`${BASE}/v1/generate`, {
@@ -43,7 +44,7 @@ export async function generateHookBg(bgPrompt, aspect, outPath) {
     const { id } = await genRes.json()
     if (!id) return null
 
-    const job = await pollJob(id)
+    const job = await pollJob(id, { onTick })
     const url = job && job.images && job.images[0] && job.images[0].url
     if (!url) return null
 

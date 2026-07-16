@@ -1510,6 +1510,19 @@ export const renderJobs = {
       cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as RenderJob) : null)
     )
   },
+  // Live-track the MOST RECENT render job for a campaign, so the UI reconnects
+  // to an in-progress (or finished) render after a page refresh. No orderBy
+  // (avoids a composite index) — pick the latest by createdAt client-side.
+  subscribeLatestForCampaign(campaignId: string, cb: (job: RenderJob | null) => void): () => void {
+    return onSnapshot(query(collection(db, 'renderJobs'), where('campaignId', '==', campaignId)), (snap) => {
+      let latest: RenderJob | null = null
+      snap.forEach((d) => {
+        const j = { id: d.id, ...d.data() } as RenderJob
+        if (!latest || (j.createdAt || 0) > (latest.createdAt || 0)) latest = j
+      })
+      cb(latest)
+    })
+  },
 }
 
 // Image Assets (uploaded reference images)

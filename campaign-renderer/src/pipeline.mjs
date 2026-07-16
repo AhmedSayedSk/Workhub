@@ -21,10 +21,11 @@ const HOOK_DUR_MS = 3000
 // Renders a full campaign post video: hook opener + post scenes, encodes to
 // MP4 (+ silent AAC), uploads the MP4 + a thumbnail to Firebase Storage.
 // Returns { videoUrl, thumbnailUrl }.
-export async function renderJob(job) {
+export async function renderJob(job, onProgress = () => {}) {
   const dims = DIMS[job.aspect] || DIMS.portrait
   const scratch = path.join('/tmp/render', String(job.id))
   const framesDir = path.join(scratch, 'frames')
+  const report = async (progress, stage) => { try { await onProgress(progress, stage) } catch { /* best-effort */ } }
 
   fs.rmSync(scratch, { recursive: true, force: true })
   fs.mkdirSync(framesDir, { recursive: true })
@@ -34,9 +35,16 @@ export async function renderJob(job) {
     const hook = job.hook || {}
     const color = brand.color || '#34e5a4'
 
+    await report(3, 'preparing')
     // Best-effort AI background; null falls back to a brand-color gradient
-    // in templates/hook.html, so the job still succeeds either way.
-    const bgPath = await generateHookBg(hook.bgPrompt, job.aspect, path.join(scratch, 'hook-bg.jpg'))
+    // in templates/hook.html, so the job still succeeds either way. Ticks the
+    // progress up while waiting on the (slow) AI generation so it feels live.
+    let bgPct = 5
+    const bgPath = await generateHookBg(hook.bgPrompt, job.aspect, path.join(scratch, 'hook-bg.jpg'), async () => {
+      bgPct = Math.min(38, bgPct + 5)
+      await report(bgPct, 'hook')
+    })
+    await report(40, 'hook')
 
     const hookData = {
       bg: bgPath ? pathToFileURL(bgPath).href : null,
@@ -56,6 +64,7 @@ export async function renderJob(job) {
     })
     // A frame ~1s in, once the hook's entrance animation has settled.
     const thumbFrameIndex = Math.min(FPS, Math.max(0, hookFrames - 1))
+    await report(55, 'rendering')
 
     await renderScenes(job.scenes || [], {
       w: dims.w,
@@ -65,15 +74,19 @@ export async function renderJob(job) {
       color,
       fps: FPS,
     })
+    await report(85, 'rendering')
 
     const outMp4 = path.join(scratch, `${job.id}.mp4`)
     const outThumb = path.join(scratch, `${job.id}.jpg`)
     await encode(framesDir, FPS, outMp4)
     await thumbFromFrame(framesDir, outThumb, thumbFrameIndex)
+    await report(92, 'encoding')
 
     const folder = job.campaignId || job.id
+    await report(94, 'uploading')
     const videoUrl = await upload(outMp4, `campaigns/${folder}/${job.id}.mp4`, 'video/mp4')
     const thumbnailUrl = await upload(outThumb, `campaigns/${folder}/${job.id}.jpg`, 'image/jpeg')
+    await report(99, 'uploading')
 
     return { videoUrl, thumbnailUrl }
   } finally {

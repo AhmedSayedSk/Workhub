@@ -17,7 +17,7 @@ export async function claimNext(workerId) {
         if (!j) return null
         const stale = j.status === 'rendering' && now - (j.startedAt || 0) > STALE_MS
         if (j.status !== 'queued' && !stale) return null
-        tx.update(ref, { status: 'rendering', workerId, startedAt: now })
+        tx.update(ref, { status: 'rendering', workerId, startedAt: now, progress: 0, stage: 'preparing', error: null })
         return { id: d.id, ...j }
       })
       if (claimed) return claimed
@@ -28,4 +28,8 @@ export async function claimNext(workerId) {
 
 export async function finishJob(id, patch) {
   await db.collection('renderJobs').doc(id).update({ ...patch, finishedAt: Date.now() })
+}
+
+export async function updateProgress(id, progress, stage) {
+  await db.collection('renderJobs').doc(id).update({ progress: Math.round(progress), stage }).catch(() => {})
 }
