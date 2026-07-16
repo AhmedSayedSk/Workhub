@@ -7,6 +7,7 @@ import { projects as projectsApi, renderJobs } from '@/lib/firestore'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
 import Link from 'next/link'
 import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Plus, AlertCircle, ImageIcon, ExternalLink, MoreVertical } from 'lucide-react'
@@ -36,12 +37,17 @@ export function CampaignTab() {
   // progress/state survives a page refresh (reconnects instead of resetting).
   const [videoAspect, setVideoAspect] = useState<RenderAspect>('portrait')
   const [videoMode, setVideoMode] = useState<'basic' | 'creative'>('basic')
+  const [voiceover, setVoiceover] = useState(false)
+  const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
+  const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male'>('female')
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
   const activeCampaignId = c.activeCampaign?.id ?? null
   useEffect(() => {
     setVideoJob(null)
     if (!activeCampaignId) return
+    // Default the voiceover language to the campaign's own language.
+    setVoiceoverLang(c.activeCampaign?.language === 'ar' ? 'ar' : 'en')
     return renderJobs.subscribeLatestForCampaign(activeCampaignId, setVideoJob)
   }, [activeCampaignId])
   const VIDEO_STAGE: Record<string, string> = {
@@ -68,7 +74,11 @@ export function CampaignTab() {
       const res = await authFetch(`/api/campaigns/${id}/render`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ aspect: videoAspect, mode: videoMode }),
+        body: JSON.stringify({
+          aspect: videoAspect,
+          mode: videoMode,
+          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender } : { enabled: false },
+        }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error || 'Could not start video'); return }
@@ -256,6 +266,34 @@ export function CampaignTab() {
                 <option value="landscape">Landscape 16:9</option>
                 <option value="square">Square 1:1</option>
               </select>
+              <label className="ml-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Switch checked={voiceover} onCheckedChange={setVoiceover} disabled={videoRendering} className="scale-90" />
+                Voiceover
+              </label>
+              {voiceover && (
+                <>
+                  <select
+                    value={voiceoverLang}
+                    onChange={(e) => setVoiceoverLang(e.target.value as 'en' | 'ar')}
+                    disabled={videoRendering}
+                    aria-label="Voiceover language"
+                    className="rounded-md border bg-background px-2 py-1 text-xs disabled:opacity-60"
+                  >
+                    <option value="en">English</option>
+                    <option value="ar">العربية</option>
+                  </select>
+                  <select
+                    value={voiceoverGender}
+                    onChange={(e) => setVoiceoverGender(e.target.value as 'female' | 'male')}
+                    disabled={videoRendering}
+                    aria-label="Voice"
+                    className="rounded-md border bg-background px-2 py-1 text-xs disabled:opacity-60"
+                  >
+                    <option value="female">Female voice</option>
+                    <option value="male">Male voice</option>
+                  </select>
+                </>
+              )}
               <Button size="sm" onClick={generateVideo} disabled={videoRendering}>
                 {videoRendering ? (
                   <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Rendering…</>
