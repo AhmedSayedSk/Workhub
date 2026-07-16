@@ -648,7 +648,7 @@ export interface RenderJob {
   scenes: Array<{ imageUrl: string; headline: string; caption: string }>
   mode?: RenderMode
   lang?: 'ar' | 'en' // drives RTL + Arabic font in creative templates
-  voiceover?: { enabled: boolean; language: 'en' | 'ar'; gender: 'male' | 'female'; model?: 'standard' | 'premium' } // AI narration
+  voiceover?: { enabled: boolean; language: 'en' | 'ar'; gender: 'male' | 'female'; model?: 'standard' | 'premium'; rate?: number } // AI narration (rate = speaking speed ×)
   transition?: 'smooth' | 'simple' | 'none' // scene transitions: exit-fade + dissolve / exit-fade / hard cut
   palette?: { bg1: string; bg2: string; accent: string; text: string; muted: string; ctaText: string } // AI-proposed, contrast-enforced color system
   script?: CreativeScene[]

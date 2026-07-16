@@ -41,15 +41,20 @@ async function pollJob(id, { intervalMs = 1200, timeoutMs = 120000 } = {}) {
 // { path, durationSec } or null on ANY failure (missing config, empty text,
 // network/provider error) — callers treat null as "this scene has no narration"
 // and fall back to silence, so a voiceover hiccup never fails the render.
-export async function synthLine(text, { language = 'en', gender = 'female', model } = {}, outPath) {
+export async function synthLine(text, { language = 'en', gender = 'female', model, rate } = {}, outPath) {
   const clean = (text || '').replace(/\s+/g, ' ').trim()
   if (!BASE || !KEY || !clean) return null
   try {
+    const speed = Number(rate)
     const genRes = await fetch(`${BASE}/v1/speak`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': KEY },
       // No `style` sent → the service applies its ad-friendly default delivery.
-      body: JSON.stringify({ text: clean.slice(0, 800), language, gender, format: 'wav', ...(model ? { model } : {}) }),
+      body: JSON.stringify({
+        text: clean.slice(0, 800), language, gender, format: 'wav',
+        ...(model ? { model } : {}),
+        ...(Number.isFinite(speed) && speed > 0 && speed !== 1 ? { rate: speed } : {}),
+      }),
     })
     if (!genRes.ok) return null
     const { id } = await genRes.json()

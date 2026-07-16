@@ -37,12 +37,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   // Optional AI voiceover. Language defaults to the campaign language; gender/on-off from the request.
   const campaignLang: 'en' | 'ar' = c.language === 'ar' ? 'ar' : 'en'
   const vo = body.voiceover && typeof body.voiceover === 'object' ? body.voiceover : null
+  const VO_RATES = [0.9, 1, 1.1, 1.25, 1.5]
   const voiceover = vo && vo.enabled
     ? {
         enabled: true,
         language: (vo.language === 'ar' || vo.language === 'en' ? vo.language : campaignLang) as 'en' | 'ar',
         gender: (vo.gender === 'male' ? 'male' : 'female') as 'male' | 'female',
         model: (vo.model === 'premium' ? 'premium' : 'standard') as 'standard' | 'premium',
+        rate: VO_RATES.includes(Number(vo.rate)) ? Number(vo.rate) : 1,
       }
     : null
 

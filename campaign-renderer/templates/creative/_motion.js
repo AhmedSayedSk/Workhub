@@ -42,7 +42,10 @@ window.__M = (() => {
     else if (a.kind === 'clip') { e.style.clipPath = `inset(${(1 - p) * 100}% 0 0 0 round ${o.r || 0}px)` }
     else if (a.kind === 'clipup') { e.style.clipPath = `inset(0 0 ${(1 - p) * 100}% 0 round ${o.r || 0}px)` }
     else if (a.kind === 'slidex') { e.style.opacity = p; e.style.transform = `translateX(${(1 - p) * (o.dx || -40)}px)` }
-    else if (a.kind === 'sweep') { e.style.opacity = p > 0 && p < 1 ? 1 : 0; e.style.transform = `translateX(${-130 + 300 * p}%) skewX(-18deg)` }
+    // Shine sweep: element is ~40% of its container's width, so it must travel
+    // from -150% (own-width units; fully off the left edge) to +350% (fully off
+    // the right edge: 350% × 0.4 = 140% of the container) to cross COMPLETELY.
+    else if (a.kind === 'sweep') { e.style.opacity = p > 0 && p < 1 ? 1 : 0; e.style.transform = `translateX(${-150 + 500 * p}%) skewX(-18deg)` }
     else if (a.kind === 'ringdraw') { const c = o.circ || 1508; e.style.strokeDashoffset = String(c * (1 - p)) }
     else if (a.kind === 'exitfade') { if (p > 0) e.style.opacity = String(1 - p) }
     else if (a.kind === 'countup') {

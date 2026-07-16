@@ -84,6 +84,7 @@ export function CampaignTab() {
   const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
   const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male'>('female')
   const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('standard')
+  const [voiceoverRate, setVoiceoverRate] = useState<'1' | '1.1' | '1.25' | '1.5' | '0.9'>('1')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
@@ -126,7 +127,7 @@ export function CampaignTab() {
           aspect: videoAspect,
           mode: videoMode,
           transition: videoTransition,
-          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel } : { enabled: false },
+          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel, rate: Number(voiceoverRate) } : { enabled: false },
         }),
       })
       const data = await res.json()
@@ -404,6 +405,21 @@ export function CampaignTab() {
                           value={voiceoverModel}
                           onChange={setVoiceoverModel}
                           options={[{ value: 'standard' as const, label: 'Standard' }, { value: 'premium' as const, label: 'Premium' }]}
+                          disabled={videoRendering}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-muted-foreground">Speed</span>
+                        <Seg
+                          value={voiceoverRate}
+                          onChange={setVoiceoverRate}
+                          options={[
+                            { value: '0.9' as const, label: '0.9×' },
+                            { value: '1' as const, label: '1×' },
+                            { value: '1.1' as const, label: '1.1×' },
+                            { value: '1.25' as const, label: '1.25×' },
+                            { value: '1.5' as const, label: '1.5×' },
+                          ]}
                           disabled={videoRendering}
                         />
                       </div>
