@@ -926,6 +926,64 @@ Keep it tasteful and minimal: the background gradient should be subtle (two clos
   }
 }
 
+export const VOICEOVER_RATES = [0.9, 1, 1.1, 1.25, 1.5] as const
+
+// Deterministic pace heuristic — the fallback when the AI director is
+// unavailable, and the sanity floor for its answer.
+export function heuristicVoiceoverRate(params: {
+  language: 'en' | 'ar'; tone?: string; totalChars?: number; sceneCount?: number
+}): number {
+  const tone = (params.tone || '').toLowerCase()
+  let rate = params.language === 'ar' ? 1 : 1.1 // Arabic favors clarity
+  if (/energetic|exciting|urgent|bold|punchy|fun|dynamic|youth/i.test(tone)) rate = 1.25
+  if (/calm|luxur|premium|elegant|trust|serious|profession/i.test(tone)) rate = 1
+  // Lots of copy -> pick up the pace one step so the reel stays tight.
+  const chars = params.totalChars || 0
+  const scenes = params.sceneCount || 0
+  if (chars > 550 || scenes > 7) {
+    const i = VOICEOVER_RATES.indexOf(rate as (typeof VOICEOVER_RATES)[number])
+    rate = VOICEOVER_RATES[Math.min(VOICEOVER_RATES.length - 1, Math.max(0, i) + 1)]
+  }
+  return rate
+}
+
+// AI voiceover pace director: reasons over the campaign's energy, language and
+// copy volume and picks the ideal speaking rate. Snaps to the allowed set;
+// never throws (falls back to the heuristic).
+export async function chooseVoiceoverRate(
+  params: {
+    brandName: string; tone?: string; audience?: string; goal?: string
+    language: 'en' | 'ar'; mode: string; sceneCount: number; sampleCopy: string; totalChars: number
+  },
+  model?: GeminiModel
+): Promise<number> {
+  const fallback = heuristicVoiceoverRate(params)
+  try {
+    const gemini = getGeminiModel(model)
+    const prompt = `You are a voiceover director for short vertical brand ad videos. Choose the ideal narration speaking-pace multiplier for this video. Think about:
+- Language: ${params.language === 'ar' ? 'Arabic (clarity matters — do not rush unless the copy demands it)' : 'English'}
+- Tone: ${params.tone || 'confident, modern'} · Audience: ${params.audience || 'general'} · Goal: ${params.goal || 'awareness'}
+- Video style: ${params.mode === 'creative' ? 'fast-cut animated reel' : 'image slideshow'} with ${params.sceneCount} scenes, ~${params.totalChars} characters of narration total (more copy => a quicker pace keeps the reel tight; sparse copy => natural pace breathes better)
+Sample of the narration copy:
+"""${params.sampleCopy.slice(0, 700)}"""
+Respond with ONLY JSON: {"rate": <exactly one of 0.9, 1, 1.1, 1.25, 1.5>, "reason": "<one short sentence>"}`
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const s = text.indexOf('{'), e = text.lastIndexOf('}')
+    if (s === -1 || e === -1) return fallback
+    const raw = JSON.parse(text.slice(s, e + 1))
+    const n = Number(raw?.rate)
+    if (!Number.isFinite(n)) return fallback
+    // Snap to the nearest allowed value.
+    const snapped = VOICEOVER_RATES.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a))
+    console.log(`[voiceover] auto rate ${snapped} — ${String(raw?.reason || '').slice(0, 120)}`)
+    return snapped
+  } catch (error) {
+    console.error('Error choosing voiceover rate:', error)
+    return fallback
+  }
+}
+
 function sanitizeScene(x: any): CreativeScene | null {
   if (!x || typeof x !== 'object') return null
   const str = (v: any, n: number) => String(v ?? '').slice(0, n)

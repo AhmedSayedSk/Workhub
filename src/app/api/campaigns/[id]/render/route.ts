@@ -38,13 +38,16 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const campaignLang: 'en' | 'ar' = c.language === 'ar' ? 'ar' : 'en'
   const vo = body.voiceover && typeof body.voiceover === 'object' ? body.voiceover : null
   const VO_RATES = [0.9, 1, 1.1, 1.25, 1.5]
+  // rate 0 = "auto" marker — resolved by the AI pace director once the final
+  // narration copy is known (after script assembly, below).
   const voiceover = vo && vo.enabled
     ? {
         enabled: true,
         language: (vo.language === 'ar' || vo.language === 'en' ? vo.language : campaignLang) as 'en' | 'ar',
         gender: (vo.gender === 'male' ? 'male' : 'female') as 'male' | 'female',
         model: (vo.model === 'premium' ? 'premium' : 'standard') as 'standard' | 'premium',
-        rate: VO_RATES.includes(Number(vo.rate)) ? Number(vo.rate) : 1,
+        rate: VO_RATES.includes(Number(vo.rate)) ? Number(vo.rate) : 0,
+        rateAuto: !VO_RATES.includes(Number(vo.rate)),
       }
     : null
 
@@ -116,6 +119,37 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     for (; bi < beats.length && mid.length < maxMid; bi++) mid.push(beats[bi])
     for (; si < stats.length && mid.length < maxMid; si++) mid.push(stats[si])
     script = [...(hook ? [hook] : []), ...mid, ...(cta ? [cta] : [])]
+  }
+
+  // Auto speed: the AI pace director picks the rate from the campaign's energy,
+  // language and the ACTUAL narration copy volume. Heuristic fallback inside.
+  if (voiceover && voiceover.rateAuto) {
+    const { chooseVoiceoverRate } = await import('@/lib/gemini')
+    const sceneText = (s: import('@/types').CreativeScene): string => {
+      switch (s.type) {
+        case 'hook': return (s.headline || '').replace(/\n/g, ' ')
+        case 'beat': return [s.title, s.sub].filter(Boolean).join('. ')
+        case 'stat': return [s.value, s.label].filter(Boolean).join(' ')
+        case 'showcase': return [s.caption, s.sub].filter(Boolean).join('. ')
+        case 'cta': return s.text || ''
+        default: return ''
+      }
+    }
+    const lines = script
+      ? script.map(sceneText).filter(Boolean)
+      : [brandName, ...posts.map((p) => p.caption || p.headline || '')].filter(Boolean)
+    const sampleCopy = lines.join(' — ')
+    voiceover.rate = await chooseVoiceoverRate({
+      brandName,
+      tone: c.brief?.tone,
+      audience: c.brief?.audience,
+      goal: c.brief?.goal,
+      language: voiceover.language,
+      mode,
+      sceneCount: script ? script.length : posts.length + 1,
+      sampleCopy,
+      totalChars: sampleCopy.length,
+    })
   }
 
   const job = {

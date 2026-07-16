@@ -84,7 +84,7 @@ export function CampaignTab() {
   const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
   const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male'>('female')
   const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('standard')
-  const [voiceoverRate, setVoiceoverRate] = useState<'1' | '1.1' | '1.25' | '1.5' | '0.9'>('1')
+  const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
@@ -127,7 +127,7 @@ export function CampaignTab() {
           aspect: videoAspect,
           mode: videoMode,
           transition: videoTransition,
-          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel, rate: Number(voiceoverRate) } : { enabled: false },
+          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
         }),
       })
       const data = await res.json()
@@ -409,12 +409,13 @@ export function CampaignTab() {
                         />
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-muted-foreground">Speed</span>
+                        <span className="text-sm text-muted-foreground" title="Auto lets AI pick the pace from the campaign's tone, language and copy volume">Speed</span>
                         <Seg
                           value={voiceoverRate}
                           onChange={setVoiceoverRate}
                           options={[
-                            { value: '0.9' as const, label: '0.9×' },
+                            { value: 'auto' as const, label: 'Auto' },
+                            { value: '0.9' as const, label: '.9×' },
                             { value: '1' as const, label: '1×' },
                             { value: '1.1' as const, label: '1.1×' },
                             { value: '1.25' as const, label: '1.25×' },
@@ -484,7 +485,7 @@ export function CampaignTab() {
                         )}
                         {videoJob.voiceover?.enabled && (
                           <Badge variant="secondary">
-                            {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}
+                            {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}{videoJob.voiceover.rate && videoJob.voiceover.rate !== 1 ? ` · ${videoJob.voiceover.rate}×` : ''}{videoJob.voiceover.rateAuto ? ' (auto)' : ''}
                           </Badge>
                         )}
                       </div>
