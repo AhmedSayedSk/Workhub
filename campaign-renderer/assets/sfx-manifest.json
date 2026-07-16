@@ -1,0 +1,665 @@
+{
+  "version": 2,
+  "license": "Free for commercial video use, no attribution required. Files must NOT be redistributed standalone — hosted in project storage, not in the repo.",
+  "updated": "2026-07-17",
+  "events": {
+    "intro": [
+      "whoosh-presentation",
+      "riser-intro",
+      "riser-trailer",
+      "riser-space",
+      "sweep-astral"
+    ],
+    "transition": [
+      "whoosh-air",
+      "whoosh-fast",
+      "whoosh-swirl",
+      "whoosh-sweep-small",
+      "whoosh-sweep-fast",
+      "whoosh-windy",
+      "whoosh-wind-short",
+      "whoosh-multi-fast",
+      "sweep-magic-light",
+      "sweep-harp",
+      "slide-tech"
+    ],
+    "pop": [
+      "pop-explainer",
+      "pop-long",
+      "pop-bubble",
+      "pop-cluster",
+      "pop-electric"
+    ],
+    "underline": [
+      "sweep-light",
+      "draw-light-moving",
+      "draw-energy-flow"
+    ],
+    "showcase": [
+      "click-select",
+      "shutter-camera",
+      "shutter-old",
+      "select-tech",
+      "zoom-ui-out"
+    ],
+    "stat_tick": [
+      "click-interface",
+      "tick-classic",
+      "tick-select",
+      "tick-mouse",
+      "tick-countdown"
+    ],
+    "stat_settle": [
+      "ding-correct",
+      "bell-achievement",
+      "settle-fantasy",
+      "settle-scifi",
+      "settle-bleep"
+    ],
+    "cta_shine": [
+      "shimmer-glitter",
+      "shimmer-sparkle",
+      "shine-fairy-glitter",
+      "shine-wand",
+      "shine-glow"
+    ],
+    "cta_sting": [
+      "sting-confirm",
+      "notif-positive",
+      "sting-fanfare",
+      "sting-quickwin",
+      "sting-winning",
+      "sting-cyber"
+    ],
+    "impact": [
+      "impact-big",
+      "impact-deep",
+      "impact-soft"
+    ]
+  },
+  "sounds": [
+    {
+      "id": "whoosh-air",
+      "event": "transition",
+      "note": "soft airy — default transition",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-air.mp3",
+      "durationSec": 2.35,
+      "onsetSec": 0.177,
+      "peakDb": -1.5,
+      "meanDb": -23,
+      "mixGainDb": -6.5
+    },
+    {
+      "id": "whoosh-fast",
+      "event": "transition",
+      "note": "quick energetic transition",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-fast.mp3",
+      "durationSec": 1.8,
+      "onsetSec": 0.348,
+      "peakDb": -1.3,
+      "meanDb": -25.9,
+      "mixGainDb": -6.7
+    },
+    {
+      "id": "whoosh-swirl",
+      "event": "transition",
+      "note": "swirling variant",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-swirl.mp3",
+      "durationSec": 2.53,
+      "onsetSec": 0.557,
+      "peakDb": -0.9,
+      "meanDb": -22.8,
+      "mixGainDb": -7.1
+    },
+    {
+      "id": "whoosh-presentation",
+      "event": "intro",
+      "note": "polished presentation sweep — hook opener",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-presentation.mp3",
+      "durationSec": 4,
+      "onsetSec": 0.654,
+      "peakDb": -3.2,
+      "meanDb": -24.8,
+      "mixGainDb": -4.8
+    },
+    {
+      "id": "riser-intro",
+      "event": "intro",
+      "note": "sparkle riser — video opening",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/riser-intro.mp3",
+      "durationSec": 3.03,
+      "onsetSec": 0.197,
+      "peakDb": -1,
+      "meanDb": -22.7,
+      "mixGainDb": -7
+    },
+    {
+      "id": "pop-explainer",
+      "event": "pop",
+      "note": "light explainer pop — kicker/logo",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/pop-explainer.mp3",
+      "durationSec": 0.21,
+      "onsetSec": 0.043,
+      "peakDb": -2,
+      "meanDb": -15.9,
+      "mixGainDb": -6
+    },
+    {
+      "id": "pop-long",
+      "event": "pop",
+      "note": "rounded pop — bigger entrances",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/pop-long.mp3",
+      "durationSec": 0.52,
+      "onsetSec": 0.068,
+      "peakDb": -2,
+      "meanDb": -24.2,
+      "mixGainDb": -6
+    },
+    {
+      "id": "pop-bubble",
+      "event": "pop",
+      "note": "soft bubble — playful brands",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/pop-bubble.mp3",
+      "durationSec": 1.18,
+      "onsetSec": 0.086,
+      "peakDb": -0.3,
+      "meanDb": -23.9,
+      "mixGainDb": -7.7
+    },
+    {
+      "id": "sweep-light",
+      "event": "underline",
+      "note": "light sweep — underline draw",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sweep-light.mp3",
+      "durationSec": 4.78,
+      "onsetSec": 0.58,
+      "peakDb": -7.1,
+      "meanDb": -27.1,
+      "mixGainDb": -0.9
+    },
+    {
+      "id": "click-interface",
+      "event": "stat_tick",
+      "note": "tiny interface tick",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/click-interface.mp3",
+      "durationSec": 0.24,
+      "onsetSec": 0.036,
+      "peakDb": -6.1,
+      "meanDb": -27.2,
+      "mixGainDb": -1.9
+    },
+    {
+      "id": "click-select",
+      "event": "showcase",
+      "note": "select tone — card lands",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/click-select.mp3",
+      "durationSec": 1.59,
+      "onsetSec": 0.145,
+      "peakDb": -0.3,
+      "meanDb": -19.3,
+      "mixGainDb": -7.7
+    },
+    {
+      "id": "shutter-camera",
+      "event": "showcase",
+      "note": "camera shutter — image reveal",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/shutter-camera.mp3",
+      "durationSec": 0.39,
+      "onsetSec": 0.187,
+      "peakDb": -5.7,
+      "meanDb": -30.7,
+      "mixGainDb": -2.3
+    },
+    {
+      "id": "tick-classic",
+      "event": "stat_tick",
+      "note": "classic tick — count steps",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/tick-classic.mp3",
+      "durationSec": 0.34,
+      "onsetSec": 0.152,
+      "peakDb": 0,
+      "meanDb": -22.7,
+      "mixGainDb": -8
+    },
+    {
+      "id": "ding-correct",
+      "event": "stat_settle",
+      "note": "correct tone — stat lands",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/ding-correct.mp3",
+      "durationSec": 2.01,
+      "onsetSec": 0.052,
+      "peakDb": -2,
+      "meanDb": -22.8,
+      "mixGainDb": -6
+    },
+    {
+      "id": "bell-achievement",
+      "event": "stat_settle",
+      "note": "achievement bell — big number",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/bell-achievement.mp3",
+      "durationSec": 2.43,
+      "onsetSec": 0.034,
+      "peakDb": -0.8,
+      "meanDb": -21.9,
+      "mixGainDb": -7.2
+    },
+    {
+      "id": "shimmer-glitter",
+      "event": "cta_shine",
+      "note": "long glitter — shine sweep",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/shimmer-glitter.mp3",
+      "durationSec": 6.03,
+      "onsetSec": 1.096,
+      "peakDb": -14.5,
+      "meanDb": -34.8,
+      "mixGainDb": 6.5
+    },
+    {
+      "id": "shimmer-sparkle",
+      "event": "cta_shine",
+      "note": "short sparkle — quick shine",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/shimmer-sparkle.mp3",
+      "durationSec": 1.33,
+      "onsetSec": 0.23,
+      "peakDb": -2,
+      "meanDb": -20.7,
+      "mixGainDb": -6
+    },
+    {
+      "id": "sting-confirm",
+      "event": "cta_sting",
+      "note": "confirmation sting — CTA moment",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sting-confirm.mp3",
+      "durationSec": 1.33,
+      "onsetSec": 0.033,
+      "peakDb": -0.7,
+      "meanDb": -20.5,
+      "mixGainDb": -7.3
+    },
+    {
+      "id": "notif-positive",
+      "event": "cta_sting",
+      "note": "warm positive close",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/notif-positive.mp3",
+      "durationSec": 2.85,
+      "onsetSec": 0.098,
+      "peakDb": -3.6,
+      "meanDb": -23,
+      "mixGainDb": -4.4
+    },
+    {
+      "id": "riser-trailer",
+      "event": "intro",
+      "note": "cinematic trailer riser — bold openings",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/riser-trailer.mp3",
+      "durationSec": 2.61,
+      "onsetSec": 1.13,
+      "peakDb": -6.3,
+      "meanDb": -24.7,
+      "mixGainDb": -1.7
+    },
+    {
+      "id": "riser-space",
+      "event": "intro",
+      "note": "short stutter riser — techy opening",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/riser-space.mp3",
+      "durationSec": 6.58,
+      "onsetSec": 0.527,
+      "peakDb": -0.6,
+      "meanDb": -16.1,
+      "mixGainDb": -7.4
+    },
+    {
+      "id": "sweep-astral",
+      "event": "intro",
+      "note": "astral sweep — dreamy opening",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sweep-astral.mp3",
+      "durationSec": 4.08,
+      "onsetSec": 0.148,
+      "peakDb": -0.3,
+      "meanDb": -22.3,
+      "mixGainDb": -7.7
+    },
+    {
+      "id": "whoosh-sweep-small",
+      "event": "transition",
+      "note": "small fast sweep — subtle",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-sweep-small.mp3",
+      "durationSec": 0.81,
+      "onsetSec": 0.125,
+      "peakDb": -0.1,
+      "meanDb": -18.2,
+      "mixGainDb": -7.9
+    },
+    {
+      "id": "whoosh-sweep-fast",
+      "event": "transition",
+      "note": "fast sweep — snappy",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-sweep-fast.mp3",
+      "durationSec": 1.04,
+      "onsetSec": 0.338,
+      "peakDb": -5.9,
+      "meanDb": -27.2,
+      "mixGainDb": -2.1
+    },
+    {
+      "id": "whoosh-windy",
+      "event": "transition",
+      "note": "windy swoosh — natural",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-windy.mp3",
+      "durationSec": 3.24,
+      "onsetSec": 0.331,
+      "peakDb": 0,
+      "meanDb": -16.8,
+      "mixGainDb": -8
+    },
+    {
+      "id": "whoosh-wind-short",
+      "event": "transition",
+      "note": "short wind — minimal",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-wind-short.mp3",
+      "durationSec": 1.44,
+      "onsetSec": 0.068,
+      "peakDb": -1,
+      "meanDb": -23.1,
+      "mixGainDb": -7
+    },
+    {
+      "id": "whoosh-multi-fast",
+      "event": "transition",
+      "note": "multi swoosh — dynamic",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/whoosh-multi-fast.mp3",
+      "durationSec": 0.6,
+      "onsetSec": 0.103,
+      "peakDb": -4,
+      "meanDb": -25.4,
+      "mixGainDb": -4
+    },
+    {
+      "id": "sweep-magic-light",
+      "event": "transition",
+      "note": "magical light — elegant brands",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sweep-magic-light.mp3",
+      "durationSec": 5.09,
+      "onsetSec": 0.573,
+      "peakDb": -2,
+      "meanDb": -24.1,
+      "mixGainDb": -6
+    },
+    {
+      "id": "sweep-harp",
+      "event": "transition",
+      "note": "harp sweep — luxury/calm brands",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sweep-harp.mp3",
+      "durationSec": 6.37,
+      "onsetSec": 0.528,
+      "peakDb": -0.3,
+      "meanDb": -16.7,
+      "mixGainDb": -7.7
+    },
+    {
+      "id": "slide-tech",
+      "event": "transition",
+      "note": "tech slide — SaaS/tech brands",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/slide-tech.mp3",
+      "durationSec": 1.7,
+      "onsetSec": 0.066,
+      "peakDb": -7,
+      "meanDb": -32.2,
+      "mixGainDb": -1
+    },
+    {
+      "id": "pop-cluster",
+      "event": "pop",
+      "note": "pop cluster — fun/multi elements",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/pop-cluster.mp3",
+      "durationSec": 1.52,
+      "onsetSec": 0.061,
+      "peakDb": -3,
+      "meanDb": -24.8,
+      "mixGainDb": -5
+    },
+    {
+      "id": "pop-electric",
+      "event": "pop",
+      "note": "electric pop — techy",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/pop-electric.mp3",
+      "durationSec": 1.15,
+      "onsetSec": 0.055,
+      "peakDb": -0.8,
+      "meanDb": -26.3,
+      "mixGainDb": -7.2
+    },
+    {
+      "id": "draw-light-moving",
+      "event": "underline",
+      "note": "moving light — accent draw",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/draw-light-moving.mp3",
+      "durationSec": 5.04,
+      "onsetSec": 0.357,
+      "peakDb": -4.7,
+      "meanDb": -25,
+      "mixGainDb": -3.3
+    },
+    {
+      "id": "draw-energy-flow",
+      "event": "underline",
+      "note": "energy flow — bold draw",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/draw-energy-flow.mp3",
+      "durationSec": 7.44,
+      "onsetSec": 0.779,
+      "peakDb": -0.3,
+      "meanDb": -22,
+      "mixGainDb": -7.7
+    },
+    {
+      "id": "shutter-old",
+      "event": "showcase",
+      "note": "vintage shutter — retro brands",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/shutter-old.mp3",
+      "durationSec": 0.5,
+      "onsetSec": 0.061,
+      "peakDb": -8.1,
+      "meanDb": -36.9,
+      "mixGainDb": 0.1
+    },
+    {
+      "id": "select-tech",
+      "event": "showcase",
+      "note": "modern select — tech feel",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/select-tech.mp3",
+      "durationSec": 0.55,
+      "onsetSec": 0.049,
+      "peakDb": -4.8,
+      "meanDb": -28.4,
+      "mixGainDb": -3.2
+    },
+    {
+      "id": "zoom-ui-out",
+      "event": "showcase",
+      "note": "UI zoom — screen-like reveal",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/zoom-ui-out.mp3",
+      "durationSec": 1.18,
+      "onsetSec": 0.15,
+      "peakDb": -11.4,
+      "meanDb": -27.3,
+      "mixGainDb": 3.4
+    },
+    {
+      "id": "tick-select",
+      "event": "stat_tick",
+      "note": "select click — soft tick",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/tick-select.mp3",
+      "durationSec": 1.15,
+      "onsetSec": 0.045,
+      "peakDb": -4,
+      "meanDb": -23.2,
+      "mixGainDb": -4
+    },
+    {
+      "id": "tick-mouse",
+      "event": "stat_tick",
+      "note": "clear clicks — crisp tick",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/tick-mouse.mp3",
+      "durationSec": 1.1,
+      "onsetSec": 0.053,
+      "peakDb": -0.9,
+      "meanDb": -33.3,
+      "mixGainDb": -7.1
+    },
+    {
+      "id": "tick-countdown",
+      "event": "stat_tick",
+      "note": "countdown bleeps — digital",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/tick-countdown.mp3",
+      "durationSec": 5.04,
+      "onsetSec": 0.042,
+      "peakDb": -3.2,
+      "meanDb": -14.7,
+      "mixGainDb": -4.8
+    },
+    {
+      "id": "settle-fantasy",
+      "event": "stat_settle",
+      "note": "fantasy success — playful",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/settle-fantasy.mp3",
+      "durationSec": 3.03,
+      "onsetSec": 0.031,
+      "peakDb": 0,
+      "meanDb": -20.1,
+      "mixGainDb": -8
+    },
+    {
+      "id": "settle-scifi",
+      "event": "stat_settle",
+      "note": "sci-fi confirm — techy",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/settle-scifi.mp3",
+      "durationSec": 1.07,
+      "onsetSec": 0.159,
+      "peakDb": -4,
+      "meanDb": -20,
+      "mixGainDb": -4
+    },
+    {
+      "id": "settle-bleep",
+      "event": "stat_settle",
+      "note": "high-tech bleep — minimal",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/settle-bleep.mp3",
+      "durationSec": 0.65,
+      "onsetSec": 0.152,
+      "peakDb": -8.3,
+      "meanDb": -19,
+      "mixGainDb": 0.3
+    },
+    {
+      "id": "shine-fairy-glitter",
+      "event": "cta_shine",
+      "note": "fairy glitter — soft magic",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/shine-fairy-glitter.mp3",
+      "durationSec": 2.32,
+      "onsetSec": 0.034,
+      "peakDb": -1.5,
+      "meanDb": -23.8,
+      "mixGainDb": -6.5
+    },
+    {
+      "id": "shine-wand",
+      "event": "cta_shine",
+      "note": "wand sparkle — crisp magic",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/shine-wand.mp3",
+      "durationSec": 2.53,
+      "onsetSec": 0.073,
+      "peakDb": -4.1,
+      "meanDb": -26.9,
+      "mixGainDb": -3.9
+    },
+    {
+      "id": "shine-glow",
+      "event": "cta_shine",
+      "note": "sparkling glow — warm",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/shine-glow.mp3",
+      "durationSec": 4,
+      "onsetSec": 0.146,
+      "peakDb": -5.4,
+      "meanDb": -30.6,
+      "mixGainDb": -2.6
+    },
+    {
+      "id": "sting-fanfare",
+      "event": "cta_sting",
+      "note": "trumpet fanfare — bold/celebratory",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sting-fanfare.mp3",
+      "durationSec": 8.05,
+      "onsetSec": 0.081,
+      "peakDb": -2.2,
+      "meanDb": -18.4,
+      "mixGainDb": -5.8
+    },
+    {
+      "id": "sting-quickwin",
+      "event": "cta_sting",
+      "note": "quick win — snappy close",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sting-quickwin.mp3",
+      "durationSec": 1.99,
+      "onsetSec": 0.119,
+      "peakDb": -0.4,
+      "meanDb": -20.9,
+      "mixGainDb": -7.6
+    },
+    {
+      "id": "sting-winning",
+      "event": "cta_sting",
+      "note": "winning notification — upbeat",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sting-winning.mp3",
+      "durationSec": 1.8,
+      "onsetSec": 0.049,
+      "peakDb": -1,
+      "meanDb": -19,
+      "mixGainDb": -7
+    },
+    {
+      "id": "sting-cyber",
+      "event": "cta_sting",
+      "note": "cyber affirmation — futuristic",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/sting-cyber.mp3",
+      "durationSec": 2.17,
+      "onsetSec": 0.053,
+      "peakDb": -7.7,
+      "meanDb": -33.5,
+      "mixGainDb": -0.3
+    },
+    {
+      "id": "impact-big",
+      "event": "impact",
+      "note": "big cinematic impact — epic beats",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/impact-big.mp3",
+      "durationSec": 7.97,
+      "onsetSec": 0.72,
+      "peakDb": -0.4,
+      "meanDb": -21.1,
+      "mixGainDb": -7.6
+    },
+    {
+      "id": "impact-deep",
+      "event": "impact",
+      "note": "deep whoosh impact — dramatic",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/impact-deep.mp3",
+      "durationSec": 4.1,
+      "onsetSec": 0.242,
+      "peakDb": -0.4,
+      "meanDb": -19.9,
+      "mixGainDb": -7.6
+    },
+    {
+      "id": "impact-soft",
+      "event": "impact",
+      "note": "soft movie impact — subtle emphasis",
+      "url": "https://storage.googleapis.com/workhub-c288f.firebasestorage.app/sfx/impact-soft.mp3",
+      "durationSec": 8.99,
+      "onsetSec": 0.556,
+      "peakDb": -0.3,
+      "meanDb": -20.1,
+      "mixGainDb": -7.7
+    }
+  ]
+}
