@@ -8,11 +8,11 @@
   #s {
     position: relative; width: 100vw; height: 100vh; overflow: hidden;
     font-family: 'Segoe UI', Tahoma, system-ui, -apple-system, Arial, sans-serif;
-    color: #fff;
+    color: var(--tx,#fff);
   }
   /* IMAGE ON TOP — framed card in the upper zone */
   .card { position: absolute; left: 8vmin; right: 8vmin; top: 10vmin; height: 56vh; border-radius: 4vmin; overflow: hidden;
-          box-shadow: 0 5vmin 10vmin rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07); background: #0e1424; z-index: 2; }
+          box-shadow: 0 5vmin 10vmin rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07); background: var(--bg2,#0e1424); z-index: 2; }
   .card img { position: absolute; inset: -5%; width: 110%; height: 110%; object-fit: cover; }
   .card .edge { position: absolute; left: 0; right: 0; bottom: 0; height: .8vmin; transform-origin: left center; transform: scaleX(0); }
   /* CONTENT (narrated) AT BOTTOM */
@@ -20,7 +20,7 @@
   .accent { width: 11vmin; height: 1.1vmin; border-radius: 99px; transform-origin: left center; transform: scaleX(0); margin-bottom: 3.2vmin; }
   .rtl .accent { transform-origin: right center; }
   .headline { font-size: 5.6vmin; font-weight: 800; line-height: 1.22; letter-spacing: -.05vmin; }
-  .caption { font-size: 3.1vmin; font-weight: 500; margin-top: 2vmin; color: rgba(255,255,255,.78); line-height: 1.5; }
+  .caption { font-size: 3.1vmin; font-weight: 500; margin-top: 2vmin; color: var(--mut,#b9c2d0); line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -43,9 +43,10 @@
   document.head.appendChild(ff)
   if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
 
-  const color = D.color || '#34e5a4'
   const s = document.getElementById('s')
-  s.style.background = `radial-gradient(130% 70% at 50% 0%, ${color}1e, #0c1120 58%)`
+  const P = window.__M.applyPalette(D)
+  const color = P.accent
+  window.__M.stage(s, P)
   window.__M.decorate(s, color, { big: 420, small: 300 })
   document.getElementById('accent').style.background = color
   document.getElementById('edge').style.background = color

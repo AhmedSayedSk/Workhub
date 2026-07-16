@@ -328,7 +328,7 @@ export function CampaignTab() {
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className={cn('max-h-[92vh] overflow-y-auto', videoReady ? 'max-w-4xl' : 'max-w-md')}>
+          <DialogContent className={cn('max-h-[92vh] overflow-y-auto', videoReady ? 'max-w-6xl' : 'max-w-md')}>
             <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
@@ -444,10 +444,10 @@ export function CampaignTab() {
                 return <div className="space-y-5">{settings}{action}</div>
               }
 
-              // Wide two-column layout once a video exists: player on the left,
-              // everything else (settings, actions, inputs) on the right.
+              // Wide three-column layout once a video exists: player | settings
+              // & actions | full-height "what went into this video" panel.
               return (
-                <div className="grid gap-6 md:grid-cols-[320px_minmax(0,1fr)]">
+                <div className="grid gap-6 md:grid-cols-[300px_minmax(280px,340px)_minmax(0,1fr)]">
                   <div className="space-y-2">
                     <video
                       src={videoJob.videoUrl}
@@ -459,7 +459,7 @@ export function CampaignTab() {
                   <div className="space-y-5">
                     {settings}
                     {action}
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-2.5">
                       <div className="flex flex-wrap gap-1">
                         <Badge variant="secondary" className="capitalize">{videoJob.mode || 'basic'}</Badge>
                         <Badge variant="secondary">{ASPECT_LABEL[videoJob.aspect] || videoJob.aspect}</Badge>
@@ -472,38 +472,38 @@ export function CampaignTab() {
                           </Badge>
                         )}
                       </div>
-                      <a href={videoJob.videoUrl} download className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-muted/40">
-                        <Download className="h-3.5 w-3.5" /> Download
+                      <a href={videoJob.videoUrl} download className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-muted/40">
+                        <Download className="h-3.5 w-3.5" /> Download video
                       </a>
                     </div>
-                    {((Array.isArray(videoJob.script) && videoJob.script.length > 0) || (Array.isArray(videoJob.scenes) && videoJob.scenes.length > 0)) && (
-                      <div className="rounded-lg border">
-                        <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">What went into this video</div>
-                        <div className="max-h-56 space-y-2 overflow-y-auto p-3">
-                          {Array.isArray(videoJob.script) && videoJob.script.length > 0 ? (
-                            <ol className="space-y-1.5">
-                              {videoJob.script.map((s, i) => (
-                                <li key={i} className="flex items-start gap-2">
-                                  {s.type === 'showcase' && s.imageUrl ? (
-                                    <img src={s.imageUrl} alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
-                                  ) : (
-                                    <span className="mt-0.5 w-14 shrink-0 rounded bg-muted px-1.5 py-0.5 text-center text-[10px] font-semibold uppercase text-muted-foreground">{SCENE_BADGE[s.type] || s.type}</span>
-                                  )}
-                                  <span className="text-xs leading-snug">{creativeSceneText(s) || <span className="text-muted-foreground">—</span>}</span>
-                                </li>
-                              ))}
-                            </ol>
-                          ) : (
-                            <div className="grid grid-cols-6 gap-1.5">
-                              {(videoJob.scenes || []).map((s, i) => (
-                                <img key={i} src={s.imageUrl} alt={s.headline || ''} title={s.caption || s.headline || ''} className="aspect-square w-full rounded border object-cover" />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
+                  {((Array.isArray(videoJob.script) && videoJob.script.length > 0) || (Array.isArray(videoJob.scenes) && videoJob.scenes.length > 0)) ? (
+                    <div className="flex min-h-0 flex-col rounded-lg border">
+                      <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">What went into this video</div>
+                      <div className="max-h-[68vh] flex-1 space-y-2 overflow-y-auto p-3">
+                        {Array.isArray(videoJob.script) && videoJob.script.length > 0 ? (
+                          <ol className="space-y-2">
+                            {videoJob.script.map((s, i) => (
+                              <li key={i} className="flex items-start gap-2.5 rounded-md border p-2">
+                                {s.type === 'showcase' && s.imageUrl ? (
+                                  <img src={s.imageUrl} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
+                                ) : (
+                                  <span className="mt-0.5 w-14 shrink-0 rounded bg-muted px-1.5 py-0.5 text-center text-[10px] font-semibold uppercase text-muted-foreground">{SCENE_BADGE[s.type] || s.type}</span>
+                                )}
+                                <span className="text-xs leading-relaxed">{creativeSceneText(s) || <span className="text-muted-foreground">—</span>}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <div className="grid grid-cols-4 gap-2">
+                            {(videoJob.scenes || []).map((s, i) => (
+                              <img key={i} src={s.imageUrl} alt={s.headline || ''} title={s.caption || s.headline || ''} className="aspect-square w-full rounded border object-cover" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : <div />}
                 </div>
               )
             })()}

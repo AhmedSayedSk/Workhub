@@ -2,7 +2,7 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
-  #s{position:relative;width:100%;height:100%;background:#0e1424;color:#fff;overflow:hidden}
+  #s{position:relative;width:100%;height:100%;background:var(--bg2,#0e1424);color:var(--tx,#fff);overflow:hidden}
   #bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.5}
   #scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,10,18,.5),rgba(8,10,18,.88))}
   .wrap{position:absolute;left:90px;right:90px;top:500px;z-index:2}
@@ -26,9 +26,9 @@
 <script>
   const D = window.__DATA || {}
   if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
-  const c = D.brand?.color || '#34e5a4'
-  document.getElementById('s').style.setProperty('--c', c)
-  const bg = document.getElementById('bg'); if (D.bg) bg.style.backgroundImage = `url("${D.bg}")`; else document.getElementById('s').style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+  const P = window.__M.applyPalette(D)
+  const c = P.accent
+  const bg = document.getElementById('bg'); if (D.bg) bg.style.backgroundImage = `url("${D.bg}")`; else window.__M.stage(document.getElementById('s'), P)
   if (!D.bg) window.__M.decorate(document.getElementById('s'), c)
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }

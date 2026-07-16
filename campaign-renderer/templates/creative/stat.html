@@ -2,7 +2,7 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
-  #s{position:relative;width:100%;height:100%;color:#fff;overflow:hidden}
+  #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
   .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:2}
   .brand img{width:52px;height:52px;border-radius:12px}
   .wrap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;z-index:2}
@@ -12,7 +12,7 @@
   .core svg .prog{fill:none;stroke:var(--c);stroke-width:10;stroke-linecap:round}
   .value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
          font-size:190px;font-weight:900;color:var(--c);letter-spacing:-2px}
-  .label{font-size:42px;font-weight:600;color:rgba(255,255,255,.8);margin-top:34px;letter-spacing:.5px}
+  .label{font-size:42px;font-weight:600;color:var(--mut,#b9c2d0);margin-top:34px;letter-spacing:.5px}
 </style></head>
 <body><div id="s">
   <div class="brand" id="brand"></div>
@@ -31,10 +31,10 @@
 <script>
   const D = window.__DATA || {}
   if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
-  const c = D.brand?.color || '#34e5a4'
   const s = document.getElementById('s')
-  s.style.setProperty('--c', c)
-  s.style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+  const P = window.__M.applyPalette(D)
+  const c = P.accent
+  window.__M.stage(s, P)
   window.__M.decorate(s, c)
 
   const brand = document.getElementById('brand')

@@ -56,6 +56,13 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
 
   const brandName = c.brand?.name || c.name || 'Brand'
   const domain = c.brief?.content?.link || undefined
+  const brandColor = (c.brand?.colors && c.brand.colors[0]) || null
+
+  // AI-proposed color system, contrast-enforced (WCAG) before it ships.
+  const { generateVideoPalette } = await import('@/lib/gemini')
+  const { finalizePalette } = await import('@/lib/palette')
+  const rawPalette = await generateVideoPalette({ brandName, brandColor, tone: c.brief?.tone, goal: c.brief?.goal })
+  const palette = finalizePalette(rawPalette, brandColor)
   let script: import('@/types').CreativeScene[] | undefined
   if (mode === 'creative') {
     const { generateCampaignVideoScript } = await import('@/lib/gemini')
@@ -117,6 +124,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     mode,
     lang: campaignLang,
     transition,
+    palette,
     ...(voiceover ? { voiceover } : {}),
     ...(script ? { script } : {}),
     hook: {

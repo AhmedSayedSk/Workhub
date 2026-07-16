@@ -89,16 +89,47 @@ window.__M = (() => {
     for (const el of els) { if (el) reg(el, start, end, 'exitfade') }
   }
 
-  // Premium ambient canvas: two large blurred brand-color orbs drifting slowly
+  // Resolves the job's AI-proposed, contrast-enforced palette (with safe
+  // fallbacks for older jobs) and exposes it as CSS vars on the scene root:
+  // --c (accent), --bg1/--bg2 (gradient), --tx (text), --mut (muted), --ctx (CTA text).
+  function applyPalette(D) {
+    const P = Object.assign(
+      {
+        bg1: '#101828', bg2: '#0a0f1c',
+        accent: (D && D.brand && D.brand.color) || (D && D.color) || '#34e5a4',
+        text: '#f5f7fb', muted: '#b9c2d0', ctaText: '#0b0f18',
+      },
+      (D && D.palette) || {}
+    )
+    const s = document.getElementById('s')
+    if (s) {
+      s.style.setProperty('--c', P.accent)
+      s.style.setProperty('--bg1', P.bg1)
+      s.style.setProperty('--bg2', P.bg2)
+      s.style.setProperty('--tx', P.text)
+      s.style.setProperty('--mut', P.muted)
+      s.style.setProperty('--ctx', P.ctaText)
+    }
+    return P
+  }
+
+  // Simple premium stage: a clean two-stop vertical gradient in the palette's
+  // deep tones + one soft accent glow at the top. Deliberately quiet.
+  function stage(sceneEl, P) {
+    sceneEl.style.background =
+      `radial-gradient(90% 42% at 50% 0%, ${P.accent}14, transparent 60%), linear-gradient(180deg, ${P.bg1}, ${P.bg2})`
+  }
+
+  // Premium ambient canvas: two large blurred accent orbs drifting slowly
   // + a faint dot grid. Pure decoration, all t-driven (deterministic frames).
   function decorate(sceneEl, color, opts) {
     const o = opts || {}
     const mk = (styles) => { const d = document.createElement('div'); Object.assign(d.style, styles); sceneEl.insertBefore(d, sceneEl.firstChild); return d }
-    // dot grid
+    // dot grid (very faint — texture, not noise)
     mk({
       position: 'absolute', inset: '0',
-      backgroundImage: `radial-gradient(${color}26 1.6px, transparent 1.6px)`,
-      backgroundSize: '54px 54px', opacity: '0.5', pointerEvents: 'none',
+      backgroundImage: `radial-gradient(${color}22 1.6px, transparent 1.6px)`,
+      backgroundSize: '56px 56px', opacity: '0.35', pointerEvents: 'none',
     })
     const orb = (size, top, left, blur, alpha, phase, period) => {
       const d = mk({
@@ -109,8 +140,8 @@ window.__M = (() => {
       reg(d, 0, 1, 'orbit', { ax: 26, ay: 40, period: period || 7000, phase })
       return d
     }
-    orb(o.big || 560, '-6%', '-18%', 60, '55', 0, 8200)
-    orb(o.small || 380, '68%', '62%', 70, '44', 2.1, 6400)
+    orb(o.big || 560, '-6%', '-18%', 64, '3d', 0, 8200)
+    orb(o.small || 380, '70%', '64%', 74, '30', 2.1, 6400)
   }
 
   // Arabic + RTL. The Linux render worker ships no Arabic font, so we embed
@@ -142,5 +173,5 @@ window.__M = (() => {
     document.querySelectorAll('.chip').forEach((el) => { el.style.right = 'auto'; el.style.left = '90px' })
     if (document.fonts && document.fonts.load) { try { document.fonts.load("900 100px 'Cairo'"); document.fonts.load("500 100px 'Cairo'") } catch (e) {} }
   }
-  return { reg, easeOutCubic, easeOutBack, words, decorate, applyLang, sceneExit }
+  return { reg, easeOutCubic, easeOutBack, words, decorate, applyLang, sceneExit, applyPalette, stage }
 })()

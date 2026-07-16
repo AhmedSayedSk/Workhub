@@ -895,6 +895,37 @@ Order: hook first, cta last, beats/stats in between. Do NOT include images.`
   }
 }
 
+// Asks the model for a premium video color system harmonized with the brand.
+// Returns raw hex proposals (or null) — the caller runs them through
+// finalizePalette() which enforces WCAG contrast, so taste here is enough.
+export async function generateVideoPalette(
+  params: { brandName: string; brandColor?: string | null; tone?: string; goal?: string },
+  model?: GeminiModel
+): Promise<Record<string, string> | null> {
+  const prompt = `You are a senior brand & motion designer. Design the color system for a premium, cinematic vertical brand video.
+Brand: "${params.brandName}". Brand color: ${params.brandColor || 'none provided'}. Tone: ${params.tone || 'confident, modern'}. Goal: ${params.goal || 'brand awareness'}.
+Respond with ONLY a JSON object (no markdown fences) of 6-digit hex colors:
+{"bg1":"<gradient top: deep dark cinematic tone subtly tinted with the brand hue — never pure black>",
+ "bg2":"<gradient bottom: same family, noticeably darker>",
+ "accent":"<vivid saturated accent harmonious with the brand color (may be the brand color) — used for underlines, bars and the CTA button>",
+ "text":"<near-white headline color with a subtle tint matching the palette>",
+ "muted":"<light desaturated supporting-text color>",
+ "ctaText":"<text color ON the accent CTA button: very dark or white, whichever fits>"}
+Keep it tasteful and minimal: the background gradient should be subtle (two close dark tones), the accent should carry the energy.`
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const s = text.indexOf('{'), e = text.lastIndexOf('}')
+    if (s === -1 || e === -1) return null
+    const raw = JSON.parse(text.slice(s, e + 1))
+    return raw && typeof raw === 'object' ? raw : null
+  } catch (error) {
+    console.error('Error generating video palette:', error)
+    return null
+  }
+}
+
 function sanitizeScene(x: any): CreativeScene | null {
   if (!x || typeof x !== 'object') return null
   const str = (v: any, n: number) => String(v ?? '').slice(0, n)

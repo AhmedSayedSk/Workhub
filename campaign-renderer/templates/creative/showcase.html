@@ -2,12 +2,12 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
-  #s{position:relative;width:100%;height:100%;color:#fff;overflow:hidden}
+  #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
   .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:3}
   .brand img{width:52px;height:52px;border-radius:12px}
   /* IMAGE ON TOP — a large framed card in the upper zone */
   .card{position:absolute;left:90px;right:90px;top:210px;height:1050px;border-radius:44px;overflow:hidden;
-        box-shadow:0 60px 110px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07);background:#0e1424;z-index:2}
+        box-shadow:0 60px 110px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07);background:var(--bg2,#0e1424);z-index:2}
   .card .ph{position:absolute;inset:0}
   .card img{position:absolute;inset:-50px;width:calc(100% + 100px);height:calc(100% + 100px);object-fit:cover}
   .card .edge{position:absolute;left:0;right:0;bottom:0;height:8px;background:var(--c);transform-origin:left center;transform:scaleX(0)}
@@ -15,8 +15,8 @@
   .content{position:absolute;left:90px;right:90px;top:1330px;bottom:120px;display:flex;flex-direction:column;justify-content:flex-start;z-index:2}
   .accent{width:110px;height:12px;border-radius:8px;background:var(--c);transform-origin:left center;transform:scaleX(0);margin-bottom:34px}
   .rtl .accent{transform-origin:right center}
-  .caption{font-size:52px;font-weight:800;line-height:1.28;color:#fff;letter-spacing:-.5px}
-  .sub{font-size:33px;font-weight:500;line-height:1.5;color:rgba(255,255,255,.72);margin-top:22px}
+  .caption{font-size:52px;font-weight:800;line-height:1.28;color:var(--tx,#fff);letter-spacing:-.5px}
+  .sub{font-size:33px;font-weight:500;line-height:1.5;color:var(--mut,#b9c2d0);margin-top:22px}
 </style></head>
 <body><div id="s">
   <div class="brand" id="brand"></div>
@@ -35,10 +35,10 @@
 <script>
   const D = window.__DATA || {}
   if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
-  const c = D.brand?.color || '#34e5a4'
   const s = document.getElementById('s')
-  s.style.setProperty('--c', c)
-  s.style.background = `radial-gradient(130% 70% at 50% 0%, ${c}1e, #0c1120 58%)`
+  const P = window.__M.applyPalette(D)
+  const c = P.accent
+  window.__M.stage(s, P)
   window.__M.decorate(s, c)
 
   const brand = document.getElementById('brand')
@@ -47,7 +47,7 @@
   if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
 
   const ph = document.getElementById('ph')
-  ph.style.background = `radial-gradient(120% 100% at 50% 0%, ${c}44, #0e1424 80%)`
+  ph.style.background = `radial-gradient(120% 100% at 50% 0%, ${c}44, ${P.bg2} 80%)`
   const imgEl = document.getElementById('img')
 
   const captionEl = document.getElementById('caption')

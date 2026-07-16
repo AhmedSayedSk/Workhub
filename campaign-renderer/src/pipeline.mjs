@@ -114,6 +114,7 @@ export async function renderJob(job, onProgress = () => {}) {
         const data = {
           ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en',
           index: typeSeen[scene.type], total: typeTotals[scene.type],
+          palette: job.palette || null,
           // The final scene HOLDS (no exit) so the CTA lingers on screen.
           durMs, transition: isLast ? 'none' : transition,
         }
@@ -185,6 +186,7 @@ export async function renderJob(job, onProgress = () => {}) {
       const isLast = i === sceneCount - 1
       const data = {
         image: scene.imageUrl || null, headline: scene.headline || '', caption: scene.caption || '', color, lang: job.lang || 'en',
+        palette: job.palette || null,
         durMs, transition: isLast ? 'none' : transition, // final scene holds
       }
       tasks.push(() =>

@@ -2,13 +2,13 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
-  #s{position:relative;width:100%;height:100%;color:#fff;overflow:hidden}
+  #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
   .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:2}
   .brand img{width:52px;height:52px;border-radius:12px}
   .wrap{position:absolute;left:110px;right:110px;top:50%;transform:translateY(-50%);text-align:center;z-index:2}
   .accent{width:110px;height:12px;border-radius:8px;background:var(--c);margin:0 auto 48px;transform-origin:center;transform:scaleY(0)}
   h1{font-size:92px;line-height:1.14;font-weight:900;letter-spacing:-1px}
-  .sub{font-size:36px;font-weight:500;color:rgba(255,255,255,.75);margin-top:40px;line-height:1.45}
+  .sub{font-size:36px;font-weight:500;color:var(--mut,#b9c2d0);margin-top:40px;line-height:1.45}
   .ghost{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font-size:560px;font-weight:900;color:transparent;
          -webkit-text-stroke:2px rgba(255,255,255,.05);z-index:1;pointer-events:none;line-height:1}
 </style></head>
@@ -25,10 +25,10 @@
 <script>
   const D = window.__DATA || {}
   if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
-  const c = D.brand?.color || '#34e5a4'
   const s = document.getElementById('s')
-  s.style.setProperty('--c', c)
-  s.style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+  const P = window.__M.applyPalette(D)
+  const c = P.accent
+  window.__M.stage(s, P)
   window.__M.decorate(s, c)
 
   const brand = document.getElementById('brand')
