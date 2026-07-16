@@ -644,8 +644,10 @@ export interface RenderJob {
   status: RenderJobStatus
   aspect: RenderAspect
   hook: { headline: string; subtext: string; bgPrompt: string }
-  brand: { name: string; color: string; logoUrl: string | null }
+  brand: { name: string; color: string; logoUrl: string | null; domain?: string }
   scenes: Array<{ imageUrl: string; headline: string; caption: string }>
+  mode?: RenderMode
+  script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string
   error?: string
@@ -656,6 +658,15 @@ export interface RenderJob {
   startedAt?: number
   finishedAt?: number
 }
+
+export type RenderMode = 'basic' | 'creative'
+
+export type CreativeScene =
+  | { type: 'hook'; headline: string; underline?: string; kicker?: string }
+  | { type: 'beat'; title: string; sub?: string }
+  | { type: 'stat'; value: string; label: string }
+  | { type: 'showcase'; imageUrl: string; caption?: string }
+  | { type: 'cta'; text: string; url?: string }
 
 // AI Image Generation Log (persistent, never deleted with images)
 export interface ImageGenLog {
