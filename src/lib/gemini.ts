@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai'
 import { GeminiModel } from '@/types'
+import type { CreativeScene } from '@/types'
 import { VALID_ICON_NAMES, ICON_LIBRARY } from '@/lib/task-icons'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
@@ -830,6 +831,79 @@ Produce exactly ${count} DISTINCT posts that build on each other (vary the angle
   } catch (error) {
     console.error('Error generating campaign posts:', error)
     throw error
+  }
+}
+
+// Deterministic fallback: a valid copy-scene script from the campaign basics,
+// used when Gemini fails so a creative video still renders.
+export function fallbackVideoScenes(params: {
+  brandName: string; goal: string; domain?: string; postHeadlines: string[]
+}): CreativeScene[] {
+  const scenes: CreativeScene[] = [
+    { type: 'hook', headline: params.brandName, underline: params.brandName, kicker: 'Introducing' },
+  ]
+  for (const h of params.postHeadlines.filter(Boolean).slice(0, 3)) scenes.push({ type: 'beat', title: h })
+  if (!scenes.some((s) => s.type === 'beat')) scenes.push({ type: 'beat', title: params.goal || 'See what we made' })
+  scenes.push({ type: 'cta', text: 'Get started', url: params.domain })
+  return scenes
+}
+
+// Turns a campaign into a punchy, video-paced script (copy scenes only). The
+// route interleaves the real campaign images as `showcase` scenes afterwards.
+export async function generateCampaignVideoScript(
+  params: {
+    brandName: string; goal: string; audience: string; tone: string
+    language: 'en' | 'ar'; domain?: string
+    posts: Array<{ headline?: string; body?: string; caption?: string }>
+  },
+  model?: GeminiModel
+): Promise<CreativeScene[]> {
+  const langLine = params.language === 'ar'
+    ? 'Write all "headline", "underline", "kicker", "title", "sub", "label", "text" in ARABIC (natural marketing tone).'
+    : 'Write everything in English.'
+  const copy = params.posts.map((p) => [p.headline, p.body, p.caption].filter(Boolean).join(' — ')).filter(Boolean).slice(0, 8).join('\n')
+  const prompt = `You are a senior motion-graphics copywriter scripting a short vertical promo VIDEO for the brand "${params.brandName}".
+Goal: ${params.goal || 'grow awareness and drive signups'}
+Audience: ${params.audience || "the product's ideal customers"}
+Tone: ${params.tone || 'confident, punchy, concrete'}
+${langLine}
+Source campaign copy:
+"""
+${copy.slice(0, 6000)}
+"""
+Write a tight, PUNCHY video script — short kinetic lines, not paragraphs. Respond with ONLY a JSON array (no markdown fences) of scene objects, in play order, following EXACTLY:
+- exactly 1 hook: {"type":"hook","headline":"<2 short lines, use \\n between them>","underline":"<the 1-3 word key phrase inside headline to underline>","kicker":"<1-2 word eyebrow, optional>"}
+- 2 to 4 beats: {"type":"beat","title":"<a benefit in <=7 words>","sub":"<supporting line <=10 words, optional>"}
+- 0 to 2 stats (only if a number is truthful/likely): {"type":"stat","value":"<e.g. 18% or 3x or $52k>","label":"<what it measures, <=6 words>"}
+- exactly 1 cta LAST: {"type":"cta","text":"<call to action <=6 words>","url":"${params.domain || ''}"}
+Order: hook first, cta last, beats/stats in between. Do NOT include images.`
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const s = text.indexOf('['), e = text.lastIndexOf(']')
+    if (s === -1 || e === -1) throw new Error('no json array')
+    const raw = JSON.parse(text.slice(s, e + 1)) as any[]
+    const scenes = raw.map((x) => sanitizeScene(x)).filter(Boolean) as CreativeScene[]
+    const hasHook = scenes.some((s2) => s2.type === 'hook')
+    const hasCta = scenes.some((s2) => s2.type === 'cta')
+    if (!hasHook || !hasCta || scenes.length < 3) throw new Error('script incomplete')
+    return scenes
+  } catch (error) {
+    console.error('Error generating video script:', error)
+    return fallbackVideoScenes({ brandName: params.brandName, goal: params.goal, domain: params.domain, postHeadlines: params.posts.map((p) => p.headline || '') })
+  }
+}
+
+function sanitizeScene(x: any): CreativeScene | null {
+  if (!x || typeof x !== 'object') return null
+  const str = (v: any, n: number) => String(v ?? '').slice(0, n)
+  switch (x.type) {
+    case 'hook': return x.headline ? { type: 'hook', headline: str(x.headline, 120), underline: str(x.underline, 60) || undefined, kicker: str(x.kicker, 40) || undefined } : null
+    case 'beat': return x.title ? { type: 'beat', title: str(x.title, 80), sub: str(x.sub, 120) || undefined } : null
+    case 'stat': return x.value && x.label ? { type: 'stat', value: str(x.value, 16), label: str(x.label, 60) } : null
+    case 'cta': return x.text ? { type: 'cta', text: str(x.text, 60), url: str(x.url, 200) || undefined } : null
+    default: return null
   }
 }
 
