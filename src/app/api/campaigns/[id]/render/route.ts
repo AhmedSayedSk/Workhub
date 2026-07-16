@@ -42,21 +42,28 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       posts: posts.map((p) => ({ headline: p.headline, body: p.body, caption: p.caption })),
     })
     // Interleave the real images as showcase scenes: hook, then alternate
-    // copy/showcase, cta last. Cap at 9 scenes total.
-    const images = posts.map((p) => p.imageUrl).filter(Boolean) as string[]
+    // copy/showcase, cta last. Reserve slots for hook/cta so the cap never
+    // slices them off. Cap at 9 scenes total.
     const hook = copyScenes.find((s) => s.type === 'hook')
     const cta = copyScenes.find((s) => s.type === 'cta')
     const middle = copyScenes.filter((s) => s.type !== 'hook' && s.type !== 'cta')
-    const out: import('@/types').CreativeScene[] = []
-    if (hook) out.push(hook)
+    // posts here are already filtered to those with imageUrl, so posts[i].imageUrl is defined.
+    const maxMid = 9 - (hook ? 1 : 0) - (cta ? 1 : 0)
+    const mid: import('@/types').CreativeScene[] = []
     let imgI = 0
     for (const s of middle) {
-      out.push(s)
-      if (imgI < images.length && out.length < 8) { out.push({ type: 'showcase', imageUrl: images[imgI++], caption: posts[imgI - 1]?.headline || '' }); }
+      if (mid.length >= maxMid) break
+      mid.push(s)
+      if (imgI < posts.length && mid.length < maxMid) {
+        mid.push({ type: 'showcase', imageUrl: posts[imgI].imageUrl as string, caption: posts[imgI].headline || '' })
+        imgI++
+      }
     }
-    while (imgI < images.length && out.length < 8) out.push({ type: 'showcase', imageUrl: images[imgI++], caption: '' })
-    if (cta) out.push(cta)
-    script = out.slice(0, 9)
+    while (imgI < posts.length && mid.length < maxMid) {
+      mid.push({ type: 'showcase', imageUrl: posts[imgI].imageUrl as string, caption: '' })
+      imgI++
+    }
+    script = [...(hook ? [hook] : []), ...mid, ...(cta ? [cta] : [])]
   }
 
   const job = {
