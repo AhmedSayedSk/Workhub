@@ -844,7 +844,7 @@ export function fallbackVideoScenes(params: {
   ]
   for (const h of params.postHeadlines.filter(Boolean).slice(0, 3)) scenes.push({ type: 'beat', title: h })
   if (!scenes.some((s) => s.type === 'beat')) scenes.push({ type: 'beat', title: params.goal || 'See what we made' })
-  scenes.push({ type: 'cta', text: 'Get started', url: params.domain })
+  scenes.push({ type: 'cta', text: 'Get started', ...(params.domain ? { url: params.domain } : {}) })
   return scenes
 }
 
@@ -898,11 +898,25 @@ Order: hook first, cta last, beats/stats in between. Do NOT include images.`
 function sanitizeScene(x: any): CreativeScene | null {
   if (!x || typeof x !== 'object') return null
   const str = (v: any, n: number) => String(v ?? '').slice(0, n)
+  // Omit empty optionals entirely — Firestore rejects `undefined` values, so
+  // an absent field must not appear as a key at all.
   switch (x.type) {
-    case 'hook': return x.headline ? { type: 'hook', headline: str(x.headline, 120), underline: str(x.underline, 60) || undefined, kicker: str(x.kicker, 40) || undefined } : null
-    case 'beat': return x.title ? { type: 'beat', title: str(x.title, 80), sub: str(x.sub, 120) || undefined } : null
+    case 'hook': {
+      if (!x.headline) return null
+      const underline = str(x.underline, 60), kicker = str(x.kicker, 40)
+      return { type: 'hook', headline: str(x.headline, 120), ...(underline ? { underline } : {}), ...(kicker ? { kicker } : {}) }
+    }
+    case 'beat': {
+      if (!x.title) return null
+      const sub = str(x.sub, 120)
+      return { type: 'beat', title: str(x.title, 80), ...(sub ? { sub } : {}) }
+    }
     case 'stat': return x.value && x.label ? { type: 'stat', value: str(x.value, 16), label: str(x.label, 60) } : null
-    case 'cta': return x.text ? { type: 'cta', text: str(x.text, 60), url: str(x.url, 200) || undefined } : null
+    case 'cta': {
+      if (!x.text) return null
+      const url = str(x.url, 200)
+      return { type: 'cta', text: str(x.text, 60), ...(url ? { url } : {}) }
+    }
     default: return null
   }
 }

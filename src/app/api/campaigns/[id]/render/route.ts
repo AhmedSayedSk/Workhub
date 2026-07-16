@@ -7,6 +7,20 @@ export const dynamic = 'force-dynamic'
 const db = () => admin.firestore()
 const ASPECTS = ['portrait', 'landscape', 'square'] as const
 
+// Firestore rejects `undefined` values anywhere in a document. Recursively drop
+// undefined-valued keys so an optional scene field (e.g. cta.url) never fails the write.
+function stripUndefined<T>(v: T): T {
+  if (Array.isArray(v)) return v.map(stripUndefined) as unknown as T
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (val !== undefined) out[k] = stripUndefined(val)
+    }
+    return out as T
+  }
+  return v
+}
+
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const authError = await requireAuth(request)
   if (authError) return authError
@@ -82,6 +96,6 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     scenes: posts.map((p) => ({ imageUrl: p.imageUrl, headline: p.headline || '', caption: (p.caption || '').slice(0, 140) })),
     createdAt: Date.now(),
   }
-  const ref = await db().collection('renderJobs').add(job)
+  const ref = await db().collection('renderJobs').add(stripUndefined(job))
   return NextResponse.json({ jobId: ref.id })
 }
