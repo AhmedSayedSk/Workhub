@@ -7,6 +7,7 @@ import { SCENE_DUR_MS } from './scenes.mjs'
 import { generateHookBg } from './hook.mjs'
 import { encode, thumbFromFrame } from './encode.mjs'
 import { upload } from './upload.mjs'
+import { synthLines, buildVoiceTrack, clampSceneMs, creativeSceneNarration } from './voice.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HOOK_TEMPLATE = path.join(__dirname, '..', 'templates', 'hook.html')
@@ -71,27 +72,45 @@ export async function renderJob(job, onProgress = () => {}) {
     })
     await report(40, 'hook')
 
+    // Optional AI voiceover: synth each scene's line first, so scenes can pace
+    // to speech. null-safe — a voiceover failure just yields a silent scene.
+    const vo = job.voiceover && job.voiceover.enabled ? job.voiceover : null
+
     if (job.mode === 'creative' && Array.isArray(job.script) && job.script.length) {
       const brand = { name: (job.brand || {}).name || '', color, logoUrl: (job.brand || {}).logoUrl || null, domain: (job.brand || {}).domain || null }
       const bgUrl = bgPath ? pathToFileURL(bgPath).href : null
+
+      let voiceSegs = null
+      if (vo) {
+        await report(40, 'voiceover')
+        const lines = job.script.map((s) => ({ text: creativeSceneNarration(s) }))
+        voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender }, scratch, 3,
+          async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
+      }
+
       const tasks = []
+      const segments = []
       let cursor = 0
       let hookStart = 0
       job.script.forEach((scene, i) => {
-        const durMs = SCENE_DUR[scene.type] || 2800
+        const baseMs = SCENE_DUR[scene.type] || 2800
+        const seg = voiceSegs ? voiceSegs[i] : null
+        const durMs = seg ? clampSceneMs(seg.durationSec * 1000, baseMs) : baseMs
         const start = cursor
         cursor += framesFor(durMs)
         if (scene.type === 'hook') hookStart = start
         const data = { ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en' }
         tasks.push(() => renderScene(path.join(CREATIVE_DIR, `${scene.type}.html`), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
+        segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
       })
       const thumbFrameIndex = Math.min(hookStart + FPS, Math.max(0, cursor - 1))
       await report(42, 'rendering')
       await runPool(tasks, CONCURRENCY, async (d, total) => { await report(42 + Math.round((d / total) * 43), 'rendering') })
       await report(88, 'encoding')
+      const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
       const outMp4 = path.join(scratch, `${job.id}.mp4`)
       const outThumb = path.join(scratch, `${job.id}.jpg`)
-      await encode(framesDir, FPS, outMp4)
+      await encode(framesDir, FPS, outMp4, voiceTrack)
       await thumbFromFrame(framesDir, outThumb, thumbFrameIndex)
       await report(92, 'encoding')
       const folder = job.campaignId || job.id
@@ -110,25 +129,44 @@ export async function renderJob(job, onProgress = () => {}) {
       color,
     }
 
+    // Basic mode voiceover: narrate the hook line + each post's caption/headline.
+    let voiceSegs = null
+    if (vo) {
+      await report(40, 'voiceover')
+      const lines = [
+        { text: [hookData.headline, hookData.subtext].filter(Boolean).join('. ') },
+        ...(job.scenes || []).map((s) => ({ text: s.caption || s.headline || '' })),
+      ]
+      voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender }, scratch, 3,
+        async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
+    }
+
     // Pre-assign a contiguous frame range to the hook + each scene, so they can
     // render in PARALLEL across all vCPUs without frame collisions and still
     // concat in order.
-    const hookFrames = framesFor(HOOK_DUR_MS)
     const tasks = []
+    const segments = []
     let cursor = 0
+    const hookSeg = voiceSegs ? voiceSegs[0] : null
+    const hookDurMs = hookSeg ? clampSceneMs(hookSeg.durationSec * 1000, HOOK_DUR_MS) : HOOK_DUR_MS
+    const hookFrames = framesFor(hookDurMs)
     const hookStart = cursor
     cursor += hookFrames
     tasks.push(() =>
-      renderScene(HOOK_TEMPLATE, hookData, { w: dims.w, h: dims.h, durMs: HOOK_DUR_MS, fps: FPS, outDir: framesDir, startIndex: hookStart })
+      renderScene(HOOK_TEMPLATE, hookData, { w: dims.w, h: dims.h, durMs: hookDurMs, fps: FPS, outDir: framesDir, startIndex: hookStart })
     )
-    for (const scene of job.scenes || []) {
+    segments.push({ audioPath: hookSeg ? hookSeg.audioPath : null, durMs: hookDurMs })
+    ;(job.scenes || []).forEach((scene, i) => {
+      const seg = voiceSegs ? voiceSegs[i + 1] : null
+      const durMs = seg ? clampSceneMs(seg.durationSec * 1000, SCENE_DUR_MS) : SCENE_DUR_MS
       const start = cursor
-      cursor += framesFor(SCENE_DUR_MS)
+      cursor += framesFor(durMs)
       const data = { image: scene.imageUrl || null, headline: scene.headline || '', caption: scene.caption || '', color }
       tasks.push(() =>
-        renderScene(SCENE_TEMPLATE, data, { w: dims.w, h: dims.h, durMs: SCENE_DUR_MS, fps: FPS, outDir: framesDir, startIndex: start })
+        renderScene(SCENE_TEMPLATE, data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start })
       )
-    }
+      segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
+    })
     // A frame ~1s into the hook, once its entrance animation has settled.
     const thumbFrameIndex = Math.min(FPS, Math.max(0, hookFrames - 1))
 
@@ -138,9 +176,10 @@ export async function renderJob(job, onProgress = () => {}) {
     })
     await report(85, 'rendering')
 
+    const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
     const outMp4 = path.join(scratch, `${job.id}.mp4`)
     const outThumb = path.join(scratch, `${job.id}.jpg`)
-    await encode(framesDir, FPS, outMp4)
+    await encode(framesDir, FPS, outMp4, voiceTrack)
     await thumbFromFrame(framesDir, outThumb, thumbFrameIndex)
     await report(92, 'encoding')
 

@@ -5,17 +5,23 @@ import path from 'path'
 
 const run = promisify(execFile)
 
-// Encodes a contiguous f%05d.png frame sequence into an MP4 with a silent
-// AAC audio track (required by IG/FB for video posts).
-export async function encode(framesDir, fps, outMp4) {
+// Encodes a contiguous f%05d.jpg frame sequence into an MP4. If `audioPath` is
+// given (a real voiceover track whose length matches the video) it is muxed as
+// the AAC track; otherwise a silent AAC track is added (required by IG/FB for
+// video posts). The frames stay the master timeline via -shortest either way.
+export async function encode(framesDir, fps, outMp4, audioPath = null) {
   fs.mkdirSync(path.dirname(outMp4), { recursive: true })
+  const hasAudio = audioPath && fs.existsSync(audioPath)
   const args = [
     '-y',
     '-framerate', String(fps),
     '-i', path.join(framesDir, 'f%05d.jpg'),
     '-threads', '0',
-    '-f', 'lavfi',
-    '-i', 'anullsrc=r=44100:cl=stereo',
+    ...(hasAudio
+      ? ['-i', audioPath]
+      : ['-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo']),
+    '-map', '0:v',
+    '-map', '1:a',
     '-shortest',
     '-c:v', 'libx264',
     '-pix_fmt', 'yuv420p',

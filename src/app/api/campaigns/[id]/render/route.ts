@@ -33,6 +33,17 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   const c = cSnap.data() as any
 
+  // Optional AI voiceover. Language defaults to the campaign language; gender/on-off from the request.
+  const campaignLang: 'en' | 'ar' = c.language === 'ar' ? 'ar' : 'en'
+  const vo = body.voiceover && typeof body.voiceover === 'object' ? body.voiceover : null
+  const voiceover = vo && vo.enabled
+    ? {
+        enabled: true,
+        language: (vo.language === 'ar' || vo.language === 'en' ? vo.language : campaignLang) as 'en' | 'ar',
+        gender: (vo.gender === 'male' ? 'male' : 'female') as 'male' | 'female',
+      }
+    : null
+
   const postsSnap = await db().collection('campaignPosts').where('campaignId', '==', id).get()
   const posts = postsSnap.docs
     .map((d) => d.data() as any)
@@ -86,7 +97,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     status: 'queued',
     aspect,
     mode,
-    lang: c.language === 'ar' ? 'ar' : 'en',
+    lang: campaignLang,
+    ...(voiceover ? { voiceover } : {}),
     ...(script ? { script } : {}),
     hook: {
       headline: brandName,
