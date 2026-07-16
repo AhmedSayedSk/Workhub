@@ -53,6 +53,7 @@ export function CampaignTab() {
   const VIDEO_STAGE: Record<string, string> = {
     preparing: 'Preparing…',
     hook: 'Generating hook image…',
+    voiceover: 'Recording voiceover…',
     rendering: 'Rendering scenes…',
     encoding: 'Encoding video…',
     uploading: 'Uploading…',
