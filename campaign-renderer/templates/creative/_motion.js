@@ -33,9 +33,10 @@ window.__M = (() => {
     injectFont()
     const rtl = (D && D.lang === 'ar') || /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(JSON.stringify(D || {}))
     if (!rtl) return
-    document.documentElement.setAttribute('dir', 'rtl')
+    // Apply RTL to the scene root, NOT <html>: dir=rtl on the document element
+    // flips headless Chromium's screenshot clip origin and yields a blank frame.
     const s = document.getElementById('s')
-    if (s) { s.classList.add('rtl', 'ar-font') }
+    if (s) { s.setAttribute('dir', 'rtl'); s.classList.add('rtl', 'ar-font') }
     // Mirror the physically-pinned corner chips (dir alone won't move left/right).
     document.querySelectorAll('.brand').forEach((el) => { el.style.left = 'auto'; el.style.right = '90px' })
     document.querySelectorAll('.chip').forEach((el) => { el.style.right = 'auto'; el.style.left = '90px' })
