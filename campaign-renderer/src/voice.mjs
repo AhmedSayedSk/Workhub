@@ -76,17 +76,21 @@ export async function synthLine(text, { language = 'en', gender = 'female' } = {
 // Synthesizes many narration lines concurrently (bounded). `items` is a list of
 // { text } (in play order). Returns a same-length array of { audioPath, durationSec }
 // | null, aligned to the input order. Never throws.
-export async function synthLines(items, voice, scratchDir, concurrency = 3) {
+export async function synthLines(items, voice, scratchDir, concurrency = 3, onEach) {
   const out = new Array(items.length).fill(null)
   let next = 0
+  let done = 0
   const worker = async () => {
     while (next < items.length) {
       const i = next++
       const text = items[i] && items[i].text
-      if (!text) continue
-      const p = path.join(scratchDir, `voice-${String(i).padStart(3, '0')}.wav`)
-      const r = await synthLine(text, voice, p)
-      if (r) out[i] = { audioPath: r.path, durationSec: r.durationSec }
+      if (text) {
+        const p = path.join(scratchDir, `voice-${String(i).padStart(3, '0')}.wav`)
+        const r = await synthLine(text, voice, p)
+        if (r) out[i] = { audioPath: r.path, durationSec: r.durationSec }
+      }
+      done++
+      if (onEach) { try { await onEach(done, items.length) } catch { /* progress is best-effort */ } }
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker))
@@ -94,32 +98,41 @@ export async function synthLines(items, voice, scratchDir, concurrency = 3) {
 }
 
 // Builds a single voiceover WAV whose length equals the video: for each scene,
-// a segment of exactly durMs — the line's audio (if any) followed by silence to
-// fill, or pure silence when the scene has no narration. Concatenated in order.
-// Returns the track path, or null if there's no audio at all (all-silent).
-export async function buildVoiceTrack(segments, scratchDir) {
+// a segment whose length is that scene's exact FRAME span (frames/fps) — the
+// line's audio (if any) followed by silence to fill, or pure silence when the
+// scene has no narration. Concatenated in order. Returns the track path, or null
+// if there's no audio at all (all-silent) OR on any failure — callers fall back
+// to a silent track, so a voiceover glitch never fails the render.
+export async function buildVoiceTrack(segments, scratchDir, fps = 30) {
   if (!segments.some((s) => s && s.audioPath)) return null
-  const segDir = path.join(scratchDir, 'voseg')
-  fs.mkdirSync(segDir, { recursive: true })
-  const segPaths = []
-  for (let i = 0; i < segments.length; i++) {
-    const { audioPath, durMs } = segments[i]
-    const durSec = (Math.max(1, durMs) / 1000).toFixed(3)
-    const segPath = path.join(segDir, `s${String(i).padStart(3, '0')}.wav`)
-    if (audioPath && fs.existsSync(audioPath)) {
-      // Real line: normalize to 24kHz mono, pad with trailing silence, cap at durSec.
-      await run('ffmpeg', ['-y', '-i', audioPath, '-af', 'apad', '-t', durSec, '-ar', '24000', '-ac', '1', segPath])
-    } else {
-      // Silent scene.
-      await run('ffmpeg', ['-y', '-f', 'lavfi', '-i', 'anullsrc=r=24000:cl=mono', '-t', durSec, '-ar', '24000', '-ac', '1', segPath])
+  try {
+    const segDir = path.join(scratchDir, 'voseg')
+    fs.mkdirSync(segDir, { recursive: true })
+    const segPaths = []
+    for (let i = 0; i < segments.length; i++) {
+      const { audioPath, durMs } = segments[i]
+      // Match the video's exact frame span for this scene so the audio total
+      // equals the video total (no drift, no -shortest clipping).
+      const frames = Math.max(1, Math.round((durMs / 1000) * fps))
+      const durSec = (frames / fps).toFixed(3)
+      const segPath = path.join(segDir, `s${String(i).padStart(3, '0')}.wav`)
+      if (audioPath && fs.existsSync(audioPath)) {
+        // Real line: normalize to 24kHz mono, pad with trailing silence, cap at durSec.
+        await run('ffmpeg', ['-y', '-i', audioPath, '-af', 'apad', '-t', durSec, '-ar', '24000', '-ac', '1', segPath])
+      } else {
+        // Silent scene.
+        await run('ffmpeg', ['-y', '-f', 'lavfi', '-i', 'anullsrc=r=24000:cl=mono', '-t', durSec, '-ar', '24000', '-ac', '1', segPath])
+      }
+      segPaths.push(segPath)
     }
-    segPaths.push(segPath)
+    const listFile = path.join(segDir, 'list.txt')
+    fs.writeFileSync(listFile, segPaths.map((p) => `file '${p}'`).join('\n'))
+    const trackPath = path.join(scratchDir, 'voiceover.wav')
+    await run('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', trackPath])
+    return trackPath
+  } catch {
+    return null
   }
-  const listFile = path.join(segDir, 'list.txt')
-  fs.writeFileSync(listFile, segPaths.map((p) => `file '${p}'`).join('\n'))
-  const trackPath = path.join(scratchDir, 'voiceover.wav')
-  await run('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', trackPath])
-  return trackPath
 }
 
 // Narration text for a creative script scene.

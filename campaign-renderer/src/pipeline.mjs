@@ -82,9 +82,10 @@ export async function renderJob(job, onProgress = () => {}) {
 
       let voiceSegs = null
       if (vo) {
-        await report(41, 'voiceover')
+        await report(40, 'voiceover')
         const lines = job.script.map((s) => ({ text: creativeSceneNarration(s) }))
-        voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender }, scratch, 3)
+        voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender }, scratch, 3,
+          async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
       }
 
       const tasks = []
@@ -106,7 +107,7 @@ export async function renderJob(job, onProgress = () => {}) {
       await report(42, 'rendering')
       await runPool(tasks, CONCURRENCY, async (d, total) => { await report(42 + Math.round((d / total) * 43), 'rendering') })
       await report(88, 'encoding')
-      const voiceTrack = vo ? await buildVoiceTrack(segments, scratch) : null
+      const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
       const outMp4 = path.join(scratch, `${job.id}.mp4`)
       const outThumb = path.join(scratch, `${job.id}.jpg`)
       await encode(framesDir, FPS, outMp4, voiceTrack)
@@ -131,12 +132,13 @@ export async function renderJob(job, onProgress = () => {}) {
     // Basic mode voiceover: narrate the hook line + each post's caption/headline.
     let voiceSegs = null
     if (vo) {
-      await report(41, 'voiceover')
+      await report(40, 'voiceover')
       const lines = [
         { text: [hookData.headline, hookData.subtext].filter(Boolean).join('. ') },
         ...(job.scenes || []).map((s) => ({ text: s.caption || s.headline || '' })),
       ]
-      voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender }, scratch, 3)
+      voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender }, scratch, 3,
+        async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
     }
 
     // Pre-assign a contiguous frame range to the hook + each scene, so they can
@@ -174,7 +176,7 @@ export async function renderJob(job, onProgress = () => {}) {
     })
     await report(85, 'rendering')
 
-    const voiceTrack = vo ? await buildVoiceTrack(segments, scratch) : null
+    const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
     const outMp4 = path.join(scratch, `${job.id}.mp4`)
     const outThumb = path.join(scratch, `${job.id}.jpg`)
     await encode(framesDir, FPS, outMp4, voiceTrack)
