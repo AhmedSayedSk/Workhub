@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  #s{position:relative;width:100%;height:100%;color:#fff;overflow:hidden}
+  .brand{position:absolute;left:90px;top:90px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.9;z-index:2}
+  .brand img{width:52px;height:52px;border-radius:12px}
+  .stack{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center}
+  .card{width:760px;height:950px;margin:0 auto;border-radius:40px;overflow:hidden;box-shadow:0 50px 90px rgba(0,0,0,.6);position:relative;background:#0e1424}
+  .card img{position:absolute;inset:-40px -40px -40px -40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover}
+  .card .ph{position:absolute;inset:0}
+  .caption-wrap{margin-top:44px;padding:0 90px}
+  .accent{width:60px;height:8px;border-radius:4px;background:var(--c);margin:0 auto 22px}
+  .caption{font-size:38px;font-weight:600;line-height:1.4;color:rgba(255,255,255,.92)}
+</style></head>
+<body><div id="s">
+  <div class="brand" id="brand"></div>
+  <div class="stack">
+    <div class="card" id="card">
+      <div class="ph" id="ph"></div>
+      <img id="img" />
+    </div>
+    <div class="caption-wrap" id="captionWrap">
+      <div class="accent"></div>
+      <div class="caption" id="caption"></div>
+    </div>
+  </div>
+</div>
+<script src="_motion.js"></script>
+<script>
+  const D = window.__DATA || {}
+  const c = D.brand?.color || '#34e5a4'
+  const s = document.getElementById('s')
+  s.style.setProperty('--c', c)
+  s.style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+
+  const brand = document.getElementById('brand')
+  if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
+  brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
+  if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
+
+  const ph = document.getElementById('ph')
+  ph.style.background = `radial-gradient(120% 100% at 50% 0%, ${c}44, #0e1424 80%)`
+  const imgEl = document.getElementById('img')
+
+  const captionEl = document.getElementById('caption')
+  captionEl.textContent = D.caption || ''
+  const captionWrap = document.getElementById('captionWrap')
+  if (!D.caption) captionWrap.style.display = 'none'
+
+  const M = window.__M
+  M.reg(document.getElementById('card'), 100, 700, 'rise', { dy: 50 })
+  M.reg(captionWrap, 700, 1200, 'rise', { dy: 30 })
+  M.reg(brand, 0, 400, 'fade')
+  M.reg(imgEl, 0, 3200, 'parallax', { dy: 40 })
+
+  window.__ready = new Promise((res) => {
+    const done = () => res()
+    const fonts = document.fonts ? document.fonts.ready : Promise.resolve()
+    if (D.imageUrl) {
+      imgEl.onload = () => { ph.style.display = 'none'; fonts.then(done) }
+      imgEl.onerror = () => { imgEl.style.display = 'none'; fonts.then(done) } // placeholder gradient stays
+      imgEl.src = D.imageUrl
+    } else {
+      imgEl.style.display = 'none'
+      fonts.then(done)
+    }
+  })
+  window.render(0)
+</script></body></html>

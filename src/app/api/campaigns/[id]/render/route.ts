@@ -13,6 +13,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const { id } = await ctx.params
   const body = await request.json().catch(() => ({}))
   const aspect = ASPECTS.includes(body.aspect) ? body.aspect : 'portrait'
+  const mode = body.mode === 'creative' ? 'creative' : 'basic'
 
   const cSnap = await db().collection('campaigns').doc(id).get()
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
@@ -27,17 +28,57 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   if (!posts.length) return NextResponse.json({ error: 'Campaign has no generated images yet' }, { status: 400 })
 
   const brandName = c.brand?.name || c.name || 'Brand'
+  const domain = c.brief?.content?.link || undefined
+  let script: import('@/types').CreativeScene[] | undefined
+  if (mode === 'creative') {
+    const { generateCampaignVideoScript } = await import('@/lib/gemini')
+    const copyScenes = await generateCampaignVideoScript({
+      brandName,
+      goal: c.brief?.goal || '',
+      audience: c.brief?.audience || '',
+      tone: c.brief?.tone || '',
+      language: c.language === 'ar' ? 'ar' : 'en',
+      domain,
+      posts: posts.map((p) => ({ headline: p.headline, body: p.body, caption: p.caption })),
+    })
+    // Interleave the real images as showcase scenes: hook, then alternate
+    // copy/showcase, cta last. Reserve slots for hook/cta so the cap never
+    // slices them off. Cap at 9 scenes total.
+    const hook = copyScenes.find((s) => s.type === 'hook')
+    const cta = copyScenes.find((s) => s.type === 'cta')
+    const middle = copyScenes.filter((s) => s.type !== 'hook' && s.type !== 'cta')
+    // posts here are already filtered to those with imageUrl, so posts[i].imageUrl is defined.
+    const maxMid = 9 - (hook ? 1 : 0) - (cta ? 1 : 0)
+    const mid: import('@/types').CreativeScene[] = []
+    let imgI = 0
+    for (const s of middle) {
+      if (mid.length >= maxMid) break
+      mid.push(s)
+      if (imgI < posts.length && mid.length < maxMid) {
+        mid.push({ type: 'showcase', imageUrl: posts[imgI].imageUrl as string, caption: posts[imgI].headline || '' })
+        imgI++
+      }
+    }
+    while (imgI < posts.length && mid.length < maxMid) {
+      mid.push({ type: 'showcase', imageUrl: posts[imgI].imageUrl as string, caption: '' })
+      imgI++
+    }
+    script = [...(hook ? [hook] : []), ...mid, ...(cta ? [cta] : [])]
+  }
+
   const job = {
     campaignId: id,
     projectId: c.projectId,
     status: 'queued',
     aspect,
+    mode,
+    ...(script ? { script } : {}),
     hook: {
       headline: brandName,
       subtext: c.brief?.goal ? String(c.brief.goal).slice(0, 90) : 'See what we made',
       bgPrompt: `Premium cinematic on-brand hero background for "${brandName}", ${c.artDirection || c.style || 'sleek modern tech'}, deep rich colors, volumetric light, negative space for a headline, ${aspect} composition, high detail.`,
     },
-    brand: { name: brandName, color: (c.brand?.colors && c.brand.colors[0]) || '#111827', logoUrl: c.brand?.logoUrl || c.brandImageUrl || null },
+    brand: { name: brandName, color: (c.brand?.colors && c.brand.colors[0]) || '#111827', logoUrl: c.brand?.logoUrl || c.brandImageUrl || null, domain: domain || null },
     scenes: posts.map((p) => ({ imageUrl: p.imageUrl, headline: p.headline || '', caption: (p.caption || '').slice(0, 140) })),
     createdAt: Date.now(),
   }

@@ -19,6 +19,8 @@ const DIMS = {
 }
 const FPS = 30
 const HOOK_DUR_MS = 3000
+const CREATIVE_DIR = path.join(__dirname, '..', 'templates', 'creative')
+const SCENE_DUR = { hook: 3200, beat: 2800, stat: 2600, showcase: 3200, cta: 3000 }
 // Use every vCPU: the hook + each post scene render in parallel, each writing
 // its own pre-assigned frame range (order preserved). Override with RENDER_CONCURRENCY.
 const CONCURRENCY = Math.max(1, Number(process.env.RENDER_CONCURRENCY) || os.cpus().length)
@@ -68,6 +70,37 @@ export async function renderJob(job, onProgress = () => {}) {
       await report(bgPct, 'hook')
     })
     await report(40, 'hook')
+
+    if (job.mode === 'creative' && Array.isArray(job.script) && job.script.length) {
+      const brand = { name: (job.brand || {}).name || '', color, logoUrl: (job.brand || {}).logoUrl || null, domain: (job.brand || {}).domain || null }
+      const bgUrl = bgPath ? pathToFileURL(bgPath).href : null
+      const tasks = []
+      let cursor = 0
+      let hookStart = 0
+      job.script.forEach((scene, i) => {
+        const durMs = SCENE_DUR[scene.type] || 2800
+        const start = cursor
+        cursor += framesFor(durMs)
+        if (scene.type === 'hook') hookStart = start
+        const data = { ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null }
+        tasks.push(() => renderScene(path.join(CREATIVE_DIR, `${scene.type}.html`), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
+      })
+      const thumbFrameIndex = Math.min(hookStart + FPS, Math.max(0, cursor - 1))
+      await report(42, 'rendering')
+      await runPool(tasks, CONCURRENCY, async (d, total) => { await report(42 + Math.round((d / total) * 43), 'rendering') })
+      await report(88, 'encoding')
+      const outMp4 = path.join(scratch, `${job.id}.mp4`)
+      const outThumb = path.join(scratch, `${job.id}.jpg`)
+      await encode(framesDir, FPS, outMp4)
+      await thumbFromFrame(framesDir, outThumb, thumbFrameIndex)
+      await report(92, 'encoding')
+      const folder = job.campaignId || job.id
+      await report(94, 'uploading')
+      const videoUrl = await upload(outMp4, `campaigns/${folder}/${job.id}.mp4`, 'video/mp4')
+      const thumbnailUrl = await upload(outThumb, `campaigns/${folder}/${job.id}.jpg`, 'image/jpeg')
+      await report(99, 'uploading')
+      return { videoUrl, thumbnailUrl }
+    }
 
     const hookData = {
       bg: bgPath ? pathToFileURL(bgPath).href : null,

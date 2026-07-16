@@ -35,6 +35,7 @@ export function CampaignTab() {
   // Campaign video render — track the LATEST job for the active campaign so the
   // progress/state survives a page refresh (reconnects instead of resetting).
   const [videoAspect, setVideoAspect] = useState<RenderAspect>('portrait')
+  const [videoMode, setVideoMode] = useState<'basic' | 'creative'>('basic')
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
   const activeCampaignId = c.activeCampaign?.id ?? null
@@ -67,7 +68,7 @@ export function CampaignTab() {
       const res = await authFetch(`/api/campaigns/${id}/render`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ aspect: videoAspect }),
+        body: JSON.stringify({ aspect: videoAspect, mode: videoMode }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error || 'Could not start video'); return }
@@ -231,10 +232,24 @@ export function CampaignTab() {
           <div className="space-y-2.5 rounded-lg border p-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium">Campaign video</span>
+              <div className="inline-flex overflow-hidden rounded-md border text-xs">
+                {(['basic', 'creative'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => { setVideoMode(m); if (m === 'creative') setVideoAspect('portrait') }}
+                    disabled={videoRendering}
+                    className={`px-2.5 py-1 font-medium capitalize ${videoMode === m ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'}`}
+                  >
+                    {m === 'creative' ? 'Creative' : 'Basic'}
+                  </button>
+                ))}
+              </div>
               <select
                 value={videoAspect}
                 onChange={(e) => setVideoAspect(e.target.value as RenderAspect)}
-                disabled={videoRendering}
+                disabled={videoRendering || videoMode === 'creative'}
+                title={videoMode === 'creative' ? 'Creative reels are vertical (9:16)' : undefined}
                 className="rounded-md border bg-background px-2 py-1 text-sm disabled:opacity-60"
               >
                 <option value="portrait">Portrait 9:16</option>

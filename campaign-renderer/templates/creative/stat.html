@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  #s{position:relative;width:100%;height:100%;color:#fff;overflow:hidden}
+  .brand{position:absolute;left:90px;top:90px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.9}
+  .brand img{width:52px;height:52px;border-radius:12px}
+  .wrap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center}
+  .core{position:relative;display:inline-block}
+  .ring{position:absolute;left:50%;top:50%;width:640px;height:640px;border-radius:50%;border:6px solid var(--c);opacity:0;transform:translate(-50%,-50%)}
+  .value{font-size:200px;font-weight:900;color:var(--c);letter-spacing:-2px;line-height:1;position:relative;padding:0 40px}
+  .label{font-size:40px;font-weight:600;color:rgba(255,255,255,.78);margin-top:28px;letter-spacing:.5px}
+</style></head>
+<body><div id="s">
+  <div class="brand" id="brand"></div>
+  <div class="wrap">
+    <div class="core"><div class="ring" id="ring"></div><div class="value" id="value"></div></div>
+    <div class="label" id="label"></div>
+  </div>
+</div>
+<script src="_motion.js"></script>
+<script>
+  const D = window.__DATA || {}
+  const c = D.brand?.color || '#34e5a4'
+  const s = document.getElementById('s')
+  s.style.setProperty('--c', c)
+  s.style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+
+  const brand = document.getElementById('brand')
+  if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
+  brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
+  if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
+
+  document.getElementById('value').textContent = D.value || ''
+  document.getElementById('label').textContent = D.label || ''
+
+  const M = window.__M
+  M.reg(document.getElementById('ring'), 0, 900, 'fade')
+  M.reg(document.getElementById('value'), 150, 750, 'pop')
+  M.reg(document.getElementById('label'), 600, 1100, 'rise', { dy: 24 })
+  M.reg(brand, 0, 400, 'fade')
+
+  window.__ready = document.fonts ? document.fonts.ready : Promise.resolve()
+  window.render(0)
+</script></body></html>

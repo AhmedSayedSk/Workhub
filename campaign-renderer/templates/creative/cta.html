@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  #s{position:relative;width:100%;height:100%;color:#fff;overflow:hidden}
+  .wrap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center}
+  .mark{display:flex;flex-direction:column;align-items:center;gap:24px;opacity:0}
+  .mark img{width:180px;height:180px;border-radius:40px;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+  .mark .name{font-size:56px;font-weight:900;letter-spacing:-.5px}
+  .pill{display:inline-block;margin-top:64px;background:var(--c);color:#0e1424;border-radius:16px;padding:20px 44px;font-size:52px;font-weight:800;letter-spacing:-.5px}
+  .url{margin-top:36px;font-size:34px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.5px}
+</style></head>
+<body><div id="s">
+  <div class="wrap">
+    <div class="mark" id="mark"></div>
+    <div class="pill" id="pill"></div>
+    <div class="url" id="url"></div>
+  </div>
+</div>
+<script src="_motion.js"></script>
+<script>
+  const D = window.__DATA || {}
+  const c = D.brand?.color || '#34e5a4'
+  const s = document.getElementById('s')
+  s.style.setProperty('--c', c)
+  s.style.background = `radial-gradient(120% 80% at 50% 12%, ${c}22, #0e1424 55%)`
+
+  const mark = document.getElementById('mark')
+  let logoEl = null
+  if (D.brand?.logoUrl) { logoEl = document.createElement('img'); logoEl.src = D.brand.logoUrl; mark.appendChild(logoEl) }
+  if (D.brand?.name) mark.appendChild(Object.assign(document.createElement('div'), { className: 'name', textContent: D.brand.name }))
+
+  document.getElementById('pill').textContent = D.text || ''
+  const urlEl = document.getElementById('url')
+  urlEl.textContent = D.url || D.brand?.domain || ''
+  if (!urlEl.textContent) urlEl.style.display = 'none'
+
+  const M = window.__M
+  M.reg(mark, 100, 600, 'pop')
+  M.reg(document.getElementById('pill'), 400, 900, 'rise', { dy: 30 })
+  M.reg(urlEl, 700, 1100, 'fade')
+
+  window.__ready = new Promise((res) => {
+    const done = () => res()
+    const fonts = document.fonts ? document.fonts.ready : Promise.resolve()
+    if (logoEl) { logoEl.onload = logoEl.onerror = () => fonts.then(done) } else fonts.then(done)
+  })
+  window.render(0)
+</script></body></html>
