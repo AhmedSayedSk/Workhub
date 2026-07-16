@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCampaigns } from '@/hooks/useCampaigns'
-import { projects as projectsApi } from '@/lib/firestore'
+import { projects as projectsApi, renderJobs } from '@/lib/firestore'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,7 +17,8 @@ import { CampaignCreateDialog } from './CampaignCreateDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { authFetch } from '@/lib/api-client'
 import { CAMPAIGN_STYLES } from '@/lib/campaignStyles'
-import type { Project } from '@/types'
+import { toast } from 'react-toastify'
+import type { Project, RenderAspect, RenderJob } from '@/types'
 
 export function CampaignTab() {
   const { user } = useAuth()
@@ -31,6 +32,34 @@ export function CampaignTab() {
   const styleLabel = (key?: string) => CAMPAIGN_STYLES.find((s) => s.key === key)?.label
 
   const [scheduleMode, setScheduleMode] = useState(false)
+  // Campaign video render
+  const [videoAspect, setVideoAspect] = useState<RenderAspect>('portrait')
+  const [videoJobId, setVideoJobId] = useState<string | null>(null)
+  const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
+  const [videoStarting, setVideoStarting] = useState(false)
+  useEffect(() => {
+    if (!videoJobId) return
+    return renderJobs.subscribe(videoJobId, setVideoJob)
+  }, [videoJobId])
+  const videoRendering = videoStarting || videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+  const generateVideo = async () => {
+    const id = c.activeCampaign?.id
+    if (!id) return
+    setVideoStarting(true)
+    try {
+      const res = await authFetch(`/api/campaigns/${id}/render`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ aspect: videoAspect }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || 'Could not start video'); return }
+      setVideoJobId(data.jobId)
+      setVideoJob(null)
+    } finally {
+      setVideoStarting(false)
+    }
+  }
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [createOpen, setCreateOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -180,6 +209,38 @@ export function CampaignTab() {
               {c.schedulingAll ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-1.5 h-4 w-4" />}
               Schedule {selected.size}
             </Button>
+          </div>
+        )}
+
+        {!scheduleMode && readyCount > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
+            <span className="text-sm font-medium">Campaign video</span>
+            <select
+              value={videoAspect}
+              onChange={(e) => setVideoAspect(e.target.value as RenderAspect)}
+              className="rounded-md border bg-background px-2 py-1 text-sm"
+            >
+              <option value="portrait">Portrait 9:16</option>
+              <option value="landscape">Landscape 16:9</option>
+              <option value="square">Square 1:1</option>
+            </select>
+            <Button size="sm" onClick={generateVideo} disabled={videoRendering}>
+              {videoRendering ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Rendering…</> : 'Generate video'}
+            </Button>
+            {videoJob && (
+              <span className="text-xs text-muted-foreground">
+                {videoJob.status === 'queued' && 'Queued…'}
+                {videoJob.status === 'rendering' && 'Rendering on the render server…'}
+                {videoJob.status === 'failed' && <span className="text-red-600">Failed: {videoJob.error}</span>}
+                {videoJob.status === 'done' && 'Done'}
+              </span>
+            )}
+            {videoJob?.status === 'done' && videoJob.videoUrl && (
+              <div className="mt-2 w-full">
+                <video src={videoJob.videoUrl} poster={videoJob.thumbnailUrl || undefined} controls className="max-h-[420px] rounded-lg" />
+                <a href={videoJob.videoUrl} download className="mt-1 inline-block text-xs text-primary underline">Download</a>
+              </div>
+            )}
           </div>
         )}
 
