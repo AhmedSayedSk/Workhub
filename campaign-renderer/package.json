@@ -1,0 +1,6 @@
+{
+  "name": "campaign-renderer",
+  "private": true,
+  "type": "module",
+  "dependencies": { "firebase-admin": "^12.0.0", "puppeteer-core": "^23.0.0" }
+}
