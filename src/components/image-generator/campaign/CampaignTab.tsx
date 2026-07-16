@@ -20,7 +20,22 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { authFetch } from '@/lib/api-client'
 import { CAMPAIGN_STYLES } from '@/lib/campaignStyles'
 import { toast } from 'react-toastify'
-import type { Project, RenderAspect, RenderJob } from '@/types'
+import type { Project, RenderAspect, RenderJob, CreativeScene } from '@/types'
+
+const ASPECT_LABEL: Record<string, string> = { portrait: 'Portrait 9:16', landscape: 'Landscape 16:9', square: 'Square 1:1' }
+const SCENE_BADGE: Record<string, string> = { hook: 'Hook', beat: 'Beat', stat: 'Stat', showcase: 'Image', cta: 'CTA' }
+const VO_LANG_LABEL: Record<string, string> = { en: 'English', ar: 'العربية' }
+
+function creativeSceneText(s: CreativeScene): string {
+  switch (s.type) {
+    case 'hook': return (s.headline || '').replace(/\n/g, ' ')
+    case 'beat': return [s.title, s.sub].filter(Boolean).join(' — ')
+    case 'stat': return [s.value, s.label].filter(Boolean).join('  ')
+    case 'showcase': return s.caption || ''
+    case 'cta': return s.text || ''
+    default: return ''
+  }
+}
 
 export function CampaignTab() {
   const { user } = useAuth()
@@ -370,22 +385,81 @@ export function CampaignTab() {
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className="max-w-[440px] overflow-hidden p-0">
-            <DialogHeader className="px-4 pt-4">
+          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+            <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
-            {videoJob?.videoUrl && (
-              <div className="px-4 pb-4">
-                <video
-                  src={videoJob.videoUrl}
-                  poster={videoJob.thumbnailUrl || undefined}
-                  controls
-                  autoPlay
-                  className="max-h-[68vh] w-full rounded-lg border bg-black"
-                />
-                <a href={videoJob.videoUrl} download className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline">
-                  <Download className="h-3.5 w-3.5" /> Download video
-                </a>
+            {videoJob && (
+              <div className="grid gap-5 md:grid-cols-[300px_1fr]">
+                {/* OUTPUT */}
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Output</div>
+                  {videoJob.videoUrl ? (
+                    <>
+                      <video
+                        src={videoJob.videoUrl}
+                        poster={videoJob.thumbnailUrl || undefined}
+                        controls
+                        autoPlay
+                        className="max-h-[62vh] w-full rounded-lg border bg-black"
+                      />
+                      <a href={videoJob.videoUrl} download className="inline-flex items-center gap-1 text-xs text-primary underline">
+                        <Download className="h-3.5 w-3.5" /> Download video
+                      </a>
+                    </>
+                  ) : (
+                    <div className="flex aspect-[9/16] w-full items-center justify-center rounded-lg border bg-muted text-xs text-muted-foreground">
+                      No video yet
+                    </div>
+                  )}
+                </div>
+
+                {/* INPUT */}
+                <div className="space-y-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Input</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="capitalize">{videoJob.mode || 'basic'} mode</Badge>
+                    <Badge variant="secondary">{ASPECT_LABEL[videoJob.aspect] || videoJob.aspect}</Badge>
+                    {videoJob.voiceover?.enabled ? (
+                      <Badge variant="secondary">
+                        Voiceover · {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">No voiceover</Badge>
+                    )}
+                  </div>
+
+                  {/* Creative script */}
+                  {Array.isArray(videoJob.script) && videoJob.script.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-medium text-muted-foreground">Scenes ({videoJob.script.length})</div>
+                      <ol className="space-y-1.5">
+                        {videoJob.script.map((s, i) => (
+                          <li key={i} className="flex items-start gap-2 rounded-md border p-1.5">
+                            {s.type === 'showcase' && s.imageUrl ? (
+                              <img src={s.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                            ) : (
+                              <span className="mt-0.5 shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">{SCENE_BADGE[s.type] || s.type}</span>
+                            )}
+                            <span className="text-xs leading-snug">{creativeSceneText(s) || <span className="text-muted-foreground">—</span>}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {/* Basic source images */}
+                  {(!videoJob.script || videoJob.script.length === 0) && Array.isArray(videoJob.scenes) && videoJob.scenes.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-medium text-muted-foreground">Source images ({videoJob.scenes.length})</div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {videoJob.scenes.map((s, i) => (
+                          <img key={i} src={s.imageUrl} alt={s.headline || ''} title={s.caption || s.headline || ''} className="aspect-square w-full rounded object-cover border" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </DialogContent>
