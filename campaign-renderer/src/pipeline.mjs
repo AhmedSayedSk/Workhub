@@ -104,13 +104,15 @@ export async function renderJob(job, onProgress = () => {}) {
       job.script.forEach((scene, i) => {
         const baseMs = SCENE_DUR[scene.type] || 2800
         const seg = voiceSegs ? voiceSegs[i] : null
-        const durMs = seg ? clampSceneMs(seg.durationSec * 1000, baseMs) : baseMs
+        const isLast = i === job.script.length - 1
+        // The video ends on a 1s quiet hold: the final scene lingers with no
+        // narration (its audio segment is silence-padded to the full length).
+        const durMs = (seg ? clampSceneMs(seg.durationSec * 1000, baseMs) : baseMs) + (isLast ? 1000 : 0)
         const start = cursor
         if (start > 0) boundaries.push(start)
         cursor += framesFor(durMs)
         if (scene.type === 'hook') hookStart = start
         typeSeen[scene.type] = (typeSeen[scene.type] || 0) + 1
-        const isLast = i === job.script.length - 1
         const data = {
           ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en',
           index: typeSeen[scene.type], total: typeTotals[scene.type],
@@ -179,11 +181,12 @@ export async function renderJob(job, onProgress = () => {}) {
     const sceneCount = (job.scenes || []).length
     ;(job.scenes || []).forEach((scene, i) => {
       const seg = voiceSegs ? voiceSegs[i + 1] : null
-      const durMs = seg ? clampSceneMs(seg.durationSec * 1000, SCENE_DUR_MS) : SCENE_DUR_MS
+      const isLast = i === sceneCount - 1
+      // 1s quiet hold at the very end (see creative branch).
+      const durMs = (seg ? clampSceneMs(seg.durationSec * 1000, SCENE_DUR_MS) : SCENE_DUR_MS) + (isLast ? 1000 : 0)
       const start = cursor
       boundaries.push(start)
       cursor += framesFor(durMs)
-      const isLast = i === sceneCount - 1
       const data = {
         image: scene.imageUrl || null, headline: scene.headline || '', caption: scene.caption || '', color, lang: job.lang || 'en',
         palette: job.palette || null,
