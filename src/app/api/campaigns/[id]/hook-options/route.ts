@@ -20,9 +20,12 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   const c = cSnap.data() as any
 
+  const { resolveMarket } = await import('@/lib/markets')
+  const market = resolveMarket(body.market, c.language === 'ar' ? 'ar' : 'en')
+
   const cached = c.hookOptions
-  // (items[0].lang check invalidates pre-bilingual caches)
-  if (!body.force && cached?.items?.length && cached.items[0]?.lang && Date.now() - (cached.updatedAt || 0) < CACHE_MS) {
+  // (lang check invalidates pre-bilingual caches; market check re-generates per market)
+  if (!body.force && cached?.items?.length && cached.items[0]?.lang && cached.market === market.code && Date.now() - (cached.updatedAt || 0) < CACHE_MS) {
     return NextResponse.json({ options: cached.items, cached: true })
   }
 
@@ -42,8 +45,9 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     tone: c.brief?.tone,
     language: c.language === 'ar' ? 'ar' : 'en',
     postsCopy,
+    cultureNote: market.cultureNote,
   })
 
-  await db().collection('campaigns').doc(id).set({ hookOptions: { items: options, updatedAt: Date.now() } }, { merge: true })
+  await db().collection('campaigns').doc(id).set({ hookOptions: { items: options, market: market.code, updatedAt: Date.now() } }, { merge: true })
   return NextResponse.json({ options })
 }

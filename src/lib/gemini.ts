@@ -854,6 +854,7 @@ export async function generateCampaignVideoScript(
   params: {
     brandName: string; goal: string; audience: string; tone: string
     language: 'en' | 'ar'; domain?: string
+    cultureNote?: string
     posts: Array<{ headline?: string; body?: string; caption?: string }>
   },
   model?: GeminiModel
@@ -867,6 +868,7 @@ Goal: ${params.goal || 'grow awareness and drive signups'}
 Audience: ${params.audience || "the product's ideal customers"}
 Tone: ${params.tone || 'confident, punchy, concrete'}
 ${langLine}
+Target market & culture: ${params.cultureNote || 'international audience'} Write copy that fits this market's customs, values and way of speaking.
 Source campaign copy:
 """
 ${copy.slice(0, 6000)}
@@ -939,12 +941,13 @@ export interface HookOption {
 export async function generateHookOptions(
   params: {
     brandName: string; goal?: string; audience?: string; tone?: string
-    language: 'en' | 'ar'; postsCopy: string
+    language: 'en' | 'ar'; postsCopy: string; cultureNote?: string
   },
   model?: GeminiModel
 ): Promise<HookOption[]> {
   const prompt = `You write scroll-stopping OPENING HOOKS for short vertical brand ad videos ("${params.brandName}").
 Goal: ${params.goal || 'awareness'} · Audience: ${params.audience || 'ideal customers'} · Tone: ${params.tone || 'confident, modern'}
+Target market & culture: ${params.cultureNote || 'international audience'} Hooks must fit this market\'s customs, values and dialect (Arabic hooks written the way ads sound in THAT market).
 Source campaign copy:
 """${params.postsCopy.slice(0, 3000)}"""
 Produce EXACTLY 10 hooks: the 5 archetypes below FIRST in English (lang "en"), THEN the same 5 archetypes in natural punchy marketing ARABIC (lang "ar" — written natively, not translated word-for-word). Each must be scroll-stopping in the first second.

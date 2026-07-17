@@ -37,6 +37,9 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
 
   // Optional AI voiceover. Language defaults to the campaign language; gender/on-off from the request.
   const campaignLang: 'en' | 'ar' = c.language === 'ar' ? 'ar' : 'en'
+  // Target market: adapts ALL copy + narration delivery to the market's culture.
+  const { resolveMarket } = await import('@/lib/markets')
+  const market = resolveMarket(body.market, campaignLang)
   const vo = body.voiceover && typeof body.voiceover === 'object' ? body.voiceover : null
   const VO_RATES = [0.9, 1, 1.1, 1.25, 1.5]
   // rate 0 = "auto" marker — resolved by the AI pace director once the final
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
         model: (vo.model === 'premium' ? 'premium' : 'standard') as 'standard' | 'premium',
         rate: VO_RATES.includes(Number(vo.rate)) ? Number(vo.rate) : 0,
         rateAuto: !VO_RATES.includes(Number(vo.rate)),
+        style: `Warm, upbeat commercial voiceover for a brand advertisement. ${market.voiceNote} Friendly, confident and inviting with natural dynamic pacing.`,
       }
     : null
 
@@ -79,6 +83,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       tone: c.brief?.tone || '',
       language: c.language === 'ar' ? 'ar' : 'en',
       domain,
+      cultureNote: market.cultureNote,
       posts: posts.map((p) => ({ headline: p.headline, body: p.body, caption: p.caption })),
     })
     // MERGE each beat's copy INTO an image scene: every showcase = one scene
@@ -176,6 +181,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     aspect,
     mode,
     lang: campaignLang,
+    market: market.code,
     transition,
     sfx,
     palette,

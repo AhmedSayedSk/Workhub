@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
+import { MARKETS } from '@/lib/markets'
 import Link from 'next/link'
 import { Loader2, Megaphone, Wand2, CalendarClock, Trash2, ArrowLeft, Images, Plus, AlertCircle, ImageIcon, ExternalLink, MoreVertical, Play, Download } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
@@ -79,14 +80,15 @@ export function CampaignTab() {
   // Campaign video render — track the LATEST job for the active campaign so the
   // progress/state survives a page refresh (reconnects instead of resetting).
   const [videoAspect, setVideoAspect] = useState<RenderAspect>('portrait')
-  const [videoMode, setVideoMode] = useState<'basic' | 'creative'>('basic')
+  const [videoMode, setVideoMode] = useState<'basic' | 'creative'>('creative')
   const [voiceover, setVoiceover] = useState(false)
   const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
   const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male'>('female')
-  const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('standard')
+  const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('premium')
   const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
   const [videoSfx, setVideoSfx] = useState(true)
+  const [videoMarket, setVideoMarket] = useState('auto')
   const [hookMode, setHookMode] = useState<'auto' | 'choose'>('auto')
   const [hookOptions, setHookOptions] = useState<Array<{ style: string; lang?: string; headline: string; underline?: string; kicker?: string }> | null>(null)
   const [hookPick, setHookPick] = useState(0)
@@ -146,7 +148,7 @@ export function CampaignTab() {
       const res = await authFetch(`/api/campaigns/${id}/hook-options`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ force }),
+        body: JSON.stringify({ force, market: videoMarket }),
       })
       const data = await res.json()
       if (res.ok && Array.isArray(data.options)) { setHookOptions(data.options); setHookPick(0) }
@@ -169,6 +171,7 @@ export function CampaignTab() {
           mode: videoMode,
           transition: videoTransition,
           sfx: { enabled: videoSfx },
+          market: videoMarket,
           ...(hookMode === 'choose' && hookOptions?.[hookPick] ? { hook: hookOptions[hookPick] } : {}),
           voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
         }),
@@ -445,6 +448,20 @@ export function CampaignTab() {
               const settings = (
                 <div className="space-y-5">
                   <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground" title="Copy, hooks and narration adapt to this market's culture, customs and dialect">Market</span>
+                    <select
+                      value={videoMarket}
+                      onChange={(e) => { setVideoMarket(e.target.value); setHookOptions(null); if (hookMode === 'choose') loadHookOptions() }}
+                      disabled={videoRendering}
+                      className="rounded-lg border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-60"
+                    >
+                      <option value="auto">Auto ({cam.language === 'ar' ? 'مصر' : 'Global'})</option>
+                      {MARKETS.map((m) => (
+                        <option key={m.code} value={m.code}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Style</span>
                     <Seg
                       value={videoMode}
@@ -602,6 +619,9 @@ export function CampaignTab() {
                           <Badge variant="secondary" className="capitalize">{videoJob.transition} transitions</Badge>
                         )}
                         {videoJob.sfx?.enabled && <Badge variant="secondary">SFX</Badge>}
+                        {videoJob.market && videoJob.market !== 'global' && (
+                          <Badge variant="secondary">{MARKETS.find((m) => m.code === videoJob.market)?.label || videoJob.market}</Badge>
+                        )}
                         {videoJob.voiceover?.enabled && (
                           <Badge variant="secondary">
                             {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}{videoJob.voiceover.rate && videoJob.voiceover.rate !== 1 ? ` · ${videoJob.voiceover.rate}×` : ''}{videoJob.voiceover.rateAuto ? ' (auto)' : ''}
