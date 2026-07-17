@@ -272,13 +272,18 @@ export function Header() {
     : user?.email?.[0].toUpperCase() || 'U'
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
+    <header className="sticky top-0 z-30 relative flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
       {/* Left: project context on a project page, page title elsewhere.
           `#header-title-slot` lets a page inject a DYNAMIC title (e.g. Server). */}
       <div className="flex items-center gap-2 min-w-0">
         {projectId ? <ProjectContextBlock projectId={projectId} /> : <PageTitleBlock />}
         <div id="header-title-slot" className="contents" />
       </div>
+
+      {/* Centered slot — a page can portal a compact control (e.g. Content
+          Studio's tab bar) here. pointer-events-none so it never blocks the
+          title/actions; injected content re-enables its own pointer events. */}
+      <div id="header-center-slot" className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-16 -translate-x-1/2 items-center" />
 
       {/* Actions */}
       <div className="flex items-center gap-1.5 shrink-0">

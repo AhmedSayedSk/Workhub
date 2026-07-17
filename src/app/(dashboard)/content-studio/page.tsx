@@ -8,7 +8,7 @@ import { useImageApi } from '@/hooks/useImageApi'
 import { useImageSessions } from '@/hooks/useImageSessions'
 import { SessionSidebar } from '@/components/image-generator/SessionSidebar'
 import { CampaignTab } from '@/components/image-generator/campaign/CampaignTab'
-import { HeaderActions } from '@/components/layout/HeaderActions'
+import { HeaderCenter } from '@/components/layout/HeaderActions'
 import type { ImageGenSession } from '@/types'
 import { useSettings } from '@/hooks/useSettings'
 import { ImageGeneration, ImageGenModel, ImageGenAspectRatio, ImageAsset, ImageAssetFolder, ImageGenLog, CalendarEvent } from '@/types'
@@ -947,17 +947,17 @@ export default function ImageGeneratorPage() {
         />
       )}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-      {/* Tabs live in the global top header bar */}
-      <HeaderActions>
+      {/* Tabs — centered in the global top header bar */}
+      <HeaderCenter>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="h-8">
-            <TabsTrigger value="generate" className="text-xs px-3 h-7"><Sparkles className="h-3 w-3 mr-1" />Generate</TabsTrigger>
-            <TabsTrigger value="campaign" className="text-xs px-3 h-7"><Megaphone className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
-            <TabsTrigger value="accounts" className="text-xs px-3 h-7"><Mail className="h-3 w-3 mr-1" />Accounts{accounts.length > 0 && <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{accounts.length}</Badge>}</TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs px-3 h-7"><Settings className="h-3 w-3 mr-1" />Settings</TabsTrigger>
+          <TabsList className="h-9 gap-0.5 rounded-full bg-muted/60 p-1">
+            <TabsTrigger value="generate" className="h-7 gap-1.5 rounded-full px-3.5 text-xs data-[state=active]:shadow-sm"><Sparkles className="h-3.5 w-3.5" />Generate</TabsTrigger>
+            <TabsTrigger value="campaign" className="h-7 gap-1.5 rounded-full px-3.5 text-xs data-[state=active]:shadow-sm"><Megaphone className="h-3.5 w-3.5" />Campaign</TabsTrigger>
+            <TabsTrigger value="accounts" className="h-7 gap-1.5 rounded-full px-3.5 text-xs data-[state=active]:shadow-sm"><Mail className="h-3.5 w-3.5" />Accounts{accounts.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">{accounts.length}</Badge>}</TabsTrigger>
+            <TabsTrigger value="settings" className="h-7 gap-1.5 rounded-full px-3.5 text-xs data-[state=active]:shadow-sm"><Settings className="h-3.5 w-3.5" />Settings</TabsTrigger>
           </TabsList>
         </Tabs>
-      </HeaderActions>
+      </HeaderCenter>
 
       {/* Error Display */}
       {generationError && (
