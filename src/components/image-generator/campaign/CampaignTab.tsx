@@ -331,13 +331,13 @@ export function CampaignTab() {
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className={cn('max-h-[92vh] overflow-y-auto', videoReady ? 'max-w-6xl' : 'max-w-md')}>
+          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : 'max-w-lg')}>
             <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
             {(() => {
               const settings = (
-                <div className="space-y-3.5">
+                <div className="space-y-5">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Style</span>
                     <Seg
@@ -386,7 +386,7 @@ export function CampaignTab() {
                     <Switch checked={voiceover} onCheckedChange={setVoiceover} disabled={videoRendering} />
                   </div>
                   {voiceover && (
-                    <div className="space-y-3 rounded-lg bg-muted/30 p-3">
+                    <div className="space-y-4 rounded-xl bg-muted/30 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm text-muted-foreground">Language</span>
                         <Seg
@@ -464,13 +464,13 @@ export function CampaignTab() {
               )
 
               if (!videoReady || !videoJob) {
-                return <div className="space-y-5">{settings}{action}</div>
+                return <div className="space-y-7 pt-2">{settings}{action}</div>
               }
 
               // Wide three-column layout once a video exists: player | settings
               // & actions | full-height "what went into this video" panel.
               return (
-                <div className="grid gap-6 md:grid-cols-[300px_minmax(280px,340px)_minmax(0,1fr)]">
+                <div className="grid gap-10 pt-2 md:grid-cols-[340px_minmax(320px,400px)_minmax(0,1fr)]">
                   <div className="space-y-2">
                     <video
                       src={videoJob.videoUrl}
@@ -479,10 +479,10 @@ export function CampaignTab() {
                       className="w-full rounded-xl border bg-black"
                     />
                   </div>
-                  <div className="space-y-5">
+                  <div className="space-y-7">
                     {settings}
                     {action}
-                    <div className="space-y-2.5">
+                    <div className="space-y-3">
                       <div className="flex flex-wrap gap-1">
                         <Badge variant="secondary" className="capitalize">{videoJob.mode || 'basic'}</Badge>
                         <Badge variant="secondary">{ASPECT_LABEL[videoJob.aspect] || videoJob.aspect}</Badge>
@@ -496,30 +496,30 @@ export function CampaignTab() {
                           </Badge>
                         )}
                       </div>
-                      <a href={videoJob.videoUrl} download className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-muted/40">
-                        <Download className="h-3.5 w-3.5" /> Download video
+                      <a href={videoJob.videoUrl} download className="inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-muted/40">
+                        <Download className="h-4 w-4" /> Download video
                       </a>
                     </div>
                   </div>
                   {((Array.isArray(videoJob.script) && videoJob.script.length > 0) || (Array.isArray(videoJob.scenes) && videoJob.scenes.length > 0)) ? (
-                    <div className="flex min-h-0 flex-col rounded-lg border">
-                      <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">What went into this video</div>
-                      <div className="max-h-[68vh] flex-1 space-y-2 overflow-y-auto p-3">
+                    <div className="flex min-h-0 flex-col rounded-xl border">
+                      <div className="border-b px-4 py-3 text-sm font-medium text-muted-foreground">What went into this video</div>
+                      <div className="max-h-[76vh] flex-1 space-y-2.5 overflow-y-auto p-4">
                         {Array.isArray(videoJob.script) && videoJob.script.length > 0 ? (
-                          <ol className="space-y-2">
+                          <ol className="space-y-2.5">
                             {videoJob.script.map((s, i) => (
-                              <li key={i} className="flex items-start gap-2.5 rounded-md border p-2">
+                              <li key={i} className="flex items-start gap-3 rounded-lg border p-3">
                                 {s.type === 'showcase' && s.imageUrl ? (
-                                  <img src={s.imageUrl} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
+                                  <img src={s.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" />
                                 ) : (
-                                  <span className="mt-0.5 w-14 shrink-0 rounded bg-muted px-1.5 py-0.5 text-center text-[10px] font-semibold uppercase text-muted-foreground">{SCENE_BADGE[s.type] || s.type}</span>
+                                  <span className="mt-0.5 w-16 shrink-0 rounded bg-muted px-2 py-1 text-center text-[10px] font-semibold uppercase text-muted-foreground">{SCENE_BADGE[s.type] || s.type}</span>
                                 )}
-                                <span className="text-xs leading-relaxed">{creativeSceneText(s) || <span className="text-muted-foreground">—</span>}</span>
+                                <span className="text-sm leading-relaxed">{creativeSceneText(s) || <span className="text-muted-foreground">—</span>}</span>
                               </li>
                             ))}
                           </ol>
                         ) : (
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-4 gap-2.5">
                             {(videoJob.scenes || []).map((s, i) => (
                               <img key={i} src={s.imageUrl} alt={s.headline || ''} title={s.caption || s.headline || ''} className="aspect-square w-full rounded border object-cover" />
                             ))}
