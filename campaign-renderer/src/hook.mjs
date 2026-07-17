@@ -25,11 +25,19 @@ async function pollJob(id, { intervalMs = 5000, timeoutMs = 180000, onTick } = {
 }
 
 // Generates the hook's AI background image and downloads it to outPath.
+// The headline/logo are overlaid by our templates, so the generated image must
+// be PURELY visual — models otherwise paint their own headline onto it. This
+// guard is appended to every prompt (defense-in-depth: covers legacy jobs too).
+const NO_TEXT_GUARD =
+  ' Purely visual imagery with clean empty negative space — absolutely NO text of any kind:' +
+  ' no words, letters, numbers, typography, captions, headlines, logos, watermarks, UI or signage anywhere in the image.'
+
 // Returns the local file path, or null on ANY failure — callers fall back
 // to a brand-color gradient background in the template. Never throws.
 export async function generateHookBg(bgPrompt, aspect, outPath, onTick) {
   if (!BASE || !KEY || !bgPrompt) return null
   try {
+    const prompt = /absolutely NO text/i.test(bgPrompt) ? bgPrompt : bgPrompt + NO_TEXT_GUARD
     const genRes = await fetch(`${BASE}/v1/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': KEY },
@@ -37,7 +45,7 @@ export async function generateHookBg(bgPrompt, aspect, outPath, onTick) {
         model: 'studio',
         aspectRatio: aspectToRatio(aspect),
         count: 1,
-        prompt: bgPrompt,
+        prompt,
       }),
     })
     if (!genRes.ok) return null

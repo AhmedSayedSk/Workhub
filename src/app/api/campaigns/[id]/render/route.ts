@@ -208,7 +208,9 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     hook: {
       headline: chosenHook ? chosenHook.headline.replace(/\n/g, ' ') : brandName,
       subtext: c.brief?.goal ? String(c.brief.goal).slice(0, 90) : 'See what we made',
-      bgPrompt: `Premium cinematic on-brand hero background for "${brandName}", ${c.artDirection || c.style || 'sleek modern tech'}, deep rich colors, volumetric light, negative space for a headline, ${aspect} composition, high detail.`,
+      // NOTE: never mention the brand NAME here — image models paint quoted
+      // names as literal text, and our headline/logo are overlaid separately.
+      bgPrompt: `Premium cinematic abstract hero background, ${c.artDirection || c.style || 'sleek modern tech'}, deep rich colors, volumetric light, soft depth of field, large clean negative space for overlaid copy, ${aspect} composition, high detail.`,
     },
     brand: { name: brandName, color: (c.brand?.colors && c.brand.colors[0]) || '#111827', logoUrl: c.brand?.logoUrl || c.brandImageUrl || null, domain: domain || null },
     scenes: posts.map((p) => ({ imageUrl: p.imageUrl, headline: p.headline || '', caption: (p.caption || '').slice(0, 140) })),
