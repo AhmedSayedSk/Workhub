@@ -200,6 +200,31 @@ export function CampaignTab() {
     const res = await authFetch(`/api/render-jobs/${videoJob.id}/cancel`, { method: 'POST' })
     if (!res.ok) toast.error('Could not stop the render')
   }
+  // True download (no new tab): cross-origin `download` attrs are ignored by
+  // browsers, so fetch the MP4 via our storage proxy and save it as a blob.
+  const [downloadingVideo, setDownloadingVideo] = useState(false)
+  const downloadVideo = async (url: string) => {
+    if (downloadingVideo) return
+    setDownloadingVideo(true)
+    try {
+      const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(url)}`)
+      if (!res.ok) throw new Error('fetch failed')
+      const blob = await res.blob()
+      const name = (c.activeCampaign?.name || 'campaign').replace(/[^\w؀-ۿ-]+/g, '-').slice(0, 60)
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `${name}-video.mp4`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      // Fallback: at least open it so the user can save manually.
+      window.open(url, '_blank')
+    } finally {
+      setDownloadingVideo(false)
+    }
+  }
   const generateVideo = async () => {
     const id = c.activeCampaign?.id
     if (!id) return
@@ -639,9 +664,15 @@ export function CampaignTab() {
                     {settings}
                     {action}
                     <div className="space-y-3">
-                      <a href={videoJob.videoUrl} download className="inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-muted/40">
-                        <Download className="h-4 w-4" /> Download video
-                      </a>
+                      <button
+                        type="button"
+                        onClick={() => downloadVideo(videoJob.videoUrl!)}
+                        disabled={downloadingVideo}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-muted/40 disabled:opacity-60"
+                      >
+                        {downloadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        {downloadingVideo ? 'Downloading…' : 'Download video'}
+                      </button>
                     </div>
                   </div>
                   {((Array.isArray(videoJob.script) && videoJob.script.length > 0) || (Array.isArray(videoJob.scenes) && videoJob.scenes.length > 0)) ? (

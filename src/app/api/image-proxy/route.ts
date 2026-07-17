@@ -9,8 +9,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 })
   }
 
-  // Only allow Firebase Storage URLs
-  if (!url.startsWith('https://firebasestorage.googleapis.com/')) {
+  // Only allow Firebase Storage URLs (incl. our GCS-hosted bucket — used for
+  // direct video downloads, where cross-origin `download` attrs are ignored).
+  const allowed =
+    url.startsWith('https://firebasestorage.googleapis.com/') ||
+    url.startsWith('https://storage.googleapis.com/workhub-c288f.firebasestorage.app/')
+  if (!allowed) {
     return NextResponse.json({ error: 'Invalid URL' }, { status: 403 })
   }
 
