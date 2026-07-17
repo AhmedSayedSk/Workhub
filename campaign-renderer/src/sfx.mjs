@@ -9,12 +9,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const CACHE_DIR = process.env.SFX_CACHE_DIR || '/tmp/sfx-cache'
 
-// Per-event mix level (dB) relative to the -6dBFS-normalized files — sits the
-// effects clearly UNDER the narration (voice peaks ~-2dB).
-const EVENT_GAIN = {
-  intro: -11, transition: -10, pop: -12, underline: -14, showcase: -11,
-  stat_tick: -18, stat_settle: -11, cta_shine: -12, cta_sting: -9, impact: -10,
-}
+// UNIFORM mix level: the v4 library is already loudness-equalized (sustained
+// sounds RMS-matched, transients peak-matched), so every event gets the SAME
+// gain — sits the effects clearly UNDER the narration (voice peaks ~-2dB).
+const UNIFORM_GAIN = -11
 
 let manifest = null
 function loadManifest() {
@@ -35,7 +33,10 @@ function seededPick(list, seedStr, salt = 0) {
 }
 
 async function ensureCached(sound) {
-  const f = path.join(CACHE_DIR, `${sound.id}.wav`)
+  // Cache key includes the URL's version segment so a library upgrade (v3->v4)
+  // never serves stale files from the cache.
+  const ver = (sound.url.match(/\/sfx\/(v\d+)\//) || [])[1] || 'v0'
+  const f = path.join(CACHE_DIR, `${ver}-${sound.id}.wav`)
   if (fs.existsSync(f) && fs.statSync(f).size > 1000) return f
   fs.mkdirSync(CACHE_DIR, { recursive: true })
   const res = await fetch(sound.url)
@@ -113,8 +114,7 @@ export async function buildSfxTrack(schedule, totalMs, scratch, jobId) {
     events.forEach((e) => { args.push('-i', files[e.event]) })
     const chains = events.map((e, i) => {
       const d = Math.max(0, Math.round(e.atMs))
-      const g = EVENT_GAIN[e.event] ?? -12
-      return `[${i}:a]adelay=${d}|${d},volume=${g}dB[s${i}]`
+      return `[${i}:a]adelay=${d}|${d},volume=${UNIFORM_GAIN}dB[s${i}]`
     })
     const mixIn = events.map((_, i) => `[s${i}]`).join('')
     const filter = `${chains.join(';')};${mixIn}amix=inputs=${events.length}:normalize=0,apad,atrim=0:${(totalMs / 1000).toFixed(3)}[out]`

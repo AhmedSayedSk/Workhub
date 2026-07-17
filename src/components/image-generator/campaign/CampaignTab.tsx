@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { projects as projectsApi, renderJobs } from '@/lib/firestore'
@@ -98,6 +98,25 @@ export function CampaignTab() {
     setVoiceoverLang(c.activeCampaign?.language === 'ar' ? 'ar' : 'en')
     return renderJobs.subscribeLatestForCampaign(activeCampaignId, setVideoJob)
   }, [activeCampaignId])
+  // Voice notification when a render finishes while the user is on the page:
+  // only on a LIVE transition (rendering/queued -> done), never on initial load.
+  const prevVideoStatus = useRef<string | null>(null)
+  useEffect(() => {
+    const s = videoJob?.status || null
+    const prev = prevVideoStatus.current
+    prevVideoStatus.current = s
+    if (s === 'done' && (prev === 'rendering' || prev === 'queued')) {
+      try {
+        const a = new Audio('https://storage.googleapis.com/workhub-c288f.firebasestorage.app/app-sounds/video-ready.wav')
+        a.volume = 0.65
+        a.play().catch(() => { /* autoplay blocked — toast still shows */ })
+      } catch { /* no audio support */ }
+      toast.success('🎬 Your campaign video is ready')
+    }
+    if (s === 'failed' && (prev === 'rendering' || prev === 'queued')) {
+      toast.error('Video render failed')
+    }
+  }, [videoJob?.status])
   const VIDEO_STAGE: Record<string, string> = {
     preparing: 'Preparing…',
     hook: 'Generating hook image…',
