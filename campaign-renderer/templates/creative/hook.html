@@ -5,16 +5,16 @@
   #s{position:relative;width:100%;height:100%;background:var(--bg2,#0e1424);color:var(--tx,#fff);overflow:hidden}
   #bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.5}
   #scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,10,18,.5),rgba(8,10,18,.88))}
-  .wrap{position:absolute;left:90px;right:90px;top:500px;z-index:2}
-  h1{font-size:104px;line-height:1.08;font-weight:900;letter-spacing:-1px}
+  .wrap{position:absolute;left:90px;right:90px;top:50%;transform:translateY(-50%);text-align:center;z-index:2}
+  h1{font-size:104px;line-height:1.3;font-weight:900;letter-spacing:-1px}
   h1 .line{display:block;overflow:visible}
   .u{position:relative;display:inline-block}
   .u i{position:absolute;left:0;right:0;bottom:6px;height:16px;background:var(--c);transform-origin:left center;border-radius:8px;z-index:-1;opacity:.9}
   .rtl .u i{transform-origin:right center}
   /* Big centered brand header — logo at natural aspect + project name below-the-fold size.
      Uses its own class (not .brand) so the RTL corner-swap never un-centers it. */
-  .brandtop{position:absolute;left:0;right:0;top:120px;display:flex;align-items:center;justify-content:center;gap:24px;font-weight:900;font-size:56px;letter-spacing:-.5px;z-index:2}
-  .brandtop img{height:88px;width:auto;max-width:280px;object-fit:contain;border-radius:14px}
+  .brandtop{position:absolute;left:0;right:0;top:120px;display:flex;align-items:center;justify-content:center;gap:28px;font-weight:900;font-size:72px;letter-spacing:-.5px;z-index:2;direction:ltr}
+  .brandtop img{height:112px;width:auto;max-width:340px;object-fit:contain;border-radius:16px}
 </style></head>
 <body><div id="s">
   <div id="bg"></div><div id="scrim"></div>
