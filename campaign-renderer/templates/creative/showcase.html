@@ -5,30 +5,33 @@
   #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
   .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:3}
   .brand img{width:52px;height:52px;border-radius:12px}
-  /* IMAGE ON TOP — a large framed card in the upper zone */
-  .card{position:absolute;left:90px;right:90px;top:210px;height:1050px;border-radius:44px;overflow:hidden;
+  /* FULL-HEIGHT framed image card — fills down to the bottom gap; the copy
+     overlays the image itself on a gradient scrim. */
+  .card{position:absolute;left:90px;right:90px;top:200px;bottom:96px;border-radius:44px;overflow:hidden;
         box-shadow:0 60px 110px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07);background:var(--bg2,#0e1424);z-index:2}
   .card .ph{position:absolute;inset:0}
   .card img{position:absolute;inset:-50px;width:calc(100% + 100px);height:calc(100% + 100px);object-fit:cover}
-  .card .edge{position:absolute;left:0;right:0;bottom:0;height:8px;background:var(--c);transform-origin:left center;transform:scaleX(0)}
-  /* CONTENT (narrated) AT BOTTOM */
-  .content{position:absolute;left:90px;right:90px;top:1330px;bottom:120px;display:flex;flex-direction:column;justify-content:flex-start;z-index:2}
-  .accent{width:110px;height:12px;border-radius:8px;background:var(--c);transform-origin:left center;transform:scaleX(0);margin-bottom:34px}
+  .card .edge{position:absolute;left:0;right:0;bottom:0;height:8px;background:var(--c);transform-origin:left center;transform:scaleX(0);z-index:3}
+  /* CONTENT — overlaid on the image, anchored to the card's bottom */
+  .scrim{position:absolute;left:0;right:0;bottom:0;height:52%;z-index:1;pointer-events:none}
+  .content{position:absolute;left:64px;right:64px;bottom:60px;z-index:2}
+  .accent{width:110px;height:12px;border-radius:8px;background:var(--c);transform-origin:left center;transform:scaleX(0);margin-bottom:30px}
   .rtl .accent{transform-origin:right center}
-  .caption{font-size:52px;font-weight:800;line-height:1.28;color:var(--tx,#fff);letter-spacing:-.5px}
-  .sub{font-size:33px;font-weight:500;line-height:1.5;color:var(--mut,#b9c2d0);margin-top:22px}
+  .caption{font-size:56px;font-weight:800;line-height:1.24;color:#fff;letter-spacing:-.5px;text-shadow:0 2px 24px rgba(0,0,0,.45)}
+  .sub{font-size:34px;font-weight:500;line-height:1.5;color:rgba(255,255,255,.86);margin-top:20px;text-shadow:0 2px 18px rgba(0,0,0,.45)}
 </style></head>
 <body><div id="s">
   <div class="brand" id="brand"></div>
   <div class="card" id="card">
     <div class="ph" id="ph"></div>
     <img id="img" />
+    <div class="scrim" id="scrim"></div>
+    <div class="content" id="content">
+      <div class="accent" id="accent"></div>
+      <div class="caption" id="caption"></div>
+      <div class="sub" id="sub"></div>
+    </div>
     <div class="edge" id="edge"></div>
-  </div>
-  <div class="content" id="content">
-    <div class="accent" id="accent"></div>
-    <div class="caption" id="caption"></div>
-    <div class="sub" id="sub"></div>
   </div>
 </div>
 <script src="_motion.js"></script>
@@ -56,7 +59,10 @@
   subEl.textContent = D.sub || ''
   if (!D.sub) subEl.style.display = 'none'
   const content = document.getElementById('content')
-  if (!D.caption && !D.sub) content.style.display = 'none'
+  const scrim = document.getElementById('scrim')
+  // Readability scrim under the overlaid copy: deep palette tone -> transparent.
+  scrim.style.background = `linear-gradient(180deg, transparent 0%, ${P.bg2}55 34%, ${P.bg2}e8 100%)`
+  if (!D.caption && !D.sub) { content.style.display = 'none'; scrim.style.display = 'none' }
 
   const M = window.__M
   // Card: clip-reveals downward, then the image ken-burns for the whole scene.
@@ -64,12 +70,13 @@
   M.reg(imgEl, 0, 3400, 'kenburns', { from: 1.02, to: 1.12, dy: -18 })
   M.reg(document.getElementById('edge'), 650, 1150, 'draww')
   // Caption: accent draws, words cascade in, sub follows.
+  M.reg(scrim, 450, 950, 'fade')
   M.reg(document.getElementById('accent'), 500, 950, 'draww')
   if (D.caption) M.words(captionEl, 700, 90, 620, { dy: 36 })
   if (D.sub) M.reg(subEl, 1250, 1750, 'rise', { dy: 26 })
   M.reg(brand, 0, 400, 'fade')
 
-  M.sceneExit(D, [document.getElementById('card'), content])
+  M.sceneExit(D, [document.getElementById('card')])
 
   window.__ready = new Promise((res) => {
     const done = () => res()

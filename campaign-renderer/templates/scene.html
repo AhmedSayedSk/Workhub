@@ -10,26 +10,30 @@
     font-family: 'Segoe UI', Tahoma, system-ui, -apple-system, Arial, sans-serif;
     color: var(--tx,#fff);
   }
-  /* IMAGE ON TOP — framed card in the upper zone */
-  .card { position: absolute; left: 8vmin; right: 8vmin; top: 10vmin; height: 56vh; border-radius: 4vmin; overflow: hidden;
+  /* FULL-HEIGHT framed image card — copy overlays the image on a scrim */
+  .card { position: absolute; left: 8vmin; right: 8vmin; top: 9vmin; bottom: 5vmin; border-radius: 4vmin; overflow: hidden;
           box-shadow: 0 5vmin 10vmin rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07); background: var(--bg2,#0e1424); z-index: 2; }
   .card img { position: absolute; inset: -5%; width: 110%; height: 110%; object-fit: cover; }
-  .card .edge { position: absolute; left: 0; right: 0; bottom: 0; height: .8vmin; transform-origin: left center; transform: scaleX(0); }
-  /* CONTENT (narrated) AT BOTTOM */
-  .content { position: absolute; left: 8vmin; right: 8vmin; top: calc(10vmin + 56vh + 5vmin); bottom: 6vmin; z-index: 2; }
-  .accent { width: 11vmin; height: 1.1vmin; border-radius: 99px; transform-origin: left center; transform: scaleX(0); margin-bottom: 3.2vmin; }
+  .card .edge { position: absolute; left: 0; right: 0; bottom: 0; height: .8vmin; transform-origin: left center; transform: scaleX(0); z-index: 3; }
+  .scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 52%; z-index: 1; pointer-events: none; }
+  .content { position: absolute; left: 5.5vmin; right: 5.5vmin; bottom: 5vmin; z-index: 2; }
+  .accent { width: 11vmin; height: 1.1vmin; border-radius: 99px; transform-origin: left center; transform: scaleX(0); margin-bottom: 2.6vmin; }
   .rtl .accent { transform-origin: right center; }
-  .headline { font-size: 5.6vmin; font-weight: 800; line-height: 1.22; letter-spacing: -.05vmin; }
-  .caption { font-size: 3.1vmin; font-weight: 500; margin-top: 2vmin; color: var(--mut,#b9c2d0); line-height: 1.5; }
+  .headline { font-size: 5.8vmin; font-weight: 800; line-height: 1.22; letter-spacing: -.05vmin; color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,.45); }
+  .caption { font-size: 3.2vmin; font-weight: 500; margin-top: 1.8vmin; color: rgba(255,255,255,.86); line-height: 1.5; text-shadow: 0 2px 18px rgba(0,0,0,.45); }
 </style>
 </head>
 <body>
 <div id="s">
-  <div class="card" id="card"><img id="img" /><div class="edge" id="edge"></div></div>
-  <div class="content" id="content">
-    <div class="accent" id="accent"></div>
-    <div class="headline" id="headline"></div>
-    <div class="caption" id="caption"></div>
+  <div class="card" id="card">
+    <img id="img" />
+    <div class="scrim" id="scrim"></div>
+    <div class="content" id="content">
+      <div class="accent" id="accent"></div>
+      <div class="headline" id="headline"></div>
+      <div class="caption" id="caption"></div>
+    </div>
+    <div class="edge" id="edge"></div>
   </div>
 </div>
 <script src="creative/_motion.js"></script>
@@ -49,6 +53,8 @@
   window.__M.stage(s, P)
   window.__M.decorate(s, color, { big: 420, small: 300 })
   document.getElementById('accent').style.background = color
+  const scrimEl = document.getElementById('scrim')
+  scrimEl.style.background = `linear-gradient(180deg, transparent 0%, ${P.bg2}55 34%, ${P.bg2}e8 100%)`
   document.getElementById('edge').style.background = color
   document.getElementById('headline').textContent = D.headline || ''
   const capEl = document.getElementById('caption')
@@ -60,11 +66,12 @@
   M.reg(document.getElementById('card'), 60, 650, 'clipup', { r: 40 })
   M.reg(imgEl, 0, 3400, 'kenburns', { from: 1.02, to: 1.1, dy: -12 })
   M.reg(document.getElementById('edge'), 600, 1050, 'draww')
+  M.reg(scrimEl, 400, 900, 'fade')
   M.reg(document.getElementById('accent'), 450, 850, 'draww')
   if (D.headline) M.words(document.getElementById('headline'), 620, 90, 560, { dy: 30 })
   M.reg(capEl, 1000, 1500, 'rise', { dy: 24 })
 
-  M.sceneExit(D, [document.getElementById('card'), document.getElementById('content')])
+  M.sceneExit(D, [document.getElementById('card')])
 
   window.__ready = new Promise((res) => {
     const done = () => res()
