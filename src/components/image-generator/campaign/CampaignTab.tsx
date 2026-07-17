@@ -375,7 +375,7 @@ export function CampaignTab() {
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : 'max-w-3xl')}>
+          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : videoRendering ? 'max-w-md' : 'max-w-3xl')}>
             <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
@@ -587,7 +587,11 @@ export function CampaignTab() {
               )
 
               if (!videoReady || !videoJob) {
-                return (
+                // While rendering, the hook picker is hidden — settings lock and
+                // the progress card takes the stage in a single centered column.
+                return videoRendering ? (
+                  <div className="space-y-7 pt-2">{settings}{action}</div>
+                ) : (
                   <div className="grid gap-8 pt-2 md:grid-cols-2">
                     <div>{hookSection}</div>
                     <div className="space-y-7">{settings}{action}</div>
@@ -606,7 +610,7 @@ export function CampaignTab() {
                       controls
                       className="w-full rounded-xl border bg-black"
                     />
-                    {hookSection}
+                    {!videoRendering && hookSection}
                   </div>
                   <div className="space-y-7">
                     {settings}
