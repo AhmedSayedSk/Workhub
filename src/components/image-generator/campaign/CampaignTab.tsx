@@ -618,7 +618,9 @@ export function CampaignTab() {
               )
 
               if (!videoReady || !videoJob) {
-                return <div className="space-y-7 pt-2">{settings}{action}</div>
+                // Once a render is underway, hide every configuration input and
+                // show only the progress card — nothing to tweak mid-render.
+                return <div className="space-y-7 pt-2">{videoRendering ? null : settings}{action}</div>
               }
 
               // Wide three-column layout once a video exists: player | settings
