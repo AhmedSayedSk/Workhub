@@ -95,6 +95,7 @@ export function CampaignTab() {
   const [hookLoading, setHookLoading] = useState(false)
   const [hookDialogOpen, setHookDialogOpen] = useState(false)
   const [sceneStylesOpen, setSceneStylesOpen] = useState(false)
+  const [stylePreview, setStylePreview] = useState<{ url: string; name: string } | null>(null)
   const [sceneStyles, setSceneStyles] = useState<Array<{ id: string; name: string; description: string; bestFor?: string; enabled: boolean; previewUrl?: string }> | null>(null)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
@@ -796,10 +797,11 @@ export function CampaignTab() {
       </div>
 
       <Dialog open={sceneStylesOpen} onOpenChange={setSceneStylesOpen}>
-        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="flex max-h-[88vh] max-w-3xl flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Video scene styles</DialogTitle>
           </DialogHeader>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
           <p className="text-sm text-muted-foreground">
             The animated compositions used for image scenes in campaign videos. Only enabled styles are used —
             each scene picks the best fit for its content, rotating so layouts never repeat back-to-back.
@@ -825,9 +827,9 @@ export function CampaignTab() {
                     <tr key={st.id} className={cn('border-b last:border-0', !st.enabled && 'opacity-55')}>
                       <td className="px-4 py-3 align-top">
                         {st.previewUrl ? (
-                          <a href={st.previewUrl} target="_blank" rel="noreferrer" title="Open full preview">
+                          <button type="button" onClick={() => setStylePreview({ url: st.previewUrl!, name: st.name })} title="Preview full screen">
                             <img src={st.previewUrl} alt={st.name} className="h-32 w-[72px] rounded-md border object-cover transition-transform hover:scale-105" />
-                          </a>
+                          </button>
                         ) : (
                           <div className="flex h-32 w-[72px] items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">—</div>
                         )}
@@ -848,6 +850,20 @@ export function CampaignTab() {
             </div>
           )}
           <p className="text-xs text-muted-foreground">At least one style must stay enabled.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!stylePreview} onOpenChange={(o) => { if (!o) setStylePreview(null) }}>
+        <DialogContent className="h-[96vh] w-[96vw] max-w-none border-0 bg-black/95 p-4">
+          <DialogHeader>
+            <DialogTitle className="text-white">{stylePreview?.name}</DialogTitle>
+          </DialogHeader>
+          {stylePreview && (
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <img src={stylePreview.url} alt={stylePreview.name} className="max-h-full max-w-full rounded-xl object-contain" />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
