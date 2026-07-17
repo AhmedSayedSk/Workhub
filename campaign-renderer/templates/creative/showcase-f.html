@@ -44,7 +44,7 @@
   const P = M.applyPalette(D)
   M.stage(s, P)
   M.decorate(s, P.accent, { big: 420, small: 300 })
-  M.fx.particles(s, P.accent, M.fx.seedFrom(D), 6, { alpha: 0.16 })
+  M.fx.particles(s, P.accent, M.fx.seedFrom(D), 10, { alpha: 0.22 })
 
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }

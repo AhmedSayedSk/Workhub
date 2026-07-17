@@ -31,7 +31,7 @@
   const c = P.accent
   window.__M.stage(s, P)
   window.__M.decorate(s, c)
-  { const F = window.__M.fx, sd = F.seedFrom(D); F.lines(s, c, sd, 3); F.particles(s, c, sd + 1, 8) }
+  { const F = window.__M.fx, sd = F.seedFrom(D); F.lines(s, c, sd, 3); F.particles(s, c, sd + 1, 12); F.ring(s, c, sd + 2, { period: 14000 }) }
 
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }

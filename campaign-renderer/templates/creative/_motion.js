@@ -315,6 +315,45 @@ window.__M = (() => {
       reg(flow, 0, 1, 'dashflow', { speed: 34 })
       return layer
     },
+    // Radial burst: an accent ring expanding + fading from a point — the
+    // "premium opener" ping. Runs via anime (attr animation), seeked per frame.
+    burst(sceneEl, color, at, opts) {
+      const o = opts || {}
+      const layer = fxLayer(sceneEl)
+      const svg = mkSvg(layer)
+      const mk = (delay, w, maxR) => {
+        const cir = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+        cir.setAttribute('cx', String(at.x)); cir.setAttribute('cy', String(at.y))
+        cir.setAttribute('r', '10'); cir.setAttribute('fill', 'none')
+        cir.setAttribute('stroke', color); cir.setAttribute('stroke-width', String(w))
+        cir.style.opacity = '0'
+        svg.appendChild(cir)
+        if (window.anime) {
+          const tl = window.anime.timeline({ autoplay: false })
+          tl.add({ targets: cir, r: [10, maxR], duration: 850, easing: 'easeOutCubic' }, delay)
+          tl.add({ targets: cir, opacity: [0.55, 0], duration: 850, easing: 'easeOutQuad' }, delay)
+          regAnime(tl)
+        }
+      }
+      mk(o.delay || 60, 6, o.maxR || 220)
+      mk((o.delay || 60) + 160, 3, (o.maxR || 220) * 1.45)
+      return layer
+    },
+    // One soft light band sweeping diagonally across the whole canvas — the
+    // classic premium "light pass". Runs once, early.
+    lightsweep(sceneEl, start, dur) {
+      const layer = fxLayer(sceneEl)
+      layer.style.overflow = 'hidden'
+      const band = document.createElement('div')
+      Object.assign(band.style, {
+        position: 'absolute', top: '-10%', bottom: '-10%', left: '0', width: '46%',
+        background: 'linear-gradient(105deg, transparent, rgba(255,255,255,.13), transparent)',
+        opacity: '0', pointerEvents: 'none',
+      })
+      layer.appendChild(band)
+      reg(band, start || 150, (start || 150) + (dur || 950), 'sweep')
+      return layer
+    },
     // Small dashed ring slowly spinning — a quiet technical accent.
     ring(sceneEl, color, seed, opts) {
       const o = opts || {}

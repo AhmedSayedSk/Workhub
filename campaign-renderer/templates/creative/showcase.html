@@ -44,7 +44,7 @@
   const c = P.accent
   window.__M.stage(s, P)
   window.__M.decorate(s, c)
-  { const F = window.__M.fx, sd = F.seedFrom(D); F.lines(s, c, sd, 2); F.particles(s, c, sd + 1, 6) }
+  { const F = window.__M.fx, sd = F.seedFrom(D); F.lines(s, c, sd, 2); F.particles(s, c, sd + 1, 10); F.swoosh(s, c, sd + 4) }
 
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }

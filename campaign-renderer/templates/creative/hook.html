@@ -31,7 +31,11 @@
   const bg = document.getElementById('bg'); if (D.bg) bg.style.backgroundImage = `url("${D.bg}")`; else window.__M.stage(document.getElementById('s'), P)
   if (!D.bg) window.__M.decorate(document.getElementById('s'), c)
   { const F = window.__M.fx, sd = F.seedFrom(D), sc = document.getElementById('s')
-    F.swoosh(sc, c, sd); F.particles(sc, c, sd + 1, 10) }
+    F.swoosh(sc, c, sd); F.particles(sc, c, sd + 1, 14)
+    F.burst(sc, c, { x: 540, y: 176 }, { maxR: 260 })   // ping behind the brand header
+    F.lightsweep(sc, 260, 1100)                          // premium light pass
+    window.__M.reg(sc, 0, 900, 'kenburns', { from: 1.045, to: 1.0, dy: 0 }) // cinematic settle
+  }
   const brand = document.getElementById('brand')
   let brandLogo = null
   if (D.brand?.logoUrl) { brandLogo = document.createElement('img'); brandLogo.src = D.brand.logoUrl; brand.appendChild(brandLogo) }
