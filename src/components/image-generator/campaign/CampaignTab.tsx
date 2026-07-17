@@ -95,7 +95,7 @@ export function CampaignTab() {
   const [hookLoading, setHookLoading] = useState(false)
   const [hookDialogOpen, setHookDialogOpen] = useState(false)
   const [sceneStylesOpen, setSceneStylesOpen] = useState(false)
-  const [sceneStyles, setSceneStyles] = useState<Array<{ id: string; name: string; description: string; bestFor?: string; enabled: boolean }> | null>(null)
+  const [sceneStyles, setSceneStyles] = useState<Array<{ id: string; name: string; description: string; bestFor?: string; enabled: boolean; previewUrl?: string }> | null>(null)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
@@ -813,6 +813,7 @@ export function CampaignTab() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="px-4 py-2.5 font-semibold">Preview</th>
                     <th className="px-4 py-2.5 font-semibold">Style</th>
                     <th className="px-4 py-2.5 font-semibold">Description</th>
                     <th className="px-4 py-2.5 font-semibold">Best for</th>
@@ -822,6 +823,15 @@ export function CampaignTab() {
                 <tbody>
                   {sceneStyles.map((st) => (
                     <tr key={st.id} className={cn('border-b last:border-0', !st.enabled && 'opacity-55')}>
+                      <td className="px-4 py-3 align-top">
+                        {st.previewUrl ? (
+                          <a href={st.previewUrl} target="_blank" rel="noreferrer" title="Open full preview">
+                            <img src={st.previewUrl} alt={st.name} className="h-32 w-[72px] rounded-md border object-cover transition-transform hover:scale-105" />
+                          </a>
+                        ) : (
+                          <div className="flex h-32 w-[72px] items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">—</div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 align-top">
                         <div className="font-semibold">{st.name}</div>
                         <div className="mt-0.5 font-mono text-[11px] uppercase text-muted-foreground">style {st.id}</div>
