@@ -23,6 +23,7 @@ import {
   Wand2,
   User,
   ScrollText,
+  Server,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -43,6 +44,7 @@ const trackingNavItems = [
 const aiNavItems = [
   { href: '/assistant', label: 'AI Assistant', icon: Sparkles, moduleKey: 'accessAiAssistant' as const },
   { href: '/content-studio', label: 'Content Studio', icon: Wand2, moduleKey: 'accessImageGenerator' as const },
+  { href: '/server', label: 'Server', icon: Server, ownerOnly: true as const },
 ]
 
 interface SidebarProps {
@@ -72,8 +74,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   )
 
   const filteredAiNavItems = useMemo(() =>
-    aiNavItems.filter((item) => !item.moduleKey || canModule(item.moduleKey)),
-    [canModule]
+    aiNavItems.filter((item) => {
+      if ('ownerOnly' in item && item.ownerOnly) return isAppOwner
+      if ('moduleKey' in item && item.moduleKey && !canModule(item.moduleKey)) return false
+      return true
+    }),
+    [canModule, isAppOwner]
   )
 
   const hasFullSettings = canModule('accessSettings')

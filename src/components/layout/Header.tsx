@@ -5,7 +5,6 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useProject } from '@/hooks/useProjects'
-import { useSettings } from '@/hooks/useSettings'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -18,7 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Avatar, AvatarFallback, CachedAvatarImage } from '@/components/ui/avatar'
-import { Moon, Sun, LogOut, User, Bell, BellOff, ChevronRight, Info, Edit, Trash2, FolderKanban, Building2, Link2, Server } from 'lucide-react'
+import { Moon, Sun, LogOut, User, Bell, BellOff, ChevronRight, Info, Edit, Trash2, FolderKanban, Building2, Link2 } from 'lucide-react'
 import { useThemeContext } from '@/components/layout/ThemeProvider'
 import { getNotificationPermission, requestNotificationPermission } from '@/lib/notifications'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
@@ -239,12 +238,9 @@ function ProjectContextBlock({ projectId }: { projectId: string }) {
 export function Header() {
   const { user, signOut } = useAuth()
   const router = useRouter()
-  const pathname = usePathname()
-  const { settings } = useSettings()
   const { resolvedTheme, setTheme } = useThemeContext()
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | 'unsupported'>('default')
   const projectId = useProjectIdFromPath()
-  const isAppOwner = !!(user && settings?.appOwnerUid && user.uid === settings.appOwnerUid)
 
   useEffect(() => {
     setNotifPermission(getNotificationPermission())
@@ -288,20 +284,6 @@ export function Header() {
       <div className="flex items-center gap-1.5 shrink-0">
         {/* Page-injected actions (HeaderActions portal) */}
         <div id="header-actions-slot" className="mr-3 flex items-center gap-2 empty:mr-0" />
-        {/* Server ops — owner only */}
-        {isAppOwner && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/server')}
-            className={cn('h-9 gap-1.5 px-2.5', (pathname ?? '').startsWith('/server') && 'bg-muted text-foreground')}
-            title="Server"
-            aria-label="Server"
-          >
-            <Server className="h-[18px] w-[18px]" />
-            <span>Server</span>
-          </Button>
-        )}
         {/* Notification Bell */}
         <Button
           variant="ghost"

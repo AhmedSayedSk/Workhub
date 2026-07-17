@@ -137,7 +137,7 @@ export function CampaignCreateDialog({
       const res = await authFetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'campaign_brief', data: { context: buildContext(project) } }),
+        body: JSON.stringify({ action: 'campaign_brief', data: { context: buildContext(project), language: form.language } }),
       })
       const json = await res.json()
       if (!json.success || !json.data?.brief) throw new Error(json.error || 'Could not suggest a brief')

@@ -103,8 +103,9 @@ export async function POST(request: NextRequest) {
       }
 
       case 'campaign_brief': {
-        const { context } = data
-        const brief = await generateCampaignBrief({ context }, model)
+        const { context, language } = data
+        const lang = language === 'ar' || language === 'en' ? language : undefined
+        const brief = await generateCampaignBrief({ context, language: lang }, model)
         return NextResponse.json({ success: true, data: { brief } })
       }
 

@@ -1079,10 +1079,22 @@ export interface GeneratedCampaignBrief {
 // Read a project's details and propose a sensible campaign brief to pre-fill the
 // Campaign wizard. The user can edit anything before generating the plan.
 export async function generateCampaignBrief(
-  params: { context: string },
+  params: { context: string; language?: 'en' | 'ar' },
   model?: GeminiModel
 ): Promise<GeneratedCampaignBrief | null> {
+  // When the user has already chosen a campaign language, write the human-facing
+  // fields (name, goal, audience, tone) in THAT language; otherwise let the AI pick.
+  const forced = params.language === 'ar' || params.language === 'en' ? params.language : null
+  const langLine = forced === 'ar'
+    ? 'IMPORTANT: Write "name", "goal", "audience" and "tone" in ARABIC (natural, native marketing tone — not translated word-for-word), and set "language" to "ar".'
+    : forced === 'en'
+      ? 'Write "name", "goal", "audience" and "tone" in ENGLISH, and set "language" to "en".'
+      : ''
+  const langField = forced
+    ? `"${forced}" — the campaign language the user selected; keep it exactly`
+    : 'en or ar — pick the audience\'s primary language; use ar ONLY if the product clearly targets an Arabic-speaking market'
   const prompt = `You are a social-media strategist. Read the product/project details below and propose a sensible social-media campaign brief tailored to THIS product.
+${langLine}
 
 Project details (name, description, type, client, domains):
 """
@@ -1095,7 +1107,7 @@ Respond with ONLY a JSON object (no markdown fences):
   "goal": "<1-2 sentences: the concrete goal of this campaign for this specific product>",
   "audience": "<1 sentence: the specific target audience and where they are>",
   "tone": "<3-5 comma-separated adjectives that fit the brand voice>",
-  "language": "en or ar — pick the audience's primary language; use ar ONLY if the product clearly targets an Arabic-speaking market",
+  "language": ${JSON.stringify(langField)},
   "count": <integer 4-8: how many posts this campaign should have>,
   "cadenceDays": <integer 1-4: days between posts>
 }`
@@ -1114,7 +1126,7 @@ Respond with ONLY a JSON object (no markdown fences):
       goal: String(p.goal ?? '').slice(0, 500),
       audience: String(p.audience ?? '').slice(0, 300),
       tone: String(p.tone ?? '').slice(0, 120),
-      language: p.language === 'ar' ? 'ar' : 'en',
+      language: forced || (p.language === 'ar' ? 'ar' : 'en'),
       count: Math.max(1, Math.min(20, Math.round(Number(p.count) || 6))),
       cadenceDays: Math.max(1, Math.min(14, Math.round(Number(p.cadenceDays) || 2))),
     }
