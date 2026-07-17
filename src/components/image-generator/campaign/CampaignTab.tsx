@@ -397,8 +397,7 @@ export function CampaignTab() {
                           <Loader2 className="h-3.5 w-3.5 animate-spin" /> Writing hook ideas for this campaign…
                         </div>
                       )}
-                      {!hookLoading && hookOptions && (['en', 'ar'] as const)
-                        .sort((a) => (a === (cam.language === 'ar' ? 'ar' : 'en') ? -1 : 1))
+                      {!hookLoading && hookOptions && (cam.language === 'ar' ? (['ar', 'en'] as const) : (['en', 'ar'] as const))
                         .map((lang) => {
                           const group = hookOptions.map((o, i) => ({ o, i })).filter(({ o }) => (o.lang || 'en') === lang)
                           if (!group.length) return null
