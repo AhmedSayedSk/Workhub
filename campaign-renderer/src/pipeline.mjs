@@ -30,6 +30,33 @@ const CONCURRENCY = Math.max(1, Number(process.env.RENDER_CONCURRENCY) || os.cpu
 
 const framesFor = (durMs) => Math.max(1, Math.round((durMs / 1000) * FPS))
 
+// Content-aware showcase variant picker: each image scene gets a composition
+// that FITS its copy — short punchlines go big-type, number-led copy gets the
+// split panel with a stat chip, longer copy keeps the roomy card — with a
+// job-seeded rotation that never repeats the previous scene's layout.
+// a = full-height card + overlay · b = split panel + stat chip
+// c = magazine collage · d = kinetic full-bleed type
+function pickShowcaseVariant(scene, idx, seedStr, prev) {
+  const cap = (scene.caption || '').trim()
+  const body = `${cap} ${scene.sub || ''}`
+  const hasNum = /[\d٠-٩]/.test(body)
+  let pool
+  if (cap && cap.length <= 30 && !scene.sub) pool = ['d', 'c', 'b']
+  else if (hasNum) pool = ['b', 'c', 'a']
+  else if (scene.sub && cap.length > 45) pool = ['a', 'b', 'c']
+  else pool = ['b', 'c', 'd', 'a']
+  let h = 2166136261
+  const str = `${seedStr}#${idx}`
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) }
+  for (let k = 0; k < pool.length; k++) {
+    const v = pool[(Math.abs(h) + k) % pool.length]
+    if (v !== prev) return v
+  }
+  return pool[0]
+}
+
+const showcaseTemplate = (v) => (v === 'a' ? 'showcase.html' : `showcase-${v}.html`)
+
 // Runs task thunks with at most `limit` in flight; calls onEach(done,total) as
 // each finishes (for progress). Rejects if any task throws.
 async function runPool(tasks, limit, onEach) {
@@ -103,6 +130,7 @@ export async function renderJob(job, onProgress = () => {}) {
       const typeTotals = {}
       for (const sc of job.script) typeTotals[sc.type] = (typeTotals[sc.type] || 0) + 1
       const typeSeen = {}
+      let prevVariant = null
       job.script.forEach((scene, i) => {
         const baseMs = SCENE_DUR[scene.type] || 2800
         const seg = voiceSegs ? voiceSegs[i] : null
@@ -122,7 +150,15 @@ export async function renderJob(job, onProgress = () => {}) {
           // The final scene HOLDS (no exit) so the CTA lingers on screen.
           durMs, transition: isLast ? 'none' : transition,
         }
-        tasks.push(() => renderScene(path.join(CREATIVE_DIR, `${scene.type}.html`), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
+        // Showcases rotate through content-matched layout variants for a
+        // designed-edit feel; other scene types keep their single template.
+        let tplFile = `${scene.type}.html`
+        if (scene.type === 'showcase') {
+          const v = pickShowcaseVariant(scene, i, String(job.id || 'job'), prevVariant)
+          prevVariant = v
+          tplFile = showcaseTemplate(v)
+        }
+        tasks.push(() => renderScene(path.join(CREATIVE_DIR, tplFile), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
         segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
         timeline.push({ type: scene.type, startMs: Math.round((start / FPS) * 1000), durMs })
       })

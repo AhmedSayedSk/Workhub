@@ -58,7 +58,15 @@ window.__M = (() => {
     }
   }
 
-  window.render = (t) => { for (const a of anims) apply(a, t) }
+  // anime.js bridge: timelines/instances created with autoplay:false register
+  // here and are SEEKED (not played) each frame — fully deterministic.
+  const animeTls = []
+  function regAnime(tl) { if (tl && typeof tl.seek === 'function') animeTls.push(tl) }
+
+  window.render = (t) => {
+    for (const a of anims) apply(a, t)
+    for (const tl of animeTls) tl.seek(Math.max(0, t))
+  }
 
   // Splits an element's text into word spans and registers a staggered rise for
   // each — the classic kinetic-typography reveal. Works for RTL/Arabic too
@@ -176,5 +184,21 @@ window.__M = (() => {
     document.querySelectorAll('.chip').forEach((el) => { el.style.right = 'auto'; el.style.left = '90px' })
     if (document.fonts && document.fonts.load) { try { document.fonts.load("900 100px 'Cairo'"); document.fonts.load("500 100px 'Cairo'") } catch (e) {} }
   }
-  return { reg, easeOutCubic, easeOutBack, words, decorate, applyLang, sceneExit, applyPalette, stage }
+  function splitWords(el) {
+    const text = el.textContent
+    el.textContent = ''
+    const parts = text.split(/\s+/).filter(Boolean)
+    const spans = []
+    parts.forEach((w, i) => {
+      const sp = document.createElement('span')
+      sp.textContent = w
+      sp.style.display = 'inline-block'
+      sp.style.whiteSpace = 'pre'
+      el.appendChild(sp)
+      if (i < parts.length - 1) el.appendChild(document.createTextNode(' '))
+      spans.push(sp)
+    })
+    return spans
+  }
+  return { reg, easeOutCubic, easeOutBack, words, splitWords, decorate, applyLang, sceneExit, applyPalette, stage, regAnime }
 })()

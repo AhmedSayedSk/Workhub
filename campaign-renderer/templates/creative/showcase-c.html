@@ -1,0 +1,80 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
+  .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:5}
+  .brand img{width:52px;height:52px;border-radius:12px}
+  /* MAGAZINE COLLAGE: rotated photo card + offset accent frame + huge ghost word */
+  .ghost{position:absolute;left:-20px;top:220px;font-size:210px;font-weight:900;letter-spacing:-4px;line-height:.95;
+         color:transparent;-webkit-text-stroke:2px var(--c);opacity:.22;z-index:1;white-space:nowrap;text-transform:uppercase}
+  .frame{position:absolute;left:150px;right:60px;top:420px;height:1130px;border:10px solid var(--c);border-radius:40px;z-index:2}
+  .rtl .frame{left:60px;right:150px}
+  .card{position:absolute;left:70px;right:140px;top:340px;height:1130px;border-radius:40px;overflow:hidden;z-index:3;
+        box-shadow:0 70px 120px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07);background:var(--bg2,#0e1424);transform:rotate(-2.5deg)}
+  .rtl .card{left:140px;right:70px;transform:rotate(2.5deg)}
+  .card img{position:absolute;inset:-60px;width:calc(100% + 120px);height:calc(100% + 120px);object-fit:cover}
+  .chip{position:absolute;left:110px;right:110px;bottom:260px;z-index:4}
+  .chip .cap{display:inline-block;background:var(--c);color:var(--ctx,#0b0f18);font-weight:800;font-size:46px;line-height:1.28;
+             padding:22px 34px;border-radius:22px;box-shadow:0 30px 70px rgba(0,0,0,.5);letter-spacing:-.4px;max-width:100%}
+  .sub{position:absolute;left:118px;right:118px;bottom:150px;font-size:31px;font-weight:500;line-height:1.5;color:var(--mut,#b9c2d0);z-index:4;
+       text-shadow:0 2px 16px rgba(0,0,0,.5)}
+</style></head>
+<body><div id="s">
+  <div class="brand" id="brand"></div>
+  <div class="ghost" id="ghost"></div>
+  <div class="frame" id="frame"></div>
+  <div class="card" id="card"><img id="img" /></div>
+  <div class="chip" id="chip"><span class="cap" id="cap"></span></div>
+  <div class="sub" id="sub"></div>
+</div>
+<script src="vendor/anime.min.js"></script>
+<script src="_motion.js"></script>
+<script>
+  const D = window.__DATA || {}
+  if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
+  const M = window.__M
+  const s = document.getElementById('s')
+  const P = M.applyPalette(D)
+  M.stage(s, P)
+
+  const brand = document.getElementById('brand')
+  if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
+  brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
+  if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
+
+  const rtl = s.getAttribute('dir') === 'rtl'
+  const imgEl = document.getElementById('img')
+  const cap = document.getElementById('cap')
+  cap.textContent = D.caption || ''
+  const subEl = document.getElementById('sub')
+  subEl.textContent = D.sub || ''
+  if (!D.sub) subEl.style.display = 'none'
+  // Ghost word: the longest word of the caption, oversized and outlined.
+  const ghost = document.getElementById('ghost')
+  const gw = (D.caption || D.brand?.name || '').split(/\s+/).sort((a, b) => b.length - a.length)[0] || ''
+  ghost.textContent = gw
+  if (!gw) ghost.style.display = 'none'
+
+  M.reg(imgEl, 0, 3600, 'kenburns', { from: 1.04, to: 1.14, dy: -16 })
+  M.reg(brand, 0, 400, 'fade')
+
+  const rot = rtl ? [7, 2.5] : [-7, -2.5]
+  const tl = anime.timeline({ autoplay: false, easing: 'easeOutExpo' })
+  tl.add({ targets: document.getElementById('ghost'), translateX: rtl ? [120, 0] : [-120, 0], opacity: [0, 0.22], duration: 800 }, 60)
+  tl.add({ targets: document.getElementById('card'), rotate: rot, scale: [0.9, 1], opacity: [0, 1], duration: 820, easing: 'easeOutBack' }, 140)
+  tl.add({ targets: document.getElementById('frame'), translateX: rtl ? [-60, 0] : [60, 0], translateY: [60, 0], opacity: [0, 1], duration: 700 }, 380)
+  tl.add({ targets: document.getElementById('cap'), scale: [0, 1], rotate: rtl ? [4, 0] : [-4, 0], opacity: [0, 1], duration: 640, easing: 'easeOutElastic(1, .65)' }, 820)
+  if (D.sub) tl.add({ targets: subEl, translateY: [26, 0], opacity: [0, 1], duration: 500 }, 1320)
+  M.regAnime(tl)
+
+  M.sceneExit(D, [document.getElementById('card'), document.getElementById('frame'), document.getElementById('chip'), subEl, ghost])
+
+  window.__ready = new Promise((res) => {
+    const done = () => res()
+    const fonts = document.fonts ? document.fonts.ready : Promise.resolve()
+    if (D.imageUrl) { imgEl.onload = imgEl.onerror = () => fonts.then(done); imgEl.src = D.imageUrl }
+    else { imgEl.style.display = 'none'; fonts.then(done) }
+  })
+  window.render(0)
+</script></body></html>

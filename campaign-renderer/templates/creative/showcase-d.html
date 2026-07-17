@@ -1,0 +1,99 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
+  .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.95;z-index:4}
+  .brand img{width:52px;height:52px;border-radius:12px}
+  /* KINETIC FULL-BLEED: near-full image + huge centered type over deep scrim */
+  .card{position:absolute;left:64px;right:64px;top:170px;bottom:80px;border-radius:40px;overflow:hidden;z-index:2;
+        box-shadow:0 60px 120px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.06);background:var(--bg2,#0e1424)}
+  .card img{position:absolute;inset:-70px;width:calc(100% + 140px);height:calc(100% + 140px);object-fit:cover}
+  .veil{position:absolute;inset:0;z-index:1}
+  .copy{position:absolute;left:70px;right:70px;top:50%;transform:translateY(-50%);text-align:center;z-index:2}
+  .caption{font-size:88px;font-weight:900;line-height:1.16;letter-spacing:-1.5px;color:#fff;text-shadow:0 4px 34px rgba(0,0,0,.55)}
+  .caption .hl{position:relative;display:inline-block;padding:0 18px;z-index:1}
+  .caption .hl i{position:absolute;inset:6px -4px 2px -4px;background:var(--c);border-radius:14px;z-index:-1;transform:scaleX(0);transform-origin:left center}
+  .rtl .caption .hl i{transform-origin:right center}
+  .caption .hl b{position:relative;color:var(--ctx,#0b0f18);font-weight:900}
+  .sub{margin-top:34px;font-size:34px;font-weight:500;line-height:1.5;color:rgba(255,255,255,.85);text-shadow:0 2px 20px rgba(0,0,0,.5)}
+  .tick{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);width:120px;height:10px;border-radius:6px;background:var(--c);z-index:2;transform-origin:center}
+</style></head>
+<body><div id="s">
+  <div class="brand" id="brand"></div>
+  <div class="card" id="card">
+    <img id="img" />
+    <div class="veil" id="veil"></div>
+    <div class="copy" id="copy">
+      <div class="caption" id="caption"></div>
+      <div class="sub" id="sub"></div>
+    </div>
+    <div class="tick" id="tick"></div>
+  </div>
+</div>
+<script src="vendor/anime.min.js"></script>
+<script src="_motion.js"></script>
+<script>
+  const D = window.__DATA || {}
+  if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
+  const M = window.__M
+  const s = document.getElementById('s')
+  const P = M.applyPalette(D)
+  M.stage(s, P)
+
+  const brand = document.getElementById('brand')
+  if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
+  brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
+  if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
+
+  const imgEl = document.getElementById('img')
+  document.getElementById('veil').style.background =
+    `radial-gradient(120% 90% at 50% 50%, transparent 0%, ${P.bg2}55 55%, ${P.bg2}cc 100%), linear-gradient(180deg, ${P.bg2}44, transparent 30%, transparent 62%, ${P.bg2}bb)`
+
+  // Kinetic headline: words cascade in; the LONGEST word gets an accent
+  // highlight box that draws behind it.
+  const captionEl = document.getElementById('caption')
+  const text = (D.caption || '').trim()
+  const wordsArr = text.split(/\s+/).filter(Boolean)
+  const longest = wordsArr.slice().sort((a, b) => b.length - a.length)[0]
+  const spans = []
+  let hlBar = null
+  wordsArr.forEach((w, i) => {
+    let sp
+    if (w === longest && !hlBar) {
+      sp = document.createElement('span'); sp.className = 'hl'
+      const bar = document.createElement('i'); const tx = document.createElement('b')
+      tx.textContent = w; sp.appendChild(bar); sp.appendChild(tx); hlBar = bar
+    } else {
+      sp = document.createElement('span'); sp.textContent = w; sp.style.display = 'inline-block'
+    }
+    sp.style.whiteSpace = 'pre'
+    captionEl.appendChild(sp)
+    if (i < wordsArr.length - 1) captionEl.appendChild(document.createTextNode(' '))
+    spans.push(sp)
+  })
+  const subEl = document.getElementById('sub')
+  subEl.textContent = D.sub || ''
+  if (!D.sub) subEl.style.display = 'none'
+
+  M.reg(imgEl, 0, 3800, 'kenburns', { from: 1.06, to: 1.2, dy: -22 })
+  M.reg(document.getElementById('card'), 40, 600, 'clipup', { r: 40 })
+  M.reg(brand, 0, 400, 'fade')
+
+  const tl = anime.timeline({ autoplay: false, easing: 'easeOutExpo' })
+  tl.add({ targets: spans, translateY: [70, 0], opacity: [0, 1], rotate: [2, 0], duration: 640, delay: anime.stagger(95) }, 480)
+  if (hlBar) tl.add({ targets: hlBar, scaleX: [0, 1], duration: 460, easing: 'easeOutCubic' }, 1150)
+  if (D.sub) tl.add({ targets: subEl, translateY: [30, 0], opacity: [0, 1], duration: 520 }, 1400)
+  tl.add({ targets: document.getElementById('tick'), scaleX: [0, 1], opacity: [0, 1], duration: 420 }, 900)
+  M.regAnime(tl)
+
+  M.sceneExit(D, [document.getElementById('card')])
+
+  window.__ready = new Promise((res) => {
+    const done = () => res()
+    const fonts = document.fonts ? document.fonts.ready : Promise.resolve()
+    if (D.imageUrl) { imgEl.onload = imgEl.onerror = () => fonts.then(done); imgEl.src = D.imageUrl }
+    else { imgEl.style.display = 'none'; fonts.then(done) }
+  })
+  window.render(0)
+</script></body></html>
