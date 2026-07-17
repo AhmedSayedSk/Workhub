@@ -122,6 +122,22 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     script = [...(hook ? [hook] : []), ...mid, ...(cta ? [cta] : [])]
   }
 
+  // User-chosen opening hook (from /hook-options): overrides the script's hook
+  // scene (creative) and the basic hook headline. 'auto'/absent = AI's own hook.
+  const chosenHook = body.hook && typeof body.hook === 'object' && typeof body.hook.headline === 'string' && body.hook.headline.trim()
+    ? {
+        headline: String(body.hook.headline).slice(0, 120),
+        ...(body.hook.underline ? { underline: String(body.hook.underline).slice(0, 60) } : {}),
+        ...(body.hook.kicker ? { kicker: String(body.hook.kicker).slice(0, 40) } : {}),
+      }
+    : null
+  if (chosenHook && script) {
+    const i = script.findIndex((s) => s.type === 'hook')
+    const hookScene = { type: 'hook' as const, ...chosenHook }
+    if (i >= 0) script[i] = hookScene
+    else script.unshift(hookScene)
+  }
+
   // Auto speed: the AI pace director picks the rate from the campaign's energy,
   // language and the ACTUAL narration copy volume. Heuristic fallback inside.
   if (voiceover && voiceover.rateAuto) {
@@ -166,7 +182,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     ...(voiceover ? { voiceover } : {}),
     ...(script ? { script } : {}),
     hook: {
-      headline: brandName,
+      headline: chosenHook ? chosenHook.headline.replace(/\n/g, ' ') : brandName,
       subtext: c.brief?.goal ? String(c.brief.goal).slice(0, 90) : 'See what we made',
       bgPrompt: `Premium cinematic on-brand hero background for "${brandName}", ${c.artDirection || c.style || 'sleek modern tech'}, deep rich colors, volumetric light, negative space for a headline, ${aspect} composition, high detail.`,
     },

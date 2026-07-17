@@ -926,6 +926,62 @@ Keep it tasteful and minimal: the background gradient should be subtle (two clos
   }
 }
 
+export interface HookOption {
+  style: 'question' | 'bold' | 'pain' | 'stat' | 'curiosity'
+  headline: string
+  underline?: string
+  kicker?: string
+}
+
+// Five hook options — one per proven ad-hook archetype — written from the
+// campaign's own copy in its language. Deterministic fallback; never throws.
+export async function generateHookOptions(
+  params: {
+    brandName: string; goal?: string; audience?: string; tone?: string
+    language: 'en' | 'ar'; postsCopy: string
+  },
+  model?: GeminiModel
+): Promise<HookOption[]> {
+  const langLine = params.language === 'ar'
+    ? 'Write ALL headline/underline/kicker text in ARABIC (natural, punchy marketing Arabic).'
+    : 'Write everything in English.'
+  const prompt = `You write scroll-stopping OPENING HOOKS for short vertical brand ad videos ("${params.brandName}").
+Goal: ${params.goal || 'awareness'} · Audience: ${params.audience || 'ideal customers'} · Tone: ${params.tone || 'confident, modern'}
+${langLine}
+Source campaign copy:
+"""${params.postsCopy.slice(0, 3000)}"""
+Produce EXACTLY 5 hooks, one per archetype, each scroll-stopping in the first second. Respond with ONLY a JSON array:
+[{"style":"question","headline":"<a provocative question the audience instantly says YES to — max 2 short lines, use \\n>","underline":"<1-3 word phrase copied exactly from the headline>","kicker":"<1-2 word eyebrow>"},
+ {"style":"bold","headline":"<an audacious claim/promise>","underline":"...","kicker":"..."},
+ {"style":"pain","headline":"<bluntly call out the audience's pain>","underline":"...","kicker":"..."},
+ {"style":"stat","headline":"<number-led hook using a truthful/plausible figure from the copy>","underline":"...","kicker":"..."},
+ {"style":"curiosity","headline":"<tease a secret/shortcut they want to know>","underline":"...","kicker":"..."}]`
+  const fallback: HookOption[] = [
+    { style: 'question', headline: params.language === 'ar' ? `هل أنت مستعد\nللمستوى التالي؟` : `Ready for\nthe next level?`, kicker: params.brandName.slice(0, 30) },
+    { style: 'bold', headline: params.brandName, underline: params.brandName },
+    { style: 'pain', headline: params.language === 'ar' ? `توقف عن إضاعة الوقت` : `Stop wasting time`, kicker: params.brandName.slice(0, 30) },
+  ]
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    let text = result.response.text().trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const s = text.indexOf('['), e = text.lastIndexOf(']')
+    if (s === -1 || e === -1) return fallback
+    const raw = JSON.parse(text.slice(s, e + 1)) as any[]
+    const str = (v: any, n: number) => String(v ?? '').slice(0, n)
+    const out: HookOption[] = []
+    for (const x of raw) {
+      if (!x || !x.headline || !['question', 'bold', 'pain', 'stat', 'curiosity'].includes(x.style)) continue
+      const underline = str(x.underline, 60), kicker = str(x.kicker, 40)
+      out.push({ style: x.style, headline: str(x.headline, 120), ...(underline ? { underline } : {}), ...(kicker ? { kicker } : {}) })
+    }
+    return out.length >= 3 ? out.slice(0, 5) : fallback
+  } catch (error) {
+    console.error('Error generating hook options:', error)
+    return fallback
+  }
+}
+
 export const VOICEOVER_RATES = [0.9, 1, 1.1, 1.25, 1.5] as const
 
 // Deterministic pace heuristic — the fallback when the AI director is

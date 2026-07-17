@@ -87,6 +87,10 @@ export function CampaignTab() {
   const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
   const [videoSfx, setVideoSfx] = useState(true)
+  const [hookMode, setHookMode] = useState<'auto' | 'choose'>('auto')
+  const [hookOptions, setHookOptions] = useState<Array<{ style: string; headline: string; underline?: string; kicker?: string }> | null>(null)
+  const [hookPick, setHookPick] = useState(0)
+  const [hookLoading, setHookLoading] = useState(false)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
@@ -134,6 +138,23 @@ export function CampaignTab() {
       ? 'Queued…'
       : VIDEO_STAGE[videoJob?.stage || ''] || 'Rendering…'
   const videoReady = !videoStarting && videoJob?.status === 'done' && !!videoJob?.videoUrl
+  const loadHookOptions = async (force = false) => {
+    const id = c.activeCampaign?.id
+    if (!id || hookLoading) return
+    setHookLoading(true)
+    try {
+      const res = await authFetch(`/api/campaigns/${id}/hook-options`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ force }),
+      })
+      const data = await res.json()
+      if (res.ok && Array.isArray(data.options)) { setHookOptions(data.options); setHookPick(0) }
+      else toast.error(data.error || 'Could not load hook ideas')
+    } finally {
+      setHookLoading(false)
+    }
+  }
   const generateVideo = async () => {
     const id = c.activeCampaign?.id
     if (!id) return
@@ -148,6 +169,7 @@ export function CampaignTab() {
           mode: videoMode,
           transition: videoTransition,
           sfx: { enabled: videoSfx },
+          ...(hookMode === 'choose' && hookOptions?.[hookPick] ? { hook: hookOptions[hookPick] } : {}),
           voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
         }),
       })
@@ -355,8 +377,56 @@ export function CampaignTab() {
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
             {(() => {
+              const HOOK_STYLE_LABEL: Record<string, string> = { question: 'Question', bold: 'Bold claim', pain: 'Pain point', stat: 'Stat-led', curiosity: 'Curiosity' }
               const settings = (
                 <div className="space-y-5">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-muted-foreground" title="The scroll-stopping first scene — let AI write it, or pick from suggested hooks">Opening hook</span>
+                      <Seg
+                        value={hookMode}
+                        onChange={(m) => { setHookMode(m); if (m === 'choose' && !hookOptions) loadHookOptions() }}
+                        options={[{ value: 'auto' as const, label: 'Auto' }, { value: 'choose' as const, label: 'Choose' }]}
+                        disabled={videoRendering}
+                      />
+                    </div>
+                    {hookMode === 'choose' && (
+                      <div className="space-y-2">
+                        {hookLoading && (
+                          <div className="flex items-center gap-2 rounded-lg border p-3 text-xs text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Writing hook ideas for this campaign…
+                          </div>
+                        )}
+                        {!hookLoading && hookOptions?.map((o, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setHookPick(i)}
+                            disabled={videoRendering}
+                            className={cn(
+                              'w-full rounded-lg border p-3 text-left transition-colors',
+                              hookPick === i ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                            )}
+                          >
+                            <span className="mb-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                              {HOOK_STYLE_LABEL[o.style] || o.style}
+                            </span>
+                            <span className="block text-sm font-medium leading-snug">{o.headline.replace(/\n/g, ' ')}</span>
+                          </button>
+                        ))}
+                        {!hookLoading && hookOptions && (
+                          <button
+                            type="button"
+                            onClick={() => loadHookOptions(true)}
+                            disabled={videoRendering}
+                            className="text-xs font-medium text-primary underline"
+                          >
+                            Suggest different hooks
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Style</span>
                     <Seg
