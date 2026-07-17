@@ -44,15 +44,25 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const VO_RATES = [0.9, 1, 1.1, 1.25, 1.5]
   // rate 0 = "auto" marker — resolved by the AI pace director once the final
   // narration copy is known (after script assembly, below).
+  // Named, selectable voices — public ids only (engine voices are white-labeled
+  // behind the TTS API). Each id implies a gender; 'mixed' alternates M/F.
+  const VOICE_GENDER: Record<string, 'male' | 'female'> = { aria: 'female', nova: 'female', sami: 'male', omar: 'male' }
+  const voLang = (vo && (vo.language === 'ar' || vo.language === 'en') ? vo.language : campaignLang) as 'en' | 'ar'
+  const voVoice = vo && typeof vo.voice === 'string' && VOICE_GENDER[vo.voice] ? vo.voice as string : undefined
+  const voStyle = voLang === 'ar'
+    ? `Professional Arabic advertising voiceover. ${market.voiceNote} Clear Modern Standard Arabic (فصحى), premium and inviting; articulate, with lively but controlled pacing and clear emphasis on key words. Not stiff, not a monotone newsreader.`
+    : `Warm, upbeat commercial voiceover for a brand advertisement. ${market.voiceNote} Friendly, confident and inviting with natural dynamic pacing.`
   const voiceover = vo && vo.enabled
     ? {
         enabled: true,
-        language: (vo.language === 'ar' || vo.language === 'en' ? vo.language : campaignLang) as 'en' | 'ar',
-        gender: (['male', 'female', 'mixed'].includes(vo.gender) ? vo.gender : 'female') as 'male' | 'female' | 'mixed',
+        language: voLang,
+        // A named voice fixes the gender; otherwise fall back to the gender field.
+        gender: (voVoice ? VOICE_GENDER[voVoice] : (['male', 'female', 'mixed'].includes(vo.gender) ? vo.gender : 'female')) as 'male' | 'female' | 'mixed',
+        ...(voVoice ? { voice: voVoice } : {}),
         model: (vo.model === 'premium' ? 'premium' : 'standard') as 'standard' | 'premium',
         rate: VO_RATES.includes(Number(vo.rate)) ? Number(vo.rate) : 0,
         rateAuto: !VO_RATES.includes(Number(vo.rate)),
-        style: `Warm, upbeat commercial voiceover for a brand advertisement. ${market.voiceNote} Friendly, confident and inviting with natural dynamic pacing.`,
+        style: voStyle,
       }
     : null
 

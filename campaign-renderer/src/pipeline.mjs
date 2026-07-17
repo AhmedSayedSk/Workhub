@@ -62,6 +62,9 @@ function pickShowcaseVariant(scene, idx, seedStr, prev, allowed) {
 
 const showcaseTemplate = (v) => (v === 'a' ? 'showcase.html' : `showcase-${v}.html`)
 
+// Mixed casting → named voice per gender (white-labeled ids).
+const MIXED_VOICE = { female: 'nova', male: 'omar' }
+
 // Mixed-voice casting: assigns a narrator per scene by its role — warm female
 // opens (hook) and closes (cta), scenes alternate for contrast, stats get the
 // authoritative male read. Deterministic.
@@ -139,8 +142,8 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         await report(40, 'voiceover')
         const mixed = vo.gender === 'mixed'
         const cast = mixed ? castVoices(job.script.map((s) => s.type)) : null
-        const lines = job.script.map((s, li) => ({ text: creativeSceneNarration(s), ...(mixed ? { gender: cast[li] } : {}) }))
-        voiceSegs = await synthLines(lines, { language: vo.language, gender: mixed ? 'female' : vo.gender, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
+        const lines = job.script.map((s, li) => ({ text: creativeSceneNarration(s), ...(mixed ? { gender: cast[li], voice: MIXED_VOICE[cast[li]] } : {}) }))
+        voiceSegs = await synthLines(lines, { language: vo.language, gender: mixed ? 'female' : vo.gender, voice: mixed ? undefined : vo.voice, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
           async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
       }
 
@@ -225,10 +228,10 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
       const mixedB = vo.gender === 'mixed'
       const castB = mixedB ? castVoices(['basicHook', ...(job.scenes || []).map(() => 'basicScene')]) : null
       const lines = [
-        { text: [hookData.headline, hookData.subtext].filter(Boolean).join('. '), ...(mixedB ? { gender: castB[0] } : {}) },
-        ...(job.scenes || []).map((s, li) => ({ text: s.caption || s.headline || '', ...(mixedB ? { gender: castB[li + 1] } : {}) })),
+        { text: [hookData.headline, hookData.subtext].filter(Boolean).join('. '), ...(mixedB ? { gender: castB[0], voice: MIXED_VOICE[castB[0]] } : {}) },
+        ...(job.scenes || []).map((s, li) => ({ text: s.caption || s.headline || '', ...(mixedB ? { gender: castB[li + 1], voice: MIXED_VOICE[castB[li + 1]] } : {}) })),
       ]
-      voiceSegs = await synthLines(lines, { language: vo.language, gender: mixedB ? 'female' : vo.gender, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
+      voiceSegs = await synthLines(lines, { language: vo.language, gender: mixedB ? 'female' : vo.gender, voice: mixedB ? undefined : vo.voice, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
         async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
     }
 

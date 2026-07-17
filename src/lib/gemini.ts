@@ -860,7 +860,7 @@ export async function generateCampaignVideoScript(
   model?: GeminiModel
 ): Promise<CreativeScene[]> {
   const langLine = params.language === 'ar'
-    ? 'Write all "headline", "underline", "kicker", "title", "sub", "label", "text" in ARABIC (natural marketing tone).'
+    ? 'Write all "headline", "underline", "kicker", "title", "sub", "label", "text" in ARABIC, following the target market\'s dialect guidance above (default to clear Modern Standard Arabic / فصحى — natural, premium marketing tone; avoid heavy colloquial slang unless the market note asks for it).'
     : 'Write everything in English.'
   const copy = params.posts.map((p) => [p.headline, p.body, p.caption].filter(Boolean).join(' — ')).filter(Boolean).slice(0, 8).join('\n')
   const prompt = `You are a senior motion-graphics copywriter scripting a short vertical promo VIDEO for the brand "${params.brandName}".

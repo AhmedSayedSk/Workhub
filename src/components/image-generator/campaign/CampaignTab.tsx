@@ -27,6 +27,17 @@ const ASPECT_LABEL: Record<string, string> = { portrait: 'Portrait 9:16', landsc
 const SCENE_BADGE: Record<string, string> = { hook: 'Hook', beat: 'Beat', stat: 'Stat', showcase: 'Image', cta: 'CTA' }
 const VO_LANG_LABEL: Record<string, string> = { en: 'English', ar: 'العربية' }
 
+// Selectable narration voices (white-labeled). Each id maps to a hand-picked
+// engine voice server-side; two female, two male. 'mixed' alternates M/F.
+const CAMPAIGN_VOICES: Array<{ id: 'nova' | 'aria' | 'sami' | 'omar'; label: string; gender: 'F' | 'M'; tone: string }> = [
+  { id: 'nova', label: 'Nova', gender: 'F', tone: 'Lively' },
+  { id: 'aria', label: 'Aria', gender: 'F', tone: 'Conversational' },
+  { id: 'sami', label: 'Sami', gender: 'M', tone: 'Friendly' },
+  { id: 'omar', label: 'Omar', gender: 'M', tone: 'Confident' },
+]
+type VoiceChoice = 'nova' | 'aria' | 'sami' | 'omar' | 'mixed'
+const VOICE_GENDER: Record<string, 'female' | 'male'> = { nova: 'female', aria: 'female', sami: 'male', omar: 'male' }
+
 function creativeSceneText(s: CreativeScene): string {
   switch (s.type) {
     case 'hook': return (s.headline || '').replace(/\n/g, ' ')
@@ -83,7 +94,7 @@ export function CampaignTab() {
   const [videoMode, setVideoMode] = useState<'basic' | 'creative'>('creative')
   const [voiceover, setVoiceover] = useState(false)
   const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
-  const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male' | 'mixed'>('female')
+  const [voiceoverVoice, setVoiceoverVoice] = useState<VoiceChoice>('nova')
   const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('premium')
   const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
@@ -205,7 +216,7 @@ export function CampaignTab() {
           sfx: { enabled: videoSfx },
           market: videoMarket,
           ...(hookMode === 'choose' && hookOptions?.[hookPick] ? { hook: hookOptions[hookPick] } : {}),
-          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
+          voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverVoice === 'mixed' ? 'mixed' : VOICE_GENDER[voiceoverVoice], ...(voiceoverVoice !== 'mixed' ? { voice: voiceoverVoice } : {}), model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
         }),
       })
       const data = await res.json()
@@ -514,14 +525,36 @@ export function CampaignTab() {
                           disabled={videoRendering}
                         />
                       </div>
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-2">
                         <span className="text-sm text-muted-foreground">Voice</span>
-                        <Seg
-                          value={voiceoverGender}
-                          onChange={setVoiceoverGender}
-                          options={[{ value: 'female' as const, label: 'Female' }, { value: 'male' as const, label: 'Male' }, { value: 'mixed' as const, label: 'Mixed' }]}
+                        <div className="grid grid-cols-2 gap-2">
+                          {CAMPAIGN_VOICES.map((v) => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              disabled={videoRendering}
+                              onClick={() => setVoiceoverVoice(v.id)}
+                              className={cn(
+                                'flex items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors disabled:opacity-50',
+                                voiceoverVoice === v.id ? 'border-primary bg-background shadow-sm' : 'border-transparent bg-muted/40 hover:bg-background'
+                              )}
+                            >
+                              <span className="text-sm font-medium">{v.label}</span>
+                              <span className="text-[11px] text-muted-foreground">{v.gender} · {v.tone}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
                           disabled={videoRendering}
-                        />
+                          onClick={() => setVoiceoverVoice('mixed')}
+                          className={cn(
+                            'w-full rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50',
+                            voiceoverVoice === 'mixed' ? 'border-primary bg-background shadow-sm' : 'border-transparent bg-muted/40 text-muted-foreground hover:bg-background'
+                          )}
+                        >
+                          Mixed <span className="font-normal text-muted-foreground">— alternate male &amp; female per scene</span>
+                        </button>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm text-muted-foreground">Quality</span>

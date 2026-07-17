@@ -31,8 +31,8 @@ export const MARKETS: Market[] = [
   },
   {
     code: 'eg', label: 'Egypt', labelAr: 'مصر', lang: 'ar',
-    cultureNote: 'Egyptian audience: warm Egyptian colloquial Arabic (عامية مصرية) is welcome and effective; friendly humor works; respect local values and family-oriented framing.',
-    voiceNote: 'Egyptian Arabic delivery (colloquial, warm and friendly — the way Egyptian ads sound).',
+    cultureNote: 'Egyptian audience: use clear, warm Modern Standard Arabic (فصحى) with a confident, premium marketing tone; respect local values and family-oriented framing. Avoid heavy colloquial slang.',
+    voiceNote: 'Modern Standard Arabic delivery with a natural Egyptian accent — clear, warm, premium and confident.',
   },
   {
     code: 'sa', label: 'Saudi Arabia', labelAr: 'السعودية', lang: 'ar',

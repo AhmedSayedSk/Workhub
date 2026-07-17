@@ -41,7 +41,7 @@ async function pollJob(id, { intervalMs = 1200, timeoutMs = 120000 } = {}) {
 // { path, durationSec } or null on ANY failure (missing config, empty text,
 // network/provider error) — callers treat null as "this scene has no narration"
 // and fall back to silence, so a voiceover hiccup never fails the render.
-export async function synthLine(text, { language = 'en', gender = 'female', model, rate, style } = {}, outPath) {
+export async function synthLine(text, { language = 'en', gender = 'female', voice, model, rate, style } = {}, outPath) {
   const clean = (text || '').replace(/\s+/g, ' ').trim()
   if (!BASE || !KEY || !clean) return null
   try {
@@ -50,8 +50,10 @@ export async function synthLine(text, { language = 'en', gender = 'female', mode
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': KEY },
       // No `style` sent → the service applies its ad-friendly default delivery.
+      // A named `voice` (aria/nova/sami/omar) overrides the gender default.
       body: JSON.stringify({
         text: clean.slice(0, 800), language, gender, format: 'wav',
+        ...(voice ? { voice } : {}),
         ...(model ? { model } : {}),
         ...(style ? { style: String(style).slice(0, 480) } : {}),
         ...(Number.isFinite(speed) && speed > 0 && speed !== 1 ? { rate: speed } : {}),
@@ -93,8 +95,10 @@ export async function synthLines(items, voice, scratchDir, concurrency = 3, onEa
       const text = items[i] && items[i].text
       if (text) {
         const p = path.join(scratchDir, `voice-${String(i).padStart(3, '0')}.wav`)
-        // Per-line gender override (mixed-voice casting).
-        const lineVoice = items[i].gender ? { ...voice, gender: items[i].gender } : voice
+        // Per-line override (mixed-voice casting): gender + matching named voice.
+        const lineVoice = (items[i].gender || items[i].voice)
+          ? { ...voice, ...(items[i].gender ? { gender: items[i].gender } : {}), ...(items[i].voice ? { voice: items[i].voice } : {}) }
+          : voice
         const r = await synthLine(text, lineVoice, p)
         if (r) out[i] = { audioPath: r.path, durationSec: r.durationSec }
       }
