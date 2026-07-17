@@ -372,76 +372,79 @@ export function CampaignTab() {
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : 'max-w-lg')}>
+          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : 'max-w-3xl')}>
             <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
             {(() => {
               const HOOK_STYLE_LABEL: Record<string, string> = { question: 'Question', bold: 'Bold claim', pain: 'Pain point', stat: 'Stat-led', curiosity: 'Curiosity' }
+              // Opening hook — its own block, placed on the LEFT side of the modal.
+              const hookSection = (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground" title="The scroll-stopping first scene — let AI write it, or pick from suggested hooks">Opening hook</span>
+                    <Seg
+                      value={hookMode}
+                      onChange={(m) => { setHookMode(m); if (m === 'choose' && !hookOptions) loadHookOptions() }}
+                      options={[{ value: 'auto' as const, label: 'Auto' }, { value: 'choose' as const, label: 'Choose' }]}
+                      disabled={videoRendering}
+                    />
+                  </div>
+                  {hookMode === 'choose' && (
+                    <div className="max-h-[62vh] space-y-2 overflow-y-auto pr-1">
+                      {hookLoading && (
+                        <div className="flex items-center gap-2 rounded-lg border p-3 text-xs text-muted-foreground">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Writing hook ideas for this campaign…
+                        </div>
+                      )}
+                      {!hookLoading && hookOptions && (['en', 'ar'] as const)
+                        .sort((a) => (a === (cam.language === 'ar' ? 'ar' : 'en') ? -1 : 1))
+                        .map((lang) => {
+                          const group = hookOptions.map((o, i) => ({ o, i })).filter(({ o }) => (o.lang || 'en') === lang)
+                          if (!group.length) return null
+                          return (
+                            <div key={lang} className="space-y-2">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {lang === 'ar' ? 'العربية' : 'English'}
+                              </div>
+                              {group.map(({ o, i }) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => setHookPick(i)}
+                                  disabled={videoRendering}
+                                  dir={lang === 'ar' ? 'rtl' : 'ltr'}
+                                  className={cn(
+                                    'w-full rounded-lg border p-3 transition-colors',
+                                    lang === 'ar' ? 'text-right' : 'text-left',
+                                    hookPick === i ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                                  )}
+                                >
+                                  <span className="mb-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                                    {HOOK_STYLE_LABEL[o.style] || o.style}
+                                  </span>
+                                  <span className="block text-sm font-medium leading-snug">{o.headline.replace(/\n/g, ' ')}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )
+                        })}
+                      {!hookLoading && hookOptions && (
+                        <button
+                          type="button"
+                          onClick={() => loadHookOptions(true)}
+                          disabled={videoRendering}
+                          className="text-xs font-medium text-primary underline"
+                        >
+                          Suggest different hooks
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
               const settings = (
                 <div className="space-y-5">
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-muted-foreground" title="The scroll-stopping first scene — let AI write it, or pick from suggested hooks">Opening hook</span>
-                      <Seg
-                        value={hookMode}
-                        onChange={(m) => { setHookMode(m); if (m === 'choose' && !hookOptions) loadHookOptions() }}
-                        options={[{ value: 'auto' as const, label: 'Auto' }, { value: 'choose' as const, label: 'Choose' }]}
-                        disabled={videoRendering}
-                      />
-                    </div>
-                    {hookMode === 'choose' && (
-                      <div className="space-y-2">
-                        {hookLoading && (
-                          <div className="flex items-center gap-2 rounded-lg border p-3 text-xs text-muted-foreground">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Writing hook ideas for this campaign…
-                          </div>
-                        )}
-                        {!hookLoading && hookOptions && (['en', 'ar'] as const)
-                          .sort((a) => (a === (cam.language === 'ar' ? 'ar' : 'en') ? -1 : 1))
-                          .map((lang) => {
-                            const group = hookOptions.map((o, i) => ({ o, i })).filter(({ o }) => (o.lang || 'en') === lang)
-                            if (!group.length) return null
-                            return (
-                              <div key={lang} className="space-y-2">
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                  {lang === 'ar' ? 'العربية' : 'English'}
-                                </div>
-                                {group.map(({ o, i }) => (
-                                  <button
-                                    key={i}
-                                    type="button"
-                                    onClick={() => setHookPick(i)}
-                                    disabled={videoRendering}
-                                    dir={lang === 'ar' ? 'rtl' : 'ltr'}
-                                    className={cn(
-                                      'w-full rounded-lg border p-3 transition-colors',
-                                      lang === 'ar' ? 'text-right' : 'text-left',
-                                      hookPick === i ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
-                                    )}
-                                  >
-                                    <span className="mb-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                                      {HOOK_STYLE_LABEL[o.style] || o.style}
-                                    </span>
-                                    <span className="block text-sm font-medium leading-snug">{o.headline.replace(/\n/g, ' ')}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )
-                          })}
-                        {!hookLoading && hookOptions && (
-                          <button
-                            type="button"
-                            onClick={() => loadHookOptions(true)}
-                            disabled={videoRendering}
-                            className="text-xs font-medium text-primary underline"
-                          >
-                            Suggest different hooks
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Style</span>
                     <Seg
@@ -568,20 +571,26 @@ export function CampaignTab() {
               )
 
               if (!videoReady || !videoJob) {
-                return <div className="space-y-7 pt-2">{settings}{action}</div>
+                return (
+                  <div className="grid gap-8 pt-2 md:grid-cols-2">
+                    <div>{hookSection}</div>
+                    <div className="space-y-7">{settings}{action}</div>
+                  </div>
+                )
               }
 
               // Wide three-column layout once a video exists: player | settings
               // & actions | full-height "what went into this video" panel.
               return (
                 <div className="grid gap-10 pt-2 md:grid-cols-[340px_minmax(320px,400px)_minmax(0,1fr)]">
-                  <div className="space-y-2">
+                  <div className="space-y-6">
                     <video
                       src={videoJob.videoUrl}
                       poster={videoJob.thumbnailUrl || undefined}
                       controls
                       className="w-full rounded-xl border bg-black"
                     />
+                    {hookSection}
                   </div>
                   <div className="space-y-7">
                     {settings}
