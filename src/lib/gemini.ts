@@ -928,13 +928,14 @@ Keep it tasteful and minimal: the background gradient should be subtle (two clos
 
 export interface HookOption {
   style: 'question' | 'bold' | 'pain' | 'stat' | 'curiosity'
+  lang: 'en' | 'ar'
   headline: string
   underline?: string
   kicker?: string
 }
 
-// Five hook options — one per proven ad-hook archetype — written from the
-// campaign's own copy in its language. Deterministic fallback; never throws.
+// Hook options in BOTH English and Arabic — one per proven ad-hook archetype
+// per language — written from the campaign's own copy. Never throws.
 export async function generateHookOptions(
   params: {
     brandName: string; goal?: string; audience?: string; tone?: string
@@ -942,24 +943,19 @@ export async function generateHookOptions(
   },
   model?: GeminiModel
 ): Promise<HookOption[]> {
-  const langLine = params.language === 'ar'
-    ? 'Write ALL headline/underline/kicker text in ARABIC (natural, punchy marketing Arabic).'
-    : 'Write everything in English.'
   const prompt = `You write scroll-stopping OPENING HOOKS for short vertical brand ad videos ("${params.brandName}").
 Goal: ${params.goal || 'awareness'} · Audience: ${params.audience || 'ideal customers'} · Tone: ${params.tone || 'confident, modern'}
-${langLine}
 Source campaign copy:
 """${params.postsCopy.slice(0, 3000)}"""
-Produce EXACTLY 5 hooks, one per archetype, each scroll-stopping in the first second. Respond with ONLY a JSON array:
-[{"style":"question","headline":"<a provocative question the audience instantly says YES to — max 2 short lines, use \\n>","underline":"<1-3 word phrase copied exactly from the headline>","kicker":"<1-2 word eyebrow>"},
- {"style":"bold","headline":"<an audacious claim/promise>","underline":"...","kicker":"..."},
- {"style":"pain","headline":"<bluntly call out the audience's pain>","underline":"...","kicker":"..."},
- {"style":"stat","headline":"<number-led hook using a truthful/plausible figure from the copy>","underline":"...","kicker":"..."},
- {"style":"curiosity","headline":"<tease a secret/shortcut they want to know>","underline":"...","kicker":"..."}]`
+Produce EXACTLY 10 hooks: the 5 archetypes below FIRST in English (lang "en"), THEN the same 5 archetypes in natural punchy marketing ARABIC (lang "ar" — written natively, not translated word-for-word). Each must be scroll-stopping in the first second.
+Archetypes: question (a provocative question the audience instantly says YES to) · bold (an audacious claim/promise) · pain (bluntly call out the audience's pain) · stat (number-led, truthful/plausible from the copy) · curiosity (tease a secret/shortcut).
+Respond with ONLY a JSON array of 10 objects:
+[{"style":"question","lang":"en","headline":"<max 2 short lines, use \\n>","underline":"<1-3 word phrase copied exactly from the headline>","kicker":"<1-2 word eyebrow>"}, ...]`
   const fallback: HookOption[] = [
-    { style: 'question', headline: params.language === 'ar' ? `هل أنت مستعد\nللمستوى التالي؟` : `Ready for\nthe next level?`, kicker: params.brandName.slice(0, 30) },
-    { style: 'bold', headline: params.brandName, underline: params.brandName },
-    { style: 'pain', headline: params.language === 'ar' ? `توقف عن إضاعة الوقت` : `Stop wasting time`, kicker: params.brandName.slice(0, 30) },
+    { style: 'question', lang: 'en', headline: `Ready for\nthe next level?`, kicker: params.brandName.slice(0, 30) },
+    { style: 'bold', lang: 'en', headline: params.brandName, underline: params.brandName },
+    { style: 'question', lang: 'ar', headline: `هل أنت مستعد\nللمستوى التالي؟`, kicker: params.brandName.slice(0, 30) },
+    { style: 'pain', lang: 'ar', headline: `توقف عن إضاعة الوقت`, kicker: params.brandName.slice(0, 30) },
   ]
   try {
     const gemini = getGeminiModel(model)
@@ -972,10 +968,11 @@ Produce EXACTLY 5 hooks, one per archetype, each scroll-stopping in the first se
     const out: HookOption[] = []
     for (const x of raw) {
       if (!x || !x.headline || !['question', 'bold', 'pain', 'stat', 'curiosity'].includes(x.style)) continue
+      const lang = x.lang === 'ar' ? 'ar' : 'en'
       const underline = str(x.underline, 60), kicker = str(x.kicker, 40)
-      out.push({ style: x.style, headline: str(x.headline, 120), ...(underline ? { underline } : {}), ...(kicker ? { kicker } : {}) })
+      out.push({ style: x.style, lang, headline: str(x.headline, 120), ...(underline ? { underline } : {}), ...(kicker ? { kicker } : {}) })
     }
-    return out.length >= 3 ? out.slice(0, 5) : fallback
+    return out.length >= 6 ? out.slice(0, 10) : fallback
   } catch (error) {
     console.error('Error generating hook options:', error)
     return fallback

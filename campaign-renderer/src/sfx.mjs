@@ -9,10 +9,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const CACHE_DIR = process.env.SFX_CACHE_DIR || '/tmp/sfx-cache'
 
-// UNIFORM mix level: the v4 library is already loudness-equalized (sustained
-// sounds RMS-matched, transients peak-matched), so every event gets the SAME
-// gain — sits the effects clearly UNDER the narration (voice peaks ~-2dB).
-const UNIFORM_GAIN = -11
+// Original (untrimmed, natural-dynamics) library: per-sound `mixGainDb` from
+// the manifest equalizes peaks to -8dBFS at mix time WITHOUT touching the
+// files, then a per-event level sits each effect musically under the
+// narration (voice peaks ~-2dB).
+const EVENT_GAIN = {
+  intro: -11, transition: -10, pop: -12, underline: -14, showcase: -11,
+  stat_tick: -18, stat_settle: -11, cta_shine: -12, cta_sting: -9, impact: -10,
+}
 
 let manifest = null
 function loadManifest() {
@@ -113,8 +117,13 @@ export async function buildSfxTrack(schedule, totalMs, scratch, jobId) {
     const args = ['-y']
     events.forEach((e) => { args.push('-i', files[e.event]) })
     const chains = events.map((e, i) => {
-      const d = Math.max(0, Math.round(e.atMs))
-      return `[${i}:a]adelay=${d}|${d},volume=${UNIFORM_GAIN}dB[s${i}]`
+      const snd = variant[e.event]
+      // Onset compensation: originals may carry leading silence — start the
+      // file early so the audible attack lands ON the scheduled moment.
+      const onsetMs = Math.round((snd?.onsetSec || 0) * 1000)
+      const d = Math.max(0, Math.round(e.atMs) - onsetMs)
+      const g = (Number(snd?.mixGainDb) || 0) + (EVENT_GAIN[e.event] ?? -12)
+      return `[${i}:a]adelay=${d}|${d},volume=${g.toFixed(1)}dB[s${i}]`
     })
     const mixIn = events.map((_, i) => `[s${i}]`).join('')
     const filter = `${chains.join(';')};${mixIn}amix=inputs=${events.length}:normalize=0,apad,atrim=0:${(totalMs / 1000).toFixed(3)}[out]`

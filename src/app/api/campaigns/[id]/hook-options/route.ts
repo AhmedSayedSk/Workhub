@@ -21,7 +21,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const c = cSnap.data() as any
 
   const cached = c.hookOptions
-  if (!body.force && cached?.items?.length && Date.now() - (cached.updatedAt || 0) < CACHE_MS) {
+  // (items[0].lang check invalidates pre-bilingual caches)
+  if (!body.force && cached?.items?.length && cached.items[0]?.lang && Date.now() - (cached.updatedAt || 0) < CACHE_MS) {
     return NextResponse.json({ options: cached.items, cached: true })
   }
 

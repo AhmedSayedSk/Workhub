@@ -88,7 +88,7 @@ export function CampaignTab() {
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
   const [videoSfx, setVideoSfx] = useState(true)
   const [hookMode, setHookMode] = useState<'auto' | 'choose'>('auto')
-  const [hookOptions, setHookOptions] = useState<Array<{ style: string; headline: string; underline?: string; kicker?: string }> | null>(null)
+  const [hookOptions, setHookOptions] = useState<Array<{ style: string; lang?: string; headline: string; underline?: string; kicker?: string }> | null>(null)
   const [hookPick, setHookPick] = useState(0)
   const [hookLoading, setHookLoading] = useState(false)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
@@ -397,23 +397,38 @@ export function CampaignTab() {
                             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Writing hook ideas for this campaign…
                           </div>
                         )}
-                        {!hookLoading && hookOptions?.map((o, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => setHookPick(i)}
-                            disabled={videoRendering}
-                            className={cn(
-                              'w-full rounded-lg border p-3 text-left transition-colors',
-                              hookPick === i ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
-                            )}
-                          >
-                            <span className="mb-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                              {HOOK_STYLE_LABEL[o.style] || o.style}
-                            </span>
-                            <span className="block text-sm font-medium leading-snug">{o.headline.replace(/\n/g, ' ')}</span>
-                          </button>
-                        ))}
+                        {!hookLoading && hookOptions && (['en', 'ar'] as const)
+                          .sort((a) => (a === (cam.language === 'ar' ? 'ar' : 'en') ? -1 : 1))
+                          .map((lang) => {
+                            const group = hookOptions.map((o, i) => ({ o, i })).filter(({ o }) => (o.lang || 'en') === lang)
+                            if (!group.length) return null
+                            return (
+                              <div key={lang} className="space-y-2">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  {lang === 'ar' ? 'العربية' : 'English'}
+                                </div>
+                                {group.map(({ o, i }) => (
+                                  <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => setHookPick(i)}
+                                    disabled={videoRendering}
+                                    dir={lang === 'ar' ? 'rtl' : 'ltr'}
+                                    className={cn(
+                                      'w-full rounded-lg border p-3 transition-colors',
+                                      lang === 'ar' ? 'text-right' : 'text-left',
+                                      hookPick === i ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                                    )}
+                                  >
+                                    <span className="mb-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                                      {HOOK_STYLE_LABEL[o.style] || o.style}
+                                    </span>
+                                    <span className="block text-sm font-medium leading-snug">{o.headline.replace(/\n/g, ' ')}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )
+                          })}
                         {!hookLoading && hookOptions && (
                           <button
                             type="button"
