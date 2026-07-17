@@ -148,15 +148,16 @@ export async function buildVoiceTrack(segments, scratchDir, fps = 30) {
   }
 }
 
-// Narration text for a creative script scene.
-export function creativeSceneNarration(scene) {
+// Narration text for a creative script scene. The CTA (closing scene) speaks
+// the BRAND NAME before the button text — a spoken sign-off, not just "Sign up".
+export function creativeSceneNarration(scene, brandName) {
   if (!scene) return ''
   switch (scene.type) {
     case 'hook': return String(scene.headline || '').replace(/\n/g, ' ')
     case 'beat': return [scene.title, scene.sub].filter(Boolean).join('. ')
     case 'stat': return [scene.value, scene.label].filter(Boolean).join(' ')
     case 'showcase': return [scene.caption, scene.sub].filter(Boolean).join('. ')
-    case 'cta': return String(scene.text || '')
+    case 'cta': return [brandName, scene.text].filter(Boolean).join('. ')
     default: return ''
   }
 }

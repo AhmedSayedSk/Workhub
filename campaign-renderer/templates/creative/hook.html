@@ -43,7 +43,9 @@
   const h1 = document.getElementById('h1')
   const text = D.headline || ''
   const uBars = []
-  const START = 260, STAGGER = 95, DUR = 500
+  // Slow, deliberate word cadence — each word lands ~180ms apart so the hook
+  // reads word by word instead of rushing in.
+  const START = 260, STAGGER = 180, DUR = 640
   let wi = 0
   const emitWords = (container, str) => {
     const parts = String(str).split(/\s+/).filter(Boolean)
