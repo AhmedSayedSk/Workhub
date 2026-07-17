@@ -7,4 +7,5 @@ COPY campaign-renderer/package.json ./
 RUN npm install --omit=dev
 COPY campaign-renderer/src ./src
 COPY campaign-renderer/templates ./templates
+COPY campaign-renderer/assets ./assets
 CMD ["node", "src/index.mjs"]

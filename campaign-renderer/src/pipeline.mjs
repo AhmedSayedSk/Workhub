@@ -9,6 +9,7 @@ import { encode, thumbFromFrame } from './encode.mjs'
 import { upload } from './upload.mjs'
 import { synthLines, buildVoiceTrack, clampSceneMs, creativeSceneNarration } from './voice.mjs'
 import { applyDissolves } from './transitions.mjs'
+import { scheduleSfx, buildSfxTrack, mixTracks } from './sfx.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HOOK_TEMPLATE = path.join(__dirname, '..', 'templates', 'hook.html')
@@ -95,6 +96,7 @@ export async function renderJob(job, onProgress = () => {}) {
       const tasks = []
       const segments = []
       const boundaries = []
+      const timeline = [] // scene timing for the SFX scheduler
       let cursor = 0
       let hookStart = 0
       // Per-type ordinals so templates can show "2 / 3" chips / ghost digits.
@@ -122,6 +124,7 @@ export async function renderJob(job, onProgress = () => {}) {
         }
         tasks.push(() => renderScene(path.join(CREATIVE_DIR, `${scene.type}.html`), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
         segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
+        timeline.push({ type: scene.type, startMs: Math.round((start / FPS) * 1000), durMs })
       })
       const thumbFrameIndex = Math.min(hookStart + FPS, Math.max(0, cursor - 1))
       await report(42, 'rendering')
@@ -129,9 +132,14 @@ export async function renderJob(job, onProgress = () => {}) {
       if (transition === 'smooth') await applyDissolves(framesDir, boundaries, cursor)
       await report(88, 'encoding')
       const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
+      // Sound effects (default ON): scheduled from the exact scene timeline,
+      // mixed under the narration. Any failure -> silently no SFX.
+      const sfxOn = !(job.sfx && job.sfx.enabled === false)
+      const sfxTrack = sfxOn ? await buildSfxTrack(scheduleSfx(timeline), Math.round((cursor / FPS) * 1000), scratch, job.id) : null
+      const audioTrack = await mixTracks(voiceTrack, sfxTrack, scratch)
       const outMp4 = path.join(scratch, `${job.id}.mp4`)
       const outThumb = path.join(scratch, `${job.id}.jpg`)
-      await encode(framesDir, FPS, outMp4, voiceTrack)
+      await encode(framesDir, FPS, outMp4, audioTrack)
       await thumbFromFrame(framesDir, outThumb, thumbFrameIndex)
       await report(92, 'encoding')
       const folder = job.campaignId || job.id
@@ -168,6 +176,7 @@ export async function renderJob(job, onProgress = () => {}) {
     const tasks = []
     const segments = []
     const boundaries = []
+    const timeline = [] // scene timing for the SFX scheduler
     let cursor = 0
     const hookSeg = voiceSegs ? voiceSegs[0] : null
     const hookDurMs = hookSeg ? clampSceneMs(hookSeg.durationSec * 1000, HOOK_DUR_MS) : HOOK_DUR_MS
@@ -178,6 +187,7 @@ export async function renderJob(job, onProgress = () => {}) {
       renderScene(HOOK_TEMPLATE, hookData, { w: dims.w, h: dims.h, durMs: hookDurMs, fps: FPS, outDir: framesDir, startIndex: hookStart })
     )
     segments.push({ audioPath: hookSeg ? hookSeg.audioPath : null, durMs: hookDurMs })
+    timeline.push({ type: 'basicHook', startMs: 0, durMs: hookDurMs })
     const sceneCount = (job.scenes || []).length
     ;(job.scenes || []).forEach((scene, i) => {
       const seg = voiceSegs ? voiceSegs[i + 1] : null
@@ -196,6 +206,7 @@ export async function renderJob(job, onProgress = () => {}) {
         renderScene(SCENE_TEMPLATE, data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start })
       )
       segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
+      timeline.push({ type: 'basicScene', startMs: Math.round((start / FPS) * 1000), durMs })
     })
     // A frame ~1s into the hook, once its entrance animation has settled.
     const thumbFrameIndex = Math.min(FPS, Math.max(0, hookFrames - 1))
@@ -208,9 +219,13 @@ export async function renderJob(job, onProgress = () => {}) {
     await report(85, 'rendering')
 
     const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
+    // Sound effects (default ON) — same engine as the creative branch.
+    const sfxOn = !(job.sfx && job.sfx.enabled === false)
+    const sfxTrack = sfxOn ? await buildSfxTrack(scheduleSfx(timeline), Math.round((cursor / FPS) * 1000), scratch, job.id) : null
+    const audioTrack = await mixTracks(voiceTrack, sfxTrack, scratch)
     const outMp4 = path.join(scratch, `${job.id}.mp4`)
     const outThumb = path.join(scratch, `${job.id}.jpg`)
-    await encode(framesDir, FPS, outMp4, voiceTrack)
+    await encode(framesDir, FPS, outMp4, audioTrack)
     await thumbFromFrame(framesDir, outThumb, thumbFrameIndex)
     await report(92, 'encoding')
 

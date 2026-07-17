@@ -651,6 +651,7 @@ export interface RenderJob {
   voiceover?: { enabled: boolean; language: 'en' | 'ar'; gender: 'male' | 'female'; model?: 'standard' | 'premium'; rate?: number; rateAuto?: boolean } // AI narration (rate = speaking speed ×; rateAuto = AI-chosen)
   transition?: 'smooth' | 'simple' | 'none' // scene transitions: exit-fade + dissolve / exit-fade / hard cut
   palette?: { bg1: string; bg2: string; accent: string; text: string; muted: string; ctaText: string } // AI-proposed, contrast-enforced color system
+  sfx?: { enabled: boolean } // sound effects mixed at scene-motion moments (default on)
   script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string

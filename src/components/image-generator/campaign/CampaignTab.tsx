@@ -86,6 +86,7 @@ export function CampaignTab() {
   const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('standard')
   const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
+  const [videoSfx, setVideoSfx] = useState(true)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
@@ -127,6 +128,7 @@ export function CampaignTab() {
           aspect: videoAspect,
           mode: videoMode,
           transition: videoTransition,
+          sfx: { enabled: videoSfx },
           voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverGender, model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
         }),
       })
@@ -376,6 +378,10 @@ export function CampaignTab() {
                     />
                   </div>
                   <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground" title="Whooshes, pops, ticks and stings placed on the animations, mixed under the narration">Sound effects</span>
+                    <Switch checked={videoSfx} onCheckedChange={setVideoSfx} disabled={videoRendering} />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Voiceover</span>
                     <Switch checked={voiceover} onCheckedChange={setVoiceover} disabled={videoRendering} />
                   </div>
@@ -483,6 +489,7 @@ export function CampaignTab() {
                         {videoJob.transition && videoJob.transition !== 'none' && (
                           <Badge variant="secondary" className="capitalize">{videoJob.transition} transitions</Badge>
                         )}
+                        {videoJob.sfx?.enabled && <Badge variant="secondary">SFX</Badge>}
                         {videoJob.voiceover?.enabled && (
                           <Badge variant="secondary">
                             {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}{videoJob.voiceover.rate && videoJob.voiceover.rate !== 1 ? ` · ${videoJob.voiceover.rate}×` : ''}{videoJob.voiceover.rateAuto ? ' (auto)' : ''}
