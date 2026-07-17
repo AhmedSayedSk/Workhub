@@ -19,7 +19,7 @@
 </style></head>
 <body><div id="s">
   <div id="bg"></div><div id="scrim"></div>
-  <div class="brand" id="brand"></div><div class="chip" id="chip"></div>
+  <div class="brand" id="brand"></div>
   <div class="wrap"><div class="kicker" id="kicker"></div><h1 id="h1"></h1></div>
 </div>
 <script src="_motion.js"></script>
@@ -33,40 +33,54 @@
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
   brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
-  const chip = document.getElementById('chip'); chip.textContent = D.brand?.domain || ''
-  if (!D.brand?.domain) chip.style.display = 'none'
   document.getElementById('kicker').textContent = D.kicker || ''
   if (!D.kicker) document.getElementById('kicker').style.display = 'none'
 
-  // Headline: one staggered .line per \n line; the underline phrase (possibly
-  // spanning within a line) gets a draw-on bar under it.
+  // Headline: kinetic WORD-BY-WORD reveal — each word rises + fades in on a
+  // stagger (reads far punchier than a whole paragraph fading in at once). The
+  // underline phrase keeps its draw-on bar, timed just after its words land.
   const M = window.__M
   const h1 = document.getElementById('h1')
   const text = D.headline || ''
   const uBars = []
-  text.split('\n').forEach((lineText, li) => {
+  const START = 260, STAGGER = 95, DUR = 500
+  let wi = 0
+  const emitWords = (container, str) => {
+    const parts = String(str).split(/\s+/).filter(Boolean)
+    parts.forEach((w) => {
+      const s = document.createElement('span')
+      s.textContent = w
+      s.style.display = 'inline-block'
+      s.style.whiteSpace = 'pre'
+      container.appendChild(s)
+      container.appendChild(document.createTextNode(' '))
+      M.reg(s, START + wi * STAGGER, START + wi * STAGGER + DUR, 'rise', { dy: 44 })
+      wi++
+    })
+  }
+  text.split('\n').forEach((lineText) => {
     const line = document.createElement('span'); line.className = 'line'
     if (D.underline && lineText.includes(D.underline)) {
       const [a, b] = lineText.split(D.underline)
-      if (a) line.append(document.createTextNode(a))
+      if (a && a.trim()) emitWords(line, a)
       const span = document.createElement('span'); span.className = 'u'
-      span.append(document.createTextNode(D.underline))
-      const bar = document.createElement('i'); span.appendChild(bar); uBars.push(bar)
+      emitWords(span, D.underline)
+      const barStart = START + (wi - 1) * STAGGER + DUR - 140
+      const bar = document.createElement('i'); span.appendChild(bar); uBars.push({ bar, start: Math.max(0, barStart) })
       line.appendChild(span)
-      if (b) line.append(document.createTextNode(b))
+      if (b && b.trim()) { line.append(document.createTextNode(' ')); emitWords(line, b) }
     } else {
-      line.textContent = lineText
+      emitWords(line, lineText)
     }
     h1.appendChild(line)
-    M.reg(line, 300 + li * 220, 300 + li * 220 + 700, 'rise', { dy: 54 })
   })
 
   M.reg(document.getElementById('kicker'), 80, 560, 'popback', { rot: -3 })
-  M.reg(brand, 0, 400, 'fade'); M.reg(chip, 200, 600, 'fade')
+  M.reg(brand, 0, 400, 'fade')
   if (D.bg) M.reg(bg, 0, 3400, 'kenburns', { from: 1.03, to: 1.13, dy: -16 })
-  for (const bar of uBars) { bar.style.transform = 'scaleX(0)'; M.reg(bar, 1150, 1750, 'underline') }
+  for (const { bar, start } of uBars) { bar.style.transform = 'scaleX(0)'; M.reg(bar, start, start + 520, 'underline') }
 
-  M.sceneExit(D, [document.querySelector('.wrap'), chip])
+  M.sceneExit(D, [document.querySelector('.wrap')])
 
   window.__ready = new Promise((res) => {
     const done = () => res()
