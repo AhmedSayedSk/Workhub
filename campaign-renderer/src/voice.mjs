@@ -93,7 +93,9 @@ export async function synthLines(items, voice, scratchDir, concurrency = 3, onEa
       const text = items[i] && items[i].text
       if (text) {
         const p = path.join(scratchDir, `voice-${String(i).padStart(3, '0')}.wav`)
-        const r = await synthLine(text, voice, p)
+        // Per-line gender override (mixed-voice casting).
+        const lineVoice = items[i].gender ? { ...voice, gender: items[i].gender } : voice
+        const r = await synthLine(text, lineVoice, p)
         if (r) out[i] = { audioPath: r.path, durationSec: r.durationSec }
       }
       done++

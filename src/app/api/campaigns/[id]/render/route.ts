@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     ? {
         enabled: true,
         language: (vo.language === 'ar' || vo.language === 'en' ? vo.language : campaignLang) as 'en' | 'ar',
-        gender: (vo.gender === 'male' ? 'male' : 'female') as 'male' | 'female',
+        gender: (['male', 'female', 'mixed'].includes(vo.gender) ? vo.gender : 'female') as 'male' | 'female' | 'mixed',
         model: (vo.model === 'premium' ? 'premium' : 'standard') as 'standard' | 'premium',
         rate: VO_RATES.includes(Number(vo.rate)) ? Number(vo.rate) : 0,
         rateAuto: !VO_RATES.includes(Number(vo.rate)),
@@ -67,6 +67,13 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const brandName = c.brand?.name || c.name || 'Brand'
   const domain = c.brief?.content?.link || undefined
   const brandColor = (c.brand?.colors && c.brand.colors[0]) || null
+
+  // Enabled scene styles (Scene Styles table) — the worker rotates within these.
+  let sceneStyles: string[] = []
+  try {
+    const stSnap = await db().collection('sceneStyles').where('enabled', '==', true).get()
+    sceneStyles = stSnap.docs.map((d) => d.id)
+  } catch { /* absent collection -> worker uses all styles */ }
 
   // AI-proposed color system, contrast-enforced (WCAG) before it ships.
   const { generateVideoPalette } = await import('@/lib/gemini')
@@ -184,6 +191,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     market: market.code,
     transition,
     sfx,
+    ...(sceneStyles.length ? { sceneStyles } : {}),
     palette,
     ...(voiceover ? { voiceover } : {}),
     ...(script ? { script } : {}),

@@ -1,0 +1,88 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
+  .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:5}
+  .brand img{width:52px;height:52px;border-radius:12px}
+  /* PANEL REVEAL: the image in three staggered vertical slices + solid caption band */
+  .stage{position:absolute;left:90px;right:90px;top:200px;height:1180px;z-index:2;display:flex;gap:14px}
+  .slice{position:relative;flex:1;border-radius:28px;overflow:hidden;background:var(--bg2,#0e1424);
+         box-shadow:0 40px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06)}
+  .slice .im{position:absolute;inset:0;background-size:auto 112%;background-repeat:no-repeat}
+  .slice:nth-child(1) .im{background-position:8% center}
+  .slice:nth-child(2) .im{background-position:50% center}
+  .slice:nth-child(3) .im{background-position:92% center}
+  .slice .foot{position:absolute;left:0;right:0;bottom:0;height:10px;background:var(--c);transform-origin:left center;transform:scaleX(0)}
+  .band{position:absolute;left:90px;right:90px;top:1440px;bottom:96px;border-radius:36px;background:var(--bg1,#101828);z-index:2;
+        box-shadow:0 40px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05);padding:52px 60px;overflow:hidden}
+  .band .tag{position:absolute;top:0;bottom:0;left:0;width:14px;background:var(--c);transform-origin:center top;transform:scaleY(0)}
+  .rtl .band .tag{left:auto;right:0}
+  .caption{font-size:50px;font-weight:800;line-height:1.26;letter-spacing:-.5px;color:var(--tx,#fff)}
+  .sub{font-size:31px;font-weight:500;line-height:1.5;color:var(--mut,#b9c2d0);margin-top:16px}
+</style></head>
+<body><div id="s">
+  <div class="brand" id="brand"></div>
+  <div class="stage" id="stage">
+    <div class="slice"><div class="im"></div><div class="foot"></div></div>
+    <div class="slice"><div class="im"></div><div class="foot"></div></div>
+    <div class="slice"><div class="im"></div><div class="foot"></div></div>
+  </div>
+  <div class="band" id="band">
+    <div class="tag" id="tag"></div>
+    <div class="caption" id="caption"></div>
+    <div class="sub" id="sub"></div>
+  </div>
+</div>
+<script src="vendor/anime.min.js"></script>
+<script src="_motion.js"></script>
+<script>
+  const D = window.__DATA || {}
+  if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
+  const M = window.__M
+  const s = document.getElementById('s')
+  const P = M.applyPalette(D)
+  M.stage(s, P)
+  M.decorate(s, P.accent, { big: 420, small: 300 })
+
+  const brand = document.getElementById('brand')
+  if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
+  brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))
+  if (!D.brand?.name && !D.brand?.logoUrl) brand.style.display = 'none'
+
+  const slices = Array.from(document.querySelectorAll('.slice'))
+  const feet = Array.from(document.querySelectorAll('.slice .foot'))
+  const captionEl = document.getElementById('caption')
+  captionEl.textContent = D.caption || ''
+  const subEl = document.getElementById('sub')
+  subEl.textContent = D.sub || ''
+  if (!D.sub) subEl.style.display = 'none'
+
+  M.reg(brand, 0, 400, 'fade')
+  feet.forEach((f, i) => M.reg(f, 700 + i * 140, 1150 + i * 140, 'draww'))
+  M.reg(document.getElementById('tag'), 900, 1300, 'bar')
+
+  const words = M.splitWords(captionEl)
+  const tl = anime.timeline({ autoplay: false, easing: 'easeOutExpo' })
+  tl.add({ targets: slices, translateY: [220, 0], opacity: [0, 1], duration: 720, delay: anime.stagger(150), easing: 'easeOutBack' }, 80)
+  tl.add({ targets: document.getElementById('band'), translateY: [120, 0], opacity: [0, 1], duration: 620 }, 620)
+  tl.add({ targets: words, translateY: [40, 0], opacity: [0, 1], duration: 520, delay: anime.stagger(70) }, 900)
+  if (D.sub) tl.add({ targets: subEl, translateY: [24, 0], opacity: [0, 1], duration: 460 }, 1450)
+  M.regAnime(tl)
+
+  M.sceneExit(D, [document.getElementById('stage'), document.getElementById('band')])
+
+  window.__ready = new Promise((res) => {
+    const done = () => res()
+    const fonts = document.fonts ? document.fonts.ready : Promise.resolve()
+    if (D.imageUrl) {
+      const im = new Image()
+      im.onload = im.onerror = () => {
+        document.querySelectorAll('.slice .im').forEach((el) => { el.style.backgroundImage = `url("${D.imageUrl}")` })
+        fonts.then(done)
+      }
+      im.src = D.imageUrl
+    } else fonts.then(done)
+  })
+  window.render(0)
+</script></body></html>

@@ -36,15 +36,20 @@ const framesFor = (durMs) => Math.max(1, Math.round((durMs / 1000) * FPS))
 // job-seeded rotation that never repeats the previous scene's layout.
 // a = full-height card + overlay · b = split panel + stat chip
 // c = magazine collage · d = kinetic full-bleed type
-function pickShowcaseVariant(scene, idx, seedStr, prev) {
+function pickShowcaseVariant(scene, idx, seedStr, prev, allowed) {
   const cap = (scene.caption || '').trim()
   const body = `${cap} ${scene.sub || ''}`
   const hasNum = /[\d٠-٩]/.test(body)
   let pool
-  if (cap && cap.length <= 30 && !scene.sub) pool = ['d', 'c', 'b']
-  else if (hasNum) pool = ['b', 'c', 'a']
-  else if (scene.sub && cap.length > 45) pool = ['a', 'b', 'c']
-  else pool = ['b', 'c', 'd', 'a']
+  if (cap && cap.length <= 30 && !scene.sub) pool = ['d', 'e', 'g', 'c']
+  else if (hasNum) pool = ['b', 'g', 'c', 'a']
+  else if (scene.sub && cap.length > 45) pool = ['a', 'f', 'b', 'e']
+  else pool = ['b', 'c', 'd', 'f', 'e', 'g', 'a']
+  // Respect the workspace's enabled styles (from the Scene Styles table).
+  if (Array.isArray(allowed) && allowed.length) {
+    const filtered = pool.filter((v) => allowed.includes(v))
+    pool = filtered.length ? filtered : allowed
+  }
   let h = 2166136261
   const str = `${seedStr}#${idx}`
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) }
@@ -56,6 +61,20 @@ function pickShowcaseVariant(scene, idx, seedStr, prev) {
 }
 
 const showcaseTemplate = (v) => (v === 'a' ? 'showcase.html' : `showcase-${v}.html`)
+
+// Mixed-voice casting: assigns a narrator per scene by its role — warm female
+// opens (hook) and closes (cta), scenes alternate for contrast, stats get the
+// authoritative male read. Deterministic.
+function castVoices(types, base) {
+  let toggle = 'male' // first scene after the female hook contrasts
+  return types.map((ty) => {
+    if (ty === 'hook' || ty === 'basicHook' || ty === 'cta') return 'female'
+    if (ty === 'stat') return 'male'
+    const g = toggle
+    toggle = toggle === 'male' ? 'female' : 'male'
+    return g
+  })
+}
 
 // Runs task thunks with at most `limit` in flight; calls onEach(done,total) as
 // each finishes (for progress). Rejects if any task throws.
@@ -76,11 +95,14 @@ async function runPool(tasks, limit, onEach) {
 // Renders a full campaign post video: hook opener + post scenes, encodes to
 // MP4 (+ silent AAC), uploads the MP4 + a thumbnail to Firebase Storage.
 // Returns { videoUrl, thumbnailUrl }.
-export async function renderJob(job, onProgress = () => {}) {
+export async function renderJob(job, onProgress = () => {}, shouldCancel = null) {
   const dims = DIMS[job.aspect] || DIMS.portrait
   const scratch = path.join('/tmp/render', String(job.id))
   const framesDir = path.join(scratch, 'frames')
-  const report = async (progress, stage) => { try { await onProgress(progress, stage) } catch { /* best-effort */ } }
+  const report = async (progress, stage) => {
+    if (shouldCancel && shouldCancel()) throw new Error('CANCELLED')
+    try { await onProgress(progress, stage) } catch { /* best-effort */ }
+  }
 
   fs.rmSync(scratch, { recursive: true, force: true })
   fs.mkdirSync(framesDir, { recursive: true })
@@ -115,8 +137,10 @@ export async function renderJob(job, onProgress = () => {}) {
       let voiceSegs = null
       if (vo) {
         await report(40, 'voiceover')
-        const lines = job.script.map((s) => ({ text: creativeSceneNarration(s) }))
-        voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
+        const mixed = vo.gender === 'mixed'
+        const cast = mixed ? castVoices(job.script.map((s) => s.type)) : null
+        const lines = job.script.map((s, li) => ({ text: creativeSceneNarration(s), ...(mixed ? { gender: cast[li] } : {}) }))
+        voiceSegs = await synthLines(lines, { language: vo.language, gender: mixed ? 'female' : vo.gender, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
           async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
       }
 
@@ -154,7 +178,7 @@ export async function renderJob(job, onProgress = () => {}) {
         // designed-edit feel; other scene types keep their single template.
         let tplFile = `${scene.type}.html`
         if (scene.type === 'showcase') {
-          const v = pickShowcaseVariant(scene, i, String(job.id || 'job'), prevVariant)
+          const v = pickShowcaseVariant(scene, i, String(job.id || 'job'), prevVariant, job.sceneStyles)
           prevVariant = v
           tplFile = showcaseTemplate(v)
         }
@@ -198,11 +222,13 @@ export async function renderJob(job, onProgress = () => {}) {
     let voiceSegs = null
     if (vo) {
       await report(40, 'voiceover')
+      const mixedB = vo.gender === 'mixed'
+      const castB = mixedB ? castVoices(['basicHook', ...(job.scenes || []).map(() => 'basicScene')]) : null
       const lines = [
-        { text: [hookData.headline, hookData.subtext].filter(Boolean).join('. ') },
-        ...(job.scenes || []).map((s) => ({ text: s.caption || s.headline || '' })),
+        { text: [hookData.headline, hookData.subtext].filter(Boolean).join('. '), ...(mixedB ? { gender: castB[0] } : {}) },
+        ...(job.scenes || []).map((s, li) => ({ text: s.caption || s.headline || '', ...(mixedB ? { gender: castB[li + 1] } : {}) })),
       ]
-      voiceSegs = await synthLines(lines, { language: vo.language, gender: vo.gender, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
+      voiceSegs = await synthLines(lines, { language: vo.language, gender: mixedB ? 'female' : vo.gender, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
         async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
     }
 

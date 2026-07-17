@@ -83,7 +83,7 @@ export function CampaignTab() {
   const [videoMode, setVideoMode] = useState<'basic' | 'creative'>('creative')
   const [voiceover, setVoiceover] = useState(false)
   const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
-  const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male'>('female')
+  const [voiceoverGender, setVoiceoverGender] = useState<'female' | 'male' | 'mixed'>('female')
   const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('premium')
   const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
@@ -93,6 +93,9 @@ export function CampaignTab() {
   const [hookOptions, setHookOptions] = useState<Array<{ style: string; lang?: string; headline: string; underline?: string; kicker?: string }> | null>(null)
   const [hookPick, setHookPick] = useState(0)
   const [hookLoading, setHookLoading] = useState(false)
+  const [hookDialogOpen, setHookDialogOpen] = useState(false)
+  const [sceneStylesOpen, setSceneStylesOpen] = useState(false)
+  const [sceneStyles, setSceneStyles] = useState<Array<{ id: string; name: string; description: string; bestFor?: string; enabled: boolean }> | null>(null)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
@@ -121,6 +124,9 @@ export function CampaignTab() {
     }
     if (s === 'failed' && (prev === 'rendering' || prev === 'queued')) {
       toast.error('Video render failed')
+    }
+    if (s === 'cancelled' && (prev === 'rendering' || prev === 'queued')) {
+      toast.info('Video render stopped')
     }
   }, [videoJob?.status])
   const VIDEO_STAGE: Record<string, string> = {
@@ -156,6 +162,31 @@ export function CampaignTab() {
     } finally {
       setHookLoading(false)
     }
+  }
+  const loadSceneStyles = async () => {
+    try {
+      const res = await authFetch('/api/scene-styles')
+      const data = await res.json()
+      if (res.ok && Array.isArray(data.styles)) setSceneStyles(data.styles)
+    } catch { /* table shows a retry state */ }
+  }
+  const toggleSceneStyle = async (id: string, enabled: boolean) => {
+    setSceneStyles((prev) => prev?.map((s) => (s.id === id ? { ...s, enabled } : s)) || prev)
+    const res = await authFetch('/api/scene-styles', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, enabled }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setSceneStyles((prev) => prev?.map((s) => (s.id === id ? { ...s, enabled: !enabled } : s)) || prev)
+      toast.error(data.error || 'Could not update style')
+    }
+  }
+  const stopVideo = async () => {
+    if (!videoJob?.id) return
+    const res = await authFetch(`/api/render-jobs/${videoJob.id}/cancel`, { method: 'POST' })
+    if (!res.ok) toast.error('Could not stop the render')
   }
   const generateVideo = async () => {
     const id = c.activeCampaign?.id
@@ -361,7 +392,9 @@ export function CampaignTab() {
                     ? 'Ready — tap to watch or regenerate'
                     : videoJob?.status === 'failed'
                       ? 'Last render failed — tap to retry'
-                      : 'Turn this campaign into an animated reel'}
+                      : videoJob?.status === 'cancelled'
+                        ? 'Last render stopped — tap to start again'
+                        : 'Turn this campaign into an animated reel'}
               </span>
             </span>
             {videoRendering ? (
@@ -375,83 +408,20 @@ export function CampaignTab() {
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : videoRendering ? 'max-w-md' : 'max-w-3xl')}>
+          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : videoRendering ? 'max-w-md' : 'max-w-lg')}>
             <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
             {(() => {
               const HOOK_STYLE_LABEL: Record<string, string> = { question: 'Question', bold: 'Bold claim', pain: 'Pain point', stat: 'Stat-led', curiosity: 'Curiosity' }
-              // Opening hook — its own block, placed on the LEFT side of the modal.
-              const hookSection = (
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-muted-foreground" title="The scroll-stopping first scene — let AI write it, or pick from suggested hooks">Opening hook</span>
-                    <Seg
-                      value={hookMode}
-                      onChange={(m) => { setHookMode(m); if (m === 'choose' && !hookOptions) loadHookOptions() }}
-                      options={[{ value: 'auto' as const, label: 'Auto' }, { value: 'choose' as const, label: 'Choose' }]}
-                      disabled={videoRendering}
-                    />
-                  </div>
-                  {hookMode === 'choose' && !hookLoading && hookOptions && (
-                    <button
-                      type="button"
-                      onClick={() => loadHookOptions(true)}
-                      disabled={videoRendering}
-                      className="text-[13px] font-medium text-primary underline"
-                    >
-                      Suggest different hooks
-                    </button>
-                  )}
-                  {hookMode === 'choose' && (
-                    <div className="max-h-[62vh] space-y-2.5 overflow-y-auto pr-1">
-                      {hookLoading && (
-                        <div className="flex items-center gap-2 rounded-lg border p-3 text-xs text-muted-foreground">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Writing hook ideas for this campaign…
-                        </div>
-                      )}
-                      {!hookLoading && hookOptions && (cam.language === 'ar' ? (['ar', 'en'] as const) : (['en', 'ar'] as const))
-                        .map((lang) => {
-                          const group = hookOptions.map((o, i) => ({ o, i })).filter(({ o }) => (o.lang || 'en') === lang)
-                          if (!group.length) return null
-                          return (
-                            <div key={lang} className="space-y-2">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {lang === 'ar' ? 'العربية' : 'English'}
-                              </div>
-                              {group.map(({ o, i }) => (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  onClick={() => setHookPick(i)}
-                                  disabled={videoRendering}
-                                  dir={lang === 'ar' ? 'rtl' : 'ltr'}
-                                  className={cn(
-                                    'w-full rounded-lg border p-3.5 transition-colors',
-                                    lang === 'ar' ? 'text-right' : 'text-left',
-                                    hookPick === i ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
-                                  )}
-                                >
-                                  <span className="mb-1.5 inline-block rounded bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase text-muted-foreground">
-                                    {HOOK_STYLE_LABEL[o.style] || o.style}
-                                  </span>
-                                  <span className="block text-[15px] font-medium leading-snug">{o.headline.replace(/\n/g, ' ')}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )
-                        })}
-                    </div>
-                  )}
-                </div>
-              )
+              const chosen = hookMode === 'choose' && hookOptions ? hookOptions[hookPick] : null
               const settings = (
                 <div className="space-y-5">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground" title="Copy, hooks and narration adapt to this market's culture, customs and dialect">Market</span>
                     <select
                       value={videoMarket}
-                      onChange={(e) => { setVideoMarket(e.target.value); setHookOptions(null); if (hookMode === 'choose') loadHookOptions() }}
+                      onChange={(e) => { setVideoMarket(e.target.value); setHookOptions(null); setHookMode('auto') }}
                       disabled={videoRendering}
                       className="rounded-lg border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-60"
                     >
@@ -460,6 +430,30 @@ export function CampaignTab() {
                         <option key={m.code} value={m.code}>{m.label}</option>
                       ))}
                     </select>
+                  </div>
+                  {/* Opening hook — compact row; the picker lives in its own modal */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-muted-foreground" title="The scroll-stopping first scene — let AI write it, or pick one">Opening hook</span>
+                      <button
+                        type="button"
+                        onClick={() => { setHookDialogOpen(true); if (!hookOptions) loadHookOptions() }}
+                        disabled={videoRendering}
+                        className="rounded-lg border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/40 disabled:opacity-60"
+                      >
+                        {chosen ? 'Change hook' : 'Choose hook…'}
+                      </button>
+                    </div>
+                    {chosen ? (
+                      <div dir={(chosen.lang || 'en') === 'ar' ? 'rtl' : 'ltr'} className={cn('rounded-lg border bg-primary/5 p-3', (chosen.lang || 'en') === 'ar' ? 'text-right' : 'text-left')}>
+                        <span className="mb-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                          {HOOK_STYLE_LABEL[chosen.style] || chosen.style}
+                        </span>
+                        <span className="block text-sm font-medium leading-snug">{chosen.headline.replace(/\n/g, ' ')}</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Auto — AI writes the hook for this market.</p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Style</span>
@@ -524,7 +518,7 @@ export function CampaignTab() {
                         <Seg
                           value={voiceoverGender}
                           onChange={setVoiceoverGender}
-                          options={[{ value: 'female' as const, label: 'Female' }, { value: 'male' as const, label: 'Male' }]}
+                          options={[{ value: 'female' as const, label: 'Female' }, { value: 'male' as const, label: 'Male' }, { value: 'mixed' as const, label: 'Mixed' }]}
                           disabled={videoRendering}
                         />
                       </div>
@@ -570,7 +564,10 @@ export function CampaignTab() {
                       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                         <div className="h-full rounded-full bg-primary transition-all duration-700 ease-out" style={{ width: `${Math.max(4, videoPct)}%` }} />
                       </div>
-                      <p className="text-[11px] text-muted-foreground">You can close this — rendering continues in the background.</p>
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <p className="text-[11px] text-muted-foreground">You can close this — rendering continues in the background.</p>
+                        <Button size="sm" variant="destructive" onClick={stopVideo} className="h-7 shrink-0 px-3 text-xs">Stop</Button>
+                      </div>
                     </div>
                   ) : (
                     <Button className="w-full" onClick={generateVideo}>
@@ -587,16 +584,7 @@ export function CampaignTab() {
               )
 
               if (!videoReady || !videoJob) {
-                // While rendering, the hook picker is hidden — settings lock and
-                // the progress card takes the stage in a single centered column.
-                return videoRendering ? (
-                  <div className="space-y-7 pt-2">{settings}{action}</div>
-                ) : (
-                  <div className="grid gap-8 pt-2 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-                    <div>{hookSection}</div>
-                    <div className="space-y-7">{settings}{action}</div>
-                  </div>
-                )
+                return <div className="space-y-7 pt-2">{settings}{action}</div>
               }
 
               // Wide three-column layout once a video exists: player | settings
@@ -610,28 +598,11 @@ export function CampaignTab() {
                       controls
                       className="w-full rounded-xl border bg-black"
                     />
-                    {!videoRendering && hookSection}
                   </div>
                   <div className="space-y-7">
                     {settings}
                     {action}
                     <div className="space-y-3">
-                      <div className="flex flex-wrap gap-1">
-                        <Badge variant="secondary" className="capitalize">{videoJob.mode || 'basic'}</Badge>
-                        <Badge variant="secondary">{ASPECT_LABEL[videoJob.aspect] || videoJob.aspect}</Badge>
-                        {videoJob.transition && videoJob.transition !== 'none' && (
-                          <Badge variant="secondary" className="capitalize">{videoJob.transition} transitions</Badge>
-                        )}
-                        {videoJob.sfx?.enabled && <Badge variant="secondary">SFX</Badge>}
-                        {videoJob.market && videoJob.market !== 'global' && (
-                          <Badge variant="secondary">{MARKETS.find((m) => m.code === videoJob.market)?.label || videoJob.market}</Badge>
-                        )}
-                        {videoJob.voiceover?.enabled && (
-                          <Badge variant="secondary">
-                            {VO_LANG_LABEL[videoJob.voiceover.language] || videoJob.voiceover.language} · {videoJob.voiceover.gender === 'male' ? 'Male' : 'Female'}{videoJob.voiceover.model === 'premium' ? ' · Premium' : ''}{videoJob.voiceover.rate && videoJob.voiceover.rate !== 1 ? ` · ${videoJob.voiceover.rate}×` : ''}{videoJob.voiceover.rateAuto ? ' (auto)' : ''}
-                          </Badge>
-                        )}
-                      </div>
                       <a href={videoJob.videoUrl} download className="inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-muted/40">
                         <Download className="h-4 w-4" /> Download video
                       </a>
@@ -667,6 +638,69 @@ export function CampaignTab() {
                 </div>
               )
             })()}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={hookDialogOpen} onOpenChange={setHookDialogOpen}>
+          <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Choose the opening hook</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setHookMode('auto'); setHookDialogOpen(false) }}
+                  className={cn('rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/40', hookMode === 'auto' && 'border-primary bg-primary/5')}
+                >
+                  ✨ Auto — let AI write it
+                </button>
+                {!hookLoading && hookOptions && (
+                  <button type="button" onClick={() => loadHookOptions(true)} className="text-[13px] font-medium text-primary underline">
+                    Suggest different hooks
+                  </button>
+                )}
+              </div>
+              {hookLoading && (
+                <div className="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Writing hook ideas for this campaign…
+                </div>
+              )}
+              {!hookLoading && hookOptions && (cam.language === 'ar' ? (['ar', 'en'] as const) : (['en', 'ar'] as const)).map((lang) => {
+                const group = hookOptions.map((o, i) => ({ o, i })).filter(({ o }) => (o.lang || 'en') === lang)
+                if (!group.length) return null
+                return (
+                  <div key={lang} className="space-y-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {lang === 'ar' ? 'العربية' : 'English'}
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {group.map(({ o, i }) => {
+                        const HOOK_LABEL: Record<string, string> = { question: 'Question', bold: 'Bold claim', pain: 'Pain point', stat: 'Stat-led', curiosity: 'Curiosity' }
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => { setHookPick(i); setHookMode('choose'); setHookDialogOpen(false) }}
+                            dir={lang === 'ar' ? 'rtl' : 'ltr'}
+                            className={cn(
+                              'rounded-lg border p-3.5 transition-colors',
+                              lang === 'ar' ? 'text-right' : 'text-left',
+                              hookMode === 'choose' && hookPick === i ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                            )}
+                          >
+                            <span className="mb-1.5 inline-block rounded bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase text-muted-foreground">
+                              {HOOK_LABEL[o.style] || o.style}
+                            </span>
+                            <span className="block text-[15px] font-medium leading-snug">{o.headline.replace(/\n/g, ' ')}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -751,10 +785,61 @@ export function CampaignTab() {
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">Campaigns <span className="text-muted-foreground">({c.allCampaigns.length})</span></h2>
+        <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => { setSceneStylesOpen(true); if (!sceneStyles) loadSceneStyles() }}>
+          Scene styles
+        </Button>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" /> New campaign
         </Button>
+        </div>
       </div>
+
+      <Dialog open={sceneStylesOpen} onOpenChange={setSceneStylesOpen}>
+        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Video scene styles</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The animated compositions used for image scenes in campaign videos. Only enabled styles are used —
+            each scene picks the best fit for its content, rotating so layouts never repeat back-to-back.
+          </p>
+          {!sceneStyles ? (
+            <div className="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading styles…
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="px-4 py-2.5 font-semibold">Style</th>
+                    <th className="px-4 py-2.5 font-semibold">Description</th>
+                    <th className="px-4 py-2.5 font-semibold">Best for</th>
+                    <th className="px-4 py-2.5 text-right font-semibold">Enabled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sceneStyles.map((st) => (
+                    <tr key={st.id} className={cn('border-b last:border-0', !st.enabled && 'opacity-55')}>
+                      <td className="px-4 py-3 align-top">
+                        <div className="font-semibold">{st.name}</div>
+                        <div className="mt-0.5 font-mono text-[11px] uppercase text-muted-foreground">style {st.id}</div>
+                      </td>
+                      <td className="px-4 py-3 align-top text-[13px] leading-relaxed text-muted-foreground">{st.description}</td>
+                      <td className="px-4 py-3 align-top text-[13px] text-muted-foreground">{st.bestFor || '—'}</td>
+                      <td className="px-4 py-3 text-right align-top">
+                        <Switch checked={st.enabled} onCheckedChange={(v) => toggleSceneStyle(st.id, v)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">At least one style must stay enabled.</p>
+        </DialogContent>
+      </Dialog>
 
       {c.allCampaigns.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 py-20 text-center text-muted-foreground">
