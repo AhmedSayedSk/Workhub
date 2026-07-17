@@ -23,6 +23,7 @@
     <div class="url" id="url"></div>
   </div>
 </div>
+<script src="vendor/anime.min.js"></script>
 <script src="_motion.js"></script>
 <script>
   const D = window.__DATA || {}
@@ -32,6 +33,7 @@
   const c = P.accent
   window.__M.stage(s, P)
   window.__M.decorate(s, c)
+  { const F = window.__M.fx, sd = F.seedFrom(D); F.lines(s, c, sd, 2); F.particles(s, c, sd + 1, 12) }
 
   const mark = document.getElementById('mark')
   let logoEl = null

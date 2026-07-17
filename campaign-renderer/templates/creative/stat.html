@@ -4,7 +4,7 @@
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
   #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
   .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:2}
-  .brand img{width:52px;height:52px;border-radius:12px}
+  .brand img{height:52px;width:auto;max-width:170px;object-fit:contain;border-radius:10px}
   .wrap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;z-index:2}
   .core{position:relative;display:inline-block;width:640px;height:640px}
   .core svg{position:absolute;inset:0;transform:rotate(-90deg)}
@@ -27,6 +27,7 @@
     <div class="label" id="label"></div>
   </div>
 </div>
+<script src="vendor/anime.min.js"></script>
 <script src="_motion.js"></script>
 <script>
   const D = window.__DATA || {}
@@ -36,6 +37,7 @@
   const c = P.accent
   window.__M.stage(s, P)
   window.__M.decorate(s, c)
+  { const F = window.__M.fx, sd = F.seedFrom(D); F.ring(s, c, sd); F.particles(s, c, sd + 1, 7) }
 
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }

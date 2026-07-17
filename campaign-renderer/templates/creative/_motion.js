@@ -18,6 +18,19 @@ window.__M = (() => {
       e.style.transform = `translate(${x}px, ${y}px)`
       return
     }
+    if (a.kind === 'drift') {
+      // Continuous particle drift: rises, wraps, fades in/out at the ends.
+      const per = o.period || 9000
+      let pr = ((t / per) + (o.phase || 0)) % 1; if (pr < 0) pr += 1
+      const travel = o.travel || 300
+      const y = travel * 0.5 - pr * travel
+      const x = Math.sin(pr * Math.PI * 2 * (o.wob || 1)) * (o.ax || 14)
+      e.style.transform = `translate(${x}px, ${y}px)`
+      e.style.opacity = String((o.alpha || 0.22) * Math.sin(pr * Math.PI))
+      return
+    }
+    if (a.kind === 'spin') { e.style.transform = `rotate(${(t / (o.period || 16000)) * 360}deg)`; return }
+    if (a.kind === 'dashflow') { e.style.strokeDashoffset = String(-((t / (o.speed || 40)) % 100000)); return }
     if (a.kind === 'kenburns') {
       // Slow, linear drift across the whole window — cinematic, never "done".
       let p = (t - a.start) / (a.end - a.start); p = p < 0 ? 0 : p > 1 ? 1 : p
@@ -184,6 +197,149 @@ window.__M = (() => {
     document.querySelectorAll('.chip').forEach((el) => { el.style.right = 'auto'; el.style.left = '90px' })
     if (document.fonts && document.fonts.load) { try { document.fonts.load("900 100px 'Cairo'"); document.fonts.load("500 100px 'Cairo'") } catch (e) {} }
   }
+  // ---------------------------------------------------------------------------
+  // FX — minimal motion-graphic accents (lines, paths, particles, rings).
+  // Seeded (deterministic per scene), palette-aware, always pointer-events:none
+  // and low-opacity so they attract without competing with the copy.
+  // Draw-ins use anime.js timelines (seeked via regAnime); continuous motion
+  // uses the deterministic reg() kinds (drift/spin/dashflow).
+  // ---------------------------------------------------------------------------
+  function rng(seed) {
+    let s = (seed >>> 0) || 1
+    return () => {
+      s = Math.imul(s ^ (s >>> 15), s | 1)
+      s ^= s + Math.imul(s ^ (s >>> 7), s | 61)
+      return ((s ^ (s >>> 14)) >>> 0) / 4294967296
+    }
+  }
+  function seedFrom(D) {
+    const txt = (D && (D.headline || D.title || D.caption || D.text || D.label || '')) || ''
+    return ((D && D.index) || 0) * 131 + txt.length * 7 + 17
+  }
+  function fxLayer(sceneEl) {
+    const d = document.createElement('div')
+    Object.assign(d.style, { position: 'absolute', inset: '0', zIndex: '1', pointerEvents: 'none' })
+    sceneEl.appendChild(d)
+    return d
+  }
+  function mkSvg(layer) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('viewBox', '0 0 1080 1920')
+    Object.assign(svg.style, { position: 'absolute', inset: '0', width: '100%', height: '100%' })
+    layer.appendChild(svg)
+    return svg
+  }
+  const fx = {
+    seedFrom,
+    // Tiny accent dots drifting slowly upward (wrapping) — ambient life.
+    particles(sceneEl, color, seed, n, opts) {
+      const o = opts || {}
+      const r = rng(seed)
+      const layer = fxLayer(sceneEl)
+      for (let i = 0; i < (n || 8); i++) {
+        const sz = 5 + r() * 9
+        const d = document.createElement('div')
+        Object.assign(d.style, {
+          position: 'absolute', width: sz + 'px', height: sz + 'px', borderRadius: '50%',
+          left: (r() * 96 + 2) + '%', top: (r() * 86 + 7) + '%',
+          background: color, opacity: '0',
+        })
+        layer.appendChild(d)
+        reg(d, 0, 1, 'drift', {
+          period: 8000 + r() * 7000, phase: r(), travel: 240 + r() * 260,
+          ax: 10 + r() * 16, wob: 0.5 + r(), alpha: (o.alpha || 0.2) * (0.6 + r() * 0.8),
+        })
+      }
+      return layer
+    },
+    // Short diagonal accent strokes near the edges, drawing in via anime.js.
+    lines(sceneEl, color, seed, n) {
+      const r = rng(seed + 5)
+      const layer = fxLayer(sceneEl)
+      const svg = mkSvg(layer)
+      const zones = [
+        [70, 300, 240, 560], [740, 1010, 240, 560],
+        [70, 300, 1360, 1680], [740, 1010, 1360, 1680],
+      ]
+      const tl = window.anime ? window.anime.timeline({ autoplay: false }) : null
+      for (let i = 0; i < (n || 3); i++) {
+        const z = zones[Math.floor(r() * zones.length)]
+        const x1 = z[0] + r() * (z[1] - z[0] - 140)
+        const y1 = z[2] + r() * (z[3] - z[2] - 140)
+        const len = 110 + r() * 150
+        const x2 = x1 + len * 0.85, y2 = y1 + len * (r() > 0.5 ? 0.5 : -0.5)
+        const p = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+        p.setAttribute('d', `M ${x1},${y1} L ${x2},${y2}`)
+        p.setAttribute('stroke', color); p.setAttribute('stroke-width', '5')
+        p.setAttribute('stroke-linecap', 'round'); p.setAttribute('fill', 'none')
+        p.style.opacity = '0.32'
+        const plen = Math.hypot(x2 - x1, y2 - y1)
+        p.style.strokeDasharray = String(plen)
+        p.style.strokeDashoffset = String(plen)
+        svg.appendChild(p)
+        if (tl) tl.add({ targets: p, strokeDashoffset: [plen, 0], duration: 700, easing: 'easeOutCubic' }, 350 + i * 240)
+        else reg(p, 350 + i * 240, 1050 + i * 240, 'ringdraw', { circ: plen })
+      }
+      if (tl) regAnime(tl)
+      return layer
+    },
+    // One big curved "energy path" drawing across the canvas behind content,
+    // plus a fainter dashed twin that keeps flowing for the whole scene.
+    swoosh(sceneEl, color, seed) {
+      const r = rng(seed + 11)
+      const layer = fxLayer(sceneEl)
+      const svg = mkSvg(layer)
+      const y0 = 1350 + r() * 260, y1 = 620 + r() * 300
+      const d = `M -60,${y0} C 300,${y0 - 320 - r() * 120} 640,${y1 + 320 + r() * 120} 1140,${y1}`
+      const mk = (w, op, dash) => {
+        const p = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+        p.setAttribute('d', d); p.setAttribute('stroke', color); p.setAttribute('fill', 'none')
+        p.setAttribute('stroke-width', w); p.setAttribute('stroke-linecap', 'round')
+        p.style.opacity = op
+        if (dash) p.style.strokeDasharray = dash
+        svg.appendChild(p)
+        return p
+      }
+      const main = mk('4', '0.17')
+      const plen = main.getTotalLength()
+      main.style.strokeDasharray = String(plen)
+      main.style.strokeDashoffset = String(plen)
+      if (window.anime) {
+        const tl = window.anime.timeline({ autoplay: false })
+        tl.add({ targets: main, strokeDashoffset: [plen, 0], duration: 1500, easing: 'easeInOutCubic' }, 420)
+        regAnime(tl)
+      } else {
+        reg(main, 420, 1920, 'ringdraw', { circ: plen })
+      }
+      const flow = mk('3', '0.10', '12 30')
+      reg(flow, 0, 1, 'dashflow', { speed: 34 })
+      return layer
+    },
+    // Small dashed ring slowly spinning — a quiet technical accent.
+    ring(sceneEl, color, seed, opts) {
+      const o = opts || {}
+      const r = rng(seed + 23)
+      const layer = fxLayer(sceneEl)
+      const size = o.size || 200 + r() * 90
+      const wrap = document.createElement('div')
+      Object.assign(wrap.style, {
+        position: 'absolute', width: size + 'px', height: size + 'px',
+        left: o.left || (r() > 0.5 ? '6%' : '74%'), top: o.top || (r() > 0.5 ? '12%' : '72%'),
+        opacity: o.alpha || '0.3',
+      })
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      svg.setAttribute('viewBox', '0 0 100 100')
+      Object.assign(svg.style, { width: '100%', height: '100%' })
+      const cir = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+      cir.setAttribute('cx', '50'); cir.setAttribute('cy', '50'); cir.setAttribute('r', '46')
+      cir.setAttribute('fill', 'none'); cir.setAttribute('stroke', color); cir.setAttribute('stroke-width', '2')
+      cir.style.strokeDasharray = '3 9'
+      svg.appendChild(cir); wrap.appendChild(svg); layer.appendChild(wrap)
+      reg(wrap, 0, 1, 'spin', { period: o.period || 18000 })
+      return layer
+    },
+  }
+
   function splitWords(el) {
     const text = el.textContent
     el.textContent = ''
@@ -200,5 +356,5 @@ window.__M = (() => {
     })
     return spans
   }
-  return { reg, easeOutCubic, easeOutBack, words, splitWords, decorate, applyLang, sceneExit, applyPalette, stage, regAnime }
+  return { reg, easeOutCubic, easeOutBack, words, splitWords, decorate, applyLang, sceneExit, applyPalette, stage, regAnime, fx }
 })()

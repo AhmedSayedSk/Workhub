@@ -14,7 +14,7 @@
   .u i{position:absolute;left:0;right:0;bottom:6px;height:16px;background:var(--c);transform-origin:left center;border-radius:8px;z-index:-1;opacity:.9}
   .rtl .u i{transform-origin:right center}
   .brand{position:absolute;left:90px;top:90px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;z-index:2}
-  .brand img{width:52px;height:52px;border-radius:12px}
+  .brand img{height:52px;width:auto;max-width:170px;object-fit:contain;border-radius:10px}
   .chip{position:absolute;right:90px;top:96px;font-size:26px;font-weight:700;color:var(--c);background:rgba(255,255,255,.08);padding:8px 16px;border-radius:999px;z-index:2}
 </style></head>
 <body><div id="s">
@@ -22,6 +22,7 @@
   <div class="brand" id="brand"></div>
   <div class="wrap"><div class="kicker" id="kicker"></div><h1 id="h1"></h1></div>
 </div>
+<script src="vendor/anime.min.js"></script>
 <script src="_motion.js"></script>
 <script>
   const D = window.__DATA || {}
@@ -30,6 +31,8 @@
   const c = P.accent
   const bg = document.getElementById('bg'); if (D.bg) bg.style.backgroundImage = `url("${D.bg}")`; else window.__M.stage(document.getElementById('s'), P)
   if (!D.bg) window.__M.decorate(document.getElementById('s'), c)
+  { const F = window.__M.fx, sd = F.seedFrom(D), sc = document.getElementById('s')
+    F.swoosh(sc, c, sd); F.particles(sc, c, sd + 1, 10) }
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
   brand.appendChild(Object.assign(document.createElement('span'), { textContent: D.brand?.name || '' }))

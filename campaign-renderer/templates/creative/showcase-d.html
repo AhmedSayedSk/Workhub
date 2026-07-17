@@ -4,7 +4,7 @@
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
   #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
   .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.95;z-index:4}
-  .brand img{width:52px;height:52px;border-radius:12px}
+  .brand img{height:52px;width:auto;max-width:170px;object-fit:contain;border-radius:10px}
   /* KINETIC FULL-BLEED: near-full image + huge centered type over deep scrim */
   .card{position:absolute;left:64px;right:64px;top:170px;bottom:80px;border-radius:40px;overflow:hidden;z-index:2;
         box-shadow:0 60px 120px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.06);background:var(--bg2,#0e1424)}
@@ -40,6 +40,7 @@
   const s = document.getElementById('s')
   const P = M.applyPalette(D)
   M.stage(s, P)
+  M.fx.particles(s, P.accent, M.fx.seedFrom(D), 6, { alpha: 0.16 })
 
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }

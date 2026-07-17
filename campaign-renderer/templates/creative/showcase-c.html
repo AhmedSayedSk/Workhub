@@ -4,7 +4,7 @@
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
   #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
   .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:5}
-  .brand img{width:52px;height:52px;border-radius:12px}
+  .brand img{height:52px;width:auto;max-width:170px;object-fit:contain;border-radius:10px}
   /* MAGAZINE COLLAGE: rotated photo card + offset accent frame + huge ghost word */
   .ghost{position:absolute;left:-20px;top:220px;font-size:210px;font-weight:900;letter-spacing:-4px;line-height:.95;
          color:transparent;-webkit-text-stroke:2px var(--c);opacity:.22;z-index:1;white-space:nowrap;text-transform:uppercase}
@@ -37,6 +37,7 @@
   const s = document.getElementById('s')
   const P = M.applyPalette(D)
   M.stage(s, P)
+  M.fx.particles(s, P.accent, M.fx.seedFrom(D), 6, { alpha: 0.16 })
 
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }

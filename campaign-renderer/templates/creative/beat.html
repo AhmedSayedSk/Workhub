@@ -4,7 +4,7 @@
   html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,Arial,sans-serif}
   #s{position:relative;width:100%;height:100%;color:var(--tx,#fff);overflow:hidden}
   .brand{position:absolute;left:90px;top:84px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;opacity:.92;z-index:2}
-  .brand img{width:52px;height:52px;border-radius:12px}
+  .brand img{height:52px;width:auto;max-width:170px;object-fit:contain;border-radius:10px}
   .wrap{position:absolute;left:110px;right:110px;top:50%;transform:translateY(-50%);text-align:center;z-index:2}
   .accent{width:110px;height:12px;border-radius:8px;background:var(--c);margin:0 auto 48px;transform-origin:center;transform:scaleY(0)}
   h1{font-size:92px;line-height:1.14;font-weight:900;letter-spacing:-1px}
@@ -21,6 +21,7 @@
     <div class="sub" id="sub"></div>
   </div>
 </div>
+<script src="vendor/anime.min.js"></script>
 <script src="_motion.js"></script>
 <script>
   const D = window.__DATA || {}
@@ -30,6 +31,7 @@
   const c = P.accent
   window.__M.stage(s, P)
   window.__M.decorate(s, c)
+  { const F = window.__M.fx, sd = F.seedFrom(D); F.lines(s, c, sd, 3); F.particles(s, c, sd + 1, 8) }
 
   const brand = document.getElementById('brand')
   if (D.brand?.logoUrl) { const im = document.createElement('img'); im.src = D.brand.logoUrl; brand.appendChild(im) }
