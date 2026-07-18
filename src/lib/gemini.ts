@@ -776,6 +776,7 @@ export async function generateCampaignPosts(
     includeHowTo?: boolean
     includeEdge?: boolean
     edge?: string
+    cta?: string
   },
   model?: GeminiModel
 ): Promise<GeneratedCampaignPost[]> {
@@ -797,6 +798,7 @@ export async function generateCampaignPosts(
 Campaign goal: ${params.goal || 'grow awareness and drive signups'}
 Audience: ${params.audience || "the product's ideal customers"}
 Tone: ${params.tone || 'confident, friendly, concrete'}
+${params.cta ? `Primary call to action: ${params.cta} — every caption's closing CTA must drive THIS action (written natively in the campaign language, naturally varied).` : ''}
 ${langLine}
 
 Product/brand context (description, repos, domains):
@@ -837,14 +839,14 @@ Produce exactly ${count} DISTINCT posts that build on each other (vary the angle
 // Deterministic fallback: a valid copy-scene script from the campaign basics,
 // used when Gemini fails so a creative video still renders.
 export function fallbackVideoScenes(params: {
-  brandName: string; goal: string; domain?: string; postHeadlines: string[]
+  brandName: string; goal: string; domain?: string; postHeadlines: string[]; cta?: string
 }): CreativeScene[] {
   const scenes: CreativeScene[] = [
     { type: 'hook', headline: params.brandName, underline: params.brandName, kicker: 'Introducing' },
   ]
   for (const h of params.postHeadlines.filter(Boolean).slice(0, 3)) scenes.push({ type: 'beat', title: h })
   if (!scenes.some((s) => s.type === 'beat')) scenes.push({ type: 'beat', title: params.goal || 'See what we made' })
-  scenes.push({ type: 'cta', text: 'Get started', ...(params.domain ? { url: params.domain } : {}) })
+  scenes.push({ type: 'cta', text: (params.cta || 'Get started').slice(0, 40), ...(params.domain ? { url: params.domain } : {}) })
   return scenes
 }
 
@@ -855,6 +857,7 @@ export async function generateCampaignVideoScript(
     brandName: string; goal: string; audience: string; tone: string
     language: 'en' | 'ar'; domain?: string
     cultureNote?: string
+    cta?: string
     posts: Array<{ headline?: string; body?: string; caption?: string }>
   },
   model?: GeminiModel
@@ -877,7 +880,7 @@ Write a tight, PUNCHY video script — short kinetic lines, not paragraphs. Resp
 - exactly 1 hook: {"type":"hook","headline":"<2 short lines, use \\n between them>","underline":"<the 1-3 word key phrase inside headline to underline>","kicker":"<1-2 word eyebrow, optional>"}
 - exactly ${Math.min(6, Math.max(2, params.posts.length))} beats (one per campaign image, same order as the source copy): {"type":"beat","title":"<a benefit in <=7 words>","sub":"<supporting line <=10 words, optional>"}
 - 0 to 2 stats (only if a number is truthful/likely): {"type":"stat","value":"<e.g. 18% or 3x or $52k>","label":"<what it measures, <=6 words>"}
-- exactly 1 cta LAST: {"type":"cta","text":"<call to action <=6 words>","url":"${params.domain || ''}"}
+- exactly 1 cta LAST: {"type":"cta","text":"<${params.cta ? `a punchy button label (<=5 words) for exactly this action: ${params.cta}` : 'call to action <=6 words'}>","url":"${params.domain || ''}"}
 Order: hook first, cta last, beats/stats in between. Do NOT include images.`
   try {
     const gemini = getGeminiModel(model)
@@ -1071,6 +1074,7 @@ export interface GeneratedCampaignBrief {
   goal: string
   audience: string
   tone: string
+  cta: string
   language: 'en' | 'ar'
   count: number
   cadenceDays: number
@@ -1107,6 +1111,7 @@ Respond with ONLY a JSON object (no markdown fences):
   "goal": "<1-2 sentences: the concrete goal of this campaign for this specific product>",
   "audience": "<1 sentence: the specific target audience and where they are>",
   "tone": "<3-5 comma-separated adjectives that fit the brand voice>",
+  "cta": "<the single best call-to-action for THIS product, e.g. 'Download the mobile app', 'Visit the website', 'Sign up for an account', 'Book a demo' — in ENGLISH>",
   "language": ${JSON.stringify(langField)},
   "count": <integer 4-8: how many posts this campaign should have>,
   "cadenceDays": <integer 1-4: days between posts>
@@ -1126,6 +1131,7 @@ Respond with ONLY a JSON object (no markdown fences):
       goal: String(p.goal ?? '').slice(0, 500),
       audience: String(p.audience ?? '').slice(0, 300),
       tone: String(p.tone ?? '').slice(0, 120),
+      cta: String(p.cta ?? '').slice(0, 80),
       language: forced || (p.language === 'ar' ? 'ar' : 'en'),
       count: Math.max(1, Math.min(20, Math.round(Number(p.count) || 6))),
       cadenceDays: Math.max(1, Math.min(14, Math.round(Number(p.cadenceDays) || 2))),

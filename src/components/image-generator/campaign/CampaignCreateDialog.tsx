@@ -17,6 +17,7 @@ import { authFetch } from '@/lib/api-client'
 import { toast } from 'react-toastify'
 import { cn } from '@/lib/utils'
 import { Loader2, Sparkles, Plus, Megaphone, RectangleHorizontal, RectangleVertical, Square, ImageIcon, Upload } from 'lucide-react'
+import { CAMPAIGN_CTAS } from '@/lib/campaignCta'
 import { CAMPAIGN_STYLES, DEFAULT_CAMPAIGN_STYLE } from '@/lib/campaignStyles'
 import type { NewCampaignInput } from '@/hooks/useCampaigns'
 import type { Campaign, CampaignAspect, CampaignLanguage, CampaignTextOption, Project, SocialPlatform } from '@/types'
@@ -78,6 +79,8 @@ export function CampaignCreateDialog({
     goal: '',
     audience: '',
     tone: 'confident, friendly, concrete',
+    cta: 'auto',
+    ctaCustom: '',
     includeLink: true,
     link: '',
     includeHowTo: true,
@@ -148,6 +151,12 @@ export function CampaignCreateDialog({
         goal: b.goal || f.goal,
         audience: b.audience || f.audience,
         tone: b.tone || f.tone,
+        ...(b.cta
+          ? (() => {
+              const hit = CAMPAIGN_CTAS.find((p) => p.directive.toLowerCase() === String(b.cta).toLowerCase())
+              return hit ? { cta: hit.id, ctaCustom: '' } : { cta: 'custom', ctaCustom: b.cta }
+            })()
+          : {}),
         language: b.language || f.language,
         count: b.count || f.count,
         cadenceDays: b.cadenceDays || f.cadenceDays,
@@ -172,6 +181,7 @@ export function CampaignCreateDialog({
         goal: form.goal,
         audience: form.audience,
         tone: form.tone,
+        cta: form.cta === 'auto' ? '' : form.cta === 'custom' ? form.ctaCustom.trim() : (CAMPAIGN_CTAS.find((p) => p.id === form.cta)?.directive || ''),
         count: Math.max(1, Math.min(20, form.count)),
         startDate: form.startDate,
         cadenceDays: Math.max(1, form.cadenceDays),
@@ -276,6 +286,23 @@ export function CampaignCreateDialog({
             <div className="space-y-1.5">
               <Label className="text-xs">Audience</Label>
               <Input value={form.audience} onChange={(e) => set('audience', e.target.value)} placeholder="who it's for" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Call to action</Label>
+              <Select value={form.cta} onValueChange={(v) => set('cta', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto — AI picks the best action</SelectItem>
+                  {CAMPAIGN_CTAS.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                  ))}
+                  <SelectItem value="custom">Custom…</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.cta === 'custom' && (
+                <Input value={form.ctaCustom} onChange={(e) => set('ctaCustom', e.target.value)} placeholder="e.g. Join the waitlist" />
+              )}
+              <p className="text-[11px] text-muted-foreground">Drives the closing CTA of every post caption and the video&apos;s final scene.</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Tone</Label>

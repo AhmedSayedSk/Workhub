@@ -22,6 +22,7 @@ interface CampaignDoc {
     goal?: string
     audience?: string
     tone?: string
+    cta?: string
     count?: number
     content?: { includeLink?: boolean; link?: string; includeHowTo?: boolean; includeEdge?: boolean; edge?: string }
   }
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
           includeHowTo: camp.brief?.content?.includeHowTo,
           includeEdge: camp.brief?.content?.includeEdge,
           edge: camp.brief?.content?.edge,
+          cta: camp.brief?.cta || undefined,
         })
         if (posts.length === 0) throw new Error('No posts were generated')
 

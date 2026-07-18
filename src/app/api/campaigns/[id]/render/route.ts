@@ -96,6 +96,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     const copyScenes = await generateCampaignVideoScript({
       brandName,
       goal: c.brief?.goal || '',
+      cta: c.brief?.cta || undefined,
       audience: c.brief?.audience || '',
       tone: c.brief?.tone || '',
       language: c.language === 'ar' ? 'ar' : 'en',

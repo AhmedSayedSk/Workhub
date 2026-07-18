@@ -581,6 +581,7 @@ export interface CampaignBrief {
   cadenceDays: number // days between posts
   postTime: string // HH:mm local, e.g. "18:00"
   content?: CampaignContentEmphasis // what each post should mention (link / how-to / competitor edge)
+  cta?: string // call-to-action directive ('' = auto): steers caption CTAs + the video's closing scene
 }
 
 export interface CampaignBrand {
