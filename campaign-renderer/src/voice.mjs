@@ -148,14 +148,27 @@ export async function buildVoiceTrack(segments, scratchDir, fps = 30) {
   }
 }
 
+// Stat values are written for the EYE ("50+", "3x") but must be spoken
+// naturally: "50+" → "more than 50" / "أكثر من 50", "3x" → "3 times" / "3 أضعاف".
+// Anything unrecognized passes through untouched.
+function spokenStat(value, lang) {
+  const v = String(value || '').trim()
+  const ar = lang === 'ar'
+  let m = v.match(/^\+?\s*([\d.,٠-٩]+)\s*\+?$/)
+  if (m && v.includes('+')) return ar ? `أكثر من ${m[1]}` : `more than ${m[1]}`
+  m = v.match(/^([\d.,٠-٩]+)\s*[x×]$/i) || v.match(/^[x×]\s*([\d.,٠-٩]+)$/i)
+  if (m) return ar ? `${m[1]} أضعاف` : `${m[1]} times`
+  return v
+}
+
 // Narration text for a creative script scene. The CTA (closing scene) speaks
 // the BRAND NAME before the button text — a spoken sign-off, not just "Sign up".
-export function creativeSceneNarration(scene, brandName) {
+export function creativeSceneNarration(scene, brandName, lang) {
   if (!scene) return ''
   switch (scene.type) {
     case 'hook': return String(scene.headline || '').replace(/\n/g, ' ')
     case 'beat': return [scene.title, scene.sub].filter(Boolean).join('. ')
-    case 'stat': return [scene.value, scene.label].filter(Boolean).join(' ')
+    case 'stat': return [spokenStat(scene.value, lang), scene.label].filter(Boolean).join(' ')
     case 'showcase': return [scene.caption, scene.sub].filter(Boolean).join('. ')
     case 'cta': return [brandName, scene.text].filter(Boolean).join('. ')
     default: return ''

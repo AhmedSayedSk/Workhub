@@ -142,7 +142,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         await report(40, 'voiceover')
         const mixed = vo.gender === 'mixed'
         const cast = mixed ? castVoices(job.script.map((s) => s.type)) : null
-        const lines = job.script.map((s, li) => ({ text: creativeSceneNarration(s, (job.brand || {}).name), ...(mixed ? { gender: cast[li], voice: MIXED_VOICE[cast[li]] } : {}) }))
+        const lines = job.script.map((s, li) => ({ text: creativeSceneNarration(s, (job.brand || {}).name, vo.language), ...(mixed ? { gender: cast[li], voice: MIXED_VOICE[cast[li]] } : {}) }))
         voiceSegs = await synthLines(lines, { language: vo.language, gender: mixed ? 'female' : vo.gender, voice: mixed ? undefined : vo.voice, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
           async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
       }
