@@ -182,7 +182,7 @@ window.__M = (() => {
       ".rtl h1,.rtl .value,.rtl .pill,.rtl .name,.rtl .kicker{letter-spacing:normal}" +
       ".ar-font,.ar-font h1,.ar-font .sub,.ar-font .caption,.ar-font .label,.ar-font .value,.ar-font .pill,.ar-font .name,.ar-font .kicker,.ar-font .brand,.ar-font .chip,.ar-font .url{font-family:'Cairo','Segoe UI',system-ui,Arial,sans-serif}" +
       // Arabic script sits tighter than Latin — give multi-line headings & body more breathing room.
-      ".ar-font h1{line-height:1.55}.ar-font .sub,.ar-font .caption{line-height:1.65}.ar-font .label{line-height:1.5}"
+      ".ar-font h1{line-height:1.75}.ar-font .sub,.ar-font .caption{line-height:1.65}.ar-font .label{line-height:1.5}"
     document.head.appendChild(st)
   }
   function applyLang(D) {
