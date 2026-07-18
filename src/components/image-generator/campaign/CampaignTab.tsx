@@ -97,7 +97,7 @@ export function CampaignTab() {
   const [voiceoverVoice, setVoiceoverVoice] = useState<VoiceChoice>('nova')
   const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('premium')
   const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
-  const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none'>('smooth')
+  const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none' | 'cinematic' | 'push'>('cinematic')
   const [videoSfx, setVideoSfx] = useState(true)
   const [videoMarket, setVideoMarket] = useState('auto')
   const [hookMode, setHookMode] = useState<'auto' | 'choose'>('auto')
@@ -510,7 +510,7 @@ export function CampaignTab() {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Format</span>
                     {videoMode === 'creative' ? (
-                      <span className="rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">Portrait 9:16 · Reel</span>
+                      <span className="text-sm text-muted-foreground">Creative · Portrait 9:16 · Reel</span>
                     ) : (
                       <Seg
                         value={videoAspect}
@@ -530,6 +530,8 @@ export function CampaignTab() {
                       value={videoTransition}
                       onChange={setVideoTransition}
                       options={[
+                        { value: 'cinematic' as const, label: 'Cinematic' },
+                        { value: 'push' as const, label: 'Push' },
                         { value: 'smooth' as const, label: 'Smooth' },
                         { value: 'simple' as const, label: 'Simple' },
                         { value: 'none' as const, label: 'Cut' },

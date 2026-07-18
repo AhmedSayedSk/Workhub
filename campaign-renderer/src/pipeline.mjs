@@ -8,7 +8,7 @@ import { generateHookBg } from './hook.mjs'
 import { encode, thumbFromFrame } from './encode.mjs'
 import { upload } from './upload.mjs'
 import { synthLines, buildVoiceTrack, clampSceneMs, creativeSceneNarration } from './voice.mjs'
-import { applyDissolves } from './transitions.mjs'
+import { applyDissolves, applyXfades } from './transitions.mjs'
 import { scheduleSfx, buildSfxTrack, mixTracks } from './sfx.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -131,7 +131,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
     const vo = job.voiceover && job.voiceover.enabled ? job.voiceover : null
     // Scene transitions: 'smooth' (exit-fade + cross-dissolve, default),
     // 'simple' (exit-fade only), 'none' (hard cuts, legacy).
-    const transition = ['smooth', 'simple', 'none'].includes(job.transition) ? job.transition : 'smooth'
+    const transition = ['smooth', 'simple', 'none', 'cinematic', 'push'].includes(job.transition) ? job.transition : 'smooth'
 
     if (job.mode === 'creative' && Array.isArray(job.script) && job.script.length) {
       const brand = { name: (job.brand || {}).name || '', color, logoUrl: (job.brand || {}).logoUrl || null, domain: (job.brand || {}).domain || null }
@@ -193,6 +193,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
       await report(42, 'rendering')
       await runPool(tasks, CONCURRENCY, async (d, total) => { await report(42 + Math.round((d / total) * 43), 'rendering') })
       if (transition === 'smooth') await applyDissolves(framesDir, boundaries, cursor)
+      else if (transition === 'cinematic' || transition === 'push') await applyXfades(framesDir, boundaries, cursor, { pool: transition })
       await report(88, 'encoding')
       const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
       // Sound effects (default ON): scheduled from the exact scene timeline,
@@ -281,6 +282,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
       await report(42 + Math.round((d / total) * 43), 'rendering') // 42 → 85
     })
     if (transition === 'smooth') await applyDissolves(framesDir, boundaries, cursor)
+      else if (transition === 'cinematic' || transition === 'push') await applyXfades(framesDir, boundaries, cursor, { pool: transition })
     await report(85, 'rendering')
 
     const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null

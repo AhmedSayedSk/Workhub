@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const body = await request.json().catch(() => ({}))
   const aspect = ASPECTS.includes(body.aspect) ? body.aspect : 'portrait'
   const mode = body.mode === 'creative' ? 'creative' : 'basic'
-  const transition = ['smooth', 'simple', 'none'].includes(body.transition) ? body.transition : 'smooth'
+  const transition = ['smooth', 'simple', 'none', 'cinematic', 'push'].includes(body.transition) ? body.transition : 'smooth'
   const sfx = { enabled: body.sfx?.enabled !== false } // sound effects default ON
 
   const cSnap = await db().collection('campaigns').doc(id).get()
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       cta: c.brief?.cta || undefined,
       audience: c.brief?.audience || '',
       tone: c.brief?.tone || '',
-      language: c.language === 'ar' ? 'ar' : 'en',
+      language: market.lang, // script copy (incl. the opening hook) follows the selected market
       domain,
       cultureNote: market.cultureNote,
       posts: posts.map((p) => ({ headline: p.headline, body: p.body, caption: p.caption })),

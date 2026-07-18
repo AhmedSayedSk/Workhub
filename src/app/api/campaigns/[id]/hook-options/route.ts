@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     goal: c.brief?.goal,
     audience: c.brief?.audience,
     tone: c.brief?.tone,
-    language: c.language === 'ar' ? 'ar' : 'en',
+    language: market.lang, // hooks follow the selected market's language
     postsCopy,
     cultureNote: market.cultureNote,
   })

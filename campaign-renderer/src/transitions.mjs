@@ -50,3 +50,43 @@ export async function applyDissolves(framesDir, boundaries, totalFrames, { frame
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker))
 }
+
+// Premium ANIMATED transitions via ffmpeg's xfade engine, applied IN PLACE at
+// each scene boundary (same frame count — voiceover stays aligned). The frozen
+// previous frame transitions into the next scene's real frames using a
+// per-boundary variant from the chosen pool, so consecutive cuts differ.
+// Never throws — a failed boundary keeps its original (hard-cut) frames.
+export const XFADE_POOLS = {
+  cinematic: ['circleopen', 'radial', 'smoothup', 'diagtl', 'wipetl'],
+  push: ['slideup', 'slideleft', 'slideright', 'smoothleft'],
+}
+
+export async function applyXfades(framesDir, boundaries, totalFrames, { frames = 14, fps = 30, pool = 'cinematic' } = {}) {
+  const variants = XFADE_POOLS[pool] || XFADE_POOLS.cinematic
+  for (let bi = 0; bi < boundaries.length; bi++) {
+    const b = boundaries[bi]
+    if (b <= 0 || b >= totalFrames) continue
+    const count = Math.min(frames, totalFrames - b)
+    if (count < 4) continue
+    const dur = (count / fps).toFixed(4)
+    const prev = path.join(framesDir, frameName(b - 1))
+    const tmpDir = path.join(framesDir, `.xf${b}`)
+    fs.mkdirSync(tmpDir, { recursive: true })
+    const variant = variants[bi % variants.length]
+    try {
+      await run('ffmpeg', [
+        '-y',
+        '-loop', '1', '-framerate', String(fps), '-t', dur, '-i', prev,
+        '-framerate', String(fps), '-start_number', String(b), '-i', path.join(framesDir, 'f%05d.jpg'),
+        '-filter_complex', `[0:v][1:v]xfade=transition=${variant}:duration=${dur}:offset=0`,
+        '-frames:v', String(count), '-q:v', '3',
+        '-start_number', '0', path.join(tmpDir, 'x%05d.jpg'),
+      ])
+      for (let j = 0; j < count; j++) {
+        const src = path.join(tmpDir, `x${String(j).padStart(5, '0')}.jpg`)
+        if (fs.existsSync(src)) fs.renameSync(src, path.join(framesDir, frameName(b + j)))
+      }
+    } catch { /* keep original frames at this boundary */ }
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  }
+}

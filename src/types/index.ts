@@ -653,7 +653,7 @@ export interface RenderJob {
   sceneStyles?: string[] // enabled showcase compositions (Scene Styles table)
   cancelRequested?: boolean // set by the Stop button; worker aborts at next checkpoint
   voiceover?: { enabled: boolean; language: 'en' | 'ar'; gender: 'male' | 'female' | 'mixed'; voice?: string; model?: 'standard' | 'premium'; rate?: number; rateAuto?: boolean; style?: string } // AI narration (voice = named voice id; style = market delivery direction)
-  transition?: 'smooth' | 'simple' | 'none' // scene transitions: exit-fade + dissolve / exit-fade / hard cut
+  transition?: 'smooth' | 'simple' | 'none' | 'cinematic' | 'push' // exit-fade+dissolve / exit-fade / hard cut / xfade reveals (circle·radial·diag) / whip-slide pushes
   palette?: { bg1: string; bg2: string; accent: string; text: string; muted: string; ctaText: string } // AI-proposed, contrast-enforced color system
   sfx?: { enabled: boolean } // sound effects mixed at scene-motion moments (default on)
   script?: CreativeScene[]
