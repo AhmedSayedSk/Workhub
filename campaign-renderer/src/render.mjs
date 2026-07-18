@@ -11,7 +11,7 @@ const READY_TIMEOUT_MS = 8000
 // data: plumbed into the page as window.__DATA before any page script runs
 // opts: { w, h, durMs, fps, outDir, startIndex }
 // Returns the number of frames written.
-export async function renderScene(htmlPath, data, { w, h, durMs, fps, outDir, startIndex = 0 }) {
+export async function renderScene(htmlPath, data, { w, h, durMs, fps, outDir, startIndex = 0, shouldCancel = null }) {
   fs.mkdirSync(outDir, { recursive: true })
 
   const browser = await puppeteer.launch({
@@ -39,6 +39,9 @@ export async function renderScene(htmlPath, data, { w, h, durMs, fps, outDir, st
 
     const frameCount = Math.max(1, Math.round((durMs / 1000) * fps))
     for (let i = 0; i < frameCount; i++) {
+      // Frame-level cancel check: a Stop request aborts within ~1 frame
+      // instead of waiting for the whole scene to finish rendering.
+      if (shouldCancel && shouldCancel()) throw new Error('CANCELLED')
       const t = (i / fps) * 1000
       await page.evaluate((t) => window.render(t), t)
       // Double-rAF flush: guarantees the style mutations above have been

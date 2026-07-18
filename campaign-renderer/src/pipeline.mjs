@@ -185,7 +185,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
           prevVariant = v
           tplFile = showcaseTemplate(v)
         }
-        tasks.push(() => renderScene(path.join(CREATIVE_DIR, tplFile), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start }))
+        tasks.push(() => renderScene(path.join(CREATIVE_DIR, tplFile), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start, shouldCancel }))
         segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
         timeline.push({ type: scene.type, startMs: Math.round((start / FPS) * 1000), durMs })
       })
@@ -249,7 +249,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
     const hookStart = cursor
     cursor += hookFrames
     tasks.push(() =>
-      renderScene(HOOK_TEMPLATE, hookData, { w: dims.w, h: dims.h, durMs: hookDurMs, fps: FPS, outDir: framesDir, startIndex: hookStart })
+      renderScene(HOOK_TEMPLATE, hookData, { w: dims.w, h: dims.h, durMs: hookDurMs, fps: FPS, outDir: framesDir, startIndex: hookStart, shouldCancel })
     )
     segments.push({ audioPath: hookSeg ? hookSeg.audioPath : null, durMs: hookDurMs })
     timeline.push({ type: 'basicHook', startMs: 0, durMs: hookDurMs })
@@ -268,7 +268,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         durMs, transition: isLast ? 'none' : transition, // final scene holds
       }
       tasks.push(() =>
-        renderScene(SCENE_TEMPLATE, data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start })
+        renderScene(SCENE_TEMPLATE, data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start, shouldCancel })
       )
       segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
       timeline.push({ type: 'basicScene', startMs: Math.round((start / FPS) * 1000), durMs })

@@ -195,9 +195,14 @@ export function CampaignTab() {
       toast.error(data.error || 'Could not update style')
     }
   }
+  // The Firestore subscription can lag a few seconds behind the POST that
+  // created the job — remember the id so Stop works IMMEDIATELY after start.
+  const lastRenderJobId = useRef<string | null>(null)
   const stopVideo = async () => {
-    if (!videoJob?.id) return
-    const res = await authFetch(`/api/render-jobs/${videoJob.id}/cancel`, { method: 'POST' })
+    const id = videoJob?.id || lastRenderJobId.current
+    if (!id) { toast.info('Still starting — try again in a moment'); return }
+    toast.info('Stopping the render…')
+    const res = await authFetch(`/api/render-jobs/${id}/cancel`, { method: 'POST' })
     if (!res.ok) toast.error('Could not stop the render')
   }
   // True download (no new tab): cross-origin `download` attrs are ignored by
@@ -246,6 +251,7 @@ export function CampaignTab() {
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error || 'Could not start video'); return }
+      if (data.jobId) lastRenderJobId.current = data.jobId
     } finally {
       setVideoStarting(false)
     }
