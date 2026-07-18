@@ -878,7 +878,6 @@ export async function generateCampaignVideoScript(
     language: 'en' | 'ar'; domain?: string
     cultureNote?: string
     cta?: string
-    hook?: { headline: string; style?: string }
     posts: Array<{ headline?: string; body?: string; caption?: string }>
   },
   model?: GeminiModel
@@ -897,14 +896,8 @@ Source campaign copy:
 """
 ${copy.slice(0, 6000)}
 """
-${params.hook ? `THE OPENING HOOK IS FIXED — output it VERBATIM as the hook scene (do not rewrite it): ${JSON.stringify(params.hook.headline)}${params.hook.style ? ` (archetype: ${params.hook.style})` : ''}. Every scene AFTER it must flow from THIS exact hook.` : ''}
-Write a tight, PUNCHY video script that tells ONE connected story — NOT a list of disconnected captions. NARRATIVE FLOW RULES (critical):
-1. The FIRST beat after the hook must DIRECTLY pay the hook off: a question hook gets its answer, a pain hook gets the relief, a bold claim gets its backing, a curiosity hook gets the reveal.
-2. Each following beat continues from the previous one — an escalating arc: what it is → how it works → what makes it different → the outcome the customer gets. Reuse the story's key terms so scenes read as one voice; never jump topics.
-3. Place each stat IMMEDIATELY after the beat whose claim it proves (your output order is the exact play order).
-4. The cta is the natural conclusion of the story — the next step the arc has been building toward.
-Respond with ONLY a JSON array (no markdown fences) of scene objects, in play order, following EXACTLY:
-- exactly 1 hook FIRST: {"type":"hook","headline":"<2 short lines, use \\n between them>","underline":"<the 1-3 word key phrase inside headline to underline>","kicker":"<1-2 word eyebrow, optional>"}
+Write a tight, PUNCHY video script — short kinetic lines, not paragraphs. Respond with ONLY a JSON array (no markdown fences) of scene objects, in play order, following EXACTLY:
+- exactly 1 hook: {"type":"hook","headline":"<2 short lines, use \\n between them>","underline":"<the 1-3 word key phrase inside headline to underline>","kicker":"<1-2 word eyebrow, optional>"}
 - exactly ${Math.min(6, Math.max(2, params.posts.length))} beats (one per campaign image, same order as the source copy): {"type":"beat","title":"<a benefit in <=7 words>","sub":"<supporting line <=10 words, optional>"}
 - 0 to 2 stats (only if a number is truthful/likely): {"type":"stat","value":"<e.g. 18% or 3x or $52k>","label":"<what it measures, <=6 words>"}
 - exactly 1 cta LAST: {"type":"cta","text":"<${params.cta ? `a punchy button label (<=5 words) for exactly this action: ${params.cta}` : 'call to action <=6 words'}>","url":"${params.domain || ''}"}
