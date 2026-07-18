@@ -14,13 +14,11 @@
         box-shadow:0 24px 60px color-mix(in srgb, var(--c) 45%, transparent)}
   .shine{position:absolute;left:0;top:0;bottom:0;width:40%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.5),transparent);
          opacity:0;pointer-events:none;transform:translateX(-150%) skewX(-18deg)}
-  .url{margin-top:42px;font-size:36px;font-weight:600;color:var(--mut,#b9c2d0);letter-spacing:.5px}
 </style></head>
 <body><div id="s">
   <div class="wrap">
     <div class="mark" id="mark"></div>
     <div class="pillwrap" id="pillwrap"><span class="pill" id="pill"></span><span class="shine" id="shine"></span></div>
-    <div class="url" id="url"></div>
   </div>
 </div>
 <script src="vendor/anime.min.js"></script>
@@ -41,15 +39,11 @@
   if (D.brand?.name) mark.appendChild(Object.assign(document.createElement('div'), { className: 'name', textContent: D.brand.name }))
 
   document.getElementById('pill').textContent = D.text || ''
-  const urlEl = document.getElementById('url')
-  urlEl.textContent = D.url || D.brand?.domain || ''
-  if (!urlEl.textContent) urlEl.style.display = 'none'
 
   const M = window.__M
   M.reg(mark, 100, 700, 'popback', { rot: 0 })
   M.reg(document.getElementById('pillwrap'), 480, 1050, 'popback', { rot: -2 })
   M.reg(document.getElementById('shine'), 1150, 1900, 'sweep')
-  M.reg(urlEl, 900, 1350, 'rise', { dy: 22 })
 
   M.sceneExit(D, [document.querySelector('.wrap')])
 
