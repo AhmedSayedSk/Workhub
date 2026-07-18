@@ -4,15 +4,18 @@ import { db } from './firebase.mjs'
 
 const WORKER_ID = 'vps2-' + Math.floor(Date.now() / 1000)
 const IDLE_MS = 5000
-console.log('[renderer] up as', WORKER_ID)
+// Renders run CONCURRENTLY (bounded) so one campaign's video never has to wait
+// for another campaign's render to finish. Each job still renders its own
+// scenes in parallel internally; the OS scheduler shares the cores.
+const MAX_ACTIVE = Math.max(1, Number(process.env.MAX_ACTIVE_JOBS) || 2)
+console.log('[renderer] up as', WORKER_ID, `(max ${MAX_ACTIVE} concurrent jobs)`)
 
-async function tick() {
-  let job = null
-  try { job = await claimNext(WORKER_ID) } catch (e) { console.error('[renderer] claim error', e.message) }
-  if (!job) return
-  console.log('[renderer] claimed', job.id)
+let active = 0
+
+async function runJob(job) {
+  console.log('[renderer] claimed', job.id, `(${active}/${MAX_ACTIVE} active)`)
   // Live cancel flag: the UI sets cancelRequested; the pipeline checks it at
-  // every progress checkpoint and aborts fast.
+  // every progress checkpoint AND every rendered frame, so it aborts fast.
   let cancelled = false
   const unsub = db.collection('renderJobs').doc(job.id).onSnapshot(
     (s) => { if (s.data()?.cancelRequested) cancelled = true },
@@ -34,5 +37,19 @@ async function tick() {
     try { unsub() } catch { /* noop */ }
   }
 }
-async function loop() { for (;;) { await tick(); await new Promise((r) => setTimeout(r, IDLE_MS)) } }
+
+async function loop() {
+  for (;;) {
+    if (active < MAX_ACTIVE) {
+      let job = null
+      try { job = await claimNext(WORKER_ID) } catch (e) { console.error('[renderer] claim error', e.message) }
+      if (job) {
+        active++
+        runJob(job).finally(() => { active-- })
+        continue // fill remaining slots immediately
+      }
+    }
+    await new Promise((r) => setTimeout(r, IDLE_MS))
+  }
+}
 loop()
