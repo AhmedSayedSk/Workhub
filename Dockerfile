@@ -25,6 +25,10 @@ ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 ENV NEXT_TELEMETRY_DISABLED=1
+# Resource guardrails: the build runs ON the production VPS (2 cores / 4GB,
+# shared with ~10 live apps). Bound Node's heap so a build can never swap-storm
+# the box into an SSH-dead freeze (2026-07-19 incident).
+ENV NODE_OPTIONS=--max-old-space-size=1536
 
 RUN npm run build
 
