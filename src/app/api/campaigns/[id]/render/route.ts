@@ -90,10 +90,21 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const { finalizePalette } = await import('@/lib/palette')
   const rawPalette = await generateVideoPalette({ brandName, brandColor, tone: c.brief?.tone, goal: c.brief?.goal })
   const palette = finalizePalette(rawPalette, brandColor)
+  // User-chosen opening hook (from /hook-options): overrides the script's hook
+  // scene (creative) and the basic hook headline. 'auto'/absent = AI's own hook.
+  const chosenHook = body.hook && typeof body.hook === 'object' && typeof body.hook.headline === 'string' && body.hook.headline.trim()
+    ? {
+        headline: String(body.hook.headline).slice(0, 120),
+        ...(body.hook.underline ? { underline: String(body.hook.underline).slice(0, 60) } : {}),
+        ...(body.hook.kicker ? { kicker: String(body.hook.kicker).slice(0, 40) } : {}),
+      }
+    : null
   let script: import('@/types').CreativeScene[] | undefined
   if (mode === 'creative') {
     const { generateCampaignVideoScript } = await import('@/lib/gemini')
+    // The video script is narrative-critical — use the strongest model for it.
     const copyScenes = await generateCampaignVideoScript({
+      ...(chosenHook ? { hook: { headline: chosenHook.headline, ...(body.hook?.style ? { style: String(body.hook.style) } : {}) } } : {}),
       brandName,
       goal: c.brief?.goal || '',
       cta: c.brief?.cta || undefined,
@@ -103,7 +114,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       domain,
       cultureNote: market.cultureNote,
       posts: posts.map((p) => ({ headline: p.headline, body: p.body, caption: p.caption })),
-    })
+    }, 'gemini-3-pro-preview')
     // MERGE each beat's copy INTO an image scene: every showcase = one scene
     // with the image on top and that beat's text (caption + sub) below it —
     // never a text-only beat followed by a separate image. Stats stay their own
@@ -111,8 +122,6 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     // the 9-scene cap never slices them off.
     const hook = copyScenes.find((s) => s.type === 'hook')
     const cta = copyScenes.find((s) => s.type === 'cta')
-    const beats = copyScenes.filter((s): s is Extract<import('@/types').CreativeScene, { type: 'beat' }> => s.type === 'beat')
-    const stats = copyScenes.filter((s) => s.type === 'stat')
     // posts here are already filtered to those with imageUrl, so posts[i].imageUrl is defined.
     const maxMid = 9 - (hook ? 1 : 0) - (cta ? 1 : 0)
     // Short display line from post copy (fallback when Gemini gives fewer beats
@@ -123,37 +132,38 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       const m = clean.match(/^[^.!؟?\n]{6,90}[.!؟?]?/)
       return (m ? m[0] : clean).slice(0, 90).trim()
     }
+    // PRESERVE the model's play order (its narrative arc): walk the copy scenes
+    // in sequence — each beat rides the next campaign image; stats stay exactly
+    // where the model placed them (proof right after the claim it supports).
     const mid: import('@/types').CreativeScene[] = []
-    let bi = 0
-    let si = 0
-    posts.forEach((p, i) => {
-      if (mid.length >= maxMid) return
-      const beat = beats[bi]
-      if (beat) bi++
-      mid.push({
-        type: 'showcase',
-        imageUrl: p.imageUrl as string,
-        caption: beat?.title || p.headline || firstLine(p.caption) || firstLine(p.body) || '',
-        ...(beat?.sub ? { sub: beat.sub } : {}),
-      })
-      // A stat moment after every second image keeps the rhythm varied.
-      if (si < stats.length && i % 2 === 1 && mid.length < maxMid) mid.push(stats[si++])
-    })
-    // Leftover copy (more beats/stats than images) still gets its own scene if room.
-    for (; bi < beats.length && mid.length < maxMid; bi++) mid.push(beats[bi])
-    for (; si < stats.length && mid.length < maxMid; si++) mid.push(stats[si])
+    let pi = 0
+    for (const s of copyScenes) {
+      if (mid.length >= maxMid) break
+      if (s.type === 'beat') {
+        const p = posts[pi]
+        if (p) {
+          pi++
+          mid.push({
+            type: 'showcase',
+            imageUrl: p.imageUrl as string,
+            caption: s.title || p.headline || firstLine(p.caption) || firstLine(p.body) || '',
+            ...(s.sub ? { sub: s.sub } : {}),
+          })
+        } else {
+          mid.push(s) // more beats than images — keep the story beat as its own scene
+        }
+      } else if (s.type === 'stat') {
+        mid.push(s)
+      }
+    }
+    // Leftover images (more images than beats) still show, with post-copy captions.
+    for (; pi < posts.length && mid.length < maxMid; pi++) {
+      const p = posts[pi]
+      mid.push({ type: 'showcase', imageUrl: p.imageUrl as string, caption: p.headline || firstLine(p.caption) || firstLine(p.body) || '' })
+    }
     script = [...(hook ? [hook] : []), ...mid, ...(cta ? [cta] : [])]
   }
 
-  // User-chosen opening hook (from /hook-options): overrides the script's hook
-  // scene (creative) and the basic hook headline. 'auto'/absent = AI's own hook.
-  const chosenHook = body.hook && typeof body.hook === 'object' && typeof body.hook.headline === 'string' && body.hook.headline.trim()
-    ? {
-        headline: String(body.hook.headline).slice(0, 120),
-        ...(body.hook.underline ? { underline: String(body.hook.underline).slice(0, 60) } : {}),
-        ...(body.hook.kicker ? { kicker: String(body.hook.kicker).slice(0, 40) } : {}),
-      }
-    : null
   if (chosenHook && script) {
     const i = script.findIndex((s) => s.type === 'hook')
     const hookScene = { type: 'hook' as const, ...chosenHook }
