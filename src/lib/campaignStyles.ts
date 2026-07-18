@@ -67,9 +67,13 @@ export function buildImagePrompt(
       : '',
     style ? `Visual style: ${style}.` : '',
     palette.length ? `Feature this brand color palette prominently throughout: ${palette.join(', ')}.` : '',
-    language === 'ar'
-      ? 'IMPORTANT: any text that appears in the image MUST be written in correct Arabic (العربية), right-to-left, properly spelled and shaped — never English or Latin letters.'
+    // The Arabic-lettering rule applies ONLY when we deliberately bake post
+    // text onto the image. Without an overlay it would push the model to add
+    // stray Arabic captions — polluting an otherwise clean design.
+    language === 'ar' && overlay
+      ? 'IMPORTANT: the overlay text above MUST be written in correct Arabic (العربية), right-to-left, properly spelled and shaped — never English or Latin letters.'
       : '',
+    !overlay ? 'The image itself must contain NO text, lettering, captions or typography of any kind.' : '',
   ]
     .filter(Boolean)
     .join(' ')

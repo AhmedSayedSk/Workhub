@@ -783,7 +783,7 @@ export async function generateCampaignPosts(
   const count = Math.max(1, Math.min(20, Math.round(params.count || 4)))
   const langLine =
     params.language === 'ar'
-      ? 'Write the "caption" and "hashtags" in ARABIC (Modern Standard, natural marketing tone). Keep "imagePrompt" in ENGLISH.'
+      ? 'Write the "caption" and "hashtags" in ARABIC (Modern Standard, natural marketing tone). CRITICAL: the "imagePrompt" field MUST be written ENTIRELY in ENGLISH — never Arabic, no Arabic words at all — it is a technical instruction for the image engine, not audience-facing copy.'
       : 'Write everything in English.'
   // Optional content emphasis toggled per-campaign — woven across the posts.
   const emphasis: string[] = []
@@ -818,18 +818,38 @@ Produce exactly ${count} DISTINCT posts that build on each other (vary the angle
     const end = text.lastIndexOf(']')
     if (start === -1 || end === -1) return []
     const parsed = JSON.parse(text.slice(start, end + 1)) as GeneratedCampaignPost[]
-    return parsed
+    const posts = parsed
       .filter((p) => p && typeof p.caption === 'string')
       .map((p) => ({
         caption: String(p.caption ?? '').slice(0, 2200),
         hashtags: Array.isArray(p.hashtags)
           ? p.hashtags.map((h) => String(h).replace(/^#/, '').trim()).filter(Boolean).slice(0, 8)
           : [],
-        imagePrompt: String(p.imagePrompt ?? '').slice(0, 1000),
+        imagePrompt: String(p.imagePrompt ?? '').slice(0, 1000), // enforced English below
         headline: String(p.headline ?? '').slice(0, 120),
         body: String(p.body ?? '').slice(0, 240),
       }))
       .slice(0, count)
+    // HARD guarantee: image prompts are always English. On Arabic campaigns the
+    // model occasionally drifts — detect Arabic script and translate those
+    // prompts back to English scene descriptions in one batch call. Image
+    // engines design far better from English prompts.
+    const AR = /[؀-ۿݐ-ݿ]/
+    const drifted = posts.map((p, i) => (AR.test(p.imagePrompt) ? i : -1)).filter((i) => i >= 0)
+    if (drifted.length) {
+      try {
+        const gemini2 = getGeminiModel(model)
+        const res2 = await gemini2.generateContent(
+          `Translate each Arabic image-scene description below into a natural ENGLISH image-generation prompt (subject, scene, composition, mood only — no style/colors, no text overlays). Respond with ONLY a JSON array of ${drifted.length} strings, same order:\n${JSON.stringify(drifted.map((i) => posts[i].imagePrompt))}`
+        )
+        let t2 = res2.response.text().trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+        const arr = JSON.parse(t2.slice(t2.indexOf('['), t2.lastIndexOf(']') + 1))
+        drifted.forEach((pi, k) => {
+          if (typeof arr[k] === 'string' && arr[k].trim() && !AR.test(arr[k])) posts[pi].imagePrompt = arr[k].trim().slice(0, 1000)
+        })
+      } catch { /* keep originals — better than failing the plan */ }
+    }
+    return posts
   } catch (error) {
     console.error('Error generating campaign posts:', error)
     throw error
