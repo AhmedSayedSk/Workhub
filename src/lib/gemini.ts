@@ -8,8 +8,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 // Available models with descriptions
 export const GEMINI_MODELS: { value: GeminiModel; label: string; description: string; pricing: string; badge?: string; badgeColor?: string }[] = [
   {
-    value: 'gemini-3-pro-preview',
-    label: 'Gemini 3 Pro',
+    value: 'gemini-3.1-pro-preview',
+    label: 'Gemini 3.1 Pro',
     description: 'State-of-the-art reasoning with powerful agentic and coding capabilities (1M context)',
     pricing: '$2.00 / $12.00 per 1M tokens (input/output)',
     badge: 'Most Capable',

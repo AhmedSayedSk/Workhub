@@ -114,7 +114,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       domain,
       cultureNote: market.cultureNote,
       posts: posts.map((p) => ({ headline: p.headline, body: p.body, caption: p.caption })),
-    }, 'gemini-3-pro-preview')
+    }, 'gemini-pro-latest')
     // MERGE each beat's copy INTO an image scene: every showcase = one scene
     // with the image on top and that beat's text (caption + sub) below it —
     // never a text-only beat followed by a separate image. Stats stay their own
