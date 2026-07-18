@@ -76,7 +76,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             </div>
           </div>
           <div className="grid gap-4 lg:grid-cols-12">
-            {stats.containers && <div className="lg:col-span-5"><ContainerTable containers={stats.containers} hostMemTotalBytes={stats.host?.memory.totalBytes} /></div>}
+            {stats.containers && <div className="lg:col-span-5"><ContainerTable containers={stats.containers} hostMemTotalBytes={stats.host?.memory.totalBytes} hostMemUsedBytes={stats.host?.memory.usedBytes} /></div>}
             {stats.apps && <div className="lg:col-span-7"><AppsTable apps={stats.apps} serverId={serverId} /></div>}
           </div>
           {stats.errors.length > 0 && (

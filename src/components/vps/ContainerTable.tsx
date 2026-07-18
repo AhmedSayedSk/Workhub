@@ -19,7 +19,7 @@ const ACCESSORS: Record<SortKey, (c: ContainerStat) => number | string> = {
 }
 const NUMERIC: Record<SortKey, boolean> = { name: false, status: false, cpu: true, memory: true, net: true }
 
-export function ContainerTable({ containers, hostMemTotalBytes }: { containers: ContainerStat[]; hostMemTotalBytes?: number }) {
+export function ContainerTable({ containers, hostMemTotalBytes, hostMemUsedBytes }: { containers: ContainerStat[]; hostMemTotalBytes?: number; hostMemUsedBytes?: number }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'cpu', dir: 'desc' })
   // Memory % is measured against the HOST's total RAM (shown once in the header),
   // NOT each container's own cgroup cap — otherwise a capped container (e.g. an
@@ -133,6 +133,25 @@ export function ContainerTable({ containers, hostMemTotalBytes }: { containers: 
             </tbody>
           </table>
         </div>
+        {/* Reconciliation: the containers' share + everything outside Docker
+            (OS, dockerd, sshd, kernel) = the host figure the Resources chart
+            shows — so the two views always visibly add up. */}
+        {hostMemTotalBytes && hostMemUsedBytes ? (() => {
+          const cSum = containers.reduce((s, c) => s + (c.memUsedBytes || 0), 0)
+          const cPct = (cSum / hostMemTotalBytes) * 100
+          const hostPct = (hostMemUsedBytes / hostMemTotalBytes) * 100
+          const sysPct = Math.max(0, hostPct - cPct)
+          return (
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
+              <span>Containers <span className="font-semibold text-foreground tabular-nums">{cPct.toFixed(1)}%</span></span>
+              <span>+</span>
+              <span>System &amp; OS <span className="font-semibold text-foreground tabular-nums">{sysPct.toFixed(1)}%</span></span>
+              <span>=</span>
+              <span>Host memory used <span className="font-semibold text-foreground tabular-nums">{hostPct.toFixed(1)}%</span></span>
+              <span className="ml-1 opacity-70">(matches the Resources chart)</span>
+            </div>
+          )
+        })() : null}
       </CardContent>
     </Card>
   )

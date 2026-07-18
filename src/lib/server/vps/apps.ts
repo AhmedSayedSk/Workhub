@@ -1,12 +1,12 @@
 import type { AppInfo, AppService } from './types'
 
-// "Systems & Apps" inventory. Auto-discovered from Docker compose labels — every
-// container reports its compose working_dir, which gives the real /opt/<app>
-// path and lets us group a project's containers together. A small curated
-// REGISTRY overlays friendly names, descriptions, and domains. Non-container
-// systems (e.g. Yarwy) are declared PER-SERVER via the VPS_EXTRA_APPS env so
-// they only show on the box they actually run on — never hard-coded here, or
-// they'd leak onto every server sharing this collector (the remote agent does).
+// "Systems & Apps" inventory. FULLY auto-discovered from Docker compose labels:
+// grouping + path from working_dir, a derived display name from the project key,
+// and domains sniffed from the containers' own env (PUBLIC_BASE_URL etc.) — a
+// NEW app appears here automatically with no code/registry edit. The curated
+// REGISTRY below is an OPTIONAL cosmetic overlay (nicer names/descriptions for
+// known apps); it is never required. Non-container systems are declared
+// per-server via the VPS_EXTRA_APPS env.
 
 const BASE = process.env.DOCKER_PROXY_URL || 'http://workhub-dockerproxy:2375'
 
@@ -161,6 +161,42 @@ export function systemIdForLabels(labels: Record<string, string>): string {
   return parentKeyOf(key) || key
 }
 
+// 'bg-api' → 'BG API', 'campaign-renderer' → 'Campaign Renderer' — short
+// tokens read as acronyms, longer ones as words. Good enough that new apps
+// need no registry entry to look presentable.
+function prettyName(key: string): string {
+  return key
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((t) => (t.length <= 3 ? t.toUpperCase() : t[0].toUpperCase() + t.slice(1)))
+    .join(' ')
+}
+
+// Domains straight from the app's own configuration: scan a running
+// container's env for URL-ish variables. No registry needed.
+const URL_ENV = /^(PUBLIC_BASE_URL|PORTAL_BASE_URL|BASE_URL|APP_URL|SITE_URL|PUBLIC_URL|NEXT_PUBLIC_SITE_URL|NEXT_PUBLIC_APP_URL|DOMAIN)=(.+)$/
+async function domainsFromEnv(containerId: string): Promise<string[]> {
+  try {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 3000)
+    const res = await fetch(`${BASE}/containers/${containerId}/json`, { signal: ctrl.signal, cache: 'no-store' })
+    clearTimeout(t)
+    if (!res.ok) return []
+    const info = (await res.json()) as { Config?: { Env?: string[] } }
+    const out = new Set<string>()
+    for (const e of info.Config?.Env || []) {
+      const m = e.match(URL_ENV)
+      if (!m) continue
+      const v = m[2].trim()
+      const host = v.includes('://') ? v.split('://')[1].split('/')[0] : v.split('/')[0]
+      if (host && host.includes('.') && !host.includes(' ')) out.add(host)
+    }
+    return [...out]
+  } catch {
+    return []
+  }
+}
+
 export async function collectApps(): Promise<AppInfo[]> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), 8000)
@@ -173,7 +209,7 @@ export async function collectApps(): Promise<AppInfo[]> {
     clearTimeout(t)
   }
 
-  const groups = new Map<string, { path: string; services: AppService[] }>()
+  const groups = new Map<string, { path: string; services: AppService[]; runningId?: string }>()
   for (const c of list) {
     const labels = c.Labels || {}
     const wd = labels['com.docker.compose.project.working_dir'] || ''
@@ -186,25 +222,32 @@ export async function collectApps(): Promise<AppInfo[]> {
       status: c.Status,
     }
     const g = groups.get(key)
-    if (g) g.services.push(svc)
-    else groups.set(key, { path, services: [svc] })
+    if (g) {
+      g.services.push(svc)
+      if (!g.runningId && c.State === 'running') g.runningId = c.Id
+    } else groups.set(key, { path, services: [svc], runningId: c.State === 'running' ? c.Id : undefined })
   }
 
-  const discovered: AppInfo[] = [...groups.entries()].map(([key, g]) => {
-    const reg = REGISTRY[key]
-    const services = g.services.sort((a, b) => a.name.localeCompare(b.name))
-    return {
-      id: key,
-      name: reg?.name || key,
-      description: reg?.description || '',
-      type: reg?.type || 'app',
-      path: g.path,
-      domains: reg?.domains || [],
-      services,
-      running: services.filter((s) => s.state === 'running').length,
-      total: services.length,
-    }
-  })
+  const discovered: AppInfo[] = await Promise.all(
+    [...groups.entries()].map(async ([key, g]) => {
+      const reg = REGISTRY[key]
+      const services = g.services.sort((a, b) => a.name.localeCompare(b.name))
+      // Registry domains win when curated; otherwise read them from the app's
+      // own env so new apps self-describe.
+      const domains = reg?.domains?.length ? reg.domains : g.runningId ? await domainsFromEnv(g.runningId) : []
+      return {
+        id: key,
+        name: reg?.name || prettyName(key),
+        description: reg?.description || '',
+        type: reg?.type || 'app',
+        path: g.path,
+        domains,
+        services,
+        running: services.filter((s) => s.state === 'running').length,
+        total: services.length,
+      }
+    })
+  )
 
   // Fold umbrella siblings (e.g. coffeepos-*) into a single parent system.
   const merged = new Map<string, AppInfo>()
