@@ -480,7 +480,7 @@ export function CampaignTab() {
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : videoRendering ? 'max-w-md' : 'max-w-3xl')}>
+          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[97vw] max-w-[1680px]' : videoRendering ? 'max-w-md' : 'max-w-3xl')}>
             <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
@@ -719,7 +719,7 @@ export function CampaignTab() {
               // Wide three-column layout once a video exists: player | settings
               // & actions | full-height "what went into this video" panel.
               return (
-                <div className="grid gap-10 pt-2 md:grid-cols-[400px_minmax(320px,400px)_minmax(0,1fr)]">
+                <div className="grid gap-10 pt-2 md:grid-cols-[380px_minmax(0,1fr)_320px]">
                   <div className="space-y-6">
                     <video
                       src={videoJob.videoUrl}
