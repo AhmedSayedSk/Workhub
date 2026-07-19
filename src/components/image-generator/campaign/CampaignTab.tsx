@@ -488,7 +488,7 @@ export function CampaignTab() {
               const HOOK_STYLE_LABEL: Record<string, string> = { question: 'Question', bold: 'Bold claim', pain: 'Pain point', stat: 'Stat-led', curiosity: 'Curiosity' }
               const chosen = hookMode === 'choose' && hookOptions ? hookOptions[hookPick] : null
               const settings = (
-                <div className="grid gap-x-10 gap-y-5 sm:grid-cols-2">
+                <div className="grid gap-x-10 gap-y-5 sm:grid-cols-[3fr_2fr]">
                   <div className="space-y-5">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground" title="Copy, hooks and narration adapt to this market's culture, customs and dialect">Market</span>
