@@ -179,6 +179,15 @@ export function CampaignTab() {
   const activeVideo = videoJob?.status === 'queued' || videoJob?.status === 'rendering'
   const videoRendering = videoStarting || activeVideo
   const videoPct = activeVideo ? Math.min(100, Math.max(0, videoJob?.progress ?? 0)) : 0
+  useEffect(() => {
+    if (!videoRendering) return
+    const t = setInterval(() => setNowTs(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [videoRendering])
+  const renderElapsedSec = videoRendering
+    ? Math.max(0, Math.floor((nowTs - (videoJob?.createdAt || renderStartRef.current || nowTs)) / 1000))
+    : 0
+  const renderElapsedLabel = `${Math.floor(renderElapsedSec / 60)}:${String(renderElapsedSec % 60).padStart(2, '0')}`
   const videoStageLabel = !activeVideo
     ? 'Starting…'
     : videoJob?.status === 'queued'
@@ -225,6 +234,9 @@ export function CampaignTab() {
   // The Firestore subscription can lag a few seconds behind the POST that
   // created the job — remember the id so Stop works IMMEDIATELY after start.
   const lastRenderJobId = useRef<string | null>(null)
+  const renderStartRef = useRef<number>(0)
+  // Elapsed timer for the progress card — ticks every second while rendering.
+  const [nowTs, setNowTs] = useState(Date.now())
   const stopVideo = async () => {
     const id = videoJob?.id || lastRenderJobId.current
     if (!id) { toast.info('Still starting — try again in a moment'); return }
@@ -266,6 +278,7 @@ export function CampaignTab() {
     void doGenerateVideo()
   }
   const doGenerateVideo = async () => {
+    renderStartRef.current = Date.now()
     const id = c.activeCampaign?.id
     if (!id) return
     setVideoStarting(true)
@@ -746,7 +759,7 @@ export function CampaignTab() {
                         <span className="flex items-center gap-1.5 text-muted-foreground">
                           <Loader2 className="h-3.5 w-3.5 animate-spin" /> {videoStageLabel}
                         </span>
-                        <span className="font-medium tabular-nums text-muted-foreground">{videoPct}%</span>
+                        <span className="font-medium tabular-nums text-muted-foreground">{renderElapsedLabel} · {videoPct}%</span>
                       </div>
                       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                         <div className="h-full rounded-full bg-primary transition-all duration-700 ease-out" style={{ width: `${Math.max(4, videoPct)}%` }} />
