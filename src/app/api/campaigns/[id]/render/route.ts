@@ -52,7 +52,9 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   // Named, selectable voices — public ids only (engine voices are white-labeled
   // behind the TTS API). Each id implies a gender; 'mixed' alternates M/F.
   const VOICE_GENDER: Record<string, 'male' | 'female'> = { aria: 'female', nova: 'female', sami: 'male', omar: 'male' }
-  const voLang = (vo && (vo.language === 'ar' || vo.language === 'en') ? vo.language : campaignLang) as 'en' | 'ar'
+  // Narration language follows the SELECTED MARKET (matching the script copy);
+  // an explicit user choice still wins.
+  const voLang = (vo && (vo.language === 'ar' || vo.language === 'en') ? vo.language : market.lang) as 'en' | 'ar'
   const voVoice = vo && typeof vo.voice === 'string' && VOICE_GENDER[vo.voice] ? vo.voice as string : undefined
   const voStyle = voLang === 'ar'
     ? `Professional Arabic advertising voiceover. ${market.voiceNote} Clear Modern Standard Arabic (فصحى), premium and inviting; articulate, with lively but controlled pacing and clear emphasis on key words. Not stiff, not a monotone newsreader.`

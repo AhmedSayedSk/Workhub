@@ -504,7 +504,13 @@ export function CampaignTab() {
                     <span className="text-sm text-muted-foreground" title="Copy, hooks and narration adapt to this market's culture, customs and dialect">Market</span>
                     <select
                       value={videoMarket}
-                      onChange={(e) => { setVideoMarket(e.target.value); setHookOptions(null); setHookMode('auto') }}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setVideoMarket(v); setHookOptions(null); setHookMode('auto')
+                        // Narration follows the market's language (still changeable below).
+                        const m = MARKETS.find((x) => x.code === v)
+                        setVoiceoverLang(m ? m.lang : (cam.language === 'ar' ? 'ar' : 'en'))
+                      }}
                       disabled={videoRendering}
                       className="rounded-lg border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-60"
                     >
