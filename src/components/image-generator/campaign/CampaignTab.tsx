@@ -257,7 +257,15 @@ export function CampaignTab() {
       setDownloadingVideo(false)
     }
   }
-  const generateVideo = async () => {
+  // Warn before generating without a chosen opening hook — the AI writes a
+  // NEW hook each render, so the opening wording varies unless one is picked.
+  const [confirmNoHook, setConfirmNoHook] = useState(false)
+  const generateVideo = () => {
+    const chosen = hookMode === 'choose' && hookOptions?.[hookPick]
+    if (!chosen) { setConfirmNoHook(true); return }
+    void doGenerateVideo()
+  }
+  const doGenerateVideo = async () => {
     const id = c.activeCampaign?.id
     if (!id) return
     setVideoStarting(true)
@@ -782,6 +790,15 @@ export function CampaignTab() {
           </DialogContent>
         </Dialog>
 
+        <ConfirmDialog
+          open={confirmNoHook}
+          onOpenChange={setConfirmNoHook}
+          title="No opening hook selected"
+          description="You haven't chosen an opening hook — the AI will write a brand-new one on every render, so the opening text will differ each time. Pick a hook from “Choose hook…” for a consistent opening, or continue and let the AI write one."
+          confirmLabel="Generate with AI hook"
+          cancelLabel="Back"
+          onConfirm={() => { setConfirmNoHook(false); void doGenerateVideo() }}
+        />
         <Dialog open={hookDialogOpen} onOpenChange={setHookDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
             <DialogHeader>
