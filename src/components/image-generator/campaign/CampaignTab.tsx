@@ -138,6 +138,9 @@ export function CampaignTab() {
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoJob, setVideoJob] = useState<RenderJob | null>(null)
   const [videoStarting, setVideoStarting] = useState(false)
+  const renderStartRef = useRef<number>(0)
+  // Elapsed timer for the progress card — ticks every second while rendering.
+  const [nowTs, setNowTs] = useState(Date.now())
   const activeCampaignId = c.activeCampaign?.id ?? null
   useEffect(() => {
     setVideoJob(null)
@@ -234,9 +237,6 @@ export function CampaignTab() {
   // The Firestore subscription can lag a few seconds behind the POST that
   // created the job — remember the id so Stop works IMMEDIATELY after start.
   const lastRenderJobId = useRef<string | null>(null)
-  const renderStartRef = useRef<number>(0)
-  // Elapsed timer for the progress card — ticks every second while rendering.
-  const [nowTs, setNowTs] = useState(Date.now())
   const stopVideo = async () => {
     const id = videoJob?.id || lastRenderJobId.current
     if (!id) { toast.info('Still starting — try again in a moment'); return }
