@@ -106,7 +106,7 @@ export function CampaignTab() {
   // progress/state survives a page refresh (reconnects instead of resetting).
   const [videoAspect, setVideoAspect] = useState<RenderAspect>('portrait')
   const [videoMode, setVideoMode] = useState<'basic' | 'creative'>('creative')
-  const [voiceover, setVoiceover] = useState(false)
+  const [voiceover, setVoiceover] = useState(true)
   const [voiceoverLang, setVoiceoverLang] = useState<'en' | 'ar'>('en')
   const [voiceoverVoice, setVoiceoverVoice] = useState<VoiceChoice>('nova')
   const [voiceoverModel, setVoiceoverModel] = useState<'standard' | 'premium'>('premium')
