@@ -727,6 +727,41 @@ export function CampaignTab() {
                       <AlertCircle className="h-3.5 w-3.5" /> {videoJob.error || 'Render failed — try again'}
                     </p>
                   )}
+                  {/* Live "what you'll get" summary — decodes the current
+                      configuration in plain language so any user knows exactly
+                      what the render will produce before (and while) it runs. */}
+                  {(() => {
+                    const imgs = Math.min(6, readyCount)
+                    const scenes = Math.min(9, imgs + 2) // hook + images (+stats fold in) + cta
+                    const estSec = Math.round(scenes * (voiceover ? 4.4 : 3.1) + 1.5)
+                    const mkt = videoMarket === 'auto'
+                      ? (cam.language === 'ar' ? 'Egypt' : 'Global')
+                      : (MARKETS.find((m) => m.code === videoMarket)?.label || videoMarket)
+                    const voice = CAMPAIGN_VOICES.find((v) => v.id === voiceoverVoice)
+                    const hookChosen = hookMode === 'choose' && hookOptions?.[hookPick]
+                    const items: string[] = [
+                      `~${scenes} scenes · ~${estSec}s`,
+                      `Opening: ${hookChosen ? 'your chosen hook' : 'AI-written hook'} on ${videoHookOn ? 'stock footage' : 'an AI image'}`,
+                      `Market: ${mkt}`,
+                      voiceover
+                        ? `Voiceover: ${voiceoverLang === 'ar' ? 'Arabic' : 'English'} · ${voiceoverVoice === 'mixed' ? 'Mixed voices' : voice?.label || voiceoverVoice}${videoSubtitles ? ' · speaks subtitles' : ' · titles only'}`
+                        : 'No voiceover (silent with SFX)',
+                      `${videoCaptions && voiceover ? 'Captions on' : 'No captions'} · ${videoSfx ? 'SFX on' : 'No SFX'} · ${videoTransition[0].toUpperCase() + videoTransition.slice(1)} transitions`,
+                      `Est. render time: ${videoHookOn || voiceover ? '2–4' : '1–2'} min`,
+                    ]
+                    return (
+                      <div className="rounded-lg bg-muted/40 px-3.5 py-2.5">
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">What you'll get</p>
+                        <ul className="space-y-0.5">
+                          {items.map((it, i) => (
+                            <li key={i} className="text-[11px] leading-relaxed text-muted-foreground">
+                              <span className="mr-1.5 text-primary">•</span>{it}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                  })()}
                 </>
               )
 
