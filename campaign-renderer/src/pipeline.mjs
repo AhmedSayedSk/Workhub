@@ -177,9 +177,11 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         await report(40, 'voiceover')
         const mixed = vo.gender === 'mixed'
         const cast = mixed ? castVoices(job.script.map((s) => s.type)) : null
-        // Narration always speaks the FULL copy (incl. the sub) — the subtitles
-        // toggle only controls the on-screen secondary line, never the voice.
-        const lines = job.script.map((s, li) => ({ text: creativeSceneNarration(s, (job.brand || {}).name, vo.language), ...(mixed ? { gender: cast[li], voice: MIXED_VOICE[cast[li]] } : {}) }))
+        // The subtitles toggle controls what the VOICE says: on → the narration
+        // includes each scene's secondary line, off → titles only. (The sub text
+        // itself is never drawn on screen either way.)
+        const voScript = job.subtitles === false ? job.script.map((s) => ({ ...s, sub: undefined })) : job.script
+        const lines = voScript.map((s, li) => ({ text: creativeSceneNarration(s, (job.brand || {}).name, vo.language), ...(mixed ? { gender: cast[li], voice: MIXED_VOICE[cast[li]] } : {}) }))
         voLines = lines
         voiceSegs = await synthLines(lines, { language: vo.language, gender: mixed ? 'female' : vo.gender, voice: mixed ? undefined : vo.voice, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
           async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
@@ -212,8 +214,9 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         const data = {
           ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en', arFont: job.arFont || 'cairo',
           titleFx: (prevTitleFx = pickTitleFx(i, String(job.id || ''), prevTitleFx)),
-          // Subtitles off: hide every scene's secondary line (templates no-op on missing sub).
-          ...(job.subtitles === false ? { sub: null } : {}),
+          // The secondary line is NEVER drawn on screen — it lives in the
+          // narration only (when the subtitles toggle is on).
+          sub: null,
           ...(job.captions !== false && seg && seg.durationSec && voLines && voLines[i]
             ? (() => { const wds = captionWords(voLines[i].text, seg.durationSec); return wds ? { captions: { words: wds } } : {} })()
             : {}),

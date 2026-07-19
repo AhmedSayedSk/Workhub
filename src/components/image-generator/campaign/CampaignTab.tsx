@@ -595,7 +595,7 @@ export function CampaignTab() {
                     <Switch checked={videoSfx} onCheckedChange={setVideoSfx} disabled={videoRendering} />
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-muted-foreground" title="The smaller secondary line under each scene's title — turn off for a cleaner, title-only look">Scene subtitles</span>
+                    <span className="text-sm text-muted-foreground" title="On: the voiceover also reads each scene's secondary line. Off: it speaks titles only. The secondary text itself is never displayed on screen.">Speak subtitles</span>
                     <Switch checked={videoSubtitles} onCheckedChange={setVideoSubtitles} disabled={videoRendering} />
                   </div>
                   <div className="flex items-center justify-between gap-3">
