@@ -24,7 +24,7 @@ const DIMS = {
 const FPS = 30
 const HOOK_DUR_MS = 3000
 const CREATIVE_DIR = path.join(__dirname, '..', 'templates', 'creative')
-const SCENE_DUR = { hook: 3200, beat: 2800, stat: 3100, showcase: 3200, cta: 3000 }
+const SCENE_DUR = { hook: 3200, beat: 2800, stat: 5000, showcase: 3200, cta: 3000 }
 // Use every vCPU: the hook + each post scene render in parallel, each writing
 // its own pre-assigned frame range (order preserved). Override with RENDER_CONCURRENCY.
 const CONCURRENCY = Math.max(1, Number(process.env.RENDER_CONCURRENCY) || os.cpus().length)
@@ -225,7 +225,11 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         const isLast = i === job.script.length - 1
         // The video ends on a 1.5s quiet hold: the final scene lingers with no
         // narration (its audio segment is silence-padded to the full length).
-        const durMs = (seg ? clampSceneMs(seg.durationSec * 1000, baseMs) : baseMs) + (isLast ? 1500 : 0)
+        let durMs = seg ? clampSceneMs(seg.durationSec * 1000, baseMs) : baseMs
+        // Stat scenes hold ~5s regardless of narration length — the ring +
+        // counting number deserve the extra beat.
+        if (scene.type === 'stat') durMs = Math.max(durMs, 5000)
+        durMs += isLast ? 1500 : 0
         const start = cursor
         if (start > 0) boundaries.push(start)
         cursor += framesFor(durMs)
