@@ -788,6 +788,11 @@ export function CampaignTab() {
                       controls
                       className="w-full rounded-xl border bg-black"
                     />
+                    {videoJob.finishedAt && (videoJob.startedAt || videoJob.createdAt) ? (() => {
+                      const sec = Math.max(1, Math.round((videoJob.finishedAt - (videoJob.startedAt || videoJob.createdAt)) / 1000))
+                      const label = sec >= 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : `${sec}s`
+                      return <p className="text-center text-xs text-muted-foreground">⚡ Generated in {label}</p>
+                    })() : null}
                   </div>
                   <div className="space-y-7">
                     {settings}
