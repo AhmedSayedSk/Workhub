@@ -15,7 +15,7 @@ const ORIENT = { portrait: 'portrait', landscape: 'landscape', square: 'square' 
 // Searches Pexels and downloads the best-fitting clip to outPath.
 // Returns outPath, or null on ANY failure — callers fall back to the AI image
 // hook, so stock footage never breaks a render.
-export async function fetchHookVideo(query, aspect, outPath, { minDurationSec = 3 } = {}) {
+export async function fetchHookVideo(query, aspect, outPath, { minDurationSec = 3, pick = 0 } = {}) {
   if (!KEY || !query) return null
   try {
     const orientation = ORIENT[aspect] || 'portrait'
@@ -31,7 +31,9 @@ export async function fetchHookVideo(query, aspect, outPath, { minDurationSec = 
     const wantH = aspect === 'landscape' ? 1080 : 1920
     const wantW = aspect === 'landscape' ? 1920 : aspect === 'square' ? 1080 : 1080
 
-    // First clip long enough, with the smallest file that still covers our target.
+    // Nth suitable clip (pick lets different scenes use different footage),
+    // with the smallest file that still covers our target.
+    let suitableSeen = 0
     for (const v of data.videos || []) {
       if ((v.duration || 0) < minDurationSec) continue
       const files = (v.video_files || [])
@@ -39,6 +41,7 @@ export async function fetchHookVideo(query, aspect, outPath, { minDurationSec = 
         .sort((a, b) => (a.height || 0) * (a.width || 0) - (b.height || 0) * (b.width || 0))
       const file = files[0]
       if (!file) continue
+      if (suitableSeen++ < pick) continue
       const dl = await fetch(file.link)
       if (!dl.ok) continue
       const buf = Buffer.from(await dl.arrayBuffer())

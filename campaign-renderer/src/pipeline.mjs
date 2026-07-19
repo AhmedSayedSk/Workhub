@@ -154,10 +154,20 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
     // Stock-footage hook (Pexels) when enabled: real video behind the hook text.
     // Any failure (no key, no match, network) silently falls back to the AI image.
     let stockClip = null
+    let statClip = null
+    let statBgPath = null
     if (job.videoHook) {
       await report(5, 'hook')
-      stockClip = await fetchHookVideo(job.hookVideoQuery || (job.brand || {}).name || '', job.aspect, path.join(scratch, 'hook-stock.mp4'))
+      const q = job.hookVideoQuery || (job.brand || {}).name || ''
+      stockClip = await fetchHookVideo(q, job.aspect, path.join(scratch, 'hook-stock.mp4'))
       if (stockClip) console.log('[renderer] stock hook clip ready', job.id)
+      // Stat scenes get their own clip (the NEXT suitable match, for variety);
+      // if none, an AI image; if that fails too, the designed gradient stays.
+      statClip = await fetchHookVideo(q, job.aspect, path.join(scratch, 'stat-stock.mp4'), { pick: 1 })
+      if (!statClip) statClip = stockClip // reuse the hook clip rather than nothing
+      if (!statClip) {
+        statBgPath = await generateHookBg((job.hook || {}).bgPrompt, job.aspect, path.join(scratch, 'stat-bg.jpg'), async () => {})
+      }
     }
     // Best-effort AI background (skipped when a stock clip won); null falls back
     // to a brand-color gradient in templates/hook.html, so the job always succeeds.
@@ -222,7 +232,9 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         if (scene.type === 'hook') hookStart = start
         typeSeen[scene.type] = (typeSeen[scene.type] || 0) + 1
         const data = {
-          ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en', arFont: job.arFont || 'cairo',
+          ...scene, brand,
+          bg: scene.type === 'hook' ? bgUrl : scene.type === 'stat' && statBgPath ? pathToFileURL(statBgPath).href : null,
+          lang: job.lang || 'en', arFont: job.arFont || 'cairo',
           titleFx: (prevTitleFx = pickTitleFx(i, String(job.id || ''), prevTitleFx)),
           // The secondary line is NEVER drawn on screen — it lives in the
           // narration only (when the subtitles toggle is on).
@@ -243,15 +255,16 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
           prevVariant = v
           tplFile = showcaseTemplate(v)
         }
-        if (scene.type === 'hook' && stockClip) {
-          // Stock-video hook: capture the text/FX as transparent PNGs, then
-          // composite them over the cover-cropped, looped stock clip straight
-          // into this scene's frame range.
-          const ovDir = path.join(scratch, 'hook-overlay')
-          const hookFrames = framesFor(durMs)
+        const sceneClip = scene.type === 'hook' ? stockClip : scene.type === 'stat' ? statClip : null
+        if (sceneClip) {
+          // Stock-footage scene: capture the text/FX as transparent PNGs, then
+          // composite them over the cover-cropped, looped clip straight into
+          // this scene's frame range.
+          const ovDir = path.join(scratch, `overlay-${i}`)
+          const sceneFrames = framesFor(durMs)
           tasks.push(async () => {
             await renderScene(path.join(CREATIVE_DIR, tplFile), { ...data, videoBg: true, bg: null }, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: ovDir, startIndex: 0, format: 'png', shouldCancel })
-            await composeVideoHook(stockClip, ovDir, framesDir, { frames: hookFrames, fps: FPS, w: dims.w, h: dims.h, startIndex: start })
+            await composeVideoHook(sceneClip, ovDir, framesDir, { frames: sceneFrames, fps: FPS, w: dims.w, h: dims.h, startIndex: start })
           })
         } else {
           tasks.push(() => renderScene(path.join(CREATIVE_DIR, tplFile), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start, shouldCancel }))
