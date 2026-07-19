@@ -608,6 +608,46 @@ export function CampaignTab() {
                       disabled={videoRendering}
                     />
                   </div>
+                  {/* Live COST panel — what one generation of this exact
+                      configuration consumes, so every user sees the price of
+                      the render before starting it. */}
+                  {(() => {
+                    const imgs = Math.min(6, readyCount)
+                    const scenes = Math.min(9, imgs + 2)
+                    // Narration volume: title ~45 chars/scene, +sub ~50 when spoken.
+                    const voChars = voiceover ? scenes * (videoSubtitles ? 95 : 45) + 25 : 0
+                    const voRate = voiceoverModel === 'premium' ? 0.000125 : 0.0000625
+                    const voCost = voChars * voRate
+                    const aiImages = videoHookOn ? 0 : 1 // stock footage replaces the AI hook image
+                    const rows: Array<[string, string]> = [
+                      voiceover
+                        ? [`Voiceover (${voiceoverModel === 'premium' ? 'Premium' : 'Standard'}, ~${voChars} chars)`, `~${voCost.toFixed(3)}`]
+                        : ['Voiceover', 'off — $0'],
+                      videoHookOn
+                        ? ['Stock footage (Pexels)', 'Free']
+                        : ['AI hook image', `${aiImages} image credit`],
+                      ['AI copywriting (script, hooks)', 'Free tier'],
+                      ['Rendering (own server)', 'Included'],
+                    ]
+                    const total = voCost
+                    return (
+                      <div className="rounded-lg bg-muted/40 px-3.5 py-2.5">
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cost per generation</p>
+                        <ul className="space-y-1">
+                          {rows.map(([k, v], i) => (
+                            <li key={i} className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+                              <span>{k}</span>
+                              <span className="shrink-0 font-medium tabular-nums text-foreground/80">{v}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-1.5 flex items-baseline justify-between border-t pt-2 text-sm">
+                          <span className="font-semibold">Estimated total</span>
+                          <span className="font-semibold tabular-nums">~${total.toFixed(3)}{aiImages ? ` + ${aiImages} image credit` : ''}</span>
+                        </div>
+                      </div>
+                    )
+                  })()}
                   </div>
                   <div className="space-y-5">
                   <div className="flex items-center justify-between gap-3">
@@ -727,46 +767,7 @@ export function CampaignTab() {
                       <AlertCircle className="h-3.5 w-3.5" /> {videoJob.error || 'Render failed — try again'}
                     </p>
                   )}
-                  {/* Live COST panel — what one generation of this exact
-                      configuration consumes, so every user sees the price of
-                      the render before starting it. */}
-                  {(() => {
-                    const imgs = Math.min(6, readyCount)
-                    const scenes = Math.min(9, imgs + 2)
-                    // Narration volume: title ~45 chars/scene, +sub ~50 when spoken.
-                    const voChars = voiceover ? scenes * (videoSubtitles ? 95 : 45) + 25 : 0
-                    const voRate = voiceoverModel === 'premium' ? 0.000125 : 0.0000625
-                    const voCost = voChars * voRate
-                    const aiImages = videoHookOn ? 0 : 1 // stock footage replaces the AI hook image
-                    const rows: Array<[string, string]> = [
-                      voiceover
-                        ? [`Voiceover (${voiceoverModel === 'premium' ? 'Premium' : 'Standard'}, ~${voChars} chars)`, `~$${voCost.toFixed(3)}`]
-                        : ['Voiceover', 'off — $0'],
-                      videoHookOn
-                        ? ['Stock footage (Pexels)', 'Free']
-                        : ['AI hook image', `${aiImages} image credit`],
-                      ['AI copywriting (script, hooks)', 'Free tier'],
-                      ['Rendering (own server)', 'Included'],
-                    ]
-                    const total = voCost
-                    return (
-                      <div className="rounded-lg bg-muted/40 px-3.5 py-2.5">
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cost per generation</p>
-                        <ul className="space-y-1">
-                          {rows.map(([k, v], i) => (
-                            <li key={i} className="flex items-baseline justify-between gap-3 text-[11px] text-muted-foreground">
-                              <span>{k}</span>
-                              <span className="shrink-0 font-medium tabular-nums text-foreground/80">{v}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <div className="mt-1.5 flex items-baseline justify-between border-t pt-1.5 text-[11px]">
-                          <span className="font-semibold">Estimated total</span>
-                          <span className="font-semibold tabular-nums">~${total.toFixed(3)}{aiImages ? ` + ${aiImages} image credit` : ''}</span>
-                        </div>
-                      </div>
-                    )
-                  })()}
+
                 </>
               )
 
