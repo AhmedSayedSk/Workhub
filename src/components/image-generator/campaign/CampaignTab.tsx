@@ -115,7 +115,7 @@ export function CampaignTab() {
   const [videoSfx, setVideoSfx] = useState(true)
   const [videoCaptions, setVideoCaptions] = useState(true)
   const [videoArFont, setVideoArFont] = useState('cairo')
-  const [videoSubtitles, setVideoSubtitles] = useState(true)
+  const [videoSubtitles, setVideoSubtitles] = useState(false)
   // Load the preview fonts once so the dropdown samples render in-font.
   useEffect(() => {
     if (document.querySelector('link[data-ar-video-fonts]')) return
@@ -480,7 +480,7 @@ export function CampaignTab() {
         )}
 
         <Dialog open={videoModalOpen} onOpenChange={setVideoModalOpen}>
-          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : videoRendering ? 'max-w-md' : 'max-w-lg')}>
+          <DialogContent className={cn('max-h-[96vh] overflow-y-auto p-8', videoReady ? 'w-[96vw] max-w-[1400px]' : videoRendering ? 'max-w-md' : 'max-w-3xl')}>
             <DialogHeader>
               <DialogTitle>Campaign video</DialogTitle>
             </DialogHeader>
@@ -488,7 +488,8 @@ export function CampaignTab() {
               const HOOK_STYLE_LABEL: Record<string, string> = { question: 'Question', bold: 'Bold claim', pain: 'Pain point', stat: 'Stat-led', curiosity: 'Curiosity' }
               const chosen = hookMode === 'choose' && hookOptions ? hookOptions[hookPick] : null
               const settings = (
-                <div className="space-y-5">
+                <div className="grid gap-x-10 gap-y-5 sm:grid-cols-2">
+                  <div className="space-y-5">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground" title="Copy, hooks and narration adapt to this market's culture, customs and dialect">Market</span>
                     <select
@@ -587,6 +588,8 @@ export function CampaignTab() {
                       disabled={videoRendering}
                     />
                   </div>
+                  </div>
+                  <div className="space-y-5">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground" title="Whooshes, pops, ticks and stings placed on the animations, mixed under the narration">Sound effects</span>
                     <Switch checked={videoSfx} onCheckedChange={setVideoSfx} disabled={videoRendering} />
@@ -672,6 +675,7 @@ export function CampaignTab() {
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
               )
               const action = (
