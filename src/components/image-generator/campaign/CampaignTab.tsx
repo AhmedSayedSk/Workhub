@@ -116,6 +116,7 @@ export function CampaignTab() {
   const [videoCaptions, setVideoCaptions] = useState(false)
   const [videoArFont, setVideoArFont] = useState('cairo')
   const [videoSubtitles, setVideoSubtitles] = useState(true)
+  const [videoHookOn, setVideoHookOn] = useState(false)
   // Load the preview fonts once so the dropdown samples render in-font.
   useEffect(() => {
     if (document.querySelector('link[data-ar-video-fonts]')) return
@@ -273,6 +274,7 @@ export function CampaignTab() {
           captions: videoCaptions,
           arFont: videoArFont,
           subtitles: videoSubtitles,
+          videoHook: videoHookOn,
           market: videoMarket,
           ...(hookMode === 'choose' && hookOptions?.[hookPick] ? { hook: hookOptions[hookPick] } : {}),
           voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverVoice === 'mixed' ? 'mixed' : VOICE_GENDER[voiceoverVoice], ...(voiceoverVoice !== 'mixed' ? { voice: voiceoverVoice } : {}), model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
@@ -572,6 +574,10 @@ export function CampaignTab() {
                         disabled={videoRendering}
                       />
                     )}
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground" title="Real stock footage (Pexels) behind the opening hook instead of an AI-generated image — matched to the campaign topic and video format">Video hook</span>
+                    <Switch checked={videoHookOn} onCheckedChange={setVideoHookOn} disabled={videoRendering} />
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Transitions</span>

@@ -658,7 +658,9 @@ export interface RenderJob {
   sfx?: { enabled: boolean } // sound effects mixed at scene-motion moments (default on)
   captions?: boolean // word-synced karaoke captions burned onto narrated scenes (default on with voiceover)
   arFont?: string // Arabic display font id (cairo default — see AR_FONTS in the worker)
-  subtitles?: boolean // show each scene's secondary line (sub) — false hides it everywhere
+  subtitles?: boolean // 'Speak subtitles': voiceover reads the sub (never displayed on screen)
+  videoHook?: boolean // stock-footage hook background (Pexels) instead of the AI image
+  hookVideoQuery?: string // English stock-search query for the hook clip
   script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string

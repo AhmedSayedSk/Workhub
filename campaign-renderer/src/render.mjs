@@ -11,7 +11,7 @@ const READY_TIMEOUT_MS = 8000
 // data: plumbed into the page as window.__DATA before any page script runs
 // opts: { w, h, durMs, fps, outDir, startIndex }
 // Returns the number of frames written.
-export async function renderScene(htmlPath, data, { w, h, durMs, fps, outDir, startIndex = 0, shouldCancel = null }) {
+export async function renderScene(htmlPath, data, { w, h, durMs, fps, outDir, startIndex = 0, shouldCancel = null, format = 'jpeg' }) {
   fs.mkdirSync(outDir, { recursive: true })
 
   const browser = await puppeteer.launch({
@@ -48,12 +48,22 @@ export async function renderScene(htmlPath, data, { w, h, durMs, fps, outDir, st
       // painted before we screenshot, avoiding blank/stale frames.
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
       const idx = startIndex + i
-      await page.screenshot({
-        path: path.join(outDir, `f${String(idx).padStart(5, '0')}.jpg`),
-        type: 'jpeg',
-        quality: 92,
-        clip: { x: 0, y: 0, width: w, height: h },
-      })
+      await page.screenshot(
+        format === 'png'
+          ? {
+              // Transparent PNG overlays (e.g. hook text composited over stock video).
+              path: path.join(outDir, `f${String(idx).padStart(5, '0')}.png`),
+              type: 'png',
+              omitBackground: true,
+              clip: { x: 0, y: 0, width: w, height: h },
+            }
+          : {
+              path: path.join(outDir, `f${String(idx).padStart(5, '0')}.jpg`),
+              type: 'jpeg',
+              quality: 92,
+              clip: { x: 0, y: 0, width: w, height: h },
+            }
+      )
     }
     return frameCount
   } finally {

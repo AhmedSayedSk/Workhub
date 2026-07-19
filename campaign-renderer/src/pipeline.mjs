@@ -10,6 +10,7 @@ import { upload } from './upload.mjs'
 import { synthLines, buildVoiceTrack, clampSceneMs, creativeSceneNarration } from './voice.mjs'
 import { applyDissolves, applyXfades, applyLoopTail } from './transitions.mjs'
 import { scheduleSfx, buildSfxTrack, mixTracks } from './sfx.mjs'
+import { fetchHookVideo, composeVideoHook } from './stockvideo.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HOOK_TEMPLATE = path.join(__dirname, '..', 'templates', 'hook.html')
@@ -150,14 +151,23 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
     const color = brand.color || '#34e5a4'
 
     await report(3, 'preparing')
-    // Best-effort AI background; null falls back to a brand-color gradient
-    // in templates/hook.html, so the job still succeeds either way. Ticks the
-    // progress up while waiting on the (slow) AI generation so it feels live.
+    // Stock-footage hook (Pexels) when enabled: real video behind the hook text.
+    // Any failure (no key, no match, network) silently falls back to the AI image.
+    let stockClip = null
+    if (job.videoHook) {
+      await report(5, 'hook')
+      stockClip = await fetchHookVideo(job.hookVideoQuery || (job.brand || {}).name || '', job.aspect, path.join(scratch, 'hook-stock.mp4'))
+      if (stockClip) console.log('[renderer] stock hook clip ready', job.id)
+    }
+    // Best-effort AI background (skipped when a stock clip won); null falls back
+    // to a brand-color gradient in templates/hook.html, so the job always succeeds.
     let bgPct = 5
-    const bgPath = await generateHookBg(hook.bgPrompt, job.aspect, path.join(scratch, 'hook-bg.jpg'), async () => {
-      bgPct = Math.min(38, bgPct + 5)
-      await report(bgPct, 'hook')
-    })
+    const bgPath = stockClip
+      ? null
+      : await generateHookBg(hook.bgPrompt, job.aspect, path.join(scratch, 'hook-bg.jpg'), async () => {
+          bgPct = Math.min(38, bgPct + 5)
+          await report(bgPct, 'hook')
+        })
     await report(40, 'hook')
 
     // Optional AI voiceover: synth each scene's line first, so scenes can pace
@@ -233,7 +243,19 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
           prevVariant = v
           tplFile = showcaseTemplate(v)
         }
-        tasks.push(() => renderScene(path.join(CREATIVE_DIR, tplFile), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start, shouldCancel }))
+        if (scene.type === 'hook' && stockClip) {
+          // Stock-video hook: capture the text/FX as transparent PNGs, then
+          // composite them over the cover-cropped, looped stock clip straight
+          // into this scene's frame range.
+          const ovDir = path.join(scratch, 'hook-overlay')
+          const hookFrames = framesFor(durMs)
+          tasks.push(async () => {
+            await renderScene(path.join(CREATIVE_DIR, tplFile), { ...data, videoBg: true, bg: null }, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: ovDir, startIndex: 0, format: 'png', shouldCancel })
+            await composeVideoHook(stockClip, ovDir, framesDir, { frames: hookFrames, fps: FPS, w: dims.w, h: dims.h, startIndex: start })
+          })
+        } else {
+          tasks.push(() => renderScene(path.join(CREATIVE_DIR, tplFile), data, { w: dims.w, h: dims.h, durMs, fps: FPS, outDir: framesDir, startIndex: start, shouldCancel }))
+        }
         segments.push({ audioPath: seg ? seg.audioPath : null, durMs })
         timeline.push({ type: scene.type, startMs: Math.round((start / FPS) * 1000), durMs })
       })

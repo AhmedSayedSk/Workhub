@@ -28,8 +28,16 @@
   if (window.__M && window.__M.applyLang) window.__M.applyLang(D)
   const P = window.__M.applyPalette(D)
   const c = P.accent
-  const bg = document.getElementById('bg'); if (D.bg) bg.style.backgroundImage = `url("${D.bg}")`; else window.__M.stage(document.getElementById('s'), P)
-  if (!D.bg) window.__M.decorate(document.getElementById('s'), c)
+  const bg = document.getElementById('bg')
+  if (D.videoBg) {
+    // Stock-footage mode: the video is composited UNDER these frames later, so
+    // the page renders transparent — only the scrim + text + FX are captured.
+    document.documentElement.style.background = 'transparent'
+    document.body.style.background = 'transparent'
+    document.getElementById('s').style.background = 'transparent'
+    bg.style.display = 'none'
+  } else if (D.bg) bg.style.backgroundImage = `url("${D.bg}")`; else window.__M.stage(document.getElementById('s'), P)
+  if (!D.bg && !D.videoBg) window.__M.decorate(document.getElementById('s'), c)
   { const F = window.__M.fx, sd = F.seedFrom(D), sc = document.getElementById('s')
     F.swoosh(sc, c, sd); F.particles(sc, c, sd + 1, 14)
     F.burst(sc, c, { x: 540, y: 176 }, { maxR: 260 })   // ping behind the brand header
@@ -86,7 +94,7 @@
   // Animated brand entrance: logo pops in with overshoot, name rises beside it.
   if (brandLogo) M.reg(brandLogo, 60, 660, 'popback', { rot: -8 })
   M.reg(brandName, 260, 860, 'rise', { dy: 26 })
-  if (D.bg) M.reg(bg, 0, 3400, 'kenburns', { from: 1.03, to: 1.13, dy: -16 })
+  if (D.bg && !D.videoBg) M.reg(bg, 0, 3400, 'kenburns', { from: 1.03, to: 1.13, dy: -16 })
   for (const { bar, start } of uBars) { bar.style.transform = 'scaleX(0)'; M.reg(bar, start, start + 520, 'underline') }
 
   M.sceneExit(D, [document.querySelector('.wrap')])

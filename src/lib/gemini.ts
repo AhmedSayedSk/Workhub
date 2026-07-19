@@ -1092,6 +1092,28 @@ function sanitizeScene(x: any): CreativeScene | null {
   }
 }
 
+// A short ENGLISH stock-footage search query capturing the campaign's VISUAL
+// world (Pexels search). Never brand names — engines index generic subjects.
+export async function generateStockVideoQuery(
+  params: { brandName: string; goal?: string; audience?: string; context?: string },
+  model?: GeminiModel
+): Promise<string> {
+  const prompt = `Suggest ONE stock-video search query (2-4 ENGLISH words) for footage to play behind a short ad's opening hook.
+Product: ${params.brandName}
+Goal: ${params.goal || ''}
+Audience: ${params.audience || ''}
+Context: ${(params.context || '').slice(0, 1500)}
+Rules: generic VISUAL subjects only (e.g. "developer coding laptop", "gym workout energy", "coffee shop barista") — NO brand names, NO abstract marketing words. Respond with ONLY the query words.`
+  try {
+    const gemini = getGeminiModel(model)
+    const result = await gemini.generateContent(prompt)
+    const q = result.response.text().trim().replace(/["'\n.]/g, ' ').replace(/\s+/g, ' ').trim()
+    return q.split(' ').slice(0, 5).join(' ')
+  } catch {
+    return ''
+  }
+}
+
 export interface GeneratedCampaignBrief {
   name: string
   goal: string

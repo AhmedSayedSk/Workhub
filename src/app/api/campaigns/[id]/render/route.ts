@@ -34,6 +34,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const AR_FONT_IDS = ['cairo', 'tajawal', 'almarai', 'changa', 'messiri', 'amiri', 'lalezar']
   const arFont = AR_FONT_IDS.includes(body.arFont) ? body.arFont : 'cairo'
   const subtitles = body.subtitles !== false // scene secondary lines default ON
+  const videoHook = !!body.videoHook // stock-footage hook background (Pexels) instead of the AI image
 
   const cSnap = await db().collection('campaigns').doc(id).get()
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
@@ -79,6 +80,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   if (!posts.length) return NextResponse.json({ error: 'Campaign has no generated images yet' }, { status: 400 })
 
   const brandName = c.brand?.name || c.name || 'Brand'
+  // Stock-footage search query (English, visual subjects) — only when the
+  // video-hook toggle is on; failure falls back to a goal-derived phrase.
+  let hookVideoQuery = ''
+  if (videoHook) {
+    const { generateStockVideoQuery } = await import('@/lib/gemini')
+    hookVideoQuery = await generateStockVideoQuery({ brandName, goal: c.brief?.goal, audience: c.brief?.audience, context: c.brief?.goal })
+    if (!hookVideoQuery) hookVideoQuery = 'technology abstract background'
+  }
   const domain = c.brief?.content?.link || undefined
   const brandColor = (c.brand?.colors && c.brand.colors[0]) || null
 
@@ -209,6 +218,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     captions,
     arFont,
     subtitles,
+    videoHook,
+    ...(hookVideoQuery ? { hookVideoQuery } : {}),
     ...(sceneStyles.length ? { sceneStyles } : {}),
     palette,
     ...(voiceover ? { voiceover } : {}),
