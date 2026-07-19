@@ -8,7 +8,7 @@ import { generateHookBg } from './hook.mjs'
 import { encode, thumbFromFrame } from './encode.mjs'
 import { upload } from './upload.mjs'
 import { synthLines, buildVoiceTrack, clampSceneMs, creativeSceneNarration } from './voice.mjs'
-import { applyDissolves, applyXfades } from './transitions.mjs'
+import { applyDissolves, applyXfades, applyLoopTail } from './transitions.mjs'
 import { scheduleSfx, buildSfxTrack, mixTracks } from './sfx.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -61,6 +61,26 @@ function pickShowcaseVariant(scene, idx, seedStr, prev, allowed) {
 }
 
 const showcaseTemplate = (v) => (v === 'a' ? 'showcase.html' : `showcase-${v}.html`)
+
+// Word-level karaoke timing for a narrated line: the measured audio duration
+// split across words proportionally to their length (+lead). No forced
+// alignment needed — proportional timing reads naturally at caption speed.
+function captionWords(text, durationSec) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length || !durationSec) return null
+  const total = durationSec * 1000
+  const lead = Math.min(120, total * 0.05)
+  const speakable = total - lead - 150 // small tail so the last word doesn't cling to the cut
+  const weights = words.map((w) => w.length + 1.5)
+  const wsum = weights.reduce((a, b) => a + b, 0)
+  let t = lead
+  return words.map((w, i) => {
+    const d = Math.max(120, (weights[i] / wsum) * speakable)
+    const seg = { w, s: Math.round(t), e: Math.round(t + d) }
+    t += d
+    return seg
+  })
+}
 
 // Mixed casting → named voice per gender (white-labeled ids).
 const MIXED_VOICE = { female: 'nova', male: 'omar' }
@@ -138,11 +158,13 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
       const bgUrl = bgPath ? pathToFileURL(bgPath).href : null
 
       let voiceSegs = null
+      let voLines = null
       if (vo) {
         await report(40, 'voiceover')
         const mixed = vo.gender === 'mixed'
         const cast = mixed ? castVoices(job.script.map((s) => s.type)) : null
         const lines = job.script.map((s, li) => ({ text: creativeSceneNarration(s, (job.brand || {}).name, vo.language), ...(mixed ? { gender: cast[li], voice: MIXED_VOICE[cast[li]] } : {}) }))
+        voLines = lines
         voiceSegs = await synthLines(lines, { language: vo.language, gender: mixed ? 'female' : vo.gender, voice: mixed ? undefined : vo.voice, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
           async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })
       }
@@ -172,6 +194,9 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         typeSeen[scene.type] = (typeSeen[scene.type] || 0) + 1
         const data = {
           ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en',
+          ...(job.captions !== false && seg && seg.durationSec && voLines && voLines[i]
+            ? (() => { const wds = captionWords(voLines[i].text, seg.durationSec); return wds ? { captions: { words: wds } } : {} })()
+            : {}),
           index: typeSeen[scene.type], total: typeTotals[scene.type],
           palette: job.palette || null,
           // The final scene HOLDS (no exit) so the CTA lingers on screen.
@@ -194,6 +219,8 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
       await runPool(tasks, CONCURRENCY, async (d, total) => { await report(42 + Math.round((d / total) * 43), 'rendering') })
       if (transition === 'smooth') await applyDissolves(framesDir, boundaries, cursor)
       else if (transition === 'cinematic' || transition === 'push') await applyXfades(framesDir, boundaries, cursor, { pool: transition })
+      // Loop-friendly ending: the tail dissolves back into frame 0 so replays are seamless.
+      if (transition !== 'none') await applyLoopTail(framesDir, cursor)
       await report(88, 'encoding')
       const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null
       // Sound effects (default ON): scheduled from the exact scene timeline,
@@ -283,6 +310,8 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
     })
     if (transition === 'smooth') await applyDissolves(framesDir, boundaries, cursor)
       else if (transition === 'cinematic' || transition === 'push') await applyXfades(framesDir, boundaries, cursor, { pool: transition })
+      // Loop-friendly ending: the tail dissolves back into frame 0 so replays are seamless.
+      if (transition !== 'none') await applyLoopTail(framesDir, cursor)
     await report(85, 'rendering')
 
     const voiceTrack = vo ? await buildVoiceTrack(segments, scratch, FPS) : null

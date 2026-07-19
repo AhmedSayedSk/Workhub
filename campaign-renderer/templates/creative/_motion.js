@@ -61,6 +61,12 @@ window.__M = (() => {
     else if (a.kind === 'sweep') { e.style.opacity = p > 0 && p < 1 ? 1 : 0; e.style.transform = `translateX(${-150 + 500 * p}%) skewX(-18deg)` }
     else if (a.kind === 'ringdraw') { const c = o.circ || 1508; e.style.strokeDashoffset = String(c * (1 - p)) }
     else if (a.kind === 'exitfade') { if (p > 0) e.style.opacity = String(1 - p) }
+    else if (a.kind === 'capword') {
+      // Karaoke caption word: dim until spoken, accent while being spoken.
+      const active = t >= a.start && t < a.end
+      e.style.opacity = t >= a.start ? '1' : '0.45'
+      e.style.color = active ? (a.opt.accent || '#ffd166') : '#ffffff'
+    }
     else if (a.kind === 'countup') {
       // "3x" / "18%" / "$52k" — count the numeric part, keep prefix/suffix.
       if (!o._parsed) { const m = String(o.text || '').match(/^([^0-9]*)([0-9]+(?:\.[0-9]+)?)(.*)$/); o._parsed = m ? { pre: m[1], num: parseFloat(m[2]), suf: m[3], dec: (m[2].split('.')[1] || '').length } : null }
@@ -395,5 +401,45 @@ window.__M = (() => {
     })
     return spans
   }
+  // Word-synced karaoke captions, auto-installed on every scene that carries
+  // caption timing (D.captions.words = [{w,s,e}] in scene-relative ms). Sits in
+  // the platform-safe band (~y1420-1540 of 1920) so TikTok/IG UI never covers it.
+  function buildCaptions(D) {
+    const s = document.getElementById('s')
+    if (!s) return
+    const accent = (D.palette && D.palette.accent) || (D.brand && D.brand.color) || '#ffd166'
+    const bar = document.createElement('div')
+    Object.assign(bar.style, {
+      position: 'absolute', left: '90px', right: '90px', bottom: '390px', zIndex: '6',
+      display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+    })
+    const pill = document.createElement('div')
+    Object.assign(pill.style, {
+      maxWidth: '880px', background: 'rgba(8,10,16,.55)', borderRadius: '20px',
+      padding: '16px 26px', textAlign: 'center', lineHeight: '1.35',
+      fontFamily: "'Cairo','Segoe UI',system-ui,Arial,sans-serif",
+      fontSize: '38px', fontWeight: '700', letterSpacing: '0',
+    })
+    bar.appendChild(pill)
+    for (const wd of D.captions.words) {
+      const sp = document.createElement('span')
+      sp.textContent = wd.w
+      sp.style.display = 'inline-block'
+      sp.style.whiteSpace = 'pre'
+      sp.style.opacity = '0.45'
+      sp.style.color = '#fff'
+      pill.appendChild(sp)
+      pill.appendChild(document.createTextNode(' '))
+      reg(sp, wd.s, wd.e, 'capword', { accent })
+    }
+    s.appendChild(bar)
+    // Mirror sceneExit so the bar leaves with the scene content.
+    if (D.durMs && D.transition !== 'none') reg(bar, Math.max(0, D.durMs - 360), D.durMs - 40, 'exitfade')
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const D = window.__DATA
+    if (D && D.captions && Array.isArray(D.captions.words) && D.captions.words.length) buildCaptions(D)
+  })
+
   return { reg, easeOutCubic, easeOutBack, words, splitWords, decorate, applyLang, sceneExit, applyPalette, stage, regAnime, fx }
 })()

@@ -90,3 +90,25 @@ export async function applyXfades(framesDir, boundaries, totalFrames, { frames =
     fs.rmSync(tmpDir, { recursive: true, force: true })
   }
 }
+
+// Loop-friendly ending: the final ~0.4s cross-fades back into the video's FIRST
+// frame, so when platforms auto-replay the reel the seam is invisible.
+export async function applyLoopTail(framesDir, totalFrames, { frames = 12 } = {}) {
+  const first = path.join(framesDir, frameName(0))
+  if (!fs.existsSync(first) || totalFrames <= frames + 1) return
+  for (let j = 0; j < frames; j++) {
+    const idx = totalFrames - frames + j
+    const target = path.join(framesDir, frameName(idx))
+    if (!fs.existsSync(target)) continue
+    const w = (j + 1) / (frames + 1) // weight of the FIRST frame, ramping up
+    const tmp = `${target}.loop.jpg`
+    try {
+      await run('ffmpeg', [
+        '-y', '-i', first, '-i', target,
+        '-filter_complex', `[0:v][1:v]blend=all_expr='A*${w.toFixed(4)}+B*${(1 - w).toFixed(4)}'`,
+        '-q:v', '3', tmp,
+      ])
+      fs.renameSync(tmp, target)
+    } catch { fs.rmSync(tmp, { force: true }) }
+  }
+}

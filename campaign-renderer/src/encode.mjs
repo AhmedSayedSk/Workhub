@@ -22,6 +22,9 @@ export async function encode(framesDir, fps, outMp4, audioPath = null) {
       : ['-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo']),
     '-map', '0:v',
     '-map', '1:a',
+    // Platform loudness standard: normalize the real audio mix to -14 LUFS
+    // (TP -1.5) so the ad sits at the same level as native FB/IG/TikTok content.
+    ...(hasAudio ? ['-af', 'loudnorm=I=-14:TP=-1.5:LRA=11'] : []),
     '-shortest',
     '-c:v', 'libx264',
     '-pix_fmt', 'yuv420p',

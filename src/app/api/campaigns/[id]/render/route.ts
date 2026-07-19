@@ -30,6 +30,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const mode = body.mode === 'creative' ? 'creative' : 'basic'
   const transition = ['smooth', 'simple', 'none', 'cinematic', 'push'].includes(body.transition) ? body.transition : 'smooth'
   const sfx = { enabled: body.sfx?.enabled !== false } // sound effects default ON
+  const captions = body.captions !== false // karaoke captions default ON (only render with voiceover)
 
   const cSnap = await db().collection('campaigns').doc(id).get()
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
@@ -202,6 +203,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     market: market.code,
     transition,
     sfx,
+    captions,
     ...(sceneStyles.length ? { sceneStyles } : {}),
     palette,
     ...(voiceover ? { voiceover } : {}),

@@ -99,6 +99,7 @@ export function CampaignTab() {
   const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none' | 'cinematic' | 'push'>('cinematic')
   const [videoSfx, setVideoSfx] = useState(true)
+  const [videoCaptions, setVideoCaptions] = useState(true)
   const [videoMarket, setVideoMarket] = useState('auto')
   const [hookMode, setHookMode] = useState<'auto' | 'choose'>('auto')
   const [hookOptions, setHookOptions] = useState<Array<{ style: string; lang?: string; headline: string; underline?: string; kicker?: string }> | null>(null)
@@ -244,6 +245,7 @@ export function CampaignTab() {
           mode: videoMode,
           transition: videoTransition,
           sfx: { enabled: videoSfx },
+          captions: videoCaptions,
           market: videoMarket,
           ...(hookMode === 'choose' && hookOptions?.[hookPick] ? { hook: hookOptions[hookPick] } : {}),
           voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverVoice === 'mixed' ? 'mixed' : VOICE_GENDER[voiceoverVoice], ...(voiceoverVoice !== 'mixed' ? { voice: voiceoverVoice } : {}), model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
@@ -588,6 +590,10 @@ export function CampaignTab() {
                         >
                           Mixed <span className="font-normal text-muted-foreground">— alternate male &amp; female per scene</span>
                         </button>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-muted-foreground" title="Word-by-word karaoke captions synced to the narration — most viewers watch muted">Captions</span>
+                        <Switch checked={videoCaptions} onCheckedChange={setVideoCaptions} disabled={videoRendering} />
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm text-muted-foreground">Quality</span>

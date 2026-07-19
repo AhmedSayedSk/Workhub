@@ -656,6 +656,7 @@ export interface RenderJob {
   transition?: 'smooth' | 'simple' | 'none' | 'cinematic' | 'push' // exit-fade+dissolve / exit-fade / hard cut / xfade reveals (circle·radial·diag) / whip-slide pushes
   palette?: { bg1: string; bg2: string; accent: string; text: string; muted: string; ctaText: string } // AI-proposed, contrast-enforced color system
   sfx?: { enabled: boolean } // sound effects mixed at scene-motion moments (default on)
+  captions?: boolean // word-synced karaoke captions burned onto narrated scenes (default on with voiceover)
   script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string
