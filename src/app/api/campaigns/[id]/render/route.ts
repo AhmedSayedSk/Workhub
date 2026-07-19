@@ -33,6 +33,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const captions = body.captions !== false // karaoke captions default ON (only render with voiceover)
   const AR_FONT_IDS = ['cairo', 'tajawal', 'almarai', 'changa', 'messiri', 'amiri', 'lalezar']
   const arFont = AR_FONT_IDS.includes(body.arFont) ? body.arFont : 'cairo'
+  const subtitles = body.subtitles !== false // scene secondary lines default ON
 
   const cSnap = await db().collection('campaigns').doc(id).get()
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
@@ -207,6 +208,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     sfx,
     captions,
     arFont,
+    subtitles,
     ...(sceneStyles.length ? { sceneStyles } : {}),
     palette,
     ...(voiceover ? { voiceover } : {}),

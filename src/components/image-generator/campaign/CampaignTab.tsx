@@ -115,6 +115,7 @@ export function CampaignTab() {
   const [videoSfx, setVideoSfx] = useState(true)
   const [videoCaptions, setVideoCaptions] = useState(true)
   const [videoArFont, setVideoArFont] = useState('cairo')
+  const [videoSubtitles, setVideoSubtitles] = useState(true)
   // Load the preview fonts once so the dropdown samples render in-font.
   useEffect(() => {
     if (document.querySelector('link[data-ar-video-fonts]')) return
@@ -271,6 +272,7 @@ export function CampaignTab() {
           sfx: { enabled: videoSfx },
           captions: videoCaptions,
           arFont: videoArFont,
+          subtitles: videoSubtitles,
           market: videoMarket,
           ...(hookMode === 'choose' && hookOptions?.[hookPick] ? { hook: hookOptions[hookPick] } : {}),
           voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverVoice === 'mixed' ? 'mixed' : VOICE_GENDER[voiceoverVoice], ...(voiceoverVoice !== 'mixed' ? { voice: voiceoverVoice } : {}), model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
@@ -588,6 +590,10 @@ export function CampaignTab() {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground" title="Whooshes, pops, ticks and stings placed on the animations, mixed under the narration">Sound effects</span>
                     <Switch checked={videoSfx} onCheckedChange={setVideoSfx} disabled={videoRendering} />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground" title="The smaller secondary line under each scene's title — turn off for a cleaner, title-only look">Scene subtitles</span>
+                    <Switch checked={videoSubtitles} onCheckedChange={setVideoSubtitles} disabled={videoRendering} />
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground">Voiceover</span>

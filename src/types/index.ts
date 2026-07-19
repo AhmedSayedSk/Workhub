@@ -658,6 +658,7 @@ export interface RenderJob {
   sfx?: { enabled: boolean } // sound effects mixed at scene-motion moments (default on)
   captions?: boolean // word-synced karaoke captions burned onto narrated scenes (default on with voiceover)
   arFont?: string // Arabic display font id (cairo default — see AR_FONTS in the worker)
+  subtitles?: boolean // show each scene's secondary line (sub) — false hides it everywhere
   script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string

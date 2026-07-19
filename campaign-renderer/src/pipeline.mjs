@@ -82,6 +82,20 @@ function captionWords(text, durationSec) {
   })
 }
 
+// Seeded per-scene title-entrance effect: rotates a wide pool, never repeats
+// the previous scene's pick — every title lands differently.
+const TITLE_FX = ['rise', 'pop', 'slide', 'flip', 'blur', 'zoom', 'type', 'riseslow']
+function pickTitleFx(idx, seedStr, prev) {
+  let h = 2166136261
+  const str = `${seedStr}~title~${idx}`
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) }
+  for (let k = 0; k < TITLE_FX.length; k++) {
+    const v = TITLE_FX[(Math.abs(h) + k) % TITLE_FX.length]
+    if (v !== prev) return v
+  }
+  return TITLE_FX[0]
+}
+
 // Mixed casting → named voice per gender (white-labeled ids).
 const MIXED_VOICE = { female: 'nova', male: 'omar' }
 
@@ -180,6 +194,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
       for (const sc of job.script) typeTotals[sc.type] = (typeTotals[sc.type] || 0) + 1
       const typeSeen = {}
       let prevVariant = null
+      let prevTitleFx = null
       job.script.forEach((scene, i) => {
         const baseMs = SCENE_DUR[scene.type] || 2800
         const seg = voiceSegs ? voiceSegs[i] : null
@@ -194,6 +209,9 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         typeSeen[scene.type] = (typeSeen[scene.type] || 0) + 1
         const data = {
           ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en', arFont: job.arFont || 'cairo',
+          titleFx: (prevTitleFx = pickTitleFx(i, String(job.id || ''), prevTitleFx)),
+          // Subtitles off: hide every scene's secondary line (templates no-op on missing sub).
+          ...(job.subtitles === false ? { sub: null } : {}),
           ...(job.captions !== false && seg && seg.durationSec && voLines && voLines[i]
             ? (() => { const wds = captionWords(voLines[i].text, seg.durationSec); return wds ? { captions: { words: wds } } : {} })()
             : {}),

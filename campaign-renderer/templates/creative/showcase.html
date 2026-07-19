@@ -74,7 +74,7 @@
   // Caption: accent draws, words cascade in, sub follows.
   M.reg(scrim, 450, 950, 'fade')
   M.reg(document.getElementById('accent'), 500, 950, 'draww')
-  if (D.caption) M.words(captionEl, 700, 90, 620, { dy: 36 })
+  if (D.caption) M.titleIn(captionEl, D, { start: 700 })
   if (D.sub) M.reg(subEl, 1250, 1750, 'rise', { dy: 26 })
   M.reg(brand, 0, 400, 'fade')
 

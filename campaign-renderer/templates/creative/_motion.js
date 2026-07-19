@@ -61,6 +61,10 @@ window.__M = (() => {
     else if (a.kind === 'sweep') { e.style.opacity = p > 0 && p < 1 ? 1 : 0; e.style.transform = `translateX(${-150 + 500 * p}%) skewX(-18deg)` }
     else if (a.kind === 'ringdraw') { const c = o.circ || 1508; e.style.strokeDashoffset = String(c * (1 - p)) }
     else if (a.kind === 'exitfade') { if (p > 0) e.style.opacity = String(1 - p) }
+    else if (a.kind === 'blurin') { e.style.opacity = p; e.style.filter = `blur(${(1 - p) * 14}px)` }
+    else if (a.kind === 'flipup') { e.style.opacity = Math.min(1, p * 1.6); e.style.transform = `perspective(700px) rotateX(${(1 - p) * 72}deg)`; e.style.transformOrigin = 'center bottom' }
+    else if (a.kind === 'zoomsettle') { e.style.opacity = Math.min(1, p * 2); e.style.transform = `scale(${1.35 - 0.35 * p})` }
+    else if (a.kind === 'typein') { e.style.opacity = t >= a.start ? '1' : '0' }
     else if (a.kind === 'capword') {
       // Karaoke caption word: dim until spoken, accent while being spoken.
       const active = t >= a.start && t < a.end
@@ -90,7 +94,7 @@ window.__M = (() => {
   // Splits an element's text into word spans and registers a staggered rise for
   // each — the classic kinetic-typography reveal. Works for RTL/Arabic too
   // (words split on spaces; cursive joining is within words). Returns spans.
-  function words(el, start, stagger, dur, opt) {
+  function words(el, start, stagger, dur, opt, kind) {
     const text = el.textContent
     el.textContent = ''
     const spans = []
@@ -102,10 +106,27 @@ window.__M = (() => {
       s.style.whiteSpace = 'pre'
       el.appendChild(s)
       if (i < parts.length - 1) el.appendChild(document.createTextNode(' '))
-      reg(s, start + i * stagger, start + i * stagger + dur, 'rise', opt || { dy: 34 })
+      reg(s, start + i * stagger, start + i * stagger + dur, kind || 'rise', opt || { dy: 34 })
       spans.push(s)
     })
     return spans
+  }
+
+  // Title entrance dispatcher: the scene's titleFx (seeded per scene by the
+  // pipeline, never repeating the previous scene) picks one of 8 entrances —
+  // varied openings keep the ad feeling hand-animated.
+  function titleIn(el, D, o) {
+    const fx = (D && D.titleFx) || 'rise'
+    const start = (o && o.start) || 300
+    const rtl = D && D.lang === 'ar'
+    if (fx === 'zoom') reg(el, start, start + 700, 'zoomsettle')
+    else if (fx === 'blur') reg(el, start, start + 750, 'blurin')
+    else if (fx === 'slide') words(el, start, 90, 560, { dx: rtl ? 120 : -120 }, 'slidex')
+    else if (fx === 'pop') words(el, start, 120, 540, { rot: -5 }, 'popback')
+    else if (fx === 'flip') words(el, start, 110, 560, {}, 'flipup')
+    else if (fx === 'type') words(el, start, 130, 130, {}, 'typein')
+    else if (fx === 'riseslow') words(el, start, 170, 700, { dy: 52 })
+    else words(el, start, 110, 640, { dy: 46 })
   }
 
   // Scene exit: fades the given content elements out over the scene's final
@@ -454,5 +475,5 @@ window.__M = (() => {
     if (D && D.captions && Array.isArray(D.captions.words) && D.captions.words.length) buildCaptions(D)
   })
 
-  return { reg, easeOutCubic, easeOutBack, words, splitWords, decorate, applyLang, sceneExit, applyPalette, stage, regAnime, fx }
+  return { reg, easeOutCubic, easeOutBack, words, splitWords, titleIn, decorate, applyLang, sceneExit, applyPalette, stage, regAnime, fx }
 })()
