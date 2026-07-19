@@ -24,7 +24,7 @@ const DIMS = {
 const FPS = 30
 const HOOK_DUR_MS = 3000
 const CREATIVE_DIR = path.join(__dirname, '..', 'templates', 'creative')
-const SCENE_DUR = { hook: 3200, beat: 2800, stat: 2600, showcase: 3200, cta: 3000 }
+const SCENE_DUR = { hook: 3200, beat: 2800, stat: 3100, showcase: 3200, cta: 3000 }
 // Use every vCPU: the hook + each post scene render in parallel, each writing
 // its own pre-assigned frame range (order preserved). Override with RENDER_CONCURRENCY.
 const CONCURRENCY = Math.max(1, Number(process.env.RENDER_CONCURRENCY) || os.cpus().length)
