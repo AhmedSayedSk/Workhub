@@ -6,6 +6,7 @@ import { useCampaigns } from '@/hooks/useCampaigns'
 import { projects as projectsApi, renderJobs } from '@/lib/firestore'
 import { ProjectIcon } from '@/components/projects/ProjectImagePicker'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -127,6 +128,7 @@ export function CampaignTab() {
     document.head.appendChild(l)
   }, [])
   const [videoMarket, setVideoMarket] = useState('auto')
+  const [videoBrandName, setVideoBrandName] = useState('')
   const [hookMode, setHookMode] = useState<'auto' | 'choose'>('auto')
   const [hookOptions, setHookOptions] = useState<Array<{ style: string; lang?: string; headline: string; underline?: string; kicker?: string }> | null>(null)
   const [hookPick, setHookPick] = useState(0)
@@ -147,6 +149,7 @@ export function CampaignTab() {
     if (!activeCampaignId) return
     // Default the voiceover language to the campaign's own language.
     setVoiceoverLang(c.activeCampaign?.language === 'ar' ? 'ar' : 'en')
+    setVideoBrandName(c.activeCampaign?.brand?.name || '')
     return renderJobs.subscribeLatestForCampaign(activeCampaignId, setVideoJob)
   }, [activeCampaignId])
   // Voice notification when a render finishes while the user is on the page:
@@ -294,6 +297,7 @@ export function CampaignTab() {
           sfx: { enabled: videoSfx },
           captions: videoCaptions,
           arFont: videoArFont,
+          ...(videoBrandName.trim() ? { brandName: videoBrandName.trim() } : {}),
           subtitles: videoSubtitles,
           videoHook: videoHookOn,
           market: videoMarket,
@@ -513,6 +517,16 @@ export function CampaignTab() {
               const settings = (
                 <div className="grid gap-x-10 gap-y-5 sm:grid-cols-[3fr_2fr]">
                   <div className="space-y-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="shrink-0 text-sm text-muted-foreground" title="Shown as the brand header on every scene and spoken in the closing CTA — edit for this video only">Project name</span>
+                    <Input
+                      value={videoBrandName}
+                      onChange={(e) => setVideoBrandName(e.target.value)}
+                      placeholder={cam.brand?.name || projectName(cam.projectId)}
+                      disabled={videoRendering}
+                      className="h-9 w-[240px] text-sm"
+                    />
+                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-muted-foreground" title="Copy, hooks and narration adapt to this market's culture, customs and dialect">Market</span>
                     <select

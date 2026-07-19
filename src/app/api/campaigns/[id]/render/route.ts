@@ -81,7 +81,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     .slice(0, 6)
   if (!posts.length) return NextResponse.json({ error: 'Campaign has no generated images yet' }, { status: 400 })
 
-  const brandName = c.brand?.name || c.name || 'Brand'
+  // Optional per-render override from the modal's Project name input.
+  const brandName = (typeof body.brandName === 'string' && body.brandName.trim())
+    ? body.brandName.trim().slice(0, 60)
+    : (c.brand?.name || c.name || 'Brand')
   // Stock-footage search query (English, visual subjects) — only when the
   // video-hook toggle is on; failure falls back to a goal-derived phrase.
   let hookVideoQuery = ''
