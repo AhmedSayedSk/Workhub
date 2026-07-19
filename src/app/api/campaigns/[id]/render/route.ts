@@ -31,6 +31,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const transition = ['smooth', 'simple', 'none', 'cinematic', 'push'].includes(body.transition) ? body.transition : 'smooth'
   const sfx = { enabled: body.sfx?.enabled !== false } // sound effects default ON
   const captions = body.captions !== false // karaoke captions default ON (only render with voiceover)
+  const AR_FONT_IDS = ['cairo', 'tajawal', 'almarai', 'changa', 'messiri', 'amiri', 'lalezar']
+  const arFont = AR_FONT_IDS.includes(body.arFont) ? body.arFont : 'cairo'
 
   const cSnap = await db().collection('campaigns').doc(id).get()
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
@@ -204,6 +206,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     transition,
     sfx,
     captions,
+    arFont,
     ...(sceneStyles.length ? { sceneStyles } : {}),
     palette,
     ...(voiceover ? { voiceover } : {}),

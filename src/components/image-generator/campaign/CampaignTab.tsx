@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
 import { MARKETS } from '@/lib/markets'
 import Link from 'next/link'
@@ -36,6 +37,19 @@ const CAMPAIGN_VOICES: Array<{ id: 'nova' | 'aria' | 'sami' | 'omar'; label: str
   { id: 'omar', label: 'Omar', gender: 'M', tone: 'Confident' },
 ]
 type VoiceChoice = 'nova' | 'aria' | 'sami' | 'omar' | 'mixed'
+
+// Selectable Arabic display fonts for the video (worker vendors the same OFL
+// files). The dropdown renders every option IN its own font as a live sample.
+const AR_VIDEO_FONTS: Array<{ id: string; label: string; family: string }> = [
+  { id: 'cairo', label: 'Cairo — الافتراضي', family: 'Cairo' },
+  { id: 'tajawal', label: 'Tajawal — تجوال', family: 'Tajawal' },
+  { id: 'almarai', label: 'Almarai — المرعي', family: 'Almarai' },
+  { id: 'changa', label: 'Changa — تشانغا', family: 'Changa' },
+  { id: 'messiri', label: 'El Messiri — المسيري', family: 'El Messiri' },
+  { id: 'amiri', label: 'Amiri — أميري (كلاسيكي)', family: 'Amiri' },
+  { id: 'lalezar', label: 'Lalezar — لاله‌زار (عريض)', family: 'Lalezar' },
+]
+const AR_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=Tajawal:wght@700&family=Almarai:wght@700&family=Changa:wght@700&family=El+Messiri:wght@700&family=Amiri:wght@700&family=Lalezar&display=swap'
 const VOICE_GENDER: Record<string, 'female' | 'male'> = { nova: 'female', aria: 'female', sami: 'male', omar: 'male' }
 
 function creativeSceneText(s: CreativeScene): string {
@@ -100,6 +114,16 @@ export function CampaignTab() {
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none' | 'cinematic' | 'push'>('cinematic')
   const [videoSfx, setVideoSfx] = useState(true)
   const [videoCaptions, setVideoCaptions] = useState(true)
+  const [videoArFont, setVideoArFont] = useState('cairo')
+  // Load the preview fonts once so the dropdown samples render in-font.
+  useEffect(() => {
+    if (document.querySelector('link[data-ar-video-fonts]')) return
+    const l = document.createElement('link')
+    l.rel = 'stylesheet'
+    l.href = AR_FONTS_CSS
+    l.setAttribute('data-ar-video-fonts', '1')
+    document.head.appendChild(l)
+  }, [])
   const [videoMarket, setVideoMarket] = useState('auto')
   const [hookMode, setHookMode] = useState<'auto' | 'choose'>('auto')
   const [hookOptions, setHookOptions] = useState<Array<{ style: string; lang?: string; headline: string; underline?: string; kicker?: string }> | null>(null)
@@ -246,6 +270,7 @@ export function CampaignTab() {
           transition: videoTransition,
           sfx: { enabled: videoSfx },
           captions: videoCaptions,
+          arFont: videoArFont,
           market: videoMarket,
           ...(hookMode === 'choose' && hookOptions?.[hookPick] ? { hook: hookOptions[hookPick] } : {}),
           voiceover: voiceover ? { enabled: true, language: voiceoverLang, gender: voiceoverVoice === 'mixed' ? 'mixed' : VOICE_GENDER[voiceoverVoice], ...(voiceoverVoice !== 'mixed' ? { voice: voiceoverVoice } : {}), model: voiceoverModel, rate: voiceoverRate === 'auto' ? 'auto' : Number(voiceoverRate) } : { enabled: false },
@@ -476,6 +501,25 @@ export function CampaignTab() {
                       ))}
                     </select>
                   </div>
+                  {(cam.language === 'ar' || (voiceover && voiceoverLang === 'ar')) && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-muted-foreground" title="Font used for all Arabic text in the video — each option previews in its own font">Arabic font</span>
+                      <Select value={videoArFont} onValueChange={setVideoArFont} disabled={videoRendering}>
+                        <SelectTrigger className="h-9 w-[240px] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AR_VIDEO_FONTS.map((fo) => (
+                            <SelectItem key={fo.id} value={fo.id}>
+                              <span dir="rtl" style={{ fontFamily: `'${fo.family}', sans-serif` }} className="text-[15px]">
+                                {fo.label} · <span className="opacity-80">«تصميم يلفت الانتباه»</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   {/* Opening hook — compact row; the picker lives in its own modal */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">

@@ -178,21 +178,34 @@ window.__M = (() => {
   // Cairo (OFL) locally — without it Arabic renders as tofu. Applied generically
   // from every template: sets dir=rtl, swaps the pinned brand/chip corners, and
   // drops the tight (Latin) letter-spacing that would break Arabic's cursive join.
+  // Selectable Arabic font family (job.arFont): all OFL, vendored in ./fonts.
+  const AR_FONTS = {
+    cairo:   { file: 'Cairo.ttf',     family: 'Cairo',      weights: '200 1000' },
+    tajawal: { file: 'Tajawal.ttf',   family: 'Tajawal',    weights: '100 1000' },
+    almarai: { file: 'Almarai.ttf',   family: 'Almarai',    weights: '100 1000' },
+    changa:  { file: 'Changa.ttf',    family: 'Changa',     weights: '200 800' },
+    messiri: { file: 'ElMessiri.ttf', family: 'El Messiri', weights: '400 700' },
+    amiri:   { file: 'Amiri.ttf',     family: 'Amiri',      weights: '100 1000' },
+    lalezar: { file: 'Lalezar.ttf',   family: 'Lalezar',    weights: '100 1000' },
+  }
+  let arFamily = 'Cairo'
   let fontInjected = false
-  function injectFont() {
+  function injectFont(D) {
     if (fontInjected) return; fontInjected = true
+    const f = AR_FONTS[(D && D.arFont) || 'cairo'] || AR_FONTS.cairo
+    arFamily = f.family
     const st = document.createElement('style')
     st.textContent =
-      "@font-face{font-family:'Cairo';src:url('./fonts/Cairo.ttf') format('truetype');font-weight:200 1000;font-display:block}" +
+      "@font-face{font-family:'" + f.family + "';src:url('./fonts/" + f.file + "') format('truetype');font-weight:" + f.weights + ";font-display:block}" +
       ".rtl{direction:rtl}" +
       ".rtl h1,.rtl .value,.rtl .pill,.rtl .name,.rtl .kicker{letter-spacing:normal}" +
-      ".ar-font,.ar-font h1,.ar-font .sub,.ar-font .caption,.ar-font .label,.ar-font .value,.ar-font .pill,.ar-font .name,.ar-font .kicker,.ar-font .brand,.ar-font .chip,.ar-font .url{font-family:'Cairo','Segoe UI',system-ui,Arial,sans-serif}" +
+      ".ar-font,.ar-font h1,.ar-font .sub,.ar-font .caption,.ar-font .label,.ar-font .value,.ar-font .pill,.ar-font .name,.ar-font .kicker,.ar-font .brand,.ar-font .chip,.ar-font .url{font-family:'" + f.family + "','Segoe UI',system-ui,Arial,sans-serif}" +
       // Arabic script sits tighter than Latin — give multi-line headings & body more breathing room.
       ".ar-font h1{line-height:1.75}.ar-font .sub,.ar-font .caption{line-height:1.65}.ar-font .label{line-height:1.5}"
     document.head.appendChild(st)
   }
   function applyLang(D) {
-    injectFont()
+    injectFont(D)
     const rtl = (D && D.lang === 'ar') || /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(JSON.stringify(D || {}))
     if (!rtl) return
     // Apply RTL to the scene root, NOT <html>: dir=rtl on the document element
@@ -201,7 +214,7 @@ window.__M = (() => {
     if (s) { s.setAttribute('dir', 'rtl'); s.classList.add('rtl', 'ar-font') }
     document.querySelectorAll('.brand').forEach((el) => { el.style.left = 'auto'; el.style.right = '90px' })
     document.querySelectorAll('.chip').forEach((el) => { el.style.right = 'auto'; el.style.left = '90px' })
-    if (document.fonts && document.fonts.load) { try { document.fonts.load("900 100px 'Cairo'"); document.fonts.load("500 100px 'Cairo'") } catch (e) {} }
+    if (document.fonts && document.fonts.load) { try { document.fonts.load("900 100px '" + arFamily + "'"); document.fonts.load("500 100px '" + arFamily + "'") } catch (e) {} }
   }
   // ---------------------------------------------------------------------------
   // FX — minimal motion-graphic accents (lines, paths, particles, rings).
@@ -417,7 +430,7 @@ window.__M = (() => {
     Object.assign(pill.style, {
       maxWidth: '880px', background: 'rgba(8,10,16,.55)', borderRadius: '20px',
       padding: '16px 26px', textAlign: 'center', lineHeight: '1.35',
-      fontFamily: "'Cairo','Segoe UI',system-ui,Arial,sans-serif",
+      fontFamily: "'" + arFamily + "','Segoe UI',system-ui,Arial,sans-serif",
       fontSize: '38px', fontWeight: '700', letterSpacing: '0',
     })
     bar.appendChild(pill)

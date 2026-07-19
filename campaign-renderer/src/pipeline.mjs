@@ -193,7 +193,7 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         if (scene.type === 'hook') hookStart = start
         typeSeen[scene.type] = (typeSeen[scene.type] || 0) + 1
         const data = {
-          ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en',
+          ...scene, brand, bg: scene.type === 'hook' ? bgUrl : null, lang: job.lang || 'en', arFont: job.arFont || 'cairo',
           ...(job.captions !== false && seg && seg.durationSec && voLines && voLines[i]
             ? (() => { const wds = captionWords(voLines[i].text, seg.durationSec); return wds ? { captions: { words: wds } } : {} })()
             : {}),

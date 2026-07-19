@@ -657,6 +657,7 @@ export interface RenderJob {
   palette?: { bg1: string; bg2: string; accent: string; text: string; muted: string; ctaText: string } // AI-proposed, contrast-enforced color system
   sfx?: { enabled: boolean } // sound effects mixed at scene-motion moments (default on)
   captions?: boolean // word-synced karaoke captions burned onto narrated scenes (default on with voiceover)
+  arFont?: string // Arabic display font id (cairo default — see AR_FONTS in the worker)
   script?: CreativeScene[]
   videoUrl?: string
   thumbnailUrl?: string
