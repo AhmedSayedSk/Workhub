@@ -116,7 +116,7 @@ export function CampaignTab() {
   const [videoCaptions, setVideoCaptions] = useState(false)
   const [videoArFont, setVideoArFont] = useState('cairo')
   const [videoSubtitles, setVideoSubtitles] = useState(true)
-  const [videoHookOn, setVideoHookOn] = useState(false)
+  const [videoHookOn, setVideoHookOn] = useState(true)
   // Load the preview fonts once so the dropdown samples render in-font.
   useEffect(() => {
     if (document.querySelector('link[data-ar-video-fonts]')) return
