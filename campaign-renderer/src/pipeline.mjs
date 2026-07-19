@@ -177,10 +177,9 @@ export async function renderJob(job, onProgress = () => {}, shouldCancel = null)
         await report(40, 'voiceover')
         const mixed = vo.gender === 'mixed'
         const cast = mixed ? castVoices(job.script.map((s) => s.type)) : null
-        // Subtitles off: the secondary line disappears EVERYWHERE — scene text,
-        // narration and the karaoke captions that mirror it.
-        const voScript = job.subtitles === false ? job.script.map((s) => ({ ...s, sub: undefined })) : job.script
-        const lines = voScript.map((s, li) => ({ text: creativeSceneNarration(s, (job.brand || {}).name, vo.language), ...(mixed ? { gender: cast[li], voice: MIXED_VOICE[cast[li]] } : {}) }))
+        // Narration always speaks the FULL copy (incl. the sub) — the subtitles
+        // toggle only controls the on-screen secondary line, never the voice.
+        const lines = job.script.map((s, li) => ({ text: creativeSceneNarration(s, (job.brand || {}).name, vo.language), ...(mixed ? { gender: cast[li], voice: MIXED_VOICE[cast[li]] } : {}) }))
         voLines = lines
         voiceSegs = await synthLines(lines, { language: vo.language, gender: mixed ? 'female' : vo.gender, voice: mixed ? undefined : vo.voice, model: vo.model, rate: vo.rate, style: vo.style }, scratch, 3,
           async (d, total) => { await report(40 + Math.round((d / total) * 2), 'voiceover') })

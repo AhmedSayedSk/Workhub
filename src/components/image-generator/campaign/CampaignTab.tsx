@@ -113,7 +113,7 @@ export function CampaignTab() {
   const [voiceoverRate, setVoiceoverRate] = useState<'auto' | '1' | '1.1' | '1.25' | '1.5' | '0.9'>('auto')
   const [videoTransition, setVideoTransition] = useState<'smooth' | 'simple' | 'none' | 'cinematic' | 'push'>('cinematic')
   const [videoSfx, setVideoSfx] = useState(true)
-  const [videoCaptions, setVideoCaptions] = useState(true)
+  const [videoCaptions, setVideoCaptions] = useState(false)
   const [videoArFont, setVideoArFont] = useState('cairo')
   const [videoSubtitles, setVideoSubtitles] = useState(false)
   // Load the preview fonts once so the dropdown samples render in-font.
