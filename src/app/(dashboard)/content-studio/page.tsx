@@ -11,6 +11,7 @@ import { CampaignTab } from '@/components/image-generator/campaign/CampaignTab'
 import { HeaderCenter } from '@/components/layout/HeaderActions'
 import type { ImageGenSession } from '@/types'
 import { useSettings } from '@/hooks/useSettings'
+import { useModulePermissions } from '@/hooks/usePermissions'
 import { ImageGeneration, ImageGenModel, ImageGenAspectRatio, ImageAsset, ImageAssetFolder, ImageGenLog, CalendarEvent } from '@/types'
 import { imageAssets, imageAssetFolders, imageGenLogs } from '@/lib/firestore'
 import { uploadBlob } from '@/lib/storage'
@@ -58,6 +59,7 @@ import {
   RefreshCw,
   Activity,
   Shield,
+  ShieldAlert,
   Mail,
   RectangleHorizontal,
   Square,
@@ -235,6 +237,7 @@ function EventCardGrid({ events, onSelect, disabled }: {
 
 export default function ImageGeneratorPage() {
   const { user } = useAuth()
+  const { canModule, loading: permsLoading } = useModulePermissions()
   const {
     generations, isGenerating, isLoading,
     error: generationError, clearError,
@@ -932,6 +935,16 @@ export default function ImageGeneratorPage() {
   }
 
   if (!user) return null
+
+  if (!permsLoading && !canModule('accessImageGenerator')) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <ShieldAlert className="h-12 w-12 mb-3 opacity-40" />
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p className="text-sm">You don&apos;t have permission to access this module.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-[calc(100vh-7rem)] relative overflow-hidden">

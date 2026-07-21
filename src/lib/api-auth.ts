@@ -64,3 +64,41 @@ export async function requireAuth(request: NextRequest): Promise<NextResponse | 
   if (!decoded) return UNAUTHORIZED
   return null
 }
+
+const FORBIDDEN = NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+/**
+ * Auth + module-access check (mirrors the client's useModulePermissions rule):
+ * the app owner passes everything; other members need modules[moduleKey] === true
+ * on their global memberPermissions doc. Sidebar/page gating alone is cosmetic —
+ * this is the authoritative check for module-scoped APIs.
+ */
+export async function requireModule(
+  request: NextRequest,
+  moduleKey: string
+): Promise<NextResponse | null> {
+  if (!isAdminInitialized) {
+    if (process.env.NODE_ENV === 'production') return UNAUTHORIZED
+    return null
+  }
+
+  const decoded = await verifyAuth(request)
+  if (!decoded) return UNAUTHORIZED
+
+  try {
+    const db = admin.firestore()
+    const settings = await db.doc('settings/app_settings').get()
+    if (settings.data()?.appOwnerUid === decoded.uid) return null
+
+    const snap = await db
+      .collection('memberPermissions')
+      .where('memberUid', '==', decoded.uid)
+      .where('projectId', '==', '__global__')
+      .limit(1)
+      .get()
+    if (snap.docs[0]?.data()?.modules?.[moduleKey] === true) return null
+  } catch {
+    // fall through to forbidden
+  }
+  return FORBIDDEN
+}

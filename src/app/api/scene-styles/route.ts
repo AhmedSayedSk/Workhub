@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as admin from 'firebase-admin'
 import '@/lib/api-auth'
-import { requireAuth } from '@/lib/api-auth'
+import { requireModule } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 const db = () => admin.firestore()
@@ -33,7 +33,7 @@ async function ensureSeeded() {
 }
 
 export async function GET(request: NextRequest) {
-  const authError = await requireAuth(request)
+  const authError = await requireModule(request, 'accessImageGenerator')
   if (authError) return authError
   await ensureSeeded()
   const snap = await db().collection('sceneStyles').get()
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const authError = await requireAuth(request)
+  const authError = await requireModule(request, 'accessImageGenerator')
   if (authError) return authError
   const body = await request.json().catch(() => ({}))
   const id = String(body.id || '')

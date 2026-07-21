@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
+import { requireModule } from '@/lib/api-auth'
 
 // Account registration can take 30-60s+ (Google session setup)
 export const maxDuration = 120
@@ -60,7 +60,7 @@ async function proxyError(res: Response) {
 // GET — list accounts or jobs
 export async function GET(request: NextRequest) {
   try {
-    const authError = await requireAuth(request)
+    const authError = await requireModule(request, 'accessImageGenerator')
     if (authError) return authError
 
     const { searchParams } = new URL(request.url)
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
 // POST — generate, register account, delete account, upload asset, upscale
 export async function POST(request: NextRequest) {
   try {
-    const authError = await requireAuth(request)
+    const authError = await requireModule(request, 'accessImageGenerator')
     if (authError) return authError
 
     const body = await request.json()

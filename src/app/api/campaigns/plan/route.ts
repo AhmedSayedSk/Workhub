@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import * as admin from 'firebase-admin'
 import '@/lib/api-auth' // side-effect: ensures the Admin app is initialized
-import { requireAuth } from '@/lib/api-auth'
+import { requireModule } from '@/lib/api-auth'
 import { generateCampaignPosts, generateCampaignArtDirection } from '@/lib/gemini'
 import { campaignStylePrompt } from '@/lib/campaignStyles'
 
@@ -34,7 +34,7 @@ interface CampaignDoc {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = await requireAuth(request)
+  const authError = await requireModule(request, 'accessImageGenerator')
   if (authError) return authError
 
   try {

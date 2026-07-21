@@ -187,7 +187,7 @@ const MODULE_PERM_GROUPS: {
     icon: Sparkles,
     keys: [
       { key: 'accessAiAssistant', label: 'AI Assistant' },
-      { key: 'accessImageGenerator', label: 'Image Generator' },
+      { key: 'accessImageGenerator', label: 'Content Studio' },
     ],
   },
   {

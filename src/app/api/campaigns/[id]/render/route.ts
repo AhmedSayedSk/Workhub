@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as admin from 'firebase-admin'
 import '@/lib/api-auth'
-import { requireAuth } from '@/lib/api-auth'
+import { requireModule } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 const db = () => admin.firestore()
@@ -22,7 +22,7 @@ function stripUndefined<T>(v: T): T {
 }
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const authError = await requireAuth(request)
+  const authError = await requireModule(request, 'accessImageGenerator')
   if (authError) return authError
   const { id } = await ctx.params
   const body = await request.json().catch(() => ({}))
