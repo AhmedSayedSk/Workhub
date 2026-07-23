@@ -66,6 +66,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['bg-api.sikasio.com'],
   },
+  'fasah-manager': {
+    name: 'Fasah Manager',
+    description: 'Multi-account customs booking & registration console (ZATCA Fasah) — Fastify API + workers, Next.js dashboard, Postgres/Redis',
+    type: 'app',
+    domains: ['admin.fasah.sikasio.com'],
+  },
   'coffeepos-landing': {
     name: 'CoffeePOS — Landing',
     description: 'Marketing landing site',
