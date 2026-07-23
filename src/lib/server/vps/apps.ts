@@ -48,6 +48,18 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['echonote.sikasio.com'],
   },
+  'echonote-admin': {
+    name: 'EchoNote Admin',
+    description: 'EchoNote admin console — users, usage & content management',
+    type: 'app',
+    domains: ['console.echonote.sikasio.com'],
+  },
+  'erp-site': {
+    name: 'ERP Site',
+    description: 'Sikasio ERP clickable prototype (trilingual, mock data) — public landing, password-gated demo',
+    type: 'site',
+    domains: ['erp.sikasio.com'],
+  },
   'ftw-admin': {
     name: 'FTW Admin',
     description: 'FTW Fitness admin console (Vite SPA + Supabase) — users, content, marketing & analytics',
