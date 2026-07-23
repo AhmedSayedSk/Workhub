@@ -20,7 +20,7 @@ const ACCESSORS: Record<SortKey, (c: ContainerStat) => number | string> = {
 const NUMERIC: Record<SortKey, boolean> = { name: false, status: false, cpu: true, memory: true, net: true }
 
 export function ContainerTable({ containers, hostMemTotalBytes, hostMemUsedBytes }: { containers: ContainerStat[]; hostMemTotalBytes?: number; hostMemUsedBytes?: number }) {
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'cpu', dir: 'desc' })
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'memory', dir: 'desc' })
   // Memory % is measured against the HOST's total RAM (shown once in the header),
   // NOT each container's own cgroup cap — otherwise a capped container (e.g. an
   // AI worker limited to 1.4G) would read ~98% while using only ~35% of the box.
