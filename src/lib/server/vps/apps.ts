@@ -98,13 +98,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'service',
     domains: ['license.sikasio.com'],
   },
-  _edge: {
-    name: 'Edge Proxy',
-    description: 'Caddy reverse proxy — single ingress, auto-TLS',
-    type: 'proxy',
-    domains: [],
-  },
 }
+
+// Infrastructure that backs every other row rather than being a system of its
+// own — hidden from "Systems & Apps" on all servers. Keyed by the /opt/<dir>
+// name (VPS 1 uses /opt/_edge, VPS 2 uses /opt/edge).
+const HIDDEN = new Set(['_edge', 'edge'])
 
 // Non-container systems (not visible via Docker), declared per-server via the
 // VPS_EXTRA_APPS env: pipe-delimited "id|Name|Description|type|/opt/path",
@@ -229,6 +228,7 @@ export async function collectApps(): Promise<AppInfo[]> {
     const wd = labels['com.docker.compose.project.working_dir'] || ''
     const keyed = appKeyFromWorkdir(wd)
     const key = keyed?.key || labels['com.docker.compose.project'] || '(other)'
+    if (HIDDEN.has(key)) continue
     const path = keyed?.path || ''
     const svc: AppService = {
       name: (c.Names?.[0] || c.Id).replace(/^\//, ''),
