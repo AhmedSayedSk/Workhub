@@ -46,13 +46,9 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     name: 'EchoNote',
     description: 'Voice notes with AI transcription, summaries & smart keywords (Gemini + Firebase).',
     type: 'app',
-    domains: ['echonote.sikasio.com'],
-  },
-  'echonote-admin': {
-    name: 'EchoNote Admin',
-    description: 'EchoNote admin console — users, usage & content management',
-    type: 'app',
-    domains: ['console.echonote.sikasio.com'],
+    // Monorepo (/opt/echonote): echonote-web serves the marketing site + the app;
+    // echonote-console serves the admin console. All three domains, one system.
+    domains: ['echonote.sikasio.com', 'app.echonote.sikasio.com', 'console.echonote.sikasio.com'],
   },
   'erp-site': {
     name: 'ERP Site',
