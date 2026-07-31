@@ -42,10 +42,12 @@ export interface AdGenBrand {
   logoUrl?: string
 }
 
-/** Optional content emphasis. AdGen infers "include this" from presence. */
+/** Optional content emphasis. */
 export interface AdGenContent {
   link?: string
   includeHowTo?: boolean
+  /** Request a competitor-edge post. `edge` (the supporting detail) is optional. */
+  includeEdge?: boolean
   edge?: string
 }
 
@@ -60,6 +62,10 @@ export interface AdGenBrief {
   aspect: AdGenAspect
   /** AdGen caps a campaign at 8 posts. */
   postCount: number
+  /** What the product actually is. Capped by the caller (see lib/adgenBrief). */
+  context?: string
+  /** Call-to-action directive steering caption CTAs and the video's closing scene. */
+  cta?: string
   content?: AdGenContent
   consistentIdentity?: boolean
   imageInstructions?: string
@@ -234,9 +240,24 @@ async function request<T>(path: string, init: RequestInit_): Promise<T> {
 
 // ── Methods ─────────────────────────────────────────────────────────────────
 
-/** Plan a campaign from a brief. Synchronous on AdGen's side (~10-20s). */
-export function createCampaign(brief: AdGenBrief): Promise<AdGenCampaign> {
-  return request<AdGenCampaign>('/v1/campaigns', { method: 'POST', body: brief, timeoutMs: TIMEOUT_PLAN_MS })
+/**
+ * Plan a campaign from a brief. Synchronous on AdGen's side (~10-20s).
+ *
+ * The id is validated here rather than by the caller: it is written straight to
+ * Firestore, and firebase-admin's `update()` throws *synchronously* on an
+ * undefined value — which would escape a trailing `.catch()` and strand the
+ * campaign. Failing here instead produces a normal, reportable AdGenError.
+ */
+export async function createCampaign(brief: AdGenBrief): Promise<AdGenCampaign> {
+  const out = await request<AdGenCampaign>('/v1/campaigns', {
+    method: 'POST',
+    body: brief,
+    timeoutMs: TIMEOUT_PLAN_MS,
+  })
+  if (typeof out?.id !== 'string' || !out.id) {
+    throw new AdGenError('Campaign service returned a campaign without an id', 502)
+  }
+  return { ...out, posts: Array.isArray(out.posts) ? out.posts : [] }
 }
 
 /** Opening-hook options for a campaign, in the market's language. */
@@ -247,12 +268,19 @@ export function hooks(campaignId: string, params: AdGenHooksParams = {}): Promis
   })
 }
 
-/** Queue a campaign video render. Returns the job to poll with `getJob`. */
-export function renderVideo(campaignId: string, options: AdGenVideoOptions = {}): Promise<{ jobId: string }> {
-  return request<{ jobId: string }>(`/v1/campaigns/${encodeURIComponent(campaignId)}/video`, {
+/**
+ * Queue a campaign video render. Returns the job to poll with `getJob`.
+ * `jobId` is validated for the same reason `createCampaign` validates `id`.
+ */
+export async function renderVideo(campaignId: string, options: AdGenVideoOptions = {}): Promise<{ jobId: string }> {
+  const out = await request<{ jobId: string }>(`/v1/campaigns/${encodeURIComponent(campaignId)}/video`, {
     method: 'POST',
     body: options,
   })
+  if (typeof out?.jobId !== 'string' || !out.jobId) {
+    throw new AdGenError('Campaign service returned a render job without an id', 502)
+  }
+  return out
 }
 
 /** Poll a render job. */
@@ -268,9 +296,4 @@ export function cancelJob(jobId: string): Promise<AdGenCancelResult> {
   })
 }
 
-/** Fetch a campaign AdGen already planned. */
-export function getCampaign(campaignId: string): Promise<AdGenCampaign> {
-  return request<AdGenCampaign>(`/v1/campaigns/${encodeURIComponent(campaignId)}`, { method: 'GET' })
-}
-
-export const adgen = { createCampaign, hooks, renderVideo, getJob, cancelJob, getCampaign }
+export const adgen = { createCampaign, hooks, renderVideo, getJob, cancelJob }

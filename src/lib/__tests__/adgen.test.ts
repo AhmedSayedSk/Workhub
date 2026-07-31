@@ -213,6 +213,82 @@ describe('adgen client — errors', () => {
   })
 })
 
+describe('adgen client — response guards', () => {
+  // `id` and `jobId` are written straight to Firestore, and firebase-admin's
+  // update() throws SYNCHRONOUSLY on an undefined value — escaping the caller's
+  // trailing .catch() and stranding the campaign mid-status. The client must
+  // reject a malformed response instead of passing undefined along.
+  const badIds: Array<[string, unknown]> = [
+    ['the id is missing', { posts: [] }],
+    ['the id is empty', { id: '', posts: [] }],
+    ['the id is null', { id: null, posts: [] }],
+    ['the id is not a string', { id: 12345, posts: [] }],
+    ['the body is not an object', 'ok'],
+    ['the body is empty', null],
+  ]
+
+  for (const [label, payload] of badIds) {
+    test(`createCampaign rejects when ${label}`, async () => {
+      mockFetch(200, payload)
+
+      const err = await adgen.createCampaign(BRIEF).then(
+        () => null,
+        (e: unknown) => e as AdGenError
+      )
+
+      assert.ok(err instanceof AdGenError, `expected an AdGenError for: ${label}`)
+      assert.equal(err.status, 502)
+      assert.match(err.message, /without an id/)
+    })
+  }
+
+  test('createCampaign accepts a valid id and returns it', async () => {
+    mockFetch(200, { id: 'camp_1', posts: [] })
+    assert.equal((await adgen.createCampaign(BRIEF)).id, 'camp_1')
+  })
+
+  test('createCampaign always returns an array of posts', async () => {
+    // The plan route iterates posts; a non-array would throw inside after().
+    for (const posts of [undefined, null, 'nope', 42, { 0: 'x' }]) {
+      mockFetch(200, { id: 'camp_1', posts })
+      const out = await adgen.createCampaign(BRIEF)
+      assert.ok(Array.isArray(out.posts), `posts must be an array, got ${JSON.stringify(posts)}`)
+      assert.equal(out.posts.length, 0)
+    }
+  })
+
+  test('createCampaign leaves a well-formed posts array untouched', async () => {
+    mockFetch(200, { id: 'camp_1', posts: [{ caption: 'c', hashtags: [], imagePrompt: 'p' }] })
+    const out = await adgen.createCampaign(BRIEF)
+    assert.equal(out.posts.length, 1)
+    assert.equal(out.posts[0].caption, 'c')
+  })
+
+  for (const [label, payload] of [
+    ['the jobId is missing', {}],
+    ['the jobId is empty', { jobId: '' }],
+    ['the jobId is not a string', { jobId: { id: 'x' } }],
+  ] as Array<[string, unknown]>) {
+    test(`renderVideo rejects when ${label}`, async () => {
+      mockFetch(200, payload)
+
+      const err = await adgen.renderVideo('camp_1').then(
+        () => null,
+        (e: unknown) => e as AdGenError
+      )
+
+      assert.ok(err instanceof AdGenError, `expected an AdGenError for: ${label}`)
+      assert.equal(err.status, 502)
+      assert.match(err.message, /without an id/)
+    })
+  }
+
+  test('renderVideo accepts a valid jobId', async () => {
+    mockFetch(200, { jobId: 'job_9' })
+    assert.equal((await adgen.renderVideo('camp_1')).jobId, 'job_9')
+  })
+})
+
 describe('adgen client — configuration', () => {
   test('a missing ADGEN_API_BASE throws at call time and never reaches fetch', async () => {
     delete process.env.ADGEN_API_BASE
