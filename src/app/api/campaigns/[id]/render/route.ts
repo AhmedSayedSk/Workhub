@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import * as admin from 'firebase-admin'
 import '@/lib/api-auth'
 import { requireModule } from '@/lib/api-auth'
 import { adgen, AdGenError, type AdGenVideoOptions } from '@/lib/adgen'
+import { RENDER_ENGINE } from '@/lib/adgenMirror'
+import { settleRenderJob } from '@/lib/renderMirror'
+import { renderJobMirror } from '@/lib/server/renderJobMirror'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -136,7 +139,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const job = {
     campaignId: id,
     projectId: c.projectId,
-    engine: 'adgen',
+    engine: RENDER_ENGINE,
     status: 'queued',
     progress: 0,
     stage: 'preparing',
@@ -180,12 +183,9 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       : { voiceover: { enabled: false } }),
   }
 
+  let adgenJobId: string
   try {
-    const { jobId: adgenJobId } = await adgen.renderVideo(adgenCampaignId, options)
-    // Written second: the webhook finds this document BY this id, so the render
-    // must exist before the id can be stored.
-    await ref.update({ adgenJobId })
-    return NextResponse.json({ jobId: ref.id })
+    ({ jobId: adgenJobId } = await adgen.renderVideo(adgenCampaignId, options))
   } catch (e) {
     const status = e instanceof AdGenError ? e.status : 500
     // AdGenError messages are already scrubbed of the service credential.
@@ -194,4 +194,36 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     await ref.update({ status: 'failed', error: message, finishedAt: Date.now() }).catch(() => { /* the response still reports it */ })
     return NextResponse.json({ error: message }, { status })
   }
+
+  try {
+    // Written second: the webhook finds this document BY this id, so the render
+    // must exist before the id can be stored.
+    await ref.update({ adgenJobId })
+  } catch {
+    // The render is running and nothing can ever be linked back to it. Stop it
+    // rather than pay for a video no one will receive, and settle the card.
+    await adgen.cancelJob(adgenJobId).catch(() => { /* best effort */ })
+    await ref.update({ status: 'failed', error: 'Could not track the render — try again', finishedAt: Date.now() })
+      .catch(() => { /* the response still reports it */ })
+    return NextResponse.json({ error: 'Could not track the render — try again' }, { status: 500 })
+  }
+
+  // Close the delivery window. A terminal webhook fired between the document
+  // being created and `adgenJobId` being stored found nothing to write to, was
+  // answered 200 and will never be retried — so pull the state once, now, off
+  // the response path.
+  after(async () => {
+    try {
+      await settleRenderJob(
+        { id: ref.id, status: 'queued', engine: RENDER_ENGINE, adgenJobId, createdAt: job.createdAt },
+        {
+          getJob: (jobId) => adgen.getJob(jobId),
+          mirror: (docId, decide) => renderJobMirror.byDocId(docId, decide),
+          nowMs: Date.now(),
+        }
+      )
+    } catch { /* the poll and the sweep both cover this */ }
+  })
+
+  return NextResponse.json({ jobId: ref.id })
 }

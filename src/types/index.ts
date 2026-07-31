@@ -648,7 +648,8 @@ export interface RenderJob {
   hook: { headline: string; subtext: string; bgPrompt?: string } // bgPrompt: legacy worker jobs only
   engine?: 'adgen' // set on jobs rendered by the campaign service
   adgenJobId?: string // the campaign service's own job id — the webhook keys on it
-  lastDeliveryId?: string // idempotency key of the last webhook applied
+  deliveryIds?: string[] // idempotency keys of the webhooks already applied
+  lastDeliveryId?: string // legacy single-slot idempotency key; still honoured
   brand: { name: string; color: string; logoUrl: string | null; domain?: string }
   scenes: Array<{ imageUrl: string; headline: string; caption: string }>
   mode?: RenderMode

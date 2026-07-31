@@ -8,7 +8,7 @@ import {
   verifyAdgenSignature,
   type MirrorStore,
   type RenderJobSnapshot,
-} from '../../../../../lib/adgenWebhook.ts'
+} from '../../../../../lib/renderMirror.ts'
 
 // The webhook is the ONLY channel that moves a render out of its spinner, and
 // it is reachable by anyone who can find the URL. Everything below runs against
@@ -67,22 +67,23 @@ function post(
   return new Request('https://workhub.example.test/api/adgen/webhook', { method: 'POST', headers, body: raw })
 }
 
+// AdGen sends a FLAT payload — this is the canonical fixture. The `{data:{}}`
+// envelope below is a tolerated variant, not the shape the real sender emits.
 const COMPLETED = {
   event: 'job.completed',
   jobId: 'adgen_job_1',
-  data: {
-    status: 'done',
-    progress: 100,
-    stage: 'done',
-    videoUrl: 'https://cdn.example.test/v.mp4',
-    thumbnailUrl: 'https://cdn.example.test/t.jpg',
-  },
+  status: 'done',
+  progress: 100,
+  stage: 'done',
+  videoUrl: 'https://cdn.example.test/v.mp4',
+  thumbnailUrl: 'https://cdn.example.test/t.jpg',
 }
 
 const FAILED = {
   event: 'job.failed',
   jobId: 'adgen_job_1',
-  data: { status: 'failed', error: 'encoder ran out of memory' },
+  status: 'failed',
+  error: 'encoder ran out of memory',
 }
 
 /** A job mid-render, as the render route leaves it. */
@@ -251,7 +252,7 @@ describe('handleAdgenWebhook — unknown and malformed deliveries', () => {
   test('an unrecognised event is 200 and writes nothing', async () => {
     const store = fakeStore(rendering())
     const res = await handleAdgenWebhook(
-      post({ event: 'job.progress', jobId: 'adgen_job_1', data: { progress: 55 } }),
+      post({ event: 'job.progress', jobId: 'adgen_job_1', progress: 55 }),
       { store, nowMs: NOW }
     )
 
@@ -264,6 +265,28 @@ describe('handleAdgenWebhook — unknown and malformed deliveries', () => {
     const res = await handleAdgenWebhook(post('not json at all'), { store, nowMs: NOW })
 
     assert.equal(res.status, 400)
+    assert.deepEqual(store.writes, [])
+  })
+
+  test('an oversized body is refused before it is read', async () => {
+    const store = fakeStore(rendering())
+    const raw = JSON.stringify(COMPLETED)
+    const req = post(raw)
+    req.headers.set('content-length', String(1024 * 1024))
+    const res = await handleAdgenWebhook(req, { store, nowMs: NOW })
+
+    assert.equal(res.status, 413)
+    assert.deepEqual(store.writes, [])
+  })
+
+  test('an oversized body is refused even when the declared length lies', async () => {
+    const store = fakeStore(rendering())
+    const fat = JSON.stringify({ ...COMPLETED, padding: 'x'.repeat(200_000) })
+    const req = post(fat)
+    req.headers.delete('content-length')
+    const res = await handleAdgenWebhook(req, { store, nowMs: NOW })
+
+    assert.equal(res.status, 413)
     assert.deepEqual(store.writes, [])
   })
 
@@ -283,7 +306,7 @@ describe('handleAdgenWebhook — unknown and malformed deliveries', () => {
 describe('handleAdgenWebhook — at-least-once delivery', () => {
   test('a replayed delivery id is a no-op', async () => {
     const store = fakeStore({
-      job_a: { adgenJobId: 'adgen_job_1', status: 'rendering', progress: 40, lastDeliveryId: 'dlv_7' },
+      job_a: { adgenJobId: 'adgen_job_1', status: 'rendering', progress: 40, deliveryIds: ['dlv_7'] },
     })
     const res = await handleAdgenWebhook(post(COMPLETED, { deliveryId: 'dlv_7' }), { store, nowMs: NOW })
 
@@ -298,13 +321,54 @@ describe('handleAdgenWebhook — at-least-once delivery', () => {
     await handleAdgenWebhook(post(COMPLETED, { deliveryId: 'dlv_9' }), { store, nowMs: NOW })
 
     assert.equal(store.writes.length, 1)
-    assert.equal(store.docs.job_a.lastDeliveryId, 'dlv_9')
+    assert.deepEqual(store.docs.job_a.deliveryIds, ['dlv_9'])
+  })
+
+  test('an older delivery id is still recognised after later ones arrive', async () => {
+    // A single-slot memory would let `dlv_a` through again here.
+    const store = fakeStore({
+      job_a: {
+        adgenJobId: 'adgen_job_1',
+        status: 'rendering',
+        progress: 40,
+        deliveryIds: ['dlv_a', 'dlv_b', 'dlv_c'],
+      },
+    })
+    const res = await handleAdgenWebhook(post(COMPLETED, { deliveryId: 'dlv_a' }), { store, nowMs: NOW })
+
+    assert.equal(res.status, 200)
+    assert.deepEqual(store.writes, [])
+  })
+
+  test('the remembered delivery ids stay bounded', async () => {
+    const store = fakeStore({
+      job_a: {
+        adgenJobId: 'adgen_job_1',
+        status: 'rendering',
+        progress: 40,
+        deliveryIds: Array.from({ length: 30 }, (_, i) => `old_${i}`),
+      },
+    })
+    await handleAdgenWebhook(post(COMPLETED, { deliveryId: 'dlv_new' }), { store, nowMs: NOW })
+
+    const ring = store.docs.job_a.deliveryIds || []
+    assert.ok(ring.length <= 10, `ring grew to ${ring.length}`)
+    assert.equal(ring[ring.length - 1], 'dlv_new')
+  })
+
+  test('a delivery id stored by an older build is still honoured', async () => {
+    const store = fakeStore({
+      job_a: { adgenJobId: 'adgen_job_1', status: 'rendering', progress: 40, lastDeliveryId: 'dlv_legacy' },
+    })
+    await handleAdgenWebhook(post(COMPLETED, { deliveryId: 'dlv_legacy' }), { store, nowMs: NOW })
+
+    assert.deepEqual(store.writes, [])
   })
 
   test('the delivery id is recorded so a later replay can be recognised', async () => {
     const store = fakeStore(rendering())
     await handleAdgenWebhook(post(COMPLETED, { deliveryId: 'dlv_3' }), { store, nowMs: NOW })
-    assert.equal(store.writes[0].patch.lastDeliveryId, 'dlv_3')
+    assert.deepEqual(store.writes[0].patch.deliveryIds, ['dlv_3'])
   })
 })
 
@@ -344,6 +408,18 @@ describe('handleAdgenWebhook — terminal state guard', () => {
     assert.equal(store.docs.job_a.videoUrl, undefined)
     assert.equal(typeof store.docs.job_a.finishedAt, 'number')
   })
+
+  test('a FAILURE for a job the user asked to stop also settles as cancelled', async () => {
+    // The user pressed Stop; they are not shown a render error for it.
+    const store = fakeStore({
+      job_a: { adgenJobId: 'adgen_job_1', status: 'rendering', progress: 80, cancelRequested: true },
+    })
+    await handleAdgenWebhook(post(FAILED), { store, nowMs: NOW })
+
+    assert.equal(store.docs.job_a.status, 'cancelled')
+    assert.equal(store.docs.job_a.stage, 'cancelled')
+    assert.equal(store.docs.job_a.error, undefined)
+  })
 })
 
 describe('handleAdgenWebhook — field mapping', () => {
@@ -368,7 +444,7 @@ describe('handleAdgenWebhook — field mapping', () => {
   test('a cancellation reported as a failure is stored as cancelled', async () => {
     const store = fakeStore(rendering())
     await handleAdgenWebhook(
-      post({ event: 'job.failed', jobId: 'adgen_job_1', data: { status: 'cancelled' } }),
+      post({ event: 'job.failed', jobId: 'adgen_job_1', status: 'cancelled' }),
       { store, nowMs: NOW }
     )
 
@@ -390,10 +466,10 @@ describe('handleAdgenWebhook — field mapping', () => {
     }
   })
 
-  test('a flat payload (no data envelope) is mapped too', async () => {
+  test('a `data` envelope is tolerated as well as the flat shape', async () => {
     const store = fakeStore(rendering())
     await handleAdgenWebhook(
-      post({ event: 'job.completed', jobId: 'adgen_job_1', status: 'done', videoUrl: 'https://cdn.example.test/f.mp4' }),
+      post({ event: 'job.completed', jobId: 'adgen_job_1', data: { status: 'done', videoUrl: 'https://cdn.example.test/f.mp4' } }),
       { store, nowMs: NOW }
     )
 
@@ -404,7 +480,7 @@ describe('handleAdgenWebhook — field mapping', () => {
   test('an over-long error message is truncated before it is stored', async () => {
     const store = fakeStore(rendering())
     await handleAdgenWebhook(
-      post({ event: 'job.failed', jobId: 'adgen_job_1', data: { error: 'x'.repeat(5000) } }),
+      post({ event: 'job.failed', jobId: 'adgen_job_1', error: 'x'.repeat(5000) }),
       { store, nowMs: NOW }
     )
 
@@ -414,7 +490,7 @@ describe('handleAdgenWebhook — field mapping', () => {
   test('a non-string url is ignored rather than written', async () => {
     const store = fakeStore(rendering())
     await handleAdgenWebhook(
-      post({ event: 'job.completed', jobId: 'adgen_job_1', data: { status: 'done', videoUrl: { url: 'x' } } }),
+      post({ event: 'job.completed', jobId: 'adgen_job_1', status: 'done', videoUrl: { url: 'x' } }),
       { store, nowMs: NOW }
     )
 

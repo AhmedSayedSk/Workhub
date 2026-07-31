@@ -26,6 +26,19 @@ const MAX_SKEW_MS = 5 * 60_000
 const MAX_ERROR_CHARS = 500
 
 /**
+ * A delivery is a small JSON envelope. Anything larger is not one, and reading
+ * it into memory unbounded is a free denial-of-service.
+ */
+const MAX_BODY_BYTES = 64 * 1024
+
+/**
+ * How many delivery ids a document remembers. At-least-once senders can retry
+ * out of order and interleave two events, so remembering only the last id lets
+ * an older duplicate through between them.
+ */
+const MAX_REMEMBERED_DELIVERIES = 10
+
+/**
  * The stages the campaign progress card can put a label on
  * (`CampaignTab.tsx` → `VIDEO_STAGE`). Anything else degrades to "Rendering…",
  * so unknown values are normalised to `rendering` rather than stored verbatim.
@@ -55,7 +68,9 @@ export interface RenderJobSnapshot {
   error?: string
   /** Set by the Stop button; the render was cancelled by the user mid-flight. */
   cancelRequested?: boolean
-  /** Idempotency key of the last delivery applied to this document. */
+  /** Idempotency keys of the deliveries already applied, oldest first. */
+  deliveryIds?: string[]
+  /** Legacy single-slot idempotency key. Still honoured, no longer written. */
   lastDeliveryId?: string
   startedAt?: number
   finishedAt?: number
@@ -222,8 +237,8 @@ export function eventToJobState(body: Envelope): AdGenJobState | null {
  *  1. A delivery already applied is never applied twice (at-least-once senders).
  *  2. A terminal state is never overwritten — not by another terminal state,
  *     and never by a late delivery that would resurrect a settled job.
- *  3. A render the user asked to stop settles as `cancelled`, even if AdGen
- *     finished it first. The Stop button is the user's decision, not a race.
+ *  3. A render the user asked to stop settles as `cancelled` however AdGen
+ *     ended it. The Stop button is the user's decision, not a race.
  *  4. Progress only moves forward, and never regresses `rendering` to `queued`.
  *  5. Only stages the UI can label are stored.
  */
@@ -233,15 +248,17 @@ export function decideMirror(
   opts: { nowMs: number; deliveryId?: string }
 ): Record<string, unknown> | null {
   // (1) idempotency
-  if (opts.deliveryId && current.lastDeliveryId === opts.deliveryId) return null
+  const seen = deliveriesSeen(current)
+  if (opts.deliveryId && seen.includes(opts.deliveryId)) return null
 
   // (2) a settled job stays settled
   if (current.status && TERMINAL_STATUSES.has(current.status)) return null
 
   const incoming = normalizeStatus(next.status)
-  // (3) the user's Stop wins over a completion that arrived anyway
+  // (3) the user's Stop wins whichever way the render actually ended — a
+  // completion is not handed back, and a failure is not blamed on the render.
   const status: RenderStatus | null =
-    incoming === 'done' && current.cancelRequested ? 'cancelled' : incoming
+    incoming && current.cancelRequested && TERMINAL_STATUSES.has(incoming) ? 'cancelled' : incoming
   const terminal = status !== null && TERMINAL_STATUSES.has(status)
 
   const patch: Record<string, unknown> = {}
@@ -274,19 +291,33 @@ export function decideMirror(
     if (thumbnailUrl && thumbnailUrl !== current.thumbnailUrl) patch.thumbnailUrl = thumbnailUrl
   }
 
-  const error = str(next.error)?.slice(0, MAX_ERROR_CHARS)
-  if (error && error !== current.error) patch.error = error
-  // A failure with no reason must still say something — the card renders
-  // `job.error` and an empty one reads as a bug.
-  else if (status === 'failed' && !current.error) patch.error = 'The render failed'
+  // A render the user stopped is not a failure to report to them.
+  if (status !== 'cancelled') {
+    const error = str(next.error)?.slice(0, MAX_ERROR_CHARS)
+    if (error && error !== current.error) patch.error = error
+    // A failure with no reason must still say something — the card renders
+    // `job.error` and an empty one reads as a bug.
+    else if (status === 'failed' && !current.error) patch.error = 'The render failed'
+  }
 
   // Timeline stamps the progress card reads.
   if (status === 'rendering' && current.status !== 'rendering' && !current.startedAt) patch.startedAt = opts.nowMs
   if (terminal && !current.finishedAt) patch.finishedAt = opts.nowMs
 
   if (!Object.keys(patch).length) return null
-  if (opts.deliveryId) patch.lastDeliveryId = opts.deliveryId
+  if (opts.deliveryId) patch.deliveryIds = [...seen, opts.deliveryId].slice(-MAX_REMEMBERED_DELIVERIES)
   return patch
+}
+
+/** Every delivery id this document remembers, oldest first. */
+function deliveriesSeen(current: RenderJobSnapshot): string[] {
+  const ring = Array.isArray(current.deliveryIds)
+    ? current.deliveryIds.filter((x): x is string => typeof x === 'string')
+    : []
+  // The single-slot key written by an earlier build still counts as seen.
+  return current.lastDeliveryId && !ring.includes(current.lastDeliveryId)
+    ? [...ring, current.lastDeliveryId]
+    : ring
 }
 
 // ── The route handler ───────────────────────────────────────────────────────
@@ -321,9 +352,20 @@ export async function handleAdgenWebhook(
     return json({ error: 'Webhook is not configured' }, 500)
   }
 
+  // Bound the read before it happens. A declared length over the cap is
+  // refused outright; the length is then re-checked against what actually
+  // arrived, because the header is a claim, not a guarantee.
+  const declared = Number(request.headers.get('content-length') ?? '')
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return json({ error: 'Payload too large' }, 413)
+  }
+
   // The signature covers the raw bytes: read the body as text FIRST and parse
   // only what was verified.
   const raw = await request.text().catch(() => '')
+  if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
+    return json({ error: 'Payload too large' }, 413)
+  }
   const nowMs = deps.nowMs ?? Date.now()
   if (!verifyAdgenSignature({ header: request.headers.get(SIGNATURE_HEADER), rawBody: raw, secret, nowMs })) {
     return json({ error: 'Invalid signature' }, 401)
@@ -358,4 +400,186 @@ export async function handleAdgenWebhook(
   }
 
   return json({ ok: true, result }, 200)
+}
+
+// Reaching a terminal state without a browser.
+//
+// The webhook is the primary terminal signal, but it is not sufficient on its
+// own. Three ways a render can otherwise spin forever:
+//
+//   1. A terminal webhook delivered in the window between creating the job
+//      document and storing `adgenJobId` finds no document, is answered 200,
+//      and is never retried. The only terminal signal is gone for good.
+//   2. The service forgets the job (restart, retention). Every poll then 404s,
+//      which reads as a transient blip forever.
+//   3. The job is genuinely stuck on the service side and no terminal
+//      transition is ever produced.
+//
+// `settleRenderJob` is the backstop for all three. It runs from three places:
+// once right after a render is started (closing window 1), on every status
+// poll, and from the sweep — which is the only one that does not need a browser
+// tab to be open, and is therefore what actually guarantees termination.
+//
+// Pure: the service call and the write are both injected, so every branch is
+// testable without a network or a database.
+
+
+/** A render that has not been given a service job id by now never will be. */
+export const START_GRACE_MS = 90_000
+
+/**
+ * A render older than this is declared lost. Generous on purpose: a creative
+ * render with narration is minutes, not tens of minutes, and settling a job
+ * that is still alive is worse than settling one late.
+ */
+export const MAX_RENDER_MS = 45 * 60_000
+
+const NOT_STARTED = 'The render never started — try again'
+const LOST = 'The render was lost — try again'
+const TIMED_OUT = 'The render took too long and was abandoned'
+
+export interface SettleJob extends RenderJobSnapshot {
+  id: string
+  adgenJobId?: string
+  engine?: string
+  createdAt?: number
+}
+
+export interface SettleDeps {
+  /** Reads the service's job. Rejects with `{ status }` on an HTTP failure. */
+  getJob(adgenJobId: string): Promise<AdGenJobState>
+  /** Applies a decision to this job's document, transactionally. */
+  mirror(docId: string, decide: (current: RenderJobSnapshot) => Record<string, unknown> | null): Promise<MirrorResult>
+  nowMs: number
+}
+
+export interface SettleOutcome {
+  /** What was written, if anything — merge it for an immediate response. */
+  patch: Record<string, unknown> | null
+  result: MirrorResult | 'skipped'
+}
+
+const NOTHING: SettleOutcome = { patch: null, result: 'skipped' }
+
+/** HTTP statuses that mean "this job will never exist again". */
+function isPermanentlyGone(e: unknown): boolean {
+  const status = (e as { status?: unknown } | null)?.status
+  return status === 404 || status === 410
+}
+
+/** A terminal failure written directly, bypassing the service's opinion. */
+function fail(message: string, nowMs: number) {
+  return (current: RenderJobSnapshot): Record<string, unknown> | null => {
+    // Re-checked inside the transaction: a webhook may have landed since the
+    // read that decided this job needed settling.
+    if (isTerminalStatus(current.status)) return null
+    return {
+      status: current.cancelRequested ? 'cancelled' : 'failed',
+      ...(current.cancelRequested ? { stage: 'cancelled' } : { error: message }),
+      finishedAt: nowMs,
+    }
+  }
+}
+
+/**
+ * Bring one render job as close to a terminal state as the evidence allows.
+ * Returns the patch that was applied, so a caller answering a request can merge
+ * it without re-reading.
+ */
+export async function settleRenderJob(job: SettleJob, deps: SettleDeps): Promise<SettleOutcome> {
+  if (isTerminalStatus(job.status)) return NOTHING
+
+  const age = deps.nowMs - (job.createdAt ?? deps.nowMs)
+  let patch: Record<string, unknown> | null = null
+  const write = async (decide: (c: RenderJobSnapshot) => Record<string, unknown> | null): Promise<SettleOutcome> => {
+    const result = await deps.mirror(job.id, (current) => {
+      patch = decide(current)
+      return patch
+    })
+    return { patch, result }
+  }
+
+  if (!job.adgenJobId) {
+    // Jobs from the previous render worker have no `engine` and settle
+    // themselves — never touch those.
+    if (job.engine && age > START_GRACE_MS) return write(fail(NOT_STARTED, deps.nowMs))
+    return NOTHING
+  }
+
+  let remote: AdGenJobState | null = null
+  try {
+    remote = await deps.getJob(job.adgenJobId)
+  } catch (e) {
+    // A job the service no longer knows about is never coming back. Anything
+    // else (timeout, 5xx, unreachable) is transient — leave the job alone and
+    // let the next pass try again, unless it has aged out entirely.
+    if (isPermanentlyGone(e)) return write(fail(LOST, deps.nowMs))
+    if (age > MAX_RENDER_MS) return write(fail(TIMED_OUT, deps.nowMs))
+    return NOTHING
+  }
+
+  // Still running long past any plausible render: stop waiting on it.
+  if (!isTerminalStatus(remote.status) && age > MAX_RENDER_MS) {
+    return write(fail(TIMED_OUT, deps.nowMs))
+  }
+
+  return write((current) => decideMirror(current, remote, { nowMs: deps.nowMs }))
+}
+
+// The body of the render status endpoint, minus the framework.
+//
+// Kept separate from the route so the poll-and-settle behaviour is testable
+// without Next, Firebase or a network — the route itself is then a thin
+// adapter with nothing left to get wrong.
+
+
+/** Exactly the fields the campaign UI renders. No internal ids. */
+export interface PublicRenderJob {
+  id: string
+  status: string
+  progress: number
+  stage: string
+  videoUrl?: string
+  thumbnailUrl?: string
+  error?: string
+}
+
+export function publicRenderJob(job: SettleJob, patch: Record<string, unknown> | null = null): PublicRenderJob {
+  const j = { ...job, ...(patch ?? {}) } as SettleJob
+  return {
+    id: job.id,
+    status: typeof j.status === 'string' ? j.status : 'queued',
+    progress: typeof j.progress === 'number' ? j.progress : 0,
+    stage: typeof j.stage === 'string' ? j.stage : 'preparing',
+    ...(j.videoUrl ? { videoUrl: j.videoUrl } : {}),
+    ...(j.thumbnailUrl ? { thumbnailUrl: j.thumbnailUrl } : {}),
+    ...(j.error ? { error: j.error } : {}),
+  }
+}
+
+export interface StatusDeps extends SettleDeps {
+  read(docId: string): Promise<SettleJob | null>
+}
+
+export type StatusOutcome =
+  | { found: false }
+  | { found: true; job: PublicRenderJob }
+
+/**
+ * Answer a progress check.
+ *
+ * A settled job costs one read and nothing else. An unsettled one is pushed
+ * through `settleRenderJob`, which mirrors the service's state onto the
+ * document (so the client's Firestore listener — not this response — remains
+ * the single channel into the UI) and settles a job the service has lost.
+ */
+export async function getRenderStatus(docId: string, deps: StatusDeps): Promise<StatusOutcome> {
+  const job = await deps.read(docId)
+  if (!job) return { found: false }
+
+  // Settled: nothing to ask, nothing to write.
+  if (isTerminalStatus(job.status)) return { found: true, job: publicRenderJob(job) }
+
+  const { patch } = await settleRenderJob(job, deps)
+  return { found: true, job: publicRenderJob(job, patch) }
 }

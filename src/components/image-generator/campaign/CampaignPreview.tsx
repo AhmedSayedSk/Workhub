@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/api-client'
 import { renderJobs } from '@/lib/firestore'
+import { pollDelayMs } from '@/lib/renderPoll'
 import { ArrowLeft, CalendarClock, Loader2, Facebook, Instagram, Linkedin, AlertCircle, ImageOff } from 'lucide-react'
 import type { Campaign, CampaignPost, RenderAspect, RenderJob } from '@/types'
 
@@ -75,10 +76,18 @@ export function CampaignPreview({
   const videoActive = videoJob?.status === 'queued' || videoJob?.status === 'rendering'
   useEffect(() => {
     if (!videoJobId || !videoActive) return
-    const tick = () => { void authFetch(`/api/render-jobs/${videoJobId}/status`).catch(() => { /* next tick retries */ }) }
-    tick()
-    const t = setInterval(tick, 4000)
-    return () => clearInterval(t)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let attempt = 0
+    let stopped = false
+    const tick = async () => {
+      attempt += 1
+      try { await authFetch(`/api/render-jobs/${videoJobId}/status`) } catch { /* next tick retries */ }
+      if (stopped) return
+      const delay = pollDelayMs(attempt)
+      if (delay !== null) timer = setTimeout(tick, delay)
+    }
+    void tick()
+    return () => { stopped = true; if (timer) clearTimeout(timer) }
   }, [videoJobId, videoActive])
   const [starting, setStarting] = useState(false)
   const generateVideo = async () => {

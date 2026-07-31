@@ -21,6 +21,7 @@ import { CampaignImageDialog } from './CampaignImageDialog'
 import { CampaignCreateDialog } from './CampaignCreateDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { authFetch } from '@/lib/api-client'
+import { pollDelayMs } from '@/lib/renderPoll'
 import { CAMPAIGN_STYLES } from '@/lib/campaignStyles'
 import { toast } from 'react-toastify'
 import type { Project, RenderAspect, RenderJob, CreativeScene } from '@/types'
@@ -252,13 +253,25 @@ export function CampaignTab() {
   // a render is live we ask the status route, which mirrors the answer onto the
   // job document the subscription above is already watching — so the update
   // still arrives through Firestore and there is one source of truth.
+  //
+  // The schedule decays and eventually stops (see lib/renderPoll): a job that
+  // is never going to finish is settled by the server-side sweep, not by a tab
+  // asking about it every four seconds forever.
   useEffect(() => {
     const id = videoJob?.id || lastRenderJobId.current
     if (!activeVideo || !id) return
-    const tick = () => { void authFetch(`/api/render-jobs/${id}/status`).catch(() => { /* next tick retries */ }) }
-    tick()
-    const t = setInterval(tick, 4000)
-    return () => clearInterval(t)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let attempt = 0
+    let stopped = false
+    const tick = async () => {
+      attempt += 1
+      try { await authFetch(`/api/render-jobs/${id}/status`) } catch { /* next tick retries */ }
+      if (stopped) return
+      const delay = pollDelayMs(attempt)
+      if (delay !== null) timer = setTimeout(tick, delay)
+    }
+    void tick()
+    return () => { stopped = true; if (timer) clearTimeout(timer) }
   }, [activeVideo, videoJob?.id])
   // True download (no new tab): cross-origin `download` attrs are ignored by
   // browsers, so fetch the MP4 via our storage proxy and save it as a blob.
