@@ -91,28 +91,9 @@ export function useCampaigns() {
   const createCampaign = useCallback(async (projectId: string, input: NewCampaignInput): Promise<Campaign | null> => {
     if (!user || !projectId) return null
     try {
-      // Upload the brand image to useapi once → per-account mediaGenerationIds used as references.
-      let brandImageRefs: Record<string, string> | undefined
-      if (input.brandImageUrl) {
-        try {
-          const blob = await (await fetch(input.brandImageUrl)).blob()
-          const dataUrl: string = await new Promise((res, rej) => {
-            const r = new FileReader()
-            r.onload = () => res(r.result as string)
-            r.onerror = rej
-            r.readAsDataURL(blob)
-          })
-          const upRes = await authFetch('/api/ai/image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'upload_asset', asset: dataUrl }),
-          })
-          const upJson = await upRes.json().catch(() => ({}))
-          if (upJson?.perAccount && Object.keys(upJson.perAccount).length) brandImageRefs = upJson.perAccount
-        } catch (e) {
-          console.error('brand image reference upload', e)
-        }
-      }
+      // The brand image is stored as a URL only. The image service takes
+      // reference ids from its own previous results, not uploaded bytes, so
+      // there is nothing to upload here any more.
       const id = await campaignsApi.create({
         projectId,
         name: input.name,
@@ -126,14 +107,13 @@ export function useCampaigns() {
         imageInstructions: input.imageInstructions,
         textOnImage: input.textOnImage,
         ...(input.brandImageUrl ? { brandImageUrl: input.brandImageUrl } : {}),
-        ...(brandImageRefs ? { brandImageRefs } : {}),
         status: 'draft',
         postCount: 0,
         scheduledCount: 0,
         createdBy: user.uid,
       })
       setActiveId(id)
-      return { id, projectId, ...input, ...(brandImageRefs ? { brandImageRefs } : {}), status: 'draft', createdBy: user.uid, createdAt: Timestamp.now() }
+      return { id, projectId, ...input, status: 'draft', createdBy: user.uid, createdAt: Timestamp.now() }
     } catch (e) {
       console.error('create campaign', e)
       toast.error('Failed to create campaign')
@@ -193,9 +173,7 @@ export function useCampaigns() {
       return n
     })
     try {
-      const brandRefs = activeCampaign?.brandImageRefs
-      const hasBrandRef = !!brandRefs && Object.keys(brandRefs).length > 0
-      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors, activeCampaign?.language, activeCampaign?.artDirection, activeCampaign?.imageInstructions, activeCampaign?.textOnImage, post.headline, post.body, hasBrandRef)
+      const fullPrompt = buildImagePrompt(post.imagePrompt, activeCampaign?.style, activeCampaign?.brand?.colors, activeCampaign?.language, activeCampaign?.artDirection, activeCampaign?.imageInstructions, activeCampaign?.textOnImage, post.headline, post.body, false)
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -203,9 +181,8 @@ export function useCampaigns() {
           action: 'generate',
           prompt: fullPrompt,
           aspectRatio: post.aspect,
-          model: 'nano-banana-pro',
+          model: 'studio',
           count: 1,
-          ...(hasBrandRef ? { referenceByEmail: brandRefs } : {}),
         }),
       })
       // Parse defensively — a 502/timeout can return an empty/non-JSON body.
@@ -232,7 +209,7 @@ export function useCampaigns() {
         console.error('thumbnail', e)
       }
 
-      await postsApi.update(post.id, { imageUrl, thumbnailUrl, model: json.data?.model || 'nano-banana-pro', status: 'ready' })
+      await postsApi.update(post.id, { imageUrl, thumbnailUrl, model: json.data?.model || 'studio', status: 'ready' })
       return null
     } catch (e) {
       console.error('generate image', e)

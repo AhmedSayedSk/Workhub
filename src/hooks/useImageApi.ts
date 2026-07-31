@@ -31,15 +31,10 @@ export interface JobStats {
   }
 }
 
-export interface UploadedAsset {
-  mediaGenerationId: string
-  mediaGenerationIds: Record<string, string> // email → mediaGenerationId
-  thumbnailDataUrl: string
-  name: string
-  uploadedAt: number
-}
-
-export function useImageApi(apiToken: string | null | undefined, managed = false) {
+// Account management for the legacy integration. The credential lives on the
+// server: nothing in this hook holds, reads or sends one, and no request may
+// carry a token in its body or its query string.
+export function useImageApi(managed = false) {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [jobs, setJobs] = useState<JobStats | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(false)
@@ -48,10 +43,10 @@ export function useImageApi(apiToken: string | null | undefined, managed = false
   const [deletingEmail, setDeletingEmail] = useState<string | null>(null)
 
   const fetchAccounts = useCallback(async () => {
-    if (!apiToken && !managed) return
+    if (!managed) return
     setLoadingAccounts(true)
     try {
-      const res = await authFetch(`/api/ai/image?action=accounts&token=${encodeURIComponent(apiToken || '')}`)
+      const res = await authFetch('/api/ai/image?action=accounts')
       const result = await res.json()
       if (!result.success) throw new Error(result.error)
 
@@ -78,40 +73,25 @@ export function useImageApi(apiToken: string | null | undefined, managed = false
     } finally {
       setLoadingAccounts(false)
     }
-  }, [apiToken, managed])
+  }, [managed])
 
   const registerAccount = useCallback(async (cookies: string): Promise<{ success: boolean; error?: string }> => {
-    if (!apiToken && !managed) return { success: false, error: 'No API token' }
+    if (!managed) return { success: false, error: 'Account management is not configured on this server.' }
     setRegistering(true)
     try {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'register_account', ...(apiToken ? { apiToken } : {}), cookies }),
+        body: JSON.stringify({ action: 'register_account', cookies }),
       })
       const result = await res.json()
       if (!result.success) {
-        let error = result.error || 'Registration failed'
-        // Parse common useapi.net registration errors into friendly messages
-        if (error.includes('OAuth stuck on login')) {
-          error = 'Google rejected these cookies — the session may be expired or invalidated.\n\nTo fix:\n1. Open a fresh/incognito browser\n2. Go to labs.google/fx/tools/flow and sign in\n3. Check "Don\'t ask again on this device" on 2FA\n4. Go to myaccount.google.com\n5. Copy ALL cookies from accounts.google.com\n6. Paste here and try again'
-        } else if (error.includes('Failed to validate cookies')) {
-          const innerMatch = error.match(/"error"\s*:\s*"([^"]{5,200})"/)
-          if (innerMatch?.[1]?.includes('OAuth stuck')) {
-            error = 'Google rejected these cookies — the session may be expired.\n\nSign in fresh at labs.google/fx/tools/flow and copy new cookies.'
-          } else {
-            error = innerMatch?.[1] || 'Failed to validate cookies. Try copying fresh cookies from a new sign-in.'
-          }
-        } else if (error.includes('captcha') || error.includes('CAPTCHA')) {
-          error = 'Google captcha challenge detected. Try using Firefox or Opera, or wait a few minutes and try again.'
-        } else if (error.includes('session') && error.includes('expired')) {
-          error = 'Google session expired. Sign in again at labs.google/fx/tools/flow and copy fresh cookies.'
-        }
-        // Truncate very long errors
-        if (error.length > 300) error = error.slice(0, 300) + '...'
+        // The server already classifies the failure into a fixed, neutral
+        // message — nothing upstream is relayed, so nothing is re-parsed here.
+        const error = (result.error as string) || 'Registration failed'
         return { success: false, error }
       }
-      toast.success(res.status === 200 ? 'Session refreshed successfully' : 'Google account registered successfully')
+      toast.success('Account session saved')
       await fetchAccounts()
       return { success: true }
     } catch (err) {
@@ -120,16 +100,16 @@ export function useImageApi(apiToken: string | null | undefined, managed = false
     } finally {
       setRegistering(false)
     }
-  }, [apiToken, managed, fetchAccounts])
+  }, [managed, fetchAccounts])
 
   const deleteAccount = useCallback(async (email: string) => {
-    if (!apiToken && !managed) return false
+    if (!managed) return false
     setDeletingEmail(email)
     try {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete_account', ...(apiToken ? { apiToken } : {}), email }),
+        body: JSON.stringify({ action: 'delete_account', email }),
       })
       const result = await res.json()
       if (!result.success) {
@@ -145,27 +125,27 @@ export function useImageApi(apiToken: string | null | undefined, managed = false
     } finally {
       setDeletingEmail(null)
     }
-  }, [apiToken, managed])
+  }, [managed])
 
   const fetchCaptchaProviders = useCallback(async () => {
-    if (!apiToken && !managed) return null
+    if (!managed) return null
     try {
-      const res = await authFetch(`/api/ai/image?action=captcha-providers&token=${encodeURIComponent(apiToken || '')}`)
+      const res = await authFetch('/api/ai/image?action=captcha-providers')
       const result = await res.json()
       if (!result.success) return null
       return result.data as Record<string, string>
     } catch {
       return null
     }
-  }, [apiToken, managed])
+  }, [managed])
 
   const setCaptchaProviders = useCallback(async (providers: Record<string, string>) => {
-    if (!apiToken && !managed) return false
+    if (!managed) return false
     try {
       const res = await authFetch('/api/ai/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'set_captcha_providers', ...(apiToken ? { apiToken } : {}), providers }),
+        body: JSON.stringify({ action: 'set_captcha_providers', providers }),
       })
       const result = await res.json()
       if (!result.success) {
@@ -178,13 +158,13 @@ export function useImageApi(apiToken: string | null | undefined, managed = false
       toast.error('Failed to configure captcha provider')
       return false
     }
-  }, [apiToken, managed])
+  }, [managed])
 
   const fetchJobs = useCallback(async () => {
-    if (!apiToken && !managed) return
+    if (!managed) return
     setLoadingJobs(true)
     try {
-      const res = await authFetch(`/api/ai/image?action=jobs&token=${encodeURIComponent(apiToken || '')}&options=history`)
+      const res = await authFetch('/api/ai/image?action=jobs&options=history')
       const result = await res.json()
       if (!result.success) throw new Error(result.error)
       setJobs(result.data)
@@ -193,61 +173,7 @@ export function useImageApi(apiToken: string | null | undefined, managed = false
     } finally {
       setLoadingJobs(false)
     }
-  }, [apiToken, managed])
-
-  const upscaleImage = useCallback(async (mediaGenerationId: string, resolution: '2k' | '4k' = '2k') => {
-    if (!apiToken && !managed) return null
-    try {
-      const res = await authFetch('/api/ai/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upscale', ...(apiToken ? { apiToken } : {}), mediaGenerationId, resolution }),
-      })
-      const result = await res.json()
-      if (!result.success) {
-        toast.error(result.error || 'Upscale failed')
-        return null
-      }
-      toast.success('Image upscaled')
-      return result.data.encodedImage as string
-    } catch (err) {
-      toast.error('Upscale failed')
-      return null
-    }
-  }, [apiToken, managed])
-
-  const uploadAsset = useCallback(async (dataUrl: string, fileName: string): Promise<UploadedAsset | null> => {
-    if (!apiToken && !managed) return null
-    try {
-      const res = await authFetch('/api/ai/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upload_asset', ...(apiToken ? { apiToken } : {}), asset: dataUrl }),
-      })
-      const result = await res.json()
-      if (!result.success) {
-        toast.error(result.error || 'Failed to upload reference image')
-        return null
-      }
-      const mediaGenId = result.data?.mediaGenerationId?.mediaGenerationId
-        || result.data?.mediaGenerationId
-      if (!mediaGenId) {
-        console.error('Unexpected asset upload response:', result.data)
-        toast.error('Failed to get asset reference')
-        return null
-      }
-      return {
-        mediaGenerationId: mediaGenId as string,
-        mediaGenerationIds: (result.perAccount || {}) as Record<string, string>,
-        thumbnailDataUrl: dataUrl,
-        name: fileName,
-        uploadedAt: Date.now(),
-      }
-    } catch {
-      toast.error('Failed to upload reference image')
-      return null
-    }
-  }, [apiToken, managed])
+  }, [managed])
 
   return {
     accounts,
@@ -262,7 +188,5 @@ export function useImageApi(apiToken: string | null | undefined, managed = false
     fetchJobs,
     fetchCaptchaProviders,
     setCaptchaProviders,
-    upscaleImage,
-    uploadAsset,
   }
 }

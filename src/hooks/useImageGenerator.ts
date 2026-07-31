@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { authFetch } from '@/lib/api-client'
 import { ImageGeneration, ImageGenAspectRatio, AppSettings } from '@/types'
+import { normalizeModel } from '@/lib/imageModels'
 import { imageGenerations, mediaFiles, imageGenLogs } from '@/lib/firestore'
 import { uploadBlob, deleteFile } from '@/lib/storage'
 import { useAuth } from '@/hooks/useAuth'
@@ -14,62 +15,19 @@ export interface GenerationError {
   type: 'quota' | 'auth' | 'not_found' | 'config' | 'moderation' | 'generic'
 }
 
-function parseError(status: number, message: string): GenerationError {
-  if (message.includes('No API token') || message.includes('No model')) {
+// The server returns flat, neutral messages (see `@/lib/imageGen`). This maps
+// them onto the shape the page already renders — no vendor names, no account
+// identities, no re-parsing of anything upstream.
+function parseError(message: string): GenerationError {
+  const m = message.toLowerCase()
+  if (m.includes('not configured') || m.includes('turned off') || m.includes('credential')) {
     return { title: 'Configuration required', message, type: 'config' }
   }
-  if (status === 401 || message.includes('Invalid API token')) {
-    return { title: 'Authentication failed', message, type: 'auth' }
+  if (m.includes('busy') || m.includes('quota')) {
+    return { title: 'Service busy', message, type: 'quota' }
   }
-  if (status === 402) {
-    return { title: 'Subscription expired', message, type: 'auth' }
-  }
-  if (status === 404) {
-    return { title: 'Account not configured', message, type: 'not_found' }
-  }
-  if (message.includes('captcha provider') || message.includes('captcha-providers')) {
-    return {
-      title: 'Captcha configuration needed',
-      message: 'Google is requiring a CAPTCHA challenge. You need to configure a captcha solver (like CapSolver or AntiCaptcha) in the Accounts tab → Captcha Providers.',
-      type: 'config',
-    }
-  }
-  if (message.includes('All accounts blocked') || message.includes('All accounts are rate limited')) {
-    return {
-      title: 'All accounts unavailable',
-      message,
-      type: 'quota',
-    }
-  }
-  if (message.includes('reCAPTCHA evaluation failed') || (message.includes('reCAPTCHA') && !message.includes('captcha provider'))) {
-    return {
-      title: 'Account blocked by Google',
-      message: 'Google is rejecting this account. Auto-switching to another account if available. If all accounts are blocked, disable the flagged account and wait a few hours or register a fresh one.',
-      type: 'quota',
-    }
-  }
-  if (message.includes('Resource has been exhausted') || message.includes('check quota')) {
-    return {
-      title: 'Google quota exhausted',
-      message: 'This Google account has used up its daily quota for this model. Switch to a different model or wait for the quota to reset (usually a few hours).',
-      type: 'quota',
-    }
-  }
-  if (status === 429 || message.includes('DAILY_QUOTA') || message.includes('daily quota') || message.includes('Rate limit') || message.includes('THROTTLED')) {
-    const isQuota = message.includes('DAILY_QUOTA') || message.includes('daily quota')
-    return {
-      title: isQuota ? 'Daily quota reached' : 'Rate limited',
-      message: isQuota
-        ? 'Daily quota reached for this model. Try a different model or wait a few hours.'
-        : 'Your account is temporarily rate limited. Wait a few minutes before trying again, or try a different model. If this persists, the account may need a cooldown of a few hours.',
-      type: 'quota',
-    }
-  }
-  if (status === 500 && message.includes('moderation')) {
-    return { title: 'Content blocked', message, type: 'moderation' }
-  }
-  if (status === 596) {
-    return { title: 'Session expired', message, type: 'auth' }
+  if (m.includes('different prompt') || m.includes('too long') || m.includes('prompt is required')) {
+    return { title: 'Prompt rejected', message, type: 'moderation' }
   }
   return { title: 'Generation failed', message, type: 'generic' }
 }
@@ -149,9 +107,8 @@ export function useImageGenerator() {
       return null
     }
 
-    // Model defaults when unset; the token is optional here — if the user hasn't
-    // set one in settings, the server falls back to the managed USEAPI_TOKEN.
-    const model = settings?.imageGenModel || 'nano-banana-pro'
+    // The credential is held by the server; nothing here holds or sends one.
+    const model = normalizeModel(settings?.imageGenModel)
 
     setIsGenerating(true)
     setError(null)
@@ -172,7 +129,7 @@ export function useImageGenerator() {
       }
 
       // Send batches sequentially
-      const allImages: { url: string; seed?: number; mediaGenerationId?: string }[] = []
+      const allImages: { url: string; seed?: number; id?: string }[] = []
       for (const batchCount of batches) {
         const res = await authFetch('/api/ai/image', {
           method: 'POST',
@@ -182,25 +139,19 @@ export function useImageGenerator() {
             prompt,
             aspectRatio,
             model,
-            ...(settings?.imageGenApiToken ? { apiToken: settings.imageGenApiToken } : {}),
             count: batchCount,
             ...(references && references.length > 0 ? { references } : {}),
-            ...(settings?.imageGenDisabledEmails?.length ? { disabledEmails: settings.imageGenDisabledEmails } : {}),
-            ...(settings?.imageGenPreferredEmail ? { preferredEmail: settings.imageGenPreferredEmail } : {}),
           }),
           signal: controller.signal,
         })
         const result = await res.json()
-        if (!result.success) {
-          const emailInfo = result.usedEmail ? ` (${result.usedEmail})` : ''
-          throw new Error(`${result.error}${emailInfo}`)
-        }
-        allImages.push(...(result.data.images as { url: string; seed?: number; mediaGenerationId?: string }[]))
+        if (!result.success) throw new Error(result.error || 'Failed to generate image')
+        allImages.push(...(result.data.images as { url: string; seed?: number; id?: string }[]))
       }
 
       const generatedImages = allImages
 
-      // Show images immediately with temporary useapi.net URLs
+      // Show the hosted URLs immediately; they are copied to Storage below.
       const tempGenerations = generatedImages.map((img, i) => ({
         id: `temp_${Date.now()}_${i}`,
         prompt,
@@ -227,11 +178,12 @@ export function useImageGenerator() {
         aspectRatio,
         imageCount: generatedImages.length,
         status: 'success',
-        email: settings?.imageGenPreferredEmail || '',
+        email: '',
       }).catch(() => {})
 
-      // Persist to Firebase Storage + Firestore in background
-      // (useapi.net URLs expire in ~24h, so we re-upload)
+      // Persist to Firebase Storage + Firestore in the background. Still
+      // required: the image service deletes hosted files after a retention
+      // window, so a generation kept in history needs our own copy.
       Promise.all(
         generatedImages.map(async (img, i) => {
           try {
@@ -283,7 +235,7 @@ export function useImageGenerator() {
         return null
       }
       const raw = err instanceof Error ? err.message : 'Failed to generate image'
-      setError(parseError(0, raw))
+      setError(parseError(raw))
 
       // Log failure for persistent stats
       imageGenLogs.create({
@@ -294,7 +246,7 @@ export function useImageGenerator() {
         imageCount: 0,
         status: 'failed',
         error: raw,
-        email: settings?.imageGenPreferredEmail || '',
+        email: '',
       }).catch(() => {})
 
       return null

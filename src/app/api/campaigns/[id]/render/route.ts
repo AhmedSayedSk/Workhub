@@ -1,9 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import * as admin from 'firebase-admin'
 import '@/lib/api-auth'
 import { requireModule } from '@/lib/api-auth'
+import { adgen, AdGenError, type AdGenVideoOptions } from '@/lib/adgen'
+import { RENDER_ENGINE } from '@/lib/adgenMirror'
+import { settleRenderJob } from '@/lib/renderMirror'
+import { renderJobMirror } from '@/lib/server/renderJobMirror'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 const db = () => admin.firestore()
 const ASPECTS = ['portrait', 'landscape', 'square'] as const
 
@@ -21,6 +26,17 @@ function stripUndefined<T>(v: T): T {
   return v
 }
 
+/**
+ * Start a campaign video render.
+ *
+ * The render itself runs on the campaign service; this route owns the job
+ * document the UI watches. The returned `jobId` is the **Firestore** id — the
+ * client listener is keyed on it — and the service's own id is kept alongside
+ * as `adgenJobId` so the webhook can find the document again.
+ *
+ * Script, palette and hook copy are no longer written here: they are options on
+ * the render request now, generated service-side from the same campaign.
+ */
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const authError = await requireModule(request, 'accessImageGenerator')
   if (authError) return authError
@@ -34,11 +50,21 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const AR_FONT_IDS = ['cairo', 'tajawal', 'almarai', 'changa', 'messiri', 'amiri', 'lalezar']
   const arFont = AR_FONT_IDS.includes(body.arFont) ? body.arFont : 'cairo'
   const subtitles = body.subtitles !== false // scene secondary lines default ON
-  const videoHook = !!body.videoHook // stock-footage hook background (Pexels) instead of the AI image
+  const videoHook = !!body.videoHook // stock-footage hook background instead of the AI image
 
   const cSnap = await db().collection('campaigns').doc(id).get()
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   const c = cSnap.data() as any
+
+  // The render is a job against the PLANNED campaign held by the service. A
+  // campaign planned before the switch has no such id — replanning creates one.
+  const adgenCampaignId = typeof c.adgenCampaignId === 'string' ? c.adgenCampaignId.trim() : ''
+  if (!adgenCampaignId) {
+    return NextResponse.json(
+      { error: 'This campaign has no plan yet — generate the plan again before rendering a video' },
+      { status: 409 }
+    )
+  }
 
   // Optional AI voiceover. Language defaults to the campaign language; gender/on-off from the request.
   const campaignLang: 'en' | 'ar' = c.language === 'ar' ? 'ar' : 'en'
@@ -47,29 +73,31 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const market = resolveMarket(body.market, campaignLang)
   const vo = body.voiceover && typeof body.voiceover === 'object' ? body.voiceover : null
   const VO_RATES = [0.9, 1, 1.1, 1.25, 1.5]
-  // rate 0 = "auto" marker — resolved by the AI pace director once the final
-  // narration copy is known (after script assembly, below).
   // Named, selectable voices — public ids only (engine voices are white-labeled
-  // behind the TTS API). Each id implies a gender; 'mixed' alternates M/F.
+  // behind the speech service). Each id implies a gender; 'mixed' alternates M/F.
   const VOICE_GENDER: Record<string, 'male' | 'female'> = { aria: 'female', nova: 'female', sami: 'male', omar: 'male' }
   // Narration language follows the SELECTED MARKET (matching the script copy);
   // an explicit user choice still wins.
   const voLang = (vo && (vo.language === 'ar' || vo.language === 'en') ? vo.language : market.lang) as 'en' | 'ar'
-  const voVoice = vo && typeof vo.voice === 'string' && VOICE_GENDER[vo.voice] ? vo.voice as string : undefined
-  const voStyle = voLang === 'ar'
-    ? `Professional Arabic advertising voiceover. ${market.voiceNote} Clear Modern Standard Arabic (فصحى), premium and inviting; articulate, with lively but controlled pacing and clear emphasis on key words. Not stiff, not a monotone newsreader.`
-    : `Warm, upbeat commercial voiceover for a brand advertisement. ${market.voiceNote} Friendly, confident and inviting with natural dynamic pacing.`
+  // 'mixed' is a voice choice of its own — the UI sends it as gender with no
+  // voice id, the service takes it as the voice.
+  const voVoice = vo && typeof vo.voice === 'string' && VOICE_GENDER[vo.voice]
+    ? (vo.voice as string)
+    : (vo && vo.gender === 'mixed' ? 'mixed' : undefined)
+  // rate 'auto' (or anything off the ladder) = let the service pace it.
+  const voRate = vo && VO_RATES.includes(Number(vo.rate)) ? Number(vo.rate) : undefined
   const voiceover = vo && vo.enabled
     ? {
         enabled: true,
         language: voLang,
         // A named voice fixes the gender; otherwise fall back to the gender field.
-        gender: (voVoice ? VOICE_GENDER[voVoice] : (['male', 'female', 'mixed'].includes(vo.gender) ? vo.gender : 'female')) as 'male' | 'female' | 'mixed',
+        gender: (voVoice && VOICE_GENDER[voVoice]
+          ? VOICE_GENDER[voVoice]
+          : (['male', 'female', 'mixed'].includes(vo.gender) ? vo.gender : 'female')) as 'male' | 'female' | 'mixed',
         ...(voVoice ? { voice: voVoice } : {}),
         model: (vo.model === 'premium' ? 'premium' : 'standard') as 'standard' | 'premium',
-        rate: VO_RATES.includes(Number(vo.rate)) ? Number(vo.rate) : 0,
-        rateAuto: !VO_RATES.includes(Number(vo.rate)),
-        style: voStyle,
+        ...(voRate !== undefined ? { rate: voRate } : {}),
+        rateAuto: voRate === undefined,
       }
     : null
 
@@ -85,86 +113,17 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const brandName = (typeof body.brandName === 'string' && body.brandName.trim())
     ? body.brandName.trim().slice(0, 60)
     : (c.brand?.name || c.name || 'Brand')
-  // Stock-footage search query (English, visual subjects) — only when the
-  // video-hook toggle is on; failure falls back to a goal-derived phrase.
-  let hookVideoQuery = ''
-  if (videoHook) {
-    const { generateStockVideoQuery } = await import('@/lib/gemini')
-    hookVideoQuery = await generateStockVideoQuery({ brandName, goal: c.brief?.goal, audience: c.brief?.audience, context: c.brief?.goal })
-    if (!hookVideoQuery) hookVideoQuery = 'technology abstract background'
-  }
   const domain = c.brief?.content?.link || undefined
-  const brandColor = (c.brand?.colors && c.brand.colors[0]) || null
 
-  // Enabled scene styles (Scene Styles table) — the worker rotates within these.
+  // Enabled scene styles (Scene Styles table) — the renderer rotates within these.
   let sceneStyles: string[] = []
   try {
     const stSnap = await db().collection('sceneStyles').where('enabled', '==', true).get()
     sceneStyles = stSnap.docs.map((d) => d.id)
-  } catch { /* absent collection -> worker uses all styles */ }
+  } catch { /* absent collection -> all styles */ }
 
-  // AI-proposed color system, contrast-enforced (WCAG) before it ships.
-  const { generateVideoPalette } = await import('@/lib/gemini')
-  const { finalizePalette } = await import('@/lib/palette')
-  const rawPalette = await generateVideoPalette({ brandName, brandColor, tone: c.brief?.tone, goal: c.brief?.goal })
-  const palette = finalizePalette(rawPalette, brandColor)
-  let script: import('@/types').CreativeScene[] | undefined
-  if (mode === 'creative') {
-    const { generateCampaignVideoScript } = await import('@/lib/gemini')
-    const copyScenes = await generateCampaignVideoScript({
-      brandName,
-      goal: c.brief?.goal || '',
-      cta: c.brief?.cta || undefined,
-      audience: c.brief?.audience || '',
-      tone: c.brief?.tone || '',
-      language: market.lang, // script copy (incl. the opening hook) follows the selected market
-      domain,
-      cultureNote: market.cultureNote,
-      posts: posts.map((p) => ({ headline: p.headline, body: p.body, caption: p.caption })),
-    })
-    // MERGE each beat's copy INTO an image scene: every showcase = one scene
-    // with the image on top and that beat's text (caption + sub) below it —
-    // never a text-only beat followed by a separate image. Stats stay their own
-    // designed moment, sprinkled between showcases. Reserve hook/cta slots so
-    // the 9-scene cap never slices them off.
-    const hook = copyScenes.find((s) => s.type === 'hook')
-    const cta = copyScenes.find((s) => s.type === 'cta')
-    const beats = copyScenes.filter((s): s is Extract<import('@/types').CreativeScene, { type: 'beat' }> => s.type === 'beat')
-    const stats = copyScenes.filter((s) => s.type === 'stat')
-    // posts here are already filtered to those with imageUrl, so posts[i].imageUrl is defined.
-    const maxMid = 9 - (hook ? 1 : 0) - (cta ? 1 : 0)
-    // Short display line from post copy (fallback when Gemini gives fewer beats
-    // than images): strip links/hashtags, keep the first sentence, cap length.
-    const firstLine = (s?: string) => {
-      if (!s) return ''
-      const clean = String(s).replace(/https?:\/\/\S+/g, '').replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim()
-      const m = clean.match(/^[^.!؟?\n]{6,90}[.!؟?]?/)
-      return (m ? m[0] : clean).slice(0, 90).trim()
-    }
-    const mid: import('@/types').CreativeScene[] = []
-    let bi = 0
-    let si = 0
-    posts.forEach((p, i) => {
-      if (mid.length >= maxMid) return
-      const beat = beats[bi]
-      if (beat) bi++
-      mid.push({
-        type: 'showcase',
-        imageUrl: p.imageUrl as string,
-        caption: beat?.title || p.headline || firstLine(p.caption) || firstLine(p.body) || '',
-        ...(beat?.sub ? { sub: beat.sub } : {}),
-      })
-      // A stat moment after every second image keeps the rhythm varied.
-      if (si < stats.length && i % 2 === 1 && mid.length < maxMid) mid.push(stats[si++])
-    })
-    // Leftover copy (more beats/stats than images) still gets its own scene if room.
-    for (; bi < beats.length && mid.length < maxMid; bi++) mid.push(beats[bi])
-    for (; si < stats.length && mid.length < maxMid; si++) mid.push(stats[si])
-    script = [...(hook ? [hook] : []), ...mid, ...(cta ? [cta] : [])]
-  }
-
-  // User-chosen opening hook (from /hook-options): overrides the script's hook
-  // scene (creative) and the basic hook headline. 'auto'/absent = AI's own hook.
+  // User-chosen opening hook (from /hook-options). Absent = the service writes
+  // its own, which differs on every render — hence the UI's warning.
   const chosenHook = body.hook && typeof body.hook === 'object' && typeof body.hook.headline === 'string' && body.hook.headline.trim()
     ? {
         headline: String(body.hook.headline).slice(0, 120),
@@ -172,48 +131,18 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
         ...(body.hook.kicker ? { kicker: String(body.hook.kicker).slice(0, 40) } : {}),
       }
     : null
-  if (chosenHook && script) {
-    const i = script.findIndex((s) => s.type === 'hook')
-    const hookScene = { type: 'hook' as const, ...chosenHook }
-    if (i >= 0) script[i] = hookScene
-    else script.unshift(hookScene)
-  }
 
-  // Auto speed: the AI pace director picks the rate from the campaign's energy,
-  // language and the ACTUAL narration copy volume. Heuristic fallback inside.
-  if (voiceover && voiceover.rateAuto) {
-    const { chooseVoiceoverRate } = await import('@/lib/gemini')
-    const sceneText = (s: import('@/types').CreativeScene): string => {
-      switch (s.type) {
-        case 'hook': return (s.headline || '').replace(/\n/g, ' ')
-        case 'beat': return [s.title, s.sub].filter(Boolean).join('. ')
-        case 'stat': return [s.value, s.label].filter(Boolean).join(' ')
-        case 'showcase': return [s.caption, s.sub].filter(Boolean).join('. ')
-        case 'cta': return s.text || ''
-        default: return ''
-      }
-    }
-    const lines = script
-      ? script.map(sceneText).filter(Boolean)
-      : [brandName, ...posts.map((p) => p.caption || p.headline || '')].filter(Boolean)
-    const sampleCopy = lines.join(' — ')
-    voiceover.rate = await chooseVoiceoverRate({
-      brandName,
-      tone: c.brief?.tone,
-      audience: c.brief?.audience,
-      goal: c.brief?.goal,
-      language: voiceover.language,
-      mode,
-      sceneCount: script ? script.length : posts.length + 1,
-      sampleCopy,
-      totalChars: sampleCopy.length,
-    })
-  }
-
+  // The job document the UI watches. Created BEFORE the render is queued so a
+  // failure to start is visible in the card instead of vanishing with the
+  // response; `engine` marks it as a service-run render (the previous worker
+  // wrote its own jobs and had no such field).
   const job = {
     campaignId: id,
     projectId: c.projectId,
+    engine: RENDER_ENGINE,
     status: 'queued',
+    progress: 0,
+    stage: 'preparing',
     aspect,
     mode,
     lang: campaignLang,
@@ -224,22 +153,77 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     arFont,
     subtitles,
     videoHook,
-    ...(hookVideoQuery ? { hookVideoQuery } : {}),
     ...(sceneStyles.length ? { sceneStyles } : {}),
-    palette,
     ...(voiceover ? { voiceover } : {}),
-    ...(script ? { script } : {}),
     hook: {
       headline: chosenHook ? chosenHook.headline.replace(/\n/g, ' ') : brandName,
       subtext: c.brief?.goal ? String(c.brief.goal).slice(0, 90) : 'See what we made',
-      // NOTE: never mention the brand NAME here — image models paint quoted
-      // names as literal text, and our headline/logo are overlaid separately.
-      bgPrompt: `Premium cinematic abstract hero background, ${c.artDirection || c.style || 'sleek modern tech'}, deep rich colors, volumetric light, soft depth of field, large clean negative space for overlaid copy, ${aspect} composition, high detail.`,
     },
     brand: { name: brandName, color: (c.brand?.colors && c.brand.colors[0]) || '#111827', logoUrl: c.brand?.logoUrl || c.brandImageUrl || null, domain: domain || null },
     scenes: posts.map((p) => ({ imageUrl: p.imageUrl, headline: p.headline || '', caption: (p.caption || '').slice(0, 140) })),
     createdAt: Date.now(),
   }
   const ref = await db().collection('renderJobs').add(stripUndefined(job))
+
+  const options: AdGenVideoOptions = {
+    aspect,
+    mode,
+    market: market.code,
+    transition,
+    sfx,
+    captions,
+    subtitles,
+    arFont,
+    videoHook,
+    brandName,
+    ...(sceneStyles.length ? { sceneStyles } : {}),
+    ...(chosenHook ? { hook: chosenHook } : {}),
+    ...(voiceover
+      ? { voiceover: { enabled: true, language: voiceover.language, ...(voiceover.voice ? { voice: voiceover.voice } : {}), model: voiceover.model, ...(voRate !== undefined ? { rate: voRate } : {}) } }
+      : { voiceover: { enabled: false } }),
+  }
+
+  let adgenJobId: string
+  try {
+    ({ jobId: adgenJobId } = await adgen.renderVideo(adgenCampaignId, options))
+  } catch (e) {
+    const status = e instanceof AdGenError ? e.status : 500
+    // AdGenError messages are already scrubbed of the service credential.
+    const message = e instanceof AdGenError ? e.message : 'Could not start the video render'
+    // Settle the document so the card shows the failure instead of spinning.
+    await ref.update({ status: 'failed', error: message, finishedAt: Date.now() }).catch(() => { /* the response still reports it */ })
+    return NextResponse.json({ error: message }, { status })
+  }
+
+  try {
+    // Written second: the webhook finds this document BY this id, so the render
+    // must exist before the id can be stored.
+    await ref.update({ adgenJobId })
+  } catch {
+    // The render is running and nothing can ever be linked back to it. Stop it
+    // rather than pay for a video no one will receive, and settle the card.
+    await adgen.cancelJob(adgenJobId).catch(() => { /* best effort */ })
+    await ref.update({ status: 'failed', error: 'Could not track the render — try again', finishedAt: Date.now() })
+      .catch(() => { /* the response still reports it */ })
+    return NextResponse.json({ error: 'Could not track the render — try again' }, { status: 500 })
+  }
+
+  // Close the delivery window. A terminal webhook fired between the document
+  // being created and `adgenJobId` being stored found nothing to write to, was
+  // answered 200 and will never be retried — so pull the state once, now, off
+  // the response path.
+  after(async () => {
+    try {
+      await settleRenderJob(
+        { id: ref.id, status: 'queued', engine: RENDER_ENGINE, adgenJobId, createdAt: job.createdAt },
+        {
+          getJob: (jobId) => adgen.getJob(jobId),
+          mirror: (docId, decide) => renderJobMirror.byDocId(docId, decide),
+          nowMs: Date.now(),
+        }
+      )
+    } catch { /* the poll and the sweep both cover this */ }
+  })
+
   return NextResponse.json({ jobId: ref.id })
 }

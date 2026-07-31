@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as admin from 'firebase-admin'
 import '@/lib/api-auth'
 import { requireModule } from '@/lib/api-auth'
+import { adgen, AdGenError } from '@/lib/adgen'
+import { resolveMarket } from '@/lib/markets'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 const db = () => admin.firestore()
 
 const CACHE_MS = 24 * 60 * 60 * 1000 // regenerate at most daily unless forced
 
-// Returns 5 AI-written opening-hook options (one per ad-hook archetype) for
-// this campaign, in the campaign's language. Cached on the campaign doc.
+// Returns AI-written opening-hook options (one set per ad-hook archetype) for
+// this campaign, in the selected market's language. Cached on the campaign doc.
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const authError = await requireModule(request, 'accessImageGenerator')
   if (authError) return authError
@@ -20,7 +23,6 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   if (!cSnap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   const c = cSnap.data() as any
 
-  const { resolveMarket } = await import('@/lib/markets')
   const market = resolveMarket(body.market, c.language === 'ar' ? 'ar' : 'en')
 
   const cached = c.hookOptions
@@ -29,25 +31,36 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     return NextResponse.json({ options: cached.items, cached: true })
   }
 
-  const postsSnap = await db().collection('campaignPosts').where('campaignId', '==', id).get()
-  const postsCopy = postsSnap.docs
-    .map((d) => d.data() as any)
-    .map((p) => [p.headline, p.body, p.caption].filter(Boolean).join(' — '))
-    .filter(Boolean)
-    .slice(0, 8)
-    .join('\n')
+  // Hooks are written from the campaign AdGen itself planned, so a campaign
+  // that predates the switch (or whose planning failed) has nothing to work
+  // from and must be planned again first.
+  const adgenCampaignId = typeof c.adgenCampaignId === 'string' ? c.adgenCampaignId : ''
+  if (!adgenCampaignId) {
+    return NextResponse.json(
+      { error: 'This campaign has no plan yet — generate the plan again before creating hooks' },
+      { status: 409 }
+    )
+  }
 
-  const { generateHookOptions } = await import('@/lib/gemini')
-  const options = await generateHookOptions({
-    brandName: c.brand?.name || c.name || 'Brand',
-    goal: c.brief?.goal,
-    audience: c.brief?.audience,
-    tone: c.brief?.tone,
-    language: market.lang, // hooks follow the selected market's language
-    postsCopy,
-    cultureNote: market.cultureNote,
-  })
+  try {
+    const { options, cached: adgenCached } = await adgen.hooks(adgenCampaignId, {
+      market: market.code,
+      force: !!body.force,
+    })
+    if (!options?.length) {
+      return NextResponse.json({ error: 'No hook options were generated' }, { status: 502 })
+    }
 
-  await db().collection('campaigns').doc(id).set({ hookOptions: { items: options, market: market.code, updatedAt: Date.now() } }, { merge: true })
-  return NextResponse.json({ options })
+    await db()
+      .collection('campaigns')
+      .doc(id)
+      .set({ hookOptions: { items: options, market: market.code, updatedAt: Date.now() } }, { merge: true })
+    // AdGen keeps its own 24h per-market cache, so a call that skipped our cache
+    // can still be served from theirs — report that rather than implying it was
+    // freshly written.
+    return NextResponse.json({ options, ...(adgenCached ? { cached: true } : {}) })
+  } catch (e) {
+    const status = e instanceof AdGenError ? e.status : 500
+    return NextResponse.json({ error: (e as Error).message }, { status })
+  }
 }

@@ -51,8 +51,6 @@ import {
   Check,
   X,
   Settings,
-  Eye,
-  EyeOff,
   AlertTriangle,
   Info,
   UserPlus,
@@ -87,13 +85,7 @@ import {
   Megaphone,
 } from 'lucide-react'
 import { cn, getUrlParam, setUrlParam } from '@/lib/utils'
-
-const IMAGE_GEN_MODELS: { value: ImageGenModel; label: string; description: string }[] = [
-  { value: 'imagen-4', label: 'Imagen 4', description: 'Google Imagen 4 — high quality generation' },
-  { value: 'nano-banana', label: 'Nano Banana', description: 'Gemini 2.5 Flash Image' },
-  { value: 'nano-banana-2', label: 'Nano Banana 2', description: 'Gemini 2.5 Pro Image (supports upscale)' },
-  { value: 'nano-banana-pro', label: 'Nano Banana Pro', description: 'Gemini 3 Pro Image (supports upscale)' },
-]
+import { IMAGE_GEN_MODELS, modelLabel, normalizeModel } from '@/lib/imageModels'
 
 function formatFileSize(bytes: number | undefined) {
   if (!bytes) return ''
@@ -172,14 +164,14 @@ function ImageCard({ gen, onPreview, onDownload, onDelete, onAssignEvent }: {
           {/* Always-visible model badge (yields to the richer info on hover) */}
           <div className="absolute bottom-2 left-2 opacity-100 group-hover:opacity-0 transition-opacity">
             <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
-              {IMAGE_GEN_MODELS.find(m => m.value === gen.model)?.label || gen.model}
+              {modelLabel(gen.model)}
             </span>
           </div>
 
           {/* Bottom info overlay */}
           <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2 pt-6 opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="flex items-center gap-1 text-[10px] text-white/70">
-              <span className="font-medium">{IMAGE_GEN_MODELS.find(m => m.value === gen.model)?.label || gen.model}</span>
+              <span className="font-medium">{modelLabel(gen.model)}</span>
               <span className="opacity-40">·</span>
               <span>{timeAgo(gen.createdAt)}</span>
               <span className="flex-1" />
@@ -245,16 +237,18 @@ export default function ImageGeneratorPage() {
   } = useImageGenerator()
   const {
     settings, updateSettings,
-    setImageGenApiToken, setImageGenModel, setImageGenEnabled,
+    setImageGenModel, setImageGenEnabled,
   } = useSettings()
-  // True when the server has a managed USEAPI_TOKEN (no per-user token needed).
+  // Server capabilities. Both are booleans from the server — no credential is
+  // ever sent to the browser, and none is ever sent back.
   const [managed, setManaged] = useState(false)
+  const [imageGenReady, setImageGenReady] = useState(true)
   const {
     accounts, jobs, loadingAccounts, loadingJobs,
     registering, deletingEmail,
     fetchAccounts, registerAccount, deleteAccount, fetchJobs,
-    fetchCaptchaProviders, setCaptchaProviders, uploadAsset,
-  } = useImageApi(settings?.imageGenApiToken, managed)
+    fetchCaptchaProviders, setCaptchaProviders,
+  } = useImageApi(managed)
   const {
     sessions, activeSessionId, activeSession,
     setActiveSessionId, createSession, renameSession,
@@ -270,7 +264,6 @@ export default function ImageGeneratorPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [showOptions, setShowOptions] = useState(true)
 
-  const [uploadingAssets, setUploadingAssets] = useState(false)
   const [uploadingPlaceholders, setUploadingPlaceholders] = useState<string[]>([])
   const [assetsPanelOpen, setAssetsPanelOpen] = useState(true)
   const [selectedRefs, setSelectedRefs] = useState<string[]>([])
@@ -299,10 +292,8 @@ export default function ImageGeneratorPage() {
   const zoomContainerRef = useRef<HTMLDivElement>(null)
 
   // Settings modal
-  const [settingsToken, setSettingsToken] = useState('')
   const [settingsModel, setSettingsModel] = useState<ImageGenModel | ''>('')
   const [settingsEnabled, setSettingsEnabled] = useState(true)
-  const [showToken, setShowToken] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [standingPromptOpen, setStandingPromptOpen] = useState(false)
   const [standingPromptDraft, setStandingPromptDraft] = useState('')
@@ -362,32 +353,34 @@ export default function ImageGeneratorPage() {
 
   useEffect(() => {
     if (settings) {
-      setSettingsToken(settings.imageGenApiToken || '')
-      setSettingsModel(settings.imageGenModel || '')
+      setSettingsModel(normalizeModel(settings.imageGenModel))
       setSettingsEnabled(settings.imageGenEnabled !== false)
     }
   }, [settings])
 
-  // Detect a server-managed USEAPI_TOKEN so the feature works without a per-user token.
+  // Ask the server what it can do: generate images, and manage accounts.
   useEffect(() => {
     authFetch('/api/ai/image?action=status')
       .then((r) => r.json())
-      .then((d) => setManaged(!!d?.data?.managed))
+      .then((d) => {
+        setManaged(!!d?.data?.managed)
+        setImageGenReady(d?.data?.imageGen !== false)
+      })
       .catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'accounts' && (settings?.imageGenApiToken || managed)) fetchAccounts()
+    if (activeTab === 'accounts' && managed) fetchAccounts()
     // Usage stats live under the Accounts tab (Jobs was merged in), so load the
     // generation logs whenever Accounts is open.
     if (activeTab === 'accounts' && user) {
       imageGenLogs.getAll(user.uid).then(setGenLogs).catch(() => {})
     }
-  }, [activeTab, settings?.imageGenApiToken, managed, fetchAccounts, fetchJobs, user])
+  }, [activeTab, managed, fetchAccounts, fetchJobs, user])
 
   // Auto-fetch jobs stats when quota error appears
   useEffect(() => {
-    if (generationError?.type === 'quota' && (settings?.imageGenApiToken || managed)) fetchJobs()
+    if (generationError?.type === 'quota' && managed) fetchJobs()
   }, [generationError?.type]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadSavedAssets = async () => {
@@ -631,18 +624,15 @@ export default function ImageGeneratorPage() {
 
   const handleOpenSettings = () => {
     if (settings) {
-      setSettingsToken(settings.imageGenApiToken || '')
-      setSettingsModel(settings.imageGenModel || '')
+      setSettingsModel(normalizeModel(settings.imageGenModel))
       setSettingsEnabled(settings.imageGenEnabled !== false)
     }
-    setShowToken(false)
     setActiveTab('settings')
   }
 
   const handleSaveSettings = async () => {
     setSavingSettings(true)
     try {
-      await setImageGenApiToken(settingsToken || null)
       if (settingsModel) await setImageGenModel(settingsModel)
       await setImageGenEnabled(settingsEnabled)
       toast.success('Settings saved')
@@ -694,71 +684,17 @@ export default function ImageGeneratorPage() {
     draftRef.current = ''
     try { localStorage.setItem('imageGenPromptHistory', JSON.stringify(history)) } catch {}
 
-    let references: string[] | undefined
-
-    // Upload selected assets to useapi.net if they don't have a mediaGenerationId yet
+    // Reference images are not supported by the image service: it takes
+    // reference ids from its own previous results, not uploaded bytes. Selected
+    // assets are therefore not sent — say so rather than silently ignoring them.
     if (selectedRefs.length > 0) {
-      const selected = allAssets.filter(a => selectedRefs.includes(a.id))
-      const targetEmail = settings?.imageGenPreferredEmail || ''
-      const needsUpload = selected.filter(a => !a.mediaGenerationId)
-      const alreadyUploaded = selected.filter(a => a.mediaGenerationId).map(a => {
-        // Use the per-account ID for the target email if available
-        if (targetEmail && a.mediaGenerationIds?.[targetEmail]) return a.mediaGenerationIds[targetEmail]
-        return a.mediaGenerationId
-      })
-
-      if (needsUpload.length > 0) {
-        setUploadingAssets(true)
-        try {
-          const results = await Promise.all(
-            needsUpload.map(async (asset) => {
-              // Fetch full-size image from Firebase Storage and upload to useapi.net
-              const imageUrl = asset.fullUrl || asset.thumbnailUrl
-              const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(imageUrl)}`
-              const res = await fetch(proxyUrl)
-              const blob = await res.blob()
-              const reader = new FileReader()
-              const dataUrl = await new Promise<string>((resolve) => {
-                reader.onload = () => resolve(reader.result as string)
-                reader.readAsDataURL(blob)
-              })
-              const result = await uploadAsset(dataUrl, asset.name)
-              if (result) {
-                // Save mediaGenerationId(s) back to Firestore for future reuse
-                imageAssets.delete(asset.id).catch(() => {})
-                const newId = await imageAssets.create({
-                  mediaGenerationId: result.mediaGenerationId,
-                  mediaGenerationIds: result.mediaGenerationIds || {},
-                  name: asset.name,
-                  fullUrl: asset.fullUrl || asset.thumbnailUrl,
-                  fullStoragePath: asset.fullStoragePath || asset.storagePath,
-                  thumbnailUrl: asset.thumbnailUrl,
-                  storagePath: asset.storagePath,
-                  folderId: asset.folderId ?? null,
-                  userId: user!.uid,
-                })
-                const updater = (a: ImageAsset) => a.id === asset.id ? { ...a, id: newId, mediaGenerationId: result.mediaGenerationId, mediaGenerationIds: result.mediaGenerationIds || {} } : a
-                setSavedAssets(prev => prev.map(updater))
-                setAllAssets(prev => prev.map(updater))
-                return result.mediaGenerationId
-              }
-              return null
-            })
-          )
-          const uploaded = results.filter((r): r is string => !!r)
-          references = [...alreadyUploaded, ...uploaded]
-        } finally {
-          setUploadingAssets(false)
-        }
-      } else {
-        references = alreadyUploaded
-      }
+      toast.info('Reference images aren\u2019t supported yet — generating from the prompt only.')
     }
 
     const standingPrompt = activeSession?.standingPrompt?.trim()
     const fullPrompt = standingPrompt ? `${standingPrompt}\n${prompt.trim()}` : prompt.trim()
     if (activeSessionId) touchSession(activeSessionId)
-    await generate(fullPrompt, aspectRatio, imageCount, settings, references?.length ? references : undefined, activeSessionId || undefined)
+    await generate(fullPrompt, aspectRatio, imageCount, settings, undefined, activeSessionId || undefined)
   }
 
   // Auto-resize textarea when tab switches back or prompt is pre-filled
@@ -895,7 +831,6 @@ export default function ImageGeneratorPage() {
     try { localStorage.setItem('imageGenGridCols', String(n)) } catch {}
   }
 
-  const hasToken = !!settings?.imageGenApiToken || managed
 
   // Sessions: the oldest session is the "Default" and also surfaces legacy
   // (pre-sessions) images that have no sessionId.
@@ -948,7 +883,7 @@ export default function ImageGeneratorPage() {
 
   return (
     <div className="flex h-[calc(100vh-7rem)] relative overflow-hidden">
-      {hasToken && activeTab === 'generate' && (
+      {imageGenReady && activeTab === 'generate' && (
         <SessionSidebar
           sessions={sessions}
           activeSessionId={activeSessionId}
@@ -1310,7 +1245,7 @@ export default function ImageGeneratorPage() {
 
           {/* Bottom composer — unified surface (input + docked controls) */}
           <div className="flex-shrink-0 px-3 pb-3 pt-1.5">
-            {(selectedRefs.length > 0 || isGenerating || uploadingAssets) && (
+            {(selectedRefs.length > 0 || isGenerating) && (
               <div className="mb-2 flex items-center gap-2 overflow-x-auto px-1">
                 {selectedRefs.map((id) => {
                   const asset = allAssets.find(a => a.id === id)
@@ -1327,10 +1262,10 @@ export default function ImageGeneratorPage() {
                     </div>
                   )
                 })}
-                {(isGenerating || uploadingAssets) && (
+                {isGenerating && (
                   <div className="flex items-center gap-2 text-xs font-medium text-primary">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {uploadingAssets ? 'Uploading assets…' : `Generating ${imageCount} image${imageCount > 1 ? 's' : ''}…`}
+                    {`Generating ${imageCount} image${imageCount > 1 ? 's' : ''}…`}
                   </div>
                 )}
               </div>
@@ -1405,9 +1340,9 @@ export default function ImageGeneratorPage() {
                 <div className="flex-1" />
 
                 {/* Generate */}
-                {isGenerating || uploadingAssets ? (
+                {isGenerating ? (
                   <Button onClick={cancelGeneration} className="h-9 rounded-xl bg-red-500 px-4 text-white hover:bg-red-600">
-                    {uploadingAssets ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <CircleStop className="h-4 w-4 mr-1.5" />}Cancel
+                    <CircleStop className="h-4 w-4 mr-1.5" />Cancel
                   </Button>
                 ) : (
                   <Button onClick={handleGenerate} disabled={!prompt.trim()} className="h-9 rounded-xl px-4">
@@ -1429,15 +1364,6 @@ export default function ImageGeneratorPage() {
             <div className="flex items-center justify-between">
               <div><Label htmlFor="ig-enabled" className="text-sm font-medium">Enable Image Generation</Label><p className="text-xs text-muted-foreground mt-0.5">Turn on or off</p></div>
               <Switch id="ig-enabled" checked={settingsEnabled} onCheckedChange={setSettingsEnabled} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ig-token">useapi.net API Token{managed ? ' · optional (server-managed)' : ''}</Label>
-              <div className="relative">
-                <Input id="ig-token" type={showToken ? 'text' : 'password'} placeholder="user:XXXX-XXXXXXXXX" value={settingsToken} onChange={e => setSettingsToken(e.target.value)} className="pr-10" />
-                <button type="button" onClick={() => setShowToken(!showToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
             </div>
             <div className="space-y-2">
               <Label>Model</Label>
@@ -1463,13 +1389,12 @@ export default function ImageGeneratorPage() {
         /* Accounts + usage stats */
         <div className="flex-1 space-y-6 overflow-y-auto px-1 pb-6">
             <div className="space-y-4 mt-0">
-              {!hasToken ? (
+              {!managed ? (
                 <Card><CardContent className="pt-6">
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Settings className="h-12 w-12 mb-3 opacity-40" />
-                    <p>No API token configured</p>
-                    <p className="text-sm mb-4">Add your useapi.net token in settings first</p>
-                    <Button variant="outline" onClick={handleOpenSettings}><Settings className="h-4 w-4 mr-1.5" />Open Settings</Button>
+                    <p>Account management is not configured</p>
+                    <p className="text-sm mb-4">This server has no account credential, so there is nothing to manage here.</p>
                   </div>
                 </CardContent></Card>
               ) : (
@@ -1738,7 +1663,7 @@ export default function ImageGeneratorPage() {
                         <div className="space-y-2">
                           {Object.entries(byModel).sort((a, b) => b[1] - a[1]).map(([model, count]) => (
                             <div key={model} className="flex items-center justify-between p-2 rounded-lg bg-muted">
-                              <span className="text-sm font-medium">{IMAGE_GEN_MODELS.find(m => m.value === model)?.label || model}</span>
+                              <span className="text-sm font-medium">{modelLabel(model)}</span>
                               <Badge variant="secondary">{count} images</Badge>
                             </div>
                           ))}
@@ -1777,7 +1702,7 @@ export default function ImageGeneratorPage() {
           <DialogHeader>
             <DialogTitle className="text-sm font-normal text-muted-foreground line-clamp-2">{previewImage?.prompt}</DialogTitle>
             <DialogDescription className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium text-foreground/70">{IMAGE_GEN_MODELS.find(m => m.value === previewImage?.model)?.label || previewImage?.model}</span>
+              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium text-foreground/70">{modelLabel(previewImage?.model)}</span>
               <span className="opacity-30">·</span>
               <span>{previewImage?.aspectRatio}</span>
               {previewImage?.fileSize && <><span className="opacity-30">·</span><span>{formatFileSize(previewImage.fileSize)}</span></>}

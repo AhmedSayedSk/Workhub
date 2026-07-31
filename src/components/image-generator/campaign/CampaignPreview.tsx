@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/api-client'
 import { renderJobs } from '@/lib/firestore'
+import { pollDelayMs } from '@/lib/renderPoll'
 import { ArrowLeft, CalendarClock, Loader2, Facebook, Instagram, Linkedin, AlertCircle, ImageOff } from 'lucide-react'
 import type { Campaign, CampaignPost, RenderAspect, RenderJob } from '@/types'
 
@@ -68,6 +69,26 @@ export function CampaignPreview({
     if (!videoJobId) return
     return renderJobs.subscribe(videoJobId, setVideoJob)
   }, [videoJobId])
+  // The render service pushes a webhook only when a job finishes; this poll
+  // keeps the state moving in between and recovers a delivery that never
+  // arrived. It mirrors onto the job document, so the subscription above still
+  // delivers the update.
+  const videoActive = videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+  useEffect(() => {
+    if (!videoJobId || !videoActive) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let attempt = 0
+    let stopped = false
+    const tick = async () => {
+      attempt += 1
+      try { await authFetch(`/api/render-jobs/${videoJobId}/status`) } catch { /* next tick retries */ }
+      if (stopped) return
+      const delay = pollDelayMs(attempt)
+      if (delay !== null) timer = setTimeout(tick, delay)
+    }
+    void tick()
+    return () => { stopped = true; if (timer) clearTimeout(timer) }
+  }, [videoJobId, videoActive])
   const [starting, setStarting] = useState(false)
   const generateVideo = async () => {
     setStarting(true)
@@ -88,7 +109,7 @@ export function CampaignPreview({
       setStarting(false)
     }
   }
-  const videoRendering = starting || videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+  const videoRendering = starting || videoActive
 
   const selectedSlots = schedulable
     .filter((p) => included.has(p.id))

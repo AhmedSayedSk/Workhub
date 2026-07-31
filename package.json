@@ -33,6 +33,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test \"src/**/*.test.ts\"",
     "firebase:deploy": "firebase deploy",
     "firebase:deploy:rules": "firebase deploy --only firestore:rules",
     "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",

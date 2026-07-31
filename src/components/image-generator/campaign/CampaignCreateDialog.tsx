@@ -19,6 +19,9 @@ import { cn } from '@/lib/utils'
 import { Loader2, Sparkles, Plus, Megaphone, RectangleHorizontal, RectangleVertical, Square, ImageIcon, Upload } from 'lucide-react'
 import { CAMPAIGN_CTAS } from '@/lib/campaignCta'
 import { CAMPAIGN_STYLES, DEFAULT_CAMPAIGN_STYLE } from '@/lib/campaignStyles'
+// Single source of truth for the post cap — the planner clamps to the same
+// number, so the input must not offer more than it can deliver.
+import { MAX_POSTS } from '@/lib/adgenBrief'
 import type { NewCampaignInput } from '@/hooks/useCampaigns'
 import type { Campaign, CampaignAspect, CampaignLanguage, CampaignTextOption, Project, SocialPlatform } from '@/types'
 
@@ -158,7 +161,7 @@ export function CampaignCreateDialog({
             })()
           : {}),
         language: b.language || f.language,
-        count: b.count || f.count,
+        count: Math.min(MAX_POSTS, b.count || f.count),
         cadenceDays: b.cadenceDays || f.cadenceDays,
       }))
       toast.success('Brief suggested from project')
@@ -182,7 +185,7 @@ export function CampaignCreateDialog({
         audience: form.audience,
         tone: form.tone,
         cta: form.cta === 'auto' ? '' : form.cta === 'custom' ? form.ctaCustom.trim() : (CAMPAIGN_CTAS.find((p) => p.id === form.cta)?.directive || ''),
-        count: Math.max(1, Math.min(20, form.count)),
+        count: Math.max(1, Math.min(MAX_POSTS, form.count)),
         startDate: form.startDate,
         cadenceDays: Math.max(1, form.cadenceDays),
         postTime: form.postTime,
@@ -510,7 +513,7 @@ export function CampaignCreateDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Number of posts</Label>
-                <Input type="number" min={1} max={20} value={form.count} onChange={(e) => set('count', Number(e.target.value))} />
+                <Input type="number" min={1} max={MAX_POSTS} value={form.count} onChange={(e) => set('count', Number(e.target.value))} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Language</Label>
