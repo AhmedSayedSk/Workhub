@@ -122,6 +122,39 @@ describe('adgen client — transport', () => {
     assert.equal(calls[0].url, `${BASE}/v1/campaigns/a%2Fb%20c/hooks`)
   })
 
+  test('attachImages PUTs the urls to the campaign images path', async () => {
+    mockFetch(200, { posts: [{ id: 1, order: 0, imageUrl: 'https://cdn.test/a.png' }] })
+
+    const out = await adgen.attachImages('camp_1', [
+      { order: 0, url: 'https://cdn.test/a.png' },
+      { order: 2, url: 'https://cdn.test/c.png' },
+    ])
+
+    assert.equal(calls[0].url, `${BASE}/v1/campaigns/camp_1/images`)
+    assert.equal(calls[0].method, 'PUT')
+    assert.deepEqual(calls[0].body, {
+      images: [
+        { order: 0, url: 'https://cdn.test/a.png' },
+        { order: 2, url: 'https://cdn.test/c.png' },
+      ],
+    })
+    assert.equal(out.posts?.[0].imageUrl, 'https://cdn.test/a.png')
+  })
+
+  test('attachImages url-encodes the campaign id and surfaces a refusal', async () => {
+    mockFetch(409, { error: 'An image batch is already running for this campaign' })
+
+    const err = await adgen.attachImages('a/b', [{ order: 0, url: 'https://cdn.test/a.png' }]).then(
+      () => null,
+      (e: unknown) => e as AdGenError
+    )
+
+    assert.equal(calls[0].url, `${BASE}/v1/campaigns/a%2Fb/images`)
+    assert.ok(err instanceof AdGenError)
+    assert.equal(err.status, 409)
+    assert.match(err.message, /already running/)
+  })
+
   test('renderVideo POSTs the options and returns the job id', async () => {
     mockFetch(200, { jobId: 'job_9' })
 

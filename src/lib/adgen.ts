@@ -269,6 +269,27 @@ export function hooks(campaignId: string, params: AdGenHooksParams = {}): Promis
 }
 
 /**
+ * Attach images WorkHub already generated to the service's copy of the campaign.
+ *
+ * Images are generated here (and re-hosted in Storage), so the service's posts
+ * hold no URLs of their own — and a render reads exactly that column. Without
+ * this call every render is refused as having no images.
+ *
+ * `order` addresses the post, not its position in this array: the caller sends
+ * only the posts that HAVE an image, so the two drift apart the moment one post
+ * is missing its picture.
+ */
+export function attachImages(
+  campaignId: string,
+  images: Array<{ order: number; url: string }>
+): Promise<{ posts?: AdGenPost[] }> {
+  return request<{ posts?: AdGenPost[] }>(`/v1/campaigns/${encodeURIComponent(campaignId)}/images`, {
+    method: 'PUT',
+    body: { images },
+  })
+}
+
+/**
  * Queue a campaign video render. Returns the job to poll with `getJob`.
  * `jobId` is validated for the same reason `createCampaign` validates `id`.
  */
@@ -296,4 +317,4 @@ export function cancelJob(jobId: string): Promise<AdGenCancelResult> {
   })
 }
 
-export const adgen = { createCampaign, hooks, renderVideo, getJob, cancelJob }
+export const adgen = { createCampaign, hooks, attachImages, renderVideo, getJob, cancelJob }

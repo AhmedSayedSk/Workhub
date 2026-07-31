@@ -185,7 +185,18 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
 
   let adgenJobId: string
   try {
-    ({ jobId: adgenJobId } = await adgen.renderVideo(adgenCampaignId, options))
+    // The service plans the campaign but never generates its images — those are
+    // made here and re-hosted in Storage — so its own posts hold no URLs, and a
+    // render reads exactly that column. Hand it the approved images first, or
+    // every render comes back "no generated images yet".
+    //
+    // Keyed on each post's own `order` (the position the plan gave it), not on
+    // the index in this array: posts without an image are filtered out above.
+    await adgen.attachImages(
+      adgenCampaignId,
+      posts.map((p, i) => ({ order: typeof p.order === 'number' ? p.order : i, url: String(p.imageUrl) }))
+    )
+    ;({ jobId: adgenJobId } = await adgen.renderVideo(adgenCampaignId, options))
   } catch (e) {
     const status = e instanceof AdGenError ? e.status : 500
     // AdGenError messages are already scrubbed of the service credential.
