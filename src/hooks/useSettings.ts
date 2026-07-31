@@ -226,10 +226,6 @@ export function useSettings() {
     setBreakReminderMinutes,
     setNotifyCalendarEvents,
     setCalendarEventHoursBefore,
-    setImageGenApiToken: useCallback(
-      async (token: string | null) => { await updateSettings({ imageGenApiToken: token }) },
-      [updateSettings]
-    ),
     setImageGenModel: useCallback(
       async (model: ImageGenModel) => { await updateSettings({ imageGenModel: model }) },
       [updateSettings]

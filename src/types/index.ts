@@ -521,8 +521,10 @@ export interface ImageAssetFolderInput {
   userId: string
 }
 
-// AI Image Generation types (useapi.net)
-export type ImageGenModel = 'imagen-4' | 'nano-banana' | 'nano-banana-2' | 'nano-banana-pro'
+// AI Image Generation types. `model` is one of the public model names; rows
+// written before the image-service migration still hold a legacy id, which
+// `@/lib/imageModels` translates on the way to the screen.
+export type ImageGenModel = 'flash' | 'studio' | 'vivid'
 
 export type ImageGenAspectRatio = 'landscape' | 'portrait' | 'square'
 
@@ -605,7 +607,6 @@ export interface Campaign {
   imageInstructions?: string // user's custom instructions applied to every image
   textOnImage?: CampaignTextOption // render post headline/body text on the generated image
   brandImageUrl?: string // logo/custom image fed as a reference into every generation
-  brandImageRefs?: Record<string, string> // per-account mediaGenerationIds for the brand reference
   status: CampaignStatus
   postCount?: number
   scheduledCount?: number
@@ -723,7 +724,6 @@ export interface AppSettings {
   breakReminderMinutes: number
   notifyCalendarEvents: boolean
   calendarEventHoursBefore: number
-  imageGenApiToken?: string | null
   imageGenModel?: ImageGenModel
   imageGenEnabled?: boolean
   imageGenDisabledEmails?: string[]
@@ -762,7 +762,6 @@ export interface AppSettingsInput {
   breakReminderMinutes?: number
   notifyCalendarEvents?: boolean
   calendarEventHoursBefore?: number
-  imageGenApiToken?: string | null
   imageGenModel?: ImageGenModel
   imageGenEnabled?: boolean
   imageGenDisabledEmails?: string[]
