@@ -188,7 +188,7 @@ function redact(text: string, key: string): string {
 }
 
 interface RequestInit_ {
-  method: 'GET' | 'POST' | 'DELETE'
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   timeoutMs?: number
 }
