@@ -18,6 +18,44 @@ export const runtime = 'nodejs'
 const db = () => admin.firestore()
 const T = admin.firestore.Timestamp
 
+/**
+ * Always a non-empty string. `planError` is written with it, and firebase-admin
+ * throws *synchronously* on an undefined field value — which would escape the
+ * trailing `.catch()` and strand the campaign on `planning` forever.
+ */
+function errorMessage(e: unknown): string {
+  if (e instanceof Error && e.message) return e.message
+  if (typeof e === 'string' && e.trim()) return e.trim()
+  return 'Campaign planning failed'
+}
+
+/**
+ * The product/brand context AdGen writes the copy from: brand name alone is far
+ * too thin, so describe the project behind the campaign.
+ */
+async function projectContext(camp: CampaignDoc & { projectId?: string }): Promise<string> {
+  const fallback = camp.brand?.name || ''
+  if (!camp.projectId) return fallback
+  try {
+    const proj = (await db().collection('projects').doc(camp.projectId).get()).data() as
+      | { name?: string; description?: string; projectType?: string; clientName?: string }
+      | undefined
+    if (!proj) return fallback
+    return (
+      [
+        proj.name,
+        proj.description,
+        proj.projectType ? `Type: ${proj.projectType}` : '',
+        proj.clientName ? `Client: ${proj.clientName}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n') || fallback
+    )
+  } catch {
+    return fallback
+  }
+}
+
 export async function POST(request: NextRequest) {
   const authError = await requireModule(request, 'accessImageGenerator')
   if (authError) return authError
@@ -29,7 +67,7 @@ export async function POST(request: NextRequest) {
     const ref = db().collection('campaigns').doc(campaignId)
     const snap = await ref.get()
     if (!snap.exists) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-    const camp = snap.data() as CampaignDoc
+    const camp = snap.data() as CampaignDoc & { projectId?: string }
 
     // Flip to planning right away so every client reflects it.
     await ref.update({ status: 'planning', planError: null, updatedAt: T.now() })
@@ -39,8 +77,9 @@ export async function POST(request: NextRequest) {
         // Campaigns carry no market of their own; use the language's default,
         // the same fallback the hooks and render routes apply.
         const market = resolveMarket(undefined, campaignLanguage(camp)).code
-        const campaign = await adgen.createCampaign(campaignToBrief(camp, market))
-        const posts = campaign.posts || []
+        const context = await projectContext(camp)
+        const campaign = await adgen.createCampaign(campaignToBrief(camp, { market, context }))
+        const posts = campaign.posts
         if (posts.length === 0) throw new Error('No posts were generated')
 
         // Replace any existing draft posts.
@@ -80,14 +119,18 @@ export async function POST(request: NextRequest) {
           updatedAt: T.now(),
         })
       } catch (e) {
-        await ref
-          .update({ status: 'draft', planError: (e as Error).message, updatedAt: T.now() })
-          .catch(() => {})
+        // Must always reach a terminal status — a campaign left on `planning`
+        // shows a spinner that never resolves.
+        try {
+          await ref.update({ status: 'draft', planError: errorMessage(e), updatedAt: T.now() })
+        } catch {
+          /* the campaign doc is gone or Firestore is down; nothing left to do */
+        }
       }
     })
 
     return NextResponse.json({ ok: true }, { status: 202 })
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    return NextResponse.json({ error: errorMessage(e) }, { status: 500 })
   }
 }
