@@ -107,9 +107,25 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // Settings — any authenticated user (app-wide)
+    // Settings — any authenticated user (app-wide).
+    //
+    // This doc is readable by EVERY signed-in user, so it must never hold a
+    // credential. It used to: a live vendor API token sat here in
+    // `imageGenApiToken` (world-readable AND world-writable, and the browser
+    // put it in a `?token=` query string), until the 2026-07-31 AdGen switch
+    // moved every key server-side and the field was purged. Service credentials
+    // now live only in the deployment's env.
+    //
+    // The deny-list below stops one being reintroduced by accident. It is not a
+    // secrecy mechanism — it is a tripwire, and it fires at write time so the
+    // mistake surfaces immediately instead of sitting readable for months.
     match /settings/{settingId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated()
+        && !request.resource.data.keys().hasAny([
+          'imageGenApiToken', 'imageGenApiKey',
+          'apiToken', 'apiKey', 'token', 'secret', 'password', 'credential'
+        ]);
     }
 
     // Media — any authenticated user
