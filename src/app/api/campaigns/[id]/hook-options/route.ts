@@ -43,7 +43,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   }
 
   try {
-    const { options } = await adgen.hooks(adgenCampaignId, { market: market.code, force: !!body.force })
+    const { options, cached: adgenCached } = await adgen.hooks(adgenCampaignId, {
+      market: market.code,
+      force: !!body.force,
+    })
     if (!options?.length) {
       return NextResponse.json({ error: 'No hook options were generated' }, { status: 502 })
     }
@@ -52,7 +55,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       .collection('campaigns')
       .doc(id)
       .set({ hookOptions: { items: options, market: market.code, updatedAt: Date.now() } }, { merge: true })
-    return NextResponse.json({ options })
+    // AdGen keeps its own 24h per-market cache, so a call that skipped our cache
+    // can still be served from theirs — report that rather than implying it was
+    // freshly written.
+    return NextResponse.json({ options, ...(adgenCached ? { cached: true } : {}) })
   } catch (e) {
     const status = e instanceof AdGenError ? e.status : 500
     return NextResponse.json({ error: (e as Error).message }, { status })

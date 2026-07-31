@@ -609,6 +609,7 @@ export interface Campaign {
   status: CampaignStatus
   postCount?: number
   scheduledCount?: number
+  adgenCampaignId?: string // the AdGen campaign this plan came from (hooks + video need it)
   planError?: string | null
   createdBy: string
   createdAt: Timestamp
