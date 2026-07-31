@@ -68,6 +68,18 @@ export function CampaignPreview({
     if (!videoJobId) return
     return renderJobs.subscribe(videoJobId, setVideoJob)
   }, [videoJobId])
+  // The render service pushes a webhook only when a job finishes; this poll
+  // keeps the state moving in between and recovers a delivery that never
+  // arrived. It mirrors onto the job document, so the subscription above still
+  // delivers the update.
+  const videoActive = videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+  useEffect(() => {
+    if (!videoJobId || !videoActive) return
+    const tick = () => { void authFetch(`/api/render-jobs/${videoJobId}/status`).catch(() => { /* next tick retries */ }) }
+    tick()
+    const t = setInterval(tick, 4000)
+    return () => clearInterval(t)
+  }, [videoJobId, videoActive])
   const [starting, setStarting] = useState(false)
   const generateVideo = async () => {
     setStarting(true)
@@ -88,7 +100,7 @@ export function CampaignPreview({
       setStarting(false)
     }
   }
-  const videoRendering = starting || videoJob?.status === 'queued' || videoJob?.status === 'rendering'
+  const videoRendering = starting || videoActive
 
   const selectedSlots = schedulable
     .filter((p) => included.has(p.id))

@@ -247,6 +247,19 @@ export function CampaignTab() {
     const res = await authFetch(`/api/render-jobs/${id}/cancel`, { method: 'POST' })
     if (!res.ok) toast.error('Could not stop the render')
   }
+  // Progress ticks. The render service only pushes a webhook when a job
+  // FINISHES, so nothing would move the bar between 0 and 100 on its own. While
+  // a render is live we ask the status route, which mirrors the answer onto the
+  // job document the subscription above is already watching — so the update
+  // still arrives through Firestore and there is one source of truth.
+  useEffect(() => {
+    const id = videoJob?.id || lastRenderJobId.current
+    if (!activeVideo || !id) return
+    const tick = () => { void authFetch(`/api/render-jobs/${id}/status`).catch(() => { /* next tick retries */ }) }
+    tick()
+    const t = setInterval(tick, 4000)
+    return () => clearInterval(t)
+  }, [activeVideo, videoJob?.id])
   // True download (no new tab): cross-origin `download` attrs are ignored by
   // browsers, so fetch the MP4 via our storage proxy and save it as a blob.
   const [downloadingVideo, setDownloadingVideo] = useState(false)
