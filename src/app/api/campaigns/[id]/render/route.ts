@@ -112,7 +112,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     const all = postsSnap.docs.map((d) => d.data() as any)
     return NextResponse.json(
       {
-        error: 'Campaign has no generated images yet',
+        error: 'DIAGPROBE no images',
         _diag: {
           queriedId: id,
           docsForCampaign: postsSnap.size,
