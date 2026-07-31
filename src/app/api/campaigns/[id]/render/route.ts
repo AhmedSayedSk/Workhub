@@ -107,26 +107,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     .filter((p) => p.imageUrl)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     .slice(0, 6)
-  if (!posts.length) {
-    // TEMP DIAGNOSTIC — remove once the render path is verified.
-    const all = postsSnap.docs.map((d) => d.data() as any)
-    return NextResponse.json(
-      {
-        error: 'DIAGPROBE no images',
-        _diag: {
-          queriedId: id,
-          docsForCampaign: postsSnap.size,
-          withImageUrl: all.filter((p) => p.imageUrl).length,
-          sampleCampaignIds: all.slice(0, 3).map((p) => p.campaignId),
-          projectId: (admin.app().options.credential as any)?.projectId
-            ?? (admin.app().options as any)?.projectId ?? null,
-          appName: admin.app().name,
-          appCount: admin.apps.length,
-        },
-      },
-      { status: 400 }
-    )
-  }
+  if (!posts.length) return NextResponse.json({ error: 'Campaign has no generated images yet' }, { status: 400 })
 
   // Optional per-render override from the modal's Project name input.
   const brandName = (typeof body.brandName === 'string' && body.brandName.trim())
