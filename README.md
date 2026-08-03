@@ -15,7 +15,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-[ Star this repo](https://github.com/AhmedSayedSk/workhub) · [ Quick Start](#-quick-start) · [ Screenshots](#-screenshots) · [ Features](#-features)
+[Star this repo](https://github.com/AhmedSayedSk/workhub) · [Quick Start](#quick-start) · [Screenshots](#screenshots) · [Features](#features)
 
 <img src="public/screenshots/dashboard.png" alt="WorkHub dashboard — active projects, pending tasks, time tracked, and financial overview" width="100%" />
 
@@ -31,15 +31,15 @@ WorkHub is an all-in-one, self-hosted workspace for **freelancers and small team
 |---|:---:|:---:|:---:|:---:|:---:|
 | Time tracking & live timers | Yes | Yes | Yes | No | No |
 | Kanban / tasks | Yes | No | No | Yes | Yes |
-| Invoicing & payments | Yes | | Yes | No | No |
-| Calendar | Yes | No | No | Yes | |
+| Invoicing & payments | Yes | No | Yes | No | No |
+| Calendar | Yes | No | No | Yes | Add-on |
 | Media library | Yes | No | No | Yes | No |
-| AI assistant | Yes | No | No | | No |
+| AI assistant | Yes | No | No | Paid | No |
 | Self-hosted (your data) | Yes | No | No | No | No |
 | Free & source-available | Yes¹ | No | No | No | No |
 | All-in-one (no tool juggling) | Yes | No | No | No | No |
 
-<sub>Yes built-in · paid tier / add-on · via third-party power-up · No not available. ¹ WorkHub is source-available and **free for personal use**; commercial use requires a license — see [License](#-license).</sub>
+<sub>Yes = built-in · Paid = paid tier or add-on · Add-on = via third-party integration or power-up · No = not available. ¹ WorkHub is source-available and **free for personal use**; commercial use requires a license — see [License](#license).</sub>
 
 ## Features
 
