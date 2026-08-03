@@ -15,7 +15,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-[⭐ Star this repo](https://github.com/AhmedSayedSk/workhub) · [🚀 Quick Start](#-quick-start) · [📸 Screenshots](#-screenshots) · [✨ Features](#-features)
+[ Star this repo](https://github.com/AhmedSayedSk/workhub) · [ Quick Start](#-quick-start) · [ Screenshots](#-screenshots) · [ Features](#-features)
 
 <img src="public/screenshots/dashboard.png" alt="WorkHub dashboard — active projects, pending tasks, time tracked, and financial overview" width="100%" />
 
@@ -29,66 +29,66 @@ WorkHub is an all-in-one, self-hosted workspace for **freelancers and small team
 
 | | **WorkHub** | Toggl | Harvest | Notion | Trello |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Time tracking & live timers | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Kanban / tasks | ✅ | ❌ | ❌ | ✅ | ✅ |
-| Invoicing & payments | ✅ | 💰 | ✅ | ❌ | ❌ |
-| Calendar | ✅ | ❌ | ❌ | ✅ | 🧩 |
-| Media library | ✅ | ❌ | ❌ | ✅ | ❌ |
-| AI assistant | ✅ | ❌ | ❌ | 💰 | ❌ |
-| Self-hosted (your data) | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Free & source-available | ✅¹ | ❌ | ❌ | ❌ | ❌ |
-| All-in-one (no tool juggling) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Time tracking & live timers | Yes | Yes | Yes | No | No |
+| Kanban / tasks | Yes | No | No | Yes | Yes |
+| Invoicing & payments | Yes | | Yes | No | No |
+| Calendar | Yes | No | No | Yes | |
+| Media library | Yes | No | No | Yes | No |
+| AI assistant | Yes | No | No | | No |
+| Self-hosted (your data) | Yes | No | No | No | No |
+| Free & source-available | Yes¹ | No | No | No | No |
+| All-in-one (no tool juggling) | Yes | No | No | No | No |
 
-<sub>✅ built-in · 💰 paid tier / add-on · 🧩 via third-party power-up · ❌ not available. ¹ WorkHub is source-available and **free for personal use**; commercial use requires a license — see [License](#-license).</sub>
+<sub>Yes built-in · paid tier / add-on · via third-party power-up · No not available. ¹ WorkHub is source-available and **free for personal use**; commercial use requires a license — see [License](#-license).</sub>
 
-## ✨ Features
+## Features
 
-**📋 Projects & Tasks**
-- 🗂 Multi-tier hierarchy: Systems → Projects → Features → Tasks → Subtasks
-- 🎯 Kanban board with drag-and-drop reordering across To Do / In Progress / Review / Done
-- 🏷 Color-coded task types (Task, Bug, Feature, Improvement, Docs, Research) and priorities (Low → Critical)
-- 💬 Threaded comments on tasks and subtasks
-- 🔀 Sub-projects with shared or independent finances
-- 🗄 Archive clutter or flag blocked tasks as "Waiting" — orthogonal to status
+** Projects & Tasks**
+- Multi-tier hierarchy: Systems → Projects → Features → Tasks → Subtasks
+- Kanban board with drag-and-drop reordering across To Do / In Progress / Review / Done
+- Color-coded task types (Task, Bug, Feature, Improvement, Docs, Research) and priorities (Low → Critical)
+- Threaded comments on tasks and subtasks
+- Sub-projects with shared or independent finances
+- Archive clutter or flag blocked tasks as "Waiting" — orthogonal to status
 
 **⏱ Time Tracking**
-- ▶️ Live timer widget — start, pause, resume, stop from anywhere in the app
-- 🧭 Persistent timer that survives page navigation (Zustand + localStorage)
-- ✍️ Manual entry for retroactive logging, down to the subtask
-- 📊 Daily and weekly summaries on the dashboard
+- ▶ Live timer widget — start, pause, resume, stop from anywhere in the app
+- Persistent timer that survives page navigation (Zustand + localStorage)
+- Manual entry for retroactive logging, down to the subtask
+- Daily and weekly summaries on the dashboard
 
-**💰 Finance & Invoicing**
-- 💳 Payment models: milestone-based, monthly, fixed-price, and internal
-- 🎯 Milestone tracking with pending / completed / paid statuses
-- 🔁 Monthly payment management with full payment history
-- 📈 Know exactly what each client owes you — total owed, total received, next deadline
-- 📉 Earnings visualized with interactive charts and per-project breakdowns
+** Finance & Invoicing**
+- Payment models: milestone-based, monthly, fixed-price, and internal
+- Milestone tracking with pending / completed / paid statuses
+- Monthly payment management with full payment history
+- Know exactly what each client owes you — total owed, total received, next deadline
+- Earnings visualized with interactive charts and per-project breakdowns
 
-**📅 Calendar & Scheduling**
-- 🗓 Month, week, day, and list views (FullCalendar)
-- 🖱 Drag-and-drop and resizable events
-- 🎨 Category color-coding (Work, Meeting, Deadline, Personal, Reminder) and status tracking
+** Calendar & Scheduling**
+- Month, week, day, and list views (FullCalendar)
+- Drag-and-drop and resizable events
+- Category color-coding (Work, Meeting, Deadline, Personal, Reminder) and status tracking
 
-**🖼 Media Library**
-- 📁 Folder hierarchy with breadcrumb navigation
-- ⬆️ Drag-and-drop upload with progress tracking
-- 🗜 Automatic client-side image compression (configurable quality/dimensions)
-- 🔗 Link files to projects and tasks; grid/list views and filters
+** Media Library**
+- Folder hierarchy with breadcrumb navigation
+- Drag-and-drop upload with progress tracking
+- Automatic client-side image compression (configurable quality/dimensions)
+- Link files to projects and tasks; grid/list views and filters
 
-**🤖 AI Assistant** *(optional — needs a Gemini key)*
-- 🧩 Task breakdown — generate subtask suggestions from a feature description
+** AI Assistant** *(optional — needs a Gemini key)*
+- Task breakdown — generate subtask suggestions from a feature description
 - ⏳ AI-powered time/effort estimates
-- 📌 Productivity insights on project health and work patterns
-- 🌐 Built-in web search (DuckDuckGo) and URL content fetching
-- 🔌 Gracefully disabled when no API key is set — everything else works without it
+- Productivity insights on project health and work patterns
+- Built-in web search (DuckDuckGo) and URL content fetching
+- Gracefully disabled when no API key is set — everything else works without it
 
-**🔒 Extras**
-- 🗝 Per-project Vault for sensitive notes, passwords, and files (passkey-protected)
-- 🌗 Full dark mode, responsive layout, and deep-linkable tab navigation
-- ⚡ Optimistic UI on every operation — instant feedback, automatic rollback on error
-- 🧠 Optional MCP server so AI agents (Claude and others) can drive your time tracking
+** Extras**
+- Per-project Vault for sensitive notes, passwords, and files (passkey-protected)
+- Full dark mode, responsive layout, and deep-linkable tab navigation
+- Optimistic UI on every operation — instant feedback, automatic rollback on error
+- Optional MCP server so AI agents (Claude and others) can drive your time tracking
 
-## 📸 Screenshots
+## Screenshots
 
 > Shown in dark mode. Light mode is fully supported.
 
@@ -108,12 +108,12 @@ WorkHub is an all-in-one, self-hosted workspace for **freelancers and small team
 | Daily breakdowns, project distribution, and detailed time-entry logs. | Upload, organize, and link files to projects with automatic optimization. |
 
 <p align="center">
-  <img src="public/screenshots/ai-assistant.png" alt="AI assistant" width="70%" />
-  <br/>
-  <sub><strong>AI Assistant</strong> — task breakdowns, time estimates, and productivity insights powered by Google Gemini.</sub>
+ <img src="public/screenshots/ai-assistant.png" alt="AI assistant" width="70%" />
+ <br/>
+ <sub><strong>AI Assistant</strong> — task breakdowns, time estimates, and productivity insights powered by Google Gemini.</sub>
 </p>
 
-## 🚀 Quick start
+## Quick start
 
 **Prerequisites**
 - **Node.js 22+** (see `.nvmrc`) and npm
@@ -175,7 +175,7 @@ Prefer containers? A dev `docker-compose.yml` (and `Dockerfile` / `Dockerfile.de
 docker compose up
 ```
 
-## 🛠 Tech stack
+## Tech stack
 
 | Category | Technology |
 |---|---|
@@ -195,24 +195,24 @@ docker compose up
 | **Email** | [Nodemailer](https://nodemailer.com/) |
 | **Automation** | [Model Context Protocol](https://modelcontextprotocol.io/) server (AI-agent time tracking) |
 
-## 🤝 Contributing
+## Contributing
 
 PRs are welcome — whether it's a bug fix, a new feature, docs, or accessibility work. Start with the [Contributing Guide](docs/CONTRIBUTING.md) for local setup (Firebase included), code style, and the PR process. By participating you agree to the [Code of Conduct](docs/CODE_OF_CONDUCT.md).
 
 Good places to jump in:
-- 🧪 **Testing** — unit and integration coverage
-- ♿ **Accessibility** — keyboard nav, ARIA, screen-reader support
-- 🌍 **Internationalization** — multi-language support
-- 📱 **Mobile** — responsive polish for phones
-- ⚡ **Performance** — Firestore query and bundle-size wins
+- **Testing** — unit and integration coverage
+- **Accessibility** — keyboard nav, ARIA, screen-reader support
+- **Internationalization** — multi-language support
+- **Mobile** — responsive polish for phones
+- **Performance** — Firestore query and bundle-size wins
 
 New here? Filter issues by **good first issue** to find a gentle starting point, or [open an issue](https://github.com/AhmedSayedSk/workhub/issues) with your question — we're happy to help. Found a security issue? See the [Security Policy](docs/SECURITY.md) for responsible disclosure.
 
-## ⭐ If WorkHub is useful to you, please star it
+## If WorkHub is useful to you, please star it
 
-A star costs nothing, helps other freelancers and small teams discover the project, and genuinely motivates continued development. **[⭐ Star WorkHub on GitHub](https://github.com/AhmedSayedSk/workhub)**
+A star costs nothing, helps other freelancers and small teams discover the project, and genuinely motivates continued development. **[ Star WorkHub on GitHub](https://github.com/AhmedSayedSk/workhub)**
 
-## 📄 License
+## License
 
 Licensed under the [Sikasio Source Available License](LICENSE).
 
@@ -248,6 +248,6 @@ It's built for freelancers and small teams, not enterprises: project management,
 
 **Built by [Sikasio](https://sikasio.com)** — From Chaos to Clarity
 
-[Report Bug](https://github.com/AhmedSayedSk/workhub/issues) · [Request Feature](https://github.com/AhmedSayedSk/workhub/issues) · [⭐ Star on GitHub](https://github.com/AhmedSayedSk/workhub)
+[Report Bug](https://github.com/AhmedSayedSk/workhub/issues) · [Request Feature](https://github.com/AhmedSayedSk/workhub/issues) · [ Star on GitHub](https://github.com/AhmedSayedSk/workhub)
 
 </div>
