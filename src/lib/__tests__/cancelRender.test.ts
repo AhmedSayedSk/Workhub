@@ -60,9 +60,12 @@ test('cancelled writes a full terminal patch', () => {
 
 test('requested only flags the job — it must not fabricate a terminal status', () => {
   const patch = cancelPatch('requested', 1_700_000_000_000)
-  assert.deepEqual(patch, { cancelRequested: true })
+  // Check the terminal fields are absent BEFORE the deepEqual below: a strict
+  // deepEqual narrows `patch` to exactly `{ cancelRequested: true }`, after
+  // which these property reads would not type-check.
   assert.equal(patch!.status, undefined)
   assert.equal(patch!.finishedAt, undefined)
+  assert.deepEqual(patch, { cancelRequested: true })
 })
 
 test('settled writes nothing, so a finished render is never relabelled', () => {

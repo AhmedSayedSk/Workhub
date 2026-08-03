@@ -279,11 +279,20 @@ export function hooks(campaignId: string, params: AdGenHooksParams = {}): Promis
  * only the posts that HAVE an image, so the two drift apart the moment one post
  * is missing its picture.
  */
+/** A post as returned by the images endpoint: the plan's post with its
+ * re-hosted image URL attached. Distinct from {@link AdGenPost} (the creative
+ * copy), which carries no URLs. */
+export interface AdGenAttachedImage {
+  id: number
+  order: number
+  imageUrl: string
+}
+
 export function attachImages(
   campaignId: string,
   images: Array<{ order: number; url: string }>
-): Promise<{ posts?: AdGenPost[] }> {
-  return request<{ posts?: AdGenPost[] }>(`/v1/campaigns/${encodeURIComponent(campaignId)}/images`, {
+): Promise<{ posts?: AdGenAttachedImage[] }> {
+  return request<{ posts?: AdGenAttachedImage[] }>(`/v1/campaigns/${encodeURIComponent(campaignId)}/images`, {
     method: 'PUT',
     body: { images },
   })
