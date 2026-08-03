@@ -29,17 +29,17 @@ WorkHub is an all-in-one, self-hosted workspace for **freelancers and small team
 
 | | **WorkHub** | Toggl | Harvest | Notion | Trello |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Time tracking & live timers | Yes | Yes | Yes | No | No |
-| Kanban / tasks | Yes | No | No | Yes | Yes |
-| Invoicing & payments | Yes | No | Yes | No | No |
-| Calendar | Yes | No | No | Yes | Add-on |
-| Media library | Yes | No | No | Yes | No |
-| AI assistant | Yes | No | No | Paid | No |
-| Self-hosted (your data) | Yes | No | No | No | No |
-| Free & source-available | Yes¹ | No | No | No | No |
-| All-in-one (no tool juggling) | Yes | No | No | No | No |
+| Time tracking & live timers | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Kanban / tasks | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Invoicing & payments | ✅ | ❌ | ✅ | ❌ | ❌ |
+| Calendar | ✅ | ❌ | ❌ | ✅ | 🔌 Add-on |
+| Media library | ✅ | ❌ | ❌ | ✅ | ❌ |
+| AI assistant | ✅ | ❌ | ❌ | 💲 Paid | ❌ |
+| Self-hosted (your data) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Free & source-available | ✅¹ | ❌ | ❌ | ❌ | ❌ |
+| All-in-one (no tool juggling) | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-<sub>Yes = built-in · Paid = paid tier or add-on · Add-on = via third-party integration or power-up · No = not available. ¹ WorkHub is source-available and **free for personal use**; commercial use requires a license — see [License](#license).</sub>
+<sub>✅ = built-in · 💲 = paid tier or add-on · 🔌 = via third-party integration or power-up · ❌ = not available. ¹ WorkHub is source-available and **free for personal use**; commercial use requires a license — see [License](#license).</sub>
 
 ## Features
 
