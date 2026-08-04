@@ -14,7 +14,7 @@ import { SecurityDialog } from './SecurityDialog'
 import { CertList } from './CertList'
 import { MetricCharts } from './MetricCharts'
 import { AppsTable } from './AppsTable'
-import { ServerIps } from './ServerIps'
+import { ServerIpsCard } from './ServerIps'
 
 const POLL_MS = 5000
 
@@ -50,7 +50,6 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             {stats?.meta?.subtitle || 'Live VPS stats'}
             {stats?.remote && stats.receivedAtMs ? ` · remote · updated ${Math.round(staleMs / 1000)}s ago` : stats ? ` · updated ${new Date(stats.generatedAtMs).toLocaleTimeString()}` : ''}
           </p>
-          <ServerIps ips={stats?.meta?.ips} className="mt-1.5" />
         </div>
       </HeaderTitle>
       <HeaderActions>
@@ -71,7 +70,10 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           )}
           <AlertBanner alerts={stats.alerts} />
           <div className="grid gap-4 lg:grid-cols-12">
-            <div className="lg:col-span-7"><MetricCharts host={stats.host} serverId={serverId} /></div>
+            <div className="space-y-4 lg:col-span-7">
+              <MetricCharts host={stats.host} serverId={serverId} />
+              <ServerIpsCard ips={stats.meta?.ips} />
+            </div>
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
               {stats.certs && <CertList certs={stats.certs} />}
