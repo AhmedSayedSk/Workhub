@@ -14,6 +14,7 @@ import { SecurityDialog } from './SecurityDialog'
 import { CertList } from './CertList'
 import { MetricCharts } from './MetricCharts'
 import { AppsTable } from './AppsTable'
+import { ServerIps } from './ServerIps'
 
 const POLL_MS = 5000
 
@@ -49,6 +50,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             {stats?.meta?.subtitle || 'Live VPS stats'}
             {stats?.remote && stats.receivedAtMs ? ` · remote · updated ${Math.round(staleMs / 1000)}s ago` : stats ? ` · updated ${new Date(stats.generatedAtMs).toLocaleTimeString()}` : ''}
           </p>
+          <ServerIps ips={stats?.meta?.ips} className="mt-1.5" />
         </div>
       </HeaderTitle>
       <HeaderActions>

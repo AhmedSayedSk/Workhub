@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
   }
   const out: ServerSummary[] = []
   for (const s of SERVERS) {
-    const base = { id: s.id, name: s.name, subtitle: s.subtitle, mode: s.mode }
+    const base = { id: s.id, name: s.name, subtitle: s.subtitle, mode: s.mode, ips: s.ips }
     try {
       if (s.mode === 'local') {
         out.push({ ...base, online: true, updatedAtMs: Date.now(), ...(await summarizeLocal()) })

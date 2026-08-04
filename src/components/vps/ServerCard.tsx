@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Server, AlertTriangle, Cpu, MemoryStick, HardDrive, Boxes } from 'lucide-react'
 import type { ServerSummary } from '@/lib/server/vps/types'
 import { formatBytes } from './format'
+import { ServerIps } from './ServerIps'
 import { cn } from '@/lib/utils'
 
 // Threshold colouring so a glance reads health: green ok, amber busy, red hot.
@@ -44,6 +45,7 @@ export function ServerCard({ server }: { server: ServerSummary }) {
             <div className="min-w-0">
               <div className="truncate text-base font-semibold leading-tight">{server.name}</div>
               <div className="truncate text-xs text-muted-foreground">{server.subtitle}</div>
+              <ServerIps ips={server.ips} className="mt-1.5" />
             </div>
           </div>
           <span

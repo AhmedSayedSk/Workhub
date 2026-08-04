@@ -93,6 +93,10 @@ export interface SectionError {
 export interface VpsMeta {
   name: string // display name shown as the page title
   subtitle: string
+  // Public IPs this server answers on — what its domains' DNS records point at.
+  // Injected from the registry by the stats route, so one .env is the source of
+  // truth for both the local box and every agent-reported one. Empty = unset.
+  ips?: string[]
 }
 
 // One persisted time-series sample (written every minute, charted over time).
@@ -153,6 +157,8 @@ export interface ServerDef {
   name: string
   subtitle: string
   mode: 'local' | 'remote'
+  /** Public IPs the server answers on. Empty when none is configured. */
+  ips: string[]
 }
 
 // One server the ops dashboard can show. 'local' = the WorkHub host (collected
@@ -162,6 +168,7 @@ export interface ServerSummary {
   name: string
   subtitle: string
   mode: 'local' | 'remote'
+  ips: string[] // public IPs, from the registry; empty when unconfigured
   online: boolean
   updatedAtMs: number | null // last snapshot/sample time; null if never
   cpuPct: number | null
