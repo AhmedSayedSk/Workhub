@@ -1,10 +1,28 @@
+import fs from 'fs'
+import path from 'path'
 import tls from 'tls'
 import type { CertInfo } from './types'
 
 // TLS cert expiry per domain. We open a TLS handshake to each domain and read
-// the peer cert's notAfter. Domains are auto-discovered from edge-caddy's admin
-// API, falling back to the VPS_CERT_DOMAINS env list. Results cached ~1h since
-// expiry changes slowly and handshakes are comparatively expensive.
+// the peer cert's notAfter. Results cached ~1h since expiry changes slowly and
+// handshakes are comparatively expensive.
+//
+// Domains come from three sources, merged (first that yields anything wins
+// nothing - they are unioned, so a domain configured anywhere is checked):
+//
+//   1. edge-caddy's site files, read-only from CADDY_SITES_DIR. This is the
+//      real source of truth and the only one that stays correct by itself.
+//   2. edge-caddy's admin API, when reachable.
+//   3. the VPS_CERT_DOMAINS env list, as a manual escape hatch.
+//
+// Why the files rather than the admin API alone: Caddy binds its admin
+// endpoint to localhost INSIDE its own container, so http://edge-caddy:2019
+// is unreachable from this container and discovery silently returned []. The
+// panel therefore showed only whatever VPS_CERT_DOMAINS happened to list -
+// 11 hand-maintained entries that drifted out of date as sites were added.
+// Exposing the admin API on the shared docker network was rejected: it has no
+// authentication, so every container on the box (including ~20 belonging to
+// other clients) could rewrite the ingress for all of them.
 
 const CACHE_TTL_MS = 60 * 60 * 1000
 let cache: { at: number; data: CertInfo[] } | null = null
@@ -14,6 +32,60 @@ function envDomains(): string[] {
     .split(',')
     .map((d) => d.trim())
     .filter(Boolean)
+}
+
+// Hostname portion of a Caddyfile site address: strips any scheme, port and
+// path, so `https://coffeepos.sikasio.com/api` and `example.com:8443` both
+// reduce to their host.
+function hostOf(address: string): string | null {
+  let a = address.trim().replace(/^https?:\/\//, '')
+  a = a.split('/')[0]
+  // Strip a :port suffix, but never mangle a bare ":80"-style address.
+  const colon = a.lastIndexOf(':')
+  if (colon > 0) a = a.slice(0, colon)
+  if (!a || !a.includes('.')) return null
+  // Wildcards cannot be probed - there is no host to connect to.
+  if (a.includes('*')) return null
+  if (!/^[a-z0-9.-]+$/i.test(a)) return null
+  return a.toLowerCase()
+}
+
+// Parse hostnames out of edge-caddy's site files.
+//
+// A site block opens with its addresses at column 0, comma-separated, ending
+// in `{`:  `api.ftw.sikasio.com, api2.example.com {`. Indented lines are
+// directives inside a block and must not be treated as addresses, which is why
+// the leading-whitespace test matters.
+function siteFileDomains(): string[] {
+  const dir = process.env.CADDY_SITES_DIR || '/etc/caddy-sites'
+  const hosts = new Set<string>()
+  let entries: string[]
+  try {
+    entries = fs.readdirSync(dir)
+  } catch {
+    return [] // not mounted - fall through to the other sources
+  }
+  for (const entry of entries) {
+    if (!entry.endsWith('.caddy') && !entry.endsWith('.conf')) continue
+    let text: string
+    try {
+      text = fs.readFileSync(path.join(dir, entry), 'utf8')
+    } catch {
+      continue
+    }
+    for (const raw of text.split('\n')) {
+      if (/^\s/.test(raw)) continue // inside a block
+      const line = raw.trim()
+      if (!line || line.startsWith('#') || !line.endsWith('{')) continue
+      const addresses = line.slice(0, -1).trim()
+      if (!addresses || addresses.includes('(')) continue // snippet definition
+      for (const part of addresses.split(',')) {
+        const host = hostOf(part)
+        if (host) hosts.add(host)
+      }
+    }
+  }
+  return [...hosts]
 }
 
 // Pull configured hostnames out of Caddy's admin /config/ JSON.
@@ -78,7 +150,7 @@ export async function collectCerts(force = false): Promise<CertInfo[]> {
     return cache.data
   }
   const discovered = await discoverDomains()
-  const domains = [...new Set([...discovered, ...envDomains()])]
+  const domains = [...new Set([...siteFileDomains(), ...discovered, ...envDomains()])].sort()
   const data = domains.length ? await Promise.all(domains.map(probeOne)) : []
   data.sort((a, b) => (a.daysRemaining ?? 1e9) - (b.daysRemaining ?? 1e9))
   cache = { at: Date.now(), data }

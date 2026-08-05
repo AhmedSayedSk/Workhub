@@ -56,11 +56,28 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'site',
     domains: ['erp.sikasio.com'],
   },
+  // FTW's two containers live under a single /opt/ftw directory, so the
+  // working_dir label resolves both to the key 'ftw' and they render as one
+  // system. The old per-container 'ftw-admin' entry is kept below purely so a
+  // rollback to /opt/ftw-admin still shows a named card rather than a
+  // prettified key.
+  ftw: {
+    name: 'FTW Sport',
+    description: 'FTW Fitness — FastAPI backend (api.ftw.sikasio.com) & admin console (admin.ftwsport.com)',
+    type: 'system',
+    domains: ['admin.ftwsport.com', 'api.ftw.sikasio.com'],
+  },
   'ftw-admin': {
     name: 'FTW Admin',
     description: 'FTW Fitness admin console (Vite SPA + Supabase) — users, content, marketing & analytics',
     type: 'app',
     domains: ['admin.ftwsport.com'],
+  },
+  'ftw-backend': {
+    name: 'FTW Backend',
+    description: 'FTW Fitness FastAPI backend — workouts, nutrition, AI assistant, auth emails & push',
+    type: 'app',
+    domains: ['api.ftw.sikasio.com'],
   },
   'img-gen-api': {
     name: 'Image Gen API',
