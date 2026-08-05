@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import tls from 'tls'
 import type { CertInfo } from './types'
+import { parseCaddyfile } from './certDomains'
 
 // TLS cert expiry per domain. We open a TLS handshake to each domain and read
 // the peer cert's notAfter. Results cached ~1h since expiry changes slowly and
@@ -34,56 +35,40 @@ function envDomains(): string[] {
     .filter(Boolean)
 }
 
-// Hostname portion of a Caddyfile site address: strips any scheme, port and
-// path, so `https://coffeepos.sikasio.com/api` and `example.com:8443` both
-// reduce to their host.
-function hostOf(address: string): string | null {
-  let a = address.trim().replace(/^https?:\/\//, '')
-  a = a.split('/')[0]
-  // Strip a :port suffix, but never mangle a bare ":80"-style address.
-  const colon = a.lastIndexOf(':')
-  if (colon > 0) a = a.slice(0, colon)
-  if (!a || !a.includes('.')) return null
-  // Wildcards cannot be probed - there is no host to connect to.
-  if (a.includes('*')) return null
-  if (!/^[a-z0-9.-]+$/i.test(a)) return null
-  return a.toLowerCase()
-}
-
-// Parse hostnames out of edge-caddy's site files.
+// Hostnames from edge-caddy's own config, mounted read-only at
+// CADDY_SITES_DIR. Parsing lives in ./certDomains (pure, and therefore tested).
 //
-// A site block opens with its addresses at column 0, comma-separated, ending
-// in `{`:  `api.ftw.sikasio.com, api2.example.com {`. Indented lines are
-// directives inside a block and must not be treated as addresses, which is why
-// the leading-whitespace test matters.
+// The path may be either a DIRECTORY of site fragments (server 1 splits sites
+// into `sites/*.caddy`) or a SINGLE Caddyfile (server 2 keeps every block in
+// one file). Handling both is what lets the same agent image cover both boxes;
+// a directory-only reader silently found nothing on server 2 and the panel fell
+// back to whatever the hand-maintained env list happened to say.
 function siteFileDomains(): string[] {
-  const dir = process.env.CADDY_SITES_DIR || '/etc/caddy-sites'
+  const target = process.env.CADDY_SITES_DIR || '/etc/caddy-sites'
   const hosts = new Set<string>()
-  let entries: string[]
+
+  let files: string[]
   try {
-    entries = fs.readdirSync(dir)
+    files = fs.statSync(target).isDirectory()
+      ? fs
+          .readdirSync(target)
+          // Fragment naming on server 1, plus a bare `Caddyfile` should the
+          // whole config be mounted as a directory.
+          .filter((e) => e.endsWith('.caddy') || e.endsWith('.conf') || e === 'Caddyfile')
+          .map((e) => path.join(target, e))
+      : [target]
   } catch {
     return [] // not mounted - fall through to the other sources
   }
-  for (const entry of entries) {
-    if (!entry.endsWith('.caddy') && !entry.endsWith('.conf')) continue
+
+  for (const file of files) {
     let text: string
     try {
-      text = fs.readFileSync(path.join(dir, entry), 'utf8')
+      text = fs.readFileSync(file, 'utf8')
     } catch {
       continue
     }
-    for (const raw of text.split('\n')) {
-      if (/^\s/.test(raw)) continue // inside a block
-      const line = raw.trim()
-      if (!line || line.startsWith('#') || !line.endsWith('{')) continue
-      const addresses = line.slice(0, -1).trim()
-      if (!addresses || addresses.includes('(')) continue // snippet definition
-      for (const part of addresses.split(',')) {
-        const host = hostOf(part)
-        if (host) hosts.add(host)
-      }
-    }
+    for (const host of parseCaddyfile(text)) hosts.add(host)
   }
   return [...hosts]
 }
