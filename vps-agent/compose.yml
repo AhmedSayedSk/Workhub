@@ -9,6 +9,11 @@ services:
       SECURITY_STATUS_PATH: /security/status.json
     volumes:
       - /opt/_security/status.json:/security/status.json:ro
+      # The edge proxy's own config, read-only — the only self-maintaining
+      # source of the domains the TLS panel probes. Either a single Caddyfile
+      # or a directory of site fragments; set CADDY_SITES_HOST_PATH in .env
+      # when this box keeps it somewhere else.
+      - ${CADDY_SITES_HOST_PATH:-/opt/edge/Caddyfile}:/etc/caddy-sites:ro
     depends_on: [vps-agent-dockerproxy]
     # Default bridge network — vps-agent needs OUTBOUND egress to reach
     # WorkHub (WORKHUB_REPORT_URL). It also joins agent_internal so it can
