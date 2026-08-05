@@ -101,7 +101,7 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     name: 'GS PowerSign Dashboard',
     description: 'Golden Sands device-monitoring QA dashboard (PowerSign test devices) — Vue SPA served by Caddy, /api proxied to the 6LB backend',
     type: 'app',
-    domains: ['gs.powersign.sikasio.com'],
+    domains: ['gs.powersign-devices-dashboard.sikasio.com'],
   },
   'coffeepos-landing': {
     name: 'CoffeePOS — Landing',
