@@ -56,6 +56,13 @@ export const SERVERS: ServerDef[] = [
     mode: 'remote',
     ips: parseIps(process.env.VPS2_PUBLIC_IP),
   },
+  {
+    id: 'tertiary',
+    name: process.env.VPS3_DISPLAY_NAME || 'Tertiary',
+    subtitle: process.env.VPS3_SUBTITLE || 'Tertiary server',
+    mode: 'remote',
+    ips: parseIps(process.env.VPS3_PUBLIC_IP),
+  },
 ]
 
 export function getServer(id: string): ServerDef | undefined {
