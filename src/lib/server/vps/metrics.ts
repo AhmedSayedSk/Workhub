@@ -76,6 +76,26 @@ export async function readSnapshot(serverId: string): Promise<SnapshotEnvelope |
   return doc.exists ? (doc.data() as SnapshotEnvelope) : null
 }
 
+// Most-recent per-minute sample per server, so the servers-list card can show
+// the same rolling CPU/mem/disk the detail view does instead of a noisy live
+// reading. One range-filtered read covers every server; cached briefly since
+// the underlying series only advances once a minute.
+let _latestCache: { at: number; byServer: Record<string, MetricPoint> } | null = null
+const LATEST_TTL_MS = 15 * 1000
+export async function readLatestSamples(): Promise<Record<string, MetricPoint>> {
+  if (_latestCache && Date.now() - _latestCache.at < LATEST_TTL_MS) return _latestCache.byServer
+  const cutoff = Date.now() - 5 * 60 * 1000
+  const snap = await db().collection(COL).where('ts', '>=', cutoff).get()
+  const byServer: Record<string, MetricPoint> = {}
+  for (const d of snap.docs) {
+    const p = d.data() as MetricPoint
+    const id = p.serverId || 'primary'
+    if (!byServer[id] || p.ts > byServer[id].ts) byServer[id] = p
+  }
+  _latestCache = { at: Date.now(), byServer }
+  return byServer
+}
+
 // Store a MetricPoint the agent already computed (remote push path).
 export async function storePushedSample(serverId: string, point: MetricPoint): Promise<void> {
   await db().collection(COL).add({ ...point, serverId, ts: point.ts || Date.now() })

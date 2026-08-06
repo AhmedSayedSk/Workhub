@@ -4,7 +4,8 @@ import { SERVERS } from '@/lib/server/vps/servers'
 import { collectHost } from '@/lib/server/vps/host'
 import { listContainersLite } from '@/lib/server/vps/docker'
 import { evaluateAlerts } from '@/lib/server/vps/alerts'
-import { readSnapshot } from '@/lib/server/vps/metrics'
+import { readSnapshot, readLatestSamples } from '@/lib/server/vps/metrics'
+import { cardPct } from '@/lib/server/vps/cardMetrics'
 import type { ServerSummary, VpsStats } from '@/lib/server/vps/types'
 
 export const dynamic = 'force-dynamic'
@@ -57,19 +58,26 @@ export async function GET(request: NextRequest) {
   if (!(await isOwnerRequest(request))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+  // The rolling once-a-minute sample per server (what the detail view shows).
+  // The card's own live/snapshot CPU is a 1s window phase-locked to the sampler
+  // burst and reads far too high; cardPct() prefers this rolling value.
+  const samples = await readLatestSamples().catch(() => ({}) as Awaited<ReturnType<typeof readLatestSamples>>)
+
   const out: ServerSummary[] = []
   for (const s of SERVERS) {
     const base = { id: s.id, name: s.name, subtitle: s.subtitle, mode: s.mode, ips: s.ips }
     try {
       if (s.mode === 'local') {
-        out.push({ ...base, online: true, updatedAtMs: Date.now(), ...(await summarizeLocal()) })
+        const sum = await summarizeLocal()
+        out.push({ ...base, online: true, updatedAtMs: Date.now(), ...sum, ...cardPct(sum, samples[s.id] ?? null) })
       } else {
         const snap = await readSnapshot(s.id)
         if (!snap) {
           out.push({ ...base, online: false, updatedAtMs: null, ...EMPTY })
         } else {
           const online = Date.now() - snap.receivedAtMs < STALE_MS
-          out.push({ ...base, online, updatedAtMs: snap.receivedAtMs, ...summarizeSnapshot(snap.stats) })
+          const sum = summarizeSnapshot(snap.stats)
+          out.push({ ...base, online, updatedAtMs: snap.receivedAtMs, ...sum, ...cardPct(sum, samples[s.id] ?? null) })
         }
       }
     } catch {
