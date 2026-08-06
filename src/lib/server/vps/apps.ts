@@ -91,6 +91,12 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['bg-api.sikasio.com'],
   },
+  'tts-api': {
+    name: 'TTS API',
+    description: 'Text-to-speech REST service (AI voices) — async jobs, API keys; powers WorkHub campaign voiceover. /docs + /status',
+    type: 'app',
+    domains: ['tts-api.sikasio.com'],
+  },
   'fasah-manager': {
     name: 'Fasah Manager',
     description: 'Multi-account customs booking & registration console (ZATCA Fasah) — Fastify API + workers, Next.js dashboard, Postgres/Redis',
