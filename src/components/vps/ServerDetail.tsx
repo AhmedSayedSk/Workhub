@@ -15,6 +15,7 @@ import { CertList } from './CertList'
 import { MetricCharts } from './MetricCharts'
 import { AppsTable } from './AppsTable'
 import { ServerIpsCard } from './ServerIps'
+import { CronCard } from './CronCard'
 
 const POLL_MS = 5000
 
@@ -73,6 +74,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             <div className="space-y-4 lg:col-span-7">
               <MetricCharts host={stats.host} serverId={serverId} />
               <ServerIpsCard ips={stats.meta?.ips} />
+              <CronCard crons={stats.crons} />
             </div>
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}

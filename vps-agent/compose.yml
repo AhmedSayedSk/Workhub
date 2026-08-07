@@ -7,8 +7,13 @@ services:
     environment:
       DOCKER_PROXY_URL: http://vps-agent-dockerproxy:2375
       SECURITY_STATUS_PATH: /security/status.json
+      CRON_STATUS_PATH: /security/cron.json
     volumes:
       - /opt/_security/status.json:/security/status.json:ro
+      # Host cron inventory (cron-status.sh, root cron every 5 min). Like
+      # status.json, the file MUST exist on the host before `up`, or Docker
+      # will create a directory in its place.
+      - /opt/_security/cron.json:/security/cron.json:ro
       # The edge proxy's own config, read-only — the only self-maintaining
       # source of the domains the TLS panel probes. Either a single Caddyfile
       # or a directory of site fragments; set CADDY_SITES_HOST_PATH in .env

@@ -4,6 +4,7 @@ import { collectContainers, collectStorage } from './docker'
 import { collectApps } from './apps'
 import { collectCerts } from './certs'
 import { collectSecurity } from './security'
+import { collectCrons } from './crons'
 import { evaluateAlerts } from './alerts'
 
 // Assemble the full VpsStats. Each section is collected independently so a
@@ -12,13 +13,14 @@ import { evaluateAlerts } from './alerts'
 export async function collectVpsStats(): Promise<VpsStats> {
   const errors: SectionError[] = []
 
-  const [hostR, containersR, appsR, storageR, certsR, securityR] = await Promise.allSettled([
+  const [hostR, containersR, appsR, storageR, certsR, securityR, cronsR] = await Promise.allSettled([
     collectHost(),
     collectContainers(),
     collectApps(),
     collectStorage(),
     collectCerts(),
     collectSecurity(),
+    collectCrons(),
   ])
 
   const host = hostR.status === 'fulfilled' ? hostR.value : null
@@ -36,8 +38,9 @@ export async function collectVpsStats(): Promise<VpsStats> {
   const certs = certsR.status === 'fulfilled' ? certsR.value : null
   if (certsR.status === 'rejected') errors.push({ section: 'certs', message: String(certsR.reason) })
 
-  // security status comes from a host-written file; absent in dev — degrade to null silently
+  // security + cron status come from host-written files; absent in dev — degrade to null silently
   const security = securityR.status === 'fulfilled' ? securityR.value : null
+  const crons = cronsR.status === 'fulfilled' ? cronsR.value : null
 
   const network = containers
     ? containers.reduce(
@@ -48,7 +51,7 @@ export async function collectVpsStats(): Promise<VpsStats> {
 
   const alerts = evaluateAlerts({ host, certs, containers })
 
-  return { generatedAtMs: Date.now(), meta: buildMeta(host), host, containers, apps, storage, certs, network, security, alerts, errors }
+  return { generatedAtMs: Date.now(), meta: buildMeta(host), host, containers, apps, storage, certs, network, security, crons, alerts, errors }
 }
 
 // Header name + subtitle: custom via env, else derived from the live host.

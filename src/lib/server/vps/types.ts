@@ -134,8 +134,23 @@ export interface VpsStats {
   certs: CertInfo[] | null
   network: { rxBytes: number; txBytes: number } | null // aggregate of container NetIO
   security: VpsSecurity | null
+  crons: VpsCrons | null
   alerts: Alert[]
   errors: SectionError[]
+}
+
+// One scheduled job on the host (user crontabs + /etc/cron.d), as inventoried
+// by /opt/_security/cron-status.sh into cron.json.
+export interface CronJob {
+  schedule: string // raw cron expression ('*/5 * * * *' or '@daily')
+  command: string
+  user: string
+  source: string // 'crontab:sikasio' | 'cron.d/security-status'
+}
+
+export interface VpsCrons {
+  generatedAtMs: number
+  jobs: CronJob[]
 }
 
 export interface SecurityCheck {
