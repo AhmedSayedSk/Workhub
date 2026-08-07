@@ -135,6 +135,9 @@ export interface VpsStats {
   network: { rxBytes: number; txBytes: number } | null // aggregate of container NetIO
   security: VpsSecurity | null
   crons: VpsCrons | null
+  // Curated cron display metadata from the private registry file (never in the
+  // public repo) — grouping rules, ordering and in-app scheduler inventory.
+  cronMeta?: import('./registry').CronRegistry | null
   alerts: Alert[]
   errors: SectionError[]
 }

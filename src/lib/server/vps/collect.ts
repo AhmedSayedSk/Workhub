@@ -6,6 +6,7 @@ import { collectCerts } from './certs'
 import { collectSecurity } from './security'
 import { collectCrons } from './crons'
 import { evaluateAlerts } from './alerts'
+import { loadRegistry } from './registry'
 
 // Assemble the full VpsStats. Each section is collected independently so a
 // single failing source (e.g. docker proxy down) degrades that section to null
@@ -51,7 +52,7 @@ export async function collectVpsStats(): Promise<VpsStats> {
 
   const alerts = evaluateAlerts({ host, certs, containers })
 
-  return { generatedAtMs: Date.now(), meta: buildMeta(host), host, containers, apps, storage, certs, network, security, crons, alerts, errors }
+  return { generatedAtMs: Date.now(), meta: buildMeta(host), host, containers, apps, storage, certs, network, security, crons, cronMeta: loadRegistry().cron, alerts, errors }
 }
 
 // Header name + subtitle: custom via env, else derived from the live host.

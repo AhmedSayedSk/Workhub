@@ -51,3 +51,6 @@ mcp-server/dist/
 
 # Superpowers specs and plans
 /docs/superpowers/
+
+# Private VPS ops registry (client/system names, domains) — never commit
+vps-registry.json

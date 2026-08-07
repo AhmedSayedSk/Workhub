@@ -1,0 +1,42 @@
+{
+  "_comment": "Copy to vps-registry.json (gitignored) and mount it into the container (VPS_REGISTRY_FILE or /app/vps-registry.json). Private overlay for the VPS ops dashboard: friendly names/descriptions/domains per /opt/<dir> key, umbrella folding, hidden infra keys, and cron display metadata. All fields optional — a missing file just means generic auto-discovered display.",
+  "apps": {
+    "my-app": {
+      "name": "My App",
+      "description": "What this system does (one line).",
+      "type": "app",
+      "domains": ["app.example.com"]
+    }
+  },
+  "parents": {
+    "my-platform": {
+      "name": "My Platform",
+      "description": "Folds sibling compose projects my-platform-web + my-platform-db into one card (longest key-prefix match).",
+      "type": "system"
+    }
+  },
+  "hidden": ["_edge", "edge", "vps-agent"],
+  "cron": {
+    "meta": [
+      {
+        "match": "my-nightly-job\\.sh",
+        "app": "My App",
+        "title": "Nightly job",
+        "description": "What the cron entry matching this regex actually does."
+      }
+    ],
+    "appOrder": ["My App", "Server dashboard", "Docker", "System"],
+    "inAppJobs": {
+      "my-app": {
+        "app": "My App",
+        "jobs": [
+          {
+            "cadence": "30s",
+            "title": "Queue worker",
+            "description": "Scheduler that runs inside the app's own process (not host cron)."
+          }
+        ]
+      }
+    }
+  }
+}

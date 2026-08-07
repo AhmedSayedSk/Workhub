@@ -3,6 +3,7 @@ import { isOwnerRequest } from '@/lib/server/vps/owner'
 import { collectVpsStats } from '@/lib/server/vps/collect'
 import { getServer } from '@/lib/server/vps/servers'
 import { readSnapshot } from '@/lib/server/vps/metrics'
+import { loadRegistry } from '@/lib/server/vps/registry'
 import type { VpsStats } from '@/lib/server/vps/types'
 
 // Owner-only VPS ops stats. Reads host /proc + statfs, the read-only docker
@@ -21,7 +22,10 @@ export async function GET(request: NextRequest) {
     // written by the agent, which knows the box it runs on but not how this
     // deployment is meant to label it — so one .env here stays the only place
     // an IP is configured.
-    const withIps = (stats: VpsStats) => ({ ...stats, meta: { ...stats.meta, ips: server.ips } })
+    // Also overlay the curated cron metadata here (not in the agent payload):
+    // the private registry file lives with THIS deployment, so remote servers'
+    // snapshots get the same friendly grouping without shipping it around.
+    const withIps = (stats: VpsStats) => ({ ...stats, cronMeta: loadRegistry().cron, meta: { ...stats.meta, ips: server.ips } })
 
     if (server.mode === 'local') {
       const stats = await collectVpsStats()

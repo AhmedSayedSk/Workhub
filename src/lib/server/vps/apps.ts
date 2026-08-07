@@ -1,133 +1,27 @@
 import type { AppInfo, AppService } from './types'
+import { loadRegistry } from './registry'
 
 // "Systems & Apps" inventory. FULLY auto-discovered from Docker compose labels:
 // grouping + path from working_dir, a derived display name from the project key,
 // and domains sniffed from the containers' own env (PUBLIC_BASE_URL etc.) — a
-// NEW app appears here automatically with no code/registry edit. The curated
-// REGISTRY below is an OPTIONAL cosmetic overlay (nicer names/descriptions for
-// known apps); it is never required. Non-container systems are declared
-// per-server via the VPS_EXTRA_APPS env.
+// NEW app appears here automatically with no code/registry edit.
+//
+// The curated overlay (friendly names/descriptions/domains, umbrella folding,
+// hidden infra) is PRIVATE data — this repo is public — so it is loaded at
+// runtime from a gitignored JSON file (vps-registry.json, mounted on the box).
+// See registry.ts + vps-registry.example.json. Missing file → generic display.
 
 const BASE = process.env.DOCKER_PROXY_URL || 'http://workhub-dockerproxy:2375'
 
-// Friendly overlay keyed by the /opt/<dir> name.
-const REGISTRY: Record<string, { name: string; description: string; type: string; domains: string[] }> = {
-  ask2do: {
-    name: 'Ask2Do',
-    description: 'AI admin-panel assistant — portal + cloud orchestrator + Postgres/Redis',
-    type: 'app',
-    domains: ['app.ask2do.com', 'cloud.ask2do.com', 'ask2do.com'],
-  },
-  workhub: {
-    name: 'WorkHub',
-    description: 'Project management & time tracking (this app)',
-    type: 'app',
-    domains: ['workhub.sikasio.com'],
-  },
-  'extension-manager-api': {
-    name: 'Extensions API',
-    description: 'Centralized API for Sikasio browser extensions (Gemini SEO proxy)',
-    type: 'app',
-    domains: ['extensions-api.sikasio.com'],
-  },
-  'whatsapp-api': {
-    name: 'WhatsApp API',
-    description: 'UpSmart WhatsApp messaging backend (Baileys) — send API + AI customer service',
-    type: 'app',
-    domains: ['whatsapp-api.sikasio.com'],
-  },
-  whisperlock: {
-    name: 'Whisperlock',
-    description: 'AI escape-room game (Gandalf-style) — Gemini gatekeepers, Next.js + Prisma/SQLite',
-    type: 'app',
-    domains: ['whisperlock.sikasio.com'],
-  },
-  echonote: {
-    name: 'EchoNote',
-    description: 'Voice notes with AI transcription, summaries & smart keywords (Gemini + Firebase).',
-    type: 'app',
-    // Monorepo (/opt/echonote): echonote-web serves the marketing site + the app;
-    // echonote-console serves the admin console. All three domains, one system.
-    domains: ['echonote.sikasio.com', 'app.echonote.sikasio.com', 'console.echonote.sikasio.com'],
-  },
-  'erp-site': {
-    name: 'ERP Site',
-    description: 'Sikasio ERP clickable prototype (trilingual, mock data) — public landing, password-gated demo',
-    type: 'site',
-    domains: ['erp.sikasio.com'],
-  },
-  // FTW's two containers live under a single /opt/ftw directory, so the
-  // working_dir label resolves both to the key 'ftw' and they render as one
-  // system. The old per-container 'ftw-admin' entry is kept below purely so a
-  // rollback to /opt/ftw-admin still shows a named card rather than a
-  // prettified key.
-  ftw: {
-    name: 'FTW Sport',
-    description: 'FTW Fitness — FastAPI backend (api.ftw.sikasio.com) & admin console (admin.ftwsport.com)',
-    type: 'system',
-    domains: ['admin.ftwsport.com', 'api.ftw.sikasio.com'],
-  },
-  'ftw-admin': {
-    name: 'FTW Admin',
-    description: 'FTW Fitness admin console (Vite SPA + Supabase) — users, content, marketing & analytics',
-    type: 'app',
-    domains: ['admin.ftwsport.com'],
-  },
-  'ftw-backend': {
-    name: 'FTW Backend',
-    description: 'FTW Fitness FastAPI backend — workouts, nutrition, AI assistant, auth emails & push',
-    type: 'app',
-    domains: ['api.ftw.sikasio.com'],
-  },
-  'img-gen-api': {
-    name: 'Image Gen API',
-    description: 'Self-serve image-generation SaaS — signup/verify, credit plans & Polar billing, async jobs; /docs + dashboard + /status',
-    type: 'app',
-    domains: ['img-gen-api.sikasio.com'],
-  },
-  'bg-api': {
-    name: 'BG-API',
-    description: 'Background-removal SaaS — self-serve signup, Polar billing, plan quotas; gateway + AI worker',
-    type: 'app',
-    domains: ['bg-api.sikasio.com'],
-  },
-  'tts-api': {
-    name: 'TTS API',
-    description: 'Text-to-speech REST service (AI voices) — async jobs, API keys; powers WorkHub campaign voiceover. /docs + /status',
-    type: 'app',
-    domains: ['tts-api.sikasio.com'],
-  },
-  'fasah-manager': {
-    name: 'Fasah Manager',
-    description: 'Multi-account customs booking & registration console (ZATCA Fasah) — Fastify API + workers, Next.js dashboard, Postgres/Redis',
-    type: 'app',
-    domains: ['admin.fasah.sikasio.com'],
-  },
-  'gs-powersign-dashboard': {
-    name: 'GS PowerSign Dashboard',
-    description: 'Golden Sands device-monitoring QA dashboard (PowerSign test devices) — Vue SPA served by Caddy, /api proxied to the 6LB backend',
-    type: 'app',
-    domains: ['gs.powersign-devices-dashboard.sikasio.com'],
-  },
-  // CoffeePOS is ONE unified compose project (/opt/coffeepos) after the VPS2
-  // consolidation — landing site + leads API + license server in a single stack,
-  // so all three containers share the working_dir key 'coffeepos'. Its public
-  // domains live only in the edge Caddyfile (not in any container env), so they
-  // must be curated here.
-  coffeepos: {
-    name: 'CoffeePOS',
-    description: 'Coffee-shop POS — landing site, leads API & license server',
-    type: 'system',
-    domains: ['coffeepos.sikasio.com', 'license.sikasio.com'],
-  },
-}
+// Friendly overlay keyed by the /opt/<dir> name (from the private registry file).
+const REGISTRY = loadRegistry().apps
 
 // Infrastructure that backs every other row rather than being a system of its
 // own — hidden from "Systems & Apps" on all servers. Keyed by the /opt/<dir>
 // name (VPS 1 uses /opt/_edge, VPS 2 uses /opt/edge). 'vps-agent' is the metrics
 // push agent itself (compose project 'vps-agent', outside /opt) — it reports the
 // dashboard, it is not one of the systems the dashboard is meant to show.
-const HIDDEN = new Set(['_edge', 'edge', 'vps-agent'])
+const HIDDEN = new Set(loadRegistry().hidden)
 
 // Non-container systems (not visible via Docker), declared per-server via the
 // VPS_EXTRA_APPS env: pipe-delimited "id|Name|Description|type|/opt/path",
@@ -158,20 +52,13 @@ function extraApps(): AppInfo[] {
 
 // Sibling app keys that belong to one umbrella system get folded together so
 // they show as a single row with all their containers/domains. Keyed by a shared
-// key PREFIX (longest match wins), so 'gs-powersign' folds gs-powersign-dashboard
-// + gs-powersign-mssql without swallowing every future 'gs-*' key.
-const PARENTS: Record<string, { name: string; description: string; type: string }> = {
-  'gs-powersign': {
-    name: 'GS PowerSign',
-    description:
-      'Golden Sands PowerSign platform — device-monitoring QA dashboard (Vue SPA + DB-backed API + Redis) and the SQL Server mirror of PowerSignDevicesLogs',
-    type: 'system',
-  },
-}
+// key PREFIX (longest match wins), so 'foo-bar' folds foo-bar-web + foo-bar-db
+// without swallowing every future 'foo-*' key.
+const PARENTS = loadRegistry().parents
 
 function parentKeyOf(key: string): string | null {
-  // Longest matching prefix: 'gs-powersign-mssql' → 'gs-powersign'. Exact key
-  // matches fold too, so /opt/gs-powersign (if it ever exists) joins the family.
+  // Longest matching prefix: 'foo-bar-db' → 'foo-bar'. Exact key matches fold
+  // too, so /opt/foo-bar (if it ever exists) joins the family.
   let best: string | null = null
   for (const p of Object.keys(PARENTS)) {
     if ((key === p || key.startsWith(`${p}-`)) && (!best || p.length > best.length)) best = p
@@ -197,7 +84,7 @@ function appKeyFromWorkdir(wd: string): { key: string; path: string } | null {
 // Map a container's compose labels to the FOLDED system id the UI renders — the
 // single source of truth shared with per-system metrics so ids never diverge.
 // Mirrors collectApps(): raw key from working_dir (or project label), then fold
-// umbrella siblings (e.g. coffeepos-* → coffeepos) via PARENTS.
+// umbrella siblings via PARENTS (e.g. foo-web / foo-db → foo).
 export function systemIdForLabels(labels: Record<string, string>): string {
   const wd = labels['com.docker.compose.project.working_dir'] || ''
   const keyed = appKeyFromWorkdir(wd)
@@ -294,7 +181,7 @@ export async function collectApps(): Promise<AppInfo[]> {
     })
   )
 
-  // Fold umbrella siblings (e.g. coffeepos-*) into a single parent system.
+  // Fold umbrella siblings into a single parent system.
   const merged = new Map<string, AppInfo>()
   for (const app of discovered) {
     const pkey = parentKeyOf(app.id)
