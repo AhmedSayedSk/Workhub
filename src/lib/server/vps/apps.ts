@@ -109,23 +109,16 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['gs.powersign-devices-dashboard.sikasio.com'],
   },
-  'coffeepos-landing': {
-    name: 'CoffeePOS — Landing',
-    description: 'Marketing landing site',
-    type: 'site',
-    domains: ['coffeepos.sikasio.com'],
-  },
-  'coffeepos-leads': {
-    name: 'CoffeePOS — Leads',
-    description: 'Leads / API server',
-    type: 'app',
-    domains: ['coffeepos.sikasio.com/api'],
-  },
-  'coffeepos-license': {
-    name: 'CoffeePOS — License',
-    description: 'License activation server',
-    type: 'service',
-    domains: ['license.sikasio.com'],
+  // CoffeePOS is ONE unified compose project (/opt/coffeepos) after the VPS2
+  // consolidation — landing site + leads API + license server in a single stack,
+  // so all three containers share the working_dir key 'coffeepos'. Its public
+  // domains live only in the edge Caddyfile (not in any container env), so they
+  // must be curated here.
+  coffeepos: {
+    name: 'CoffeePOS',
+    description: 'Coffee-shop POS — landing site, leads API & license server',
+    type: 'system',
+    domains: ['coffeepos.sikasio.com', 'license.sikasio.com'],
   },
 }
 
@@ -165,14 +158,11 @@ function extraApps(): AppInfo[] {
 
 // Sibling app keys that belong to one umbrella system get folded together so
 // they show as a single row with all their containers/domains. Keyed by the
-// shared prefix (e.g. coffeepos-landing / -leads / -license -> coffeepos).
-const PARENTS: Record<string, { name: string; description: string; type: string }> = {
-  coffeepos: {
-    name: 'CoffeePOS',
-    description: 'Coffee-shop POS — landing site, leads API & license server',
-    type: 'system',
-  },
-}
+// shared prefix (e.g. foo-web / foo-api -> foo). Currently empty: CoffeePOS was
+// folded here while it ran as three separate /opt/coffeepos-* projects, but the
+// VPS2 consolidation made it one /opt/coffeepos project (a single 'coffeepos'
+// key), so no folding is needed. Kept generic for future umbrella systems.
+const PARENTS: Record<string, { name: string; description: string; type: string }> = {}
 
 function parentKeyOf(key: string): string | null {
   const base = key.split('-')[0]
