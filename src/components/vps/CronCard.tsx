@@ -230,11 +230,29 @@ const IN_APP_JOBS: Record<string, { app: string; jobs: InAppJob[] }> = {
     app: 'FTW',
     jobs: [
       {
-        cadence: 'disabled',
-        title: 'APScheduler jobs (5)',
-        disabled: true,
-        description:
-          'Inside ftw-backend-api: health scores (daily 03:00), monthly reports (day 1), birthday broadcast (hourly :05), smart reminders (:35), automation rules (:50) — currently OFF (SCHEDULER_ENABLED=false).',
+        cadence: 'daily 03:00',
+        title: 'Health scores',
+        description: 'Inside ftw-backend-api (APScheduler): recomputes every member’s daily health score at 03:00 UTC.',
+      },
+      {
+        cadence: 'monthly',
+        title: 'Monthly reports',
+        description: 'Generates the monthly PDF reports on day 1 at 02:00 UTC (WeasyPrint — the heaviest job in the app).',
+      },
+      {
+        cadence: 'hourly :05',
+        title: 'Birthday broadcast',
+        description: 'Hourly tick that sends birthday push notifications; a day-guard ensures each member is congratulated once.',
+      },
+      {
+        cadence: 'hourly :35',
+        title: 'Smart reminders',
+        description: 'Hourly tick for re-engagement / workout reminders, day-guarded against duplicates.',
+      },
+      {
+        cadence: 'hourly :50',
+        title: 'Automation rules',
+        description: 'Hourly tick that evaluates operator-defined automation rules and fires their actions.',
       },
     ],
   },
