@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock } from 'lucide-react'
-import type { VpsCrons, CronJob } from '@/lib/server/vps/types'
+import type { VpsCrons, CronJob, AppInfo } from '@/lib/server/vps/types'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -120,18 +120,140 @@ function metaFor(job: CronJob): CronMeta {
 // dashboard's own plumbing, then infra. Anything unrecognised lands after.
 const APP_ORDER = ['WorkHub', 'Server dashboard', 'Docker', 'System']
 
+// Schedulers that live INSIDE an app's own process — invisible to the host
+// cron inventory, but very much scheduled work running on the box. Curated
+// per app id (as discovered in Systems & Apps) and only shown for apps that
+// are actually deployed on the server being viewed.
+interface InAppJob {
+  cadence: string // short pill text ('30s', '13–18h EET', …)
+  title: string
+  description: string
+  disabled?: boolean
+}
+
+// Verified 2026-08-07 by sweeping every /opt/<app> source tree on the box for
+// setInterval / cron-library / APScheduler usage. Apps with NO internal
+// schedulers (bg-api, img-gen-api, tts-api, extensions-api, whisperlock,
+// coffeepos, echonote, erp-site) are deliberately absent. SSE heartbeats and
+// TTL-cache sweeps are not listed — they're plumbing, not scheduled work.
+const IN_APP_JOBS: Record<string, { app: string; jobs: InAppJob[] }> = {
+  'fasah-manager': {
+    app: 'Fasah Manager',
+    jobs: [
+      {
+        cadence: '30s · 13–18h Cairo',
+        title: 'Transit openings watcher',
+        description:
+          'Inside fasah-api: polls the Fasah transit schedule every 30s during the daily 1–6 PM Cairo window and records each port’s opening/closing time; stops polling a port once its opening is captured.',
+      },
+    ],
+  },
+  publish: {
+    app: 'Sikasio Publish',
+    jobs: [
+      {
+        cadence: '30s',
+        title: 'Post publisher',
+        description: 'Inside the publish worker: checks every 30s for due scheduled posts and publishes them to the connected social platforms.',
+      },
+      {
+        cadence: '2m',
+        title: 'Comments sync',
+        description: 'Pulls new comments/replies from the platforms into the inbox every 2 minutes.',
+      },
+      {
+        cadence: '1h',
+        title: 'Metrics sync',
+        description: 'Refreshes per-post engagement metrics (views, likes, shares) hourly.',
+      },
+    ],
+  },
+  'adgen-api': {
+    app: 'AdGen API',
+    jobs: [
+      {
+        cadence: '4s',
+        title: 'Image-batch processor',
+        description: 'Claims queued campaign image-generation batches from the job table every 4s; overlapping ticks are skipped so a long batch just delays the next claim.',
+      },
+      {
+        cadence: '5s',
+        title: 'Webhook delivery worker',
+        description: 'Delivers customer webhooks every 5s with exponential backoff retries (1m → 5m → 30m → 2h → 6h) for endpoints that are down.',
+      },
+      {
+        cadence: '2m',
+        title: 'Status monitor',
+        description: 'Probes the pipeline every 2 minutes and records uptime/latency rollups behind the public /status page.',
+      },
+      {
+        cadence: '24h',
+        title: 'Subscription reconciler',
+        description: 'Daily pass comparing local plans against Polar billing, downgrading accounts whose subscription lapsed.',
+      },
+    ],
+  },
+  'gs-powersign-dashboard': {
+    app: 'GS PowerSign Dashboard',
+    jobs: [
+      {
+        cadence: '2s',
+        title: 'Metric warmer',
+        description: 'Cycles through the device roster a few screens per tick, pre-computing health metrics into Redis so the dashboard reads them instantly instead of timing out.',
+      },
+    ],
+  },
+  'whatsapp-api': {
+    app: 'WhatsApp API',
+    jobs: [
+      {
+        cadence: '30s',
+        title: 'Session keepalive',
+        description: 'Sends a presence update + ping to WhatsApp every 30s so the Baileys session never freezes and messages keep flowing.',
+      },
+    ],
+  },
+  ask2do: {
+    app: 'Ask2Do',
+    jobs: [
+      {
+        cadence: '30s',
+        title: 'Cloud-sidecar reconciler',
+        description:
+          'Inside ask2do-cloud-sidecar: polls cloud’s admin API every 30s for the desired tenant set, diff-applies runner starts/stops and recovers crashed runners with backoff.',
+      },
+    ],
+  },
+  ftw: {
+    app: 'FTW',
+    jobs: [
+      {
+        cadence: 'disabled',
+        title: 'APScheduler jobs (5)',
+        disabled: true,
+        description:
+          'Inside ftw-backend-api: health scores (daily 03:00), monthly reports (day 1), birthday broadcast (hourly :05), smart reminders (:35), automation rules (:50) — currently OFF (SCHEDULER_ENABLED=false).',
+      },
+    ],
+  },
+}
+
 /**
  * Host cron-job inventory — sits under Public IPs on a single server's page.
  * Data comes from the box itself (cron-status.sh -> cron.json), so the list is
  * what crond is actually running, not what we believe we installed. Jobs are
  * grouped per app/system with a curated title + what-it-does description.
  */
-export function CronCard({ crons }: { crons?: VpsCrons | null }) {
-  if (!crons || crons.jobs.length === 0) return null
-  const updatedMin = Math.max(0, Math.round((Date.now() - crons.generatedAtMs) / 60000))
+export function CronCard({ crons, apps }: { crons?: VpsCrons | null; apps?: AppInfo[] | null }) {
+  // In-app schedulers for apps deployed on THIS server (matched by app id).
+  const inApp = (apps || [])
+    .filter((a) => IN_APP_JOBS[a.id])
+    .map((a) => IN_APP_JOBS[a.id])
+  if ((!crons || crons.jobs.length === 0) && inApp.length === 0) return null
+  const updatedMin = crons ? Math.max(0, Math.round((Date.now() - crons.generatedAtMs) / 60000)) : 0
 
   const groups = new Map<string, Array<{ job: CronJob; meta: CronMeta }>>()
-  for (const job of crons.jobs) {
+  for (const job of crons?.jobs || []) {
     const meta = metaFor(job)
     const list = groups.get(meta.app) || []
     list.push({ job, meta })
@@ -150,7 +272,8 @@ export function CronCard({ crons }: { crons?: VpsCrons | null }) {
           Cron Jobs
         </CardTitle>
         <span className="text-xs text-muted-foreground">
-          {crons.jobs.length} scheduled · checked {updatedMin === 0 ? 'just now' : `${updatedMin}m ago`}
+          {(crons?.jobs.length || 0) + inApp.reduce((n, g) => n + g.jobs.length, 0)} scheduled
+          {crons ? ` · checked ${updatedMin === 0 ? 'just now' : `${updatedMin}m ago`}` : ''}
         </span>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -188,6 +311,47 @@ export function CronCard({ crons }: { crons?: VpsCrons | null }) {
             </div>
           )
         })}
+
+        {inApp.length > 0 && (
+          <div className="border-t pt-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              In-app schedulers
+              <span className="ml-1.5 font-normal normal-case tracking-normal text-muted-foreground/70">
+                run inside the app’s own process, not host cron
+              </span>
+            </div>
+            <div className="space-y-4">
+              {inApp.map((g) => (
+                <div key={g.app}>
+                  <div className="mb-1.5 flex items-baseline gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.app}</span>
+                    <span className="text-[10px] tabular-nums text-muted-foreground/70">{g.jobs.length}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {g.jobs.map((job) => (
+                      <div key={job.title} className="rounded-lg border bg-muted/30 px-3 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex min-w-0 items-center gap-2.5">
+                            <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground ring-1 ring-inset ring-border">
+                              {job.cadence}
+                            </span>
+                            <span className="truncate text-sm font-medium">{job.title}</span>
+                          </span>
+                          {job.disabled && (
+                            <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                              disabled
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs leading-snug text-muted-foreground">{job.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

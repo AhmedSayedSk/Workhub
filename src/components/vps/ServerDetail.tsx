@@ -74,7 +74,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             <div className="space-y-4 lg:col-span-7">
               <MetricCharts host={stats.host} serverId={serverId} />
               <ServerIpsCard ips={stats.meta?.ips} />
-              <CronCard crons={stats.crons} />
+              <CronCard crons={stats.crons} apps={stats.apps} />
             </div>
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
