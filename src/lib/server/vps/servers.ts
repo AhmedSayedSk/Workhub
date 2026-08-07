@@ -49,13 +49,9 @@ export const SERVERS: ServerDef[] = [
     mode: 'local',
     ips: parseIps(process.env.VPS_PUBLIC_IP),
   },
-  {
-    id: 'secondary',
-    name: process.env.VPS2_DISPLAY_NAME || 'Secondary',
-    subtitle: process.env.VPS2_SUBTITLE || 'Secondary server',
-    mode: 'remote',
-    ips: parseIps(process.env.VPS2_PUBLIC_IP),
-  },
+  // 'secondary' (the old VPS 1 / ask2do-cloud-1) was decommissioned 2026-08-07 —
+  // its workloads had all moved to VPS 2, so the box was retired. Re-add an entry
+  // here + run an agent on the box to bring another server back.
   {
     id: 'tertiary',
     name: process.env.VPS3_DISPLAY_NAME || 'Tertiary',
