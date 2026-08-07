@@ -54,14 +54,20 @@ const EMPTY: VpsRegistry = {
   cron: { meta: [], appOrder: [], inAppJobs: {} },
 }
 
-let cached: VpsRegistry | null = null
+// Short-TTL cache, NOT cache-forever: a failed first read (file mounted late,
+// transient fs error) must not pin the dashboard to the empty overlay for the
+// life of the process, and an on-box edit of the JSON should show up within a
+// minute without restarting the container.
+const TTL_MS = 60_000
+let cached: { value: VpsRegistry; at: number } | null = null
 
 export function loadRegistry(): VpsRegistry {
-  if (cached) return cached
+  if (cached && Date.now() - cached.at < TTL_MS) return cached.value
   const file = process.env.VPS_REGISTRY_FILE || path.join(process.cwd(), 'vps-registry.json')
+  let value: VpsRegistry
   try {
     const raw = JSON.parse(fs.readFileSync(file, 'utf8')) as Partial<VpsRegistry>
-    cached = {
+    value = {
       apps: raw.apps ?? {},
       parents: raw.parents ?? {},
       hidden: raw.hidden ?? EMPTY.hidden,
@@ -72,7 +78,8 @@ export function loadRegistry(): VpsRegistry {
       },
     }
   } catch {
-    cached = EMPTY
+    value = EMPTY
   }
-  return cached
+  cached = { value, at: Date.now() }
+  return value
 }

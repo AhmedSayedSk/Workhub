@@ -13,15 +13,9 @@ import { loadRegistry } from './registry'
 
 const BASE = process.env.DOCKER_PROXY_URL || 'http://workhub-dockerproxy:2375'
 
-// Friendly overlay keyed by the /opt/<dir> name (from the private registry file).
-const REGISTRY = loadRegistry().apps
-
-// Infrastructure that backs every other row rather than being a system of its
-// own — hidden from "Systems & Apps" on all servers. Keyed by the /opt/<dir>
-// name (VPS 1 uses /opt/_edge, VPS 2 uses /opt/edge). 'vps-agent' is the metrics
-// push agent itself (compose project 'vps-agent', outside /opt) — it reports the
-// dashboard, it is not one of the systems the dashboard is meant to show.
-const HIDDEN = new Set(loadRegistry().hidden)
+// The private overlay is read per call (loadRegistry has its own short TTL) —
+// snapshotting it into module constants would pin whatever the FIRST evaluation
+// saw (e.g. an empty overlay if the file mounted late) for the process's life.
 
 // Non-container systems (not visible via Docker), declared per-server via the
 // VPS_EXTRA_APPS env: pipe-delimited "id|Name|Description|type|/opt/path",
@@ -54,13 +48,11 @@ function extraApps(): AppInfo[] {
 // they show as a single row with all their containers/domains. Keyed by a shared
 // key PREFIX (longest match wins), so 'foo-bar' folds foo-bar-web + foo-bar-db
 // without swallowing every future 'foo-*' key.
-const PARENTS = loadRegistry().parents
-
 function parentKeyOf(key: string): string | null {
   // Longest matching prefix: 'foo-bar-db' → 'foo-bar'. Exact key matches fold
   // too, so /opt/foo-bar (if it ever exists) joins the family.
   let best: string | null = null
-  for (const p of Object.keys(PARENTS)) {
+  for (const p of Object.keys(loadRegistry().parents)) {
     if ((key === p || key.startsWith(`${p}-`)) && (!best || p.length > best.length)) best = p
   }
   return best
@@ -140,13 +132,16 @@ export async function collectApps(): Promise<AppInfo[]> {
     clearTimeout(t)
   }
 
+  const registry = loadRegistry()
+  const hidden = new Set(registry.hidden)
+
   const groups = new Map<string, { path: string; services: AppService[]; runningId?: string }>()
   for (const c of list) {
     const labels = c.Labels || {}
     const wd = labels['com.docker.compose.project.working_dir'] || ''
     const keyed = appKeyFromWorkdir(wd)
     const key = keyed?.key || labels['com.docker.compose.project'] || '(other)'
-    if (HIDDEN.has(key)) continue
+    if (hidden.has(key)) continue
     const path = keyed?.path || ''
     const svc: AppService = {
       name: (c.Names?.[0] || c.Id).replace(/^\//, ''),
@@ -162,7 +157,7 @@ export async function collectApps(): Promise<AppInfo[]> {
 
   const discovered: AppInfo[] = await Promise.all(
     [...groups.entries()].map(async ([key, g]) => {
-      const reg = REGISTRY[key]
+      const reg = registry.apps[key]
       const services = g.services.sort((a, b) => a.name.localeCompare(b.name))
       // Registry domains win when curated; otherwise read them from the app's
       // own env so new apps self-describe.
@@ -189,7 +184,7 @@ export async function collectApps(): Promise<AppInfo[]> {
       merged.set(app.id, app)
       continue
     }
-    const meta = PARENTS[pkey]
+    const meta = registry.parents[pkey]
     const existing = merged.get(pkey)
     if (existing) {
       existing.services.push(...app.services)
