@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Clock } from 'lucide-react'
+import { ChevronRight, Clock } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { VpsCrons, CronJob, AppInfo } from '@/lib/server/vps/types'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -238,13 +240,53 @@ const IN_APP_JOBS: Record<string, { app: string; jobs: InAppJob[] }> = {
   },
 }
 
+/** Collapsible group shell shared by the host-cron and in-app sections. */
+function CronGroup({
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string
+  count: number
+  open: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition hover:bg-muted/40"
+      >
+        <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
+        <span className="text-xs font-bold uppercase tracking-wide">{title}</span>
+        <span className="text-[10px] tabular-nums text-muted-foreground/70">{count}</span>
+      </button>
+      {open && <div className="mt-1.5 space-y-1.5 pl-2">{children}</div>}
+    </div>
+  )
+}
+
 /**
  * Host cron-job inventory — sits under Public IPs on a single server's page.
  * Data comes from the box itself (cron-status.sh -> cron.json), so the list is
  * what crond is actually running, not what we believe we installed. Jobs are
- * grouped per app/system with a curated title + what-it-does description.
+ * grouped per app/system (collapsed by default) with a curated title +
+ * what-it-does description.
  */
 export function CronCard({ crons, apps }: { crons?: VpsCrons | null; apps?: AppInfo[] | null }) {
+  // Collapsed by default; a click expands just that group.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+  const toggle = (key: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   // In-app schedulers for apps deployed on THIS server (matched by app id).
   const inApp = (apps || [])
     .filter((a) => IN_APP_JOBS[a.id])
@@ -276,78 +318,72 @@ export function CronCard({ crons, apps }: { crons?: VpsCrons | null; apps?: AppI
           {crons ? ` · checked ${updatedMin === 0 ? 'just now' : `${updatedMin}m ago`}` : ''}
         </span>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2">
         {orderedApps.map((app) => {
           const list = groups.get(app)!
           return (
-            <div key={app}>
-              <div className="mb-1.5 flex items-baseline gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{app}</span>
-                <span className="text-[10px] tabular-nums text-muted-foreground/70">{list.length}</span>
-              </div>
-              <div className="space-y-1.5">
-                {list.map(({ job, meta }, i) => {
-                  const human = humanSchedule(job.schedule)
-                  return (
-                    <div
-                      key={`${job.source}-${i}`}
-                      title={`${job.command}\n(${job.source} · ${job.user})`}
-                      className="rounded-lg border bg-muted/30 px-3 py-2"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground ring-1 ring-inset ring-border">
-                            {job.schedule}
-                          </span>
-                          <span className="truncate text-sm font-medium">{meta.title}</span>
+            <CronGroup key={app} title={app} count={list.length} open={openGroups.has(app)} onToggle={() => toggle(app)}>
+              {list.map(({ job, meta }, i) => {
+                const human = humanSchedule(job.schedule)
+                return (
+                  <div
+                    key={`${job.source}-${i}`}
+                    title={`${job.command}\n(${job.source} · ${job.user})`}
+                    className="rounded-lg border bg-muted/30 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground ring-1 ring-inset ring-border">
+                          {job.schedule}
                         </span>
-                        {human && <span className="shrink-0 text-xs text-muted-foreground">{human}</span>}
-                      </div>
-                      <p className="mt-1 text-xs leading-snug text-muted-foreground">{meta.description}</p>
+                        <span className="truncate text-sm font-medium">{meta.title}</span>
+                      </span>
+                      {human && <span className="shrink-0 text-xs text-muted-foreground">{human}</span>}
                     </div>
-                  )
-                })}
-              </div>
-            </div>
+                    <p className="mt-1 text-xs leading-snug text-muted-foreground">{meta.description}</p>
+                  </div>
+                )
+              })}
+            </CronGroup>
           )
         })}
 
         {inApp.length > 0 && (
-          <div className="border-t pt-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="border-t pt-2">
+            <div className="mb-1.5 px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
               In-app schedulers
               <span className="ml-1.5 font-normal normal-case tracking-normal text-muted-foreground/70">
                 run inside the app’s own process, not host cron
               </span>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-2">
               {inApp.map((g) => (
-                <div key={g.app}>
-                  <div className="mb-1.5 flex items-baseline gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.app}</span>
-                    <span className="text-[10px] tabular-nums text-muted-foreground/70">{g.jobs.length}</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {g.jobs.map((job) => (
-                      <div key={job.title} className="rounded-lg border bg-muted/30 px-3 py-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="flex min-w-0 items-center gap-2.5">
-                            <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground ring-1 ring-inset ring-border">
-                              {job.cadence}
-                            </span>
-                            <span className="truncate text-sm font-medium">{job.title}</span>
+                <CronGroup
+                  key={g.app}
+                  title={g.app}
+                  count={g.jobs.length}
+                  open={openGroups.has(`inapp:${g.app}`)}
+                  onToggle={() => toggle(`inapp:${g.app}`)}
+                >
+                  {g.jobs.map((job) => (
+                    <div key={job.title} className="rounded-lg border bg-muted/30 px-3 py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-muted-foreground ring-1 ring-inset ring-border">
+                            {job.cadence}
                           </span>
-                          {job.disabled && (
-                            <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
-                              disabled
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 text-xs leading-snug text-muted-foreground">{job.description}</p>
+                          <span className="truncate text-sm font-medium">{job.title}</span>
+                        </span>
+                        {job.disabled && (
+                          <span className="shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                            disabled
+                          </span>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                      <p className="mt-1 text-xs leading-snug text-muted-foreground">{job.description}</p>
+                    </div>
+                  ))}
+                </CronGroup>
               ))}
             </div>
           </div>
