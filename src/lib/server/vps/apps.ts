@@ -157,16 +157,26 @@ function extraApps(): AppInfo[] {
 }
 
 // Sibling app keys that belong to one umbrella system get folded together so
-// they show as a single row with all their containers/domains. Keyed by the
-// shared prefix (e.g. foo-web / foo-api -> foo). Currently empty: CoffeePOS was
-// folded here while it ran as three separate /opt/coffeepos-* projects, but the
-// VPS2 consolidation made it one /opt/coffeepos project (a single 'coffeepos'
-// key), so no folding is needed. Kept generic for future umbrella systems.
-const PARENTS: Record<string, { name: string; description: string; type: string }> = {}
+// they show as a single row with all their containers/domains. Keyed by a shared
+// key PREFIX (longest match wins), so 'gs-powersign' folds gs-powersign-dashboard
+// + gs-powersign-mssql without swallowing every future 'gs-*' key.
+const PARENTS: Record<string, { name: string; description: string; type: string }> = {
+  'gs-powersign': {
+    name: 'GS PowerSign',
+    description:
+      'Golden Sands PowerSign platform — device-monitoring QA dashboard (Vue SPA + DB-backed API + Redis) and the SQL Server mirror of PowerSignDevicesLogs',
+    type: 'system',
+  },
+}
 
 function parentKeyOf(key: string): string | null {
-  const base = key.split('-')[0]
-  return PARENTS[base] ? base : null
+  // Longest matching prefix: 'gs-powersign-mssql' → 'gs-powersign'. Exact key
+  // matches fold too, so /opt/gs-powersign (if it ever exists) joins the family.
+  let best: string | null = null
+  for (const p of Object.keys(PARENTS)) {
+    if ((key === p || key.startsWith(`${p}-`)) && (!best || p.length > best.length)) best = p
+  }
+  return best
 }
 
 interface ContainerSummary {

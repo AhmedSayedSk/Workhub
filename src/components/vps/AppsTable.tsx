@@ -8,8 +8,20 @@ import type { AppInfo } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
 import { SystemStatsDialog } from './SystemStatsDialog'
 
+// Operational severity for a system: 0 = some/all containers down (show first),
+// 1 = degraded, 2 = healthy or non-container.
+function severity(a: AppInfo): number {
+  if (a.total === 0) return 2
+  if (a.running === 0) return 0
+  return a.running < a.total ? 1 : 2
+}
+
 export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; serverId?: string }) {
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null)
+  // Problems surface first (down, then degraded), healthy stay alphabetical.
+  const ordered = [...apps].sort((a, b) => severity(a) - severity(b) || a.name.localeCompare(b.name))
+  const containerized = apps.filter((a) => a.total > 0)
+  const unhealthy = containerized.filter((a) => a.running < a.total).length
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -18,6 +30,18 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
           Systems &amp; Apps
           <span className="text-sm font-normal text-muted-foreground">({apps.length})</span>
         </CardTitle>
+        {/* One-glance fleet health: green when every containerized system is fully up. */}
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums',
+            unhealthy === 0
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+          )}
+        >
+          <span className={cn('h-1.5 w-1.5 rounded-full', unhealthy === 0 ? 'bg-emerald-500' : 'bg-amber-500')} />
+          {unhealthy === 0 ? 'all healthy' : `${unhealthy} need${unhealthy === 1 ? 's' : ''} attention`}
+        </span>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -31,7 +55,7 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
               </tr>
             </thead>
             <tbody>
-              {apps.map((a) => {
+              {ordered.map((a) => {
                 const allUp = a.total > 0 && a.running === a.total
                 const someDown = a.total > 0 && a.running < a.total
                 return (
@@ -39,6 +63,11 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{a.name}</span>
+                        {a.type && (
+                          <span className="rounded border px-1 py-px text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {a.type}
+                          </span>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -111,7 +140,11 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
                               <span
                                 className={cn(
                                   'h-1.5 w-1.5 rounded-full',
-                                  s.state === 'running' ? 'bg-emerald-500' : 'bg-red-500'
+                                  s.state === 'running'
+                                    ? 'bg-emerald-500'
+                                    : s.state === 'restarting' || s.state === 'paused'
+                                      ? 'bg-amber-500'
+                                      : 'bg-red-500'
                                 )}
                               />
                               {s.name}
