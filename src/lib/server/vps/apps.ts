@@ -30,8 +30,8 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
     type: 'app',
     domains: ['extensions-api.sikasio.com'],
   },
-  'whatsapp-server': {
-    name: 'WhatsApp Server',
+  'whatsapp-api': {
+    name: 'WhatsApp API',
     description: 'UpSmart WhatsApp messaging backend (Baileys) — send API + AI customer service',
     type: 'app',
     domains: ['whatsapp-api.sikasio.com'],
@@ -131,8 +131,10 @@ const REGISTRY: Record<string, { name: string; description: string; type: string
 
 // Infrastructure that backs every other row rather than being a system of its
 // own — hidden from "Systems & Apps" on all servers. Keyed by the /opt/<dir>
-// name (VPS 1 uses /opt/_edge, VPS 2 uses /opt/edge).
-const HIDDEN = new Set(['_edge', 'edge'])
+// name (VPS 1 uses /opt/_edge, VPS 2 uses /opt/edge). 'vps-agent' is the metrics
+// push agent itself (compose project 'vps-agent', outside /opt) — it reports the
+// dashboard, it is not one of the systems the dashboard is meant to show.
+const HIDDEN = new Set(['_edge', 'edge', 'vps-agent'])
 
 // Non-container systems (not visible via Docker), declared per-server via the
 // VPS_EXTRA_APPS env: pipe-delimited "id|Name|Description|type|/opt/path",
