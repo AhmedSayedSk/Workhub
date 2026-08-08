@@ -16,8 +16,20 @@ function severity(a: AppInfo): number {
   return a.running < a.total ? 1 : 2
 }
 
+// Container chips shown per row before the "+N more" toggle kicks in.
+const VISIBLE_SERVICES = 2
+
 export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; serverId?: string }) {
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null)
+  // Rows whose full container list is expanded.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   // Problems surface first (down, then degraded), healthy stay alphabetical.
   const ordered = [...apps].sort((a, b) => severity(a) - severity(b) || a.name.localeCompare(b.name))
   const containerized = apps.filter((a) => a.total > 0)
@@ -129,29 +141,51 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
                           {a.running}/{a.total} up
                         </span>
                       )}
-                      {a.services.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {a.services.map((s) => (
-                            <span
-                              key={s.name}
-                              title={s.status}
-                              className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                            >
-                              <span
-                                className={cn(
-                                  'h-1.5 w-1.5 rounded-full',
-                                  s.state === 'running'
-                                    ? 'bg-emerald-500'
-                                    : s.state === 'restarting' || s.state === 'paused'
-                                      ? 'bg-amber-500'
-                                      : 'bg-red-500'
-                                )}
-                              />
-                              {s.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {a.services.length > 0 &&
+                        (() => {
+                          // Problem containers surface into the always-visible slice —
+                          // a red chip must never hide behind "show more".
+                          const sorted = [...a.services].sort(
+                            (x, y) =>
+                              Number(x.state === 'running') - Number(y.state === 'running') ||
+                              x.name.localeCompare(y.name)
+                          )
+                          const isOpen = expanded.has(a.id)
+                          const shown = isOpen ? sorted : sorted.slice(0, VISIBLE_SERVICES)
+                          const hidden = sorted.length - VISIBLE_SERVICES
+                          return (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {shown.map((s) => (
+                                <span
+                                  key={s.name}
+                                  title={s.status}
+                                  className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                                >
+                                  <span
+                                    className={cn(
+                                      'h-1.5 w-1.5 rounded-full',
+                                      s.state === 'running'
+                                        ? 'bg-emerald-500'
+                                        : s.state === 'restarting' || s.state === 'paused'
+                                          ? 'bg-amber-500'
+                                          : 'bg-red-500'
+                                    )}
+                                  />
+                                  {s.name}
+                                </span>
+                              ))}
+                              {hidden > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpanded(a.id)}
+                                  className="inline-flex items-center rounded-md border border-dashed px-1.5 py-0.5 text-[10px] text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+                                >
+                                  {isOpen ? 'show less' : `+${hidden} more`}
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()}
                     </td>
                   </tr>
                 )
