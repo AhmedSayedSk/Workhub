@@ -2,7 +2,9 @@ import { z } from 'zod';
 import { allPosts, fmtCairo, ICON, type PlatStatus } from '../lib/social-scheduler.js';
 
 export const listScheduledPostsSchema = {
-  campaign: z.enum(['coffeepos', 'sikasio', 'all']).optional().describe('Which campaign (default: all)'),
+  // Key from the operator's private campaign config — not enumerated here
+  // because this repo is public. 'all' (or omitted) covers every campaign.
+  campaign: z.string().optional().describe("Which campaign, or 'all' (default: all)"),
   platform: z.enum(['facebook', 'instagram', 'all']).optional().describe('Only posts targeting this platform'),
   status: z.enum(['published', 'scheduled', 'pending', 'due', 'missed', 'all']).optional()
     .describe('Filter by FB or IG status'),
@@ -11,7 +13,7 @@ export const listScheduledPostsSchema = {
 };
 
 export async function listScheduledPosts(args: {
-  campaign?: 'coffeepos' | 'sikasio' | 'all';
+  campaign?: string;
   platform?: 'facebook' | 'instagram' | 'all';
   status?: PlatStatus | 'all';
   when?: 'upcoming' | 'past' | 'all';

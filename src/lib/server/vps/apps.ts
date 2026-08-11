@@ -84,7 +84,7 @@ export function systemIdForLabels(labels: Record<string, string>): string {
   return parentKeyOf(key) || key
 }
 
-// 'bg-api' → 'BG API', 'campaign-renderer' → 'Campaign Renderer' — short
+// 'my-api' → 'My API', 'campaign-renderer' → 'Campaign Renderer' — short
 // tokens read as acronyms, longer ones as words. Good enough that new apps
 // need no registry entry to look presentable.
 function prettyName(key: string): string {

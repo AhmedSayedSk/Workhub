@@ -198,10 +198,10 @@ server.tool(
   async (args) => deleteTaskComment(args)
 );
 
-// --- Social media scheduler (CoffeePOS + Sikasio campaigns) ---
+// --- Social media scheduler (campaigns come from the private config) ---
 server.tool(
   'list_scheduled_posts',
-  'List the social-media posts in the campaign schedulers (CoffeePOS + Sikasio) with their Facebook/Instagram status. Filter by campaign, platform, status, or timeframe.',
+  'List the social-media posts in the configured campaign schedulers with their Facebook/Instagram status. Filter by campaign, platform, status, or timeframe.',
   listScheduledPostsSchema,
   async (args) => listScheduledPosts(args)
 );

@@ -9,12 +9,15 @@ services:
       - .:/app
       - /app/node_modules
       - /app/.next
-      - /home/ahmedsk:/home/ahmedsk
+      # Mirrors the host home inside the container so tooling that writes there
+      # (caches, credentials, nvm) keeps working. ${HOME} comes from the shell
+      # running compose, so this stays correct on any machine.
+      - ${HOME}:${HOME}
       - /mnt:/mnt
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true
-      - HOME=/home/ahmedsk
+      - HOME=${HOME}
     command: >
       bash -c "
         npm install &&

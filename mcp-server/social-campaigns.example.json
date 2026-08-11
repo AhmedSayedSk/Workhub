@@ -1,0 +1,24 @@
+[
+  {
+    "_comment": "Copy to social-campaigns.json (gitignored) and edit. Each entry points the MCP scheduler tools at a local campaign folder. Brand names and absolute paths stay out of this public repo. Override the location with SOCIAL_CAMPAIGNS_CONFIG.",
+    "key": "my-campaign",
+    "name": "My Campaign",
+    "format": "schedule-json",
+    "dir": "/absolute/path/to/campaign/scheduler",
+    "schedule": "schedule.json",
+    "log": "scheduler.log",
+    "run": ["local-scheduler.js", "--live"],
+    "runDry": ["local-scheduler.js"]
+  },
+  {
+    "key": "other-campaign",
+    "name": "Other Campaign",
+    "format": "posts-data-js",
+    "dir": "/absolute/path/to/other/_scheduler",
+    "posts": "posts-data.js",
+    "fbState": "state.json",
+    "igState": "ig-state.json",
+    "log": "scheduler.log",
+    "run": ["local-scheduler.js"]
+  }
+]

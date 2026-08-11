@@ -2,7 +2,9 @@ import { z } from 'zod';
 import { loadCampaigns, readPosts, lastLog, cronLines, fmtCairo, type NormPost, type PlatStatus } from '../lib/social-scheduler.js';
 
 export const schedulerStatusSchema = {
-  campaign: z.enum(['coffeepos', 'sikasio', 'all']).optional().describe('Which campaign (default: all)'),
+  // Key from the operator's private campaign config — not enumerated here
+  // because this repo is public. 'all' (or omitted) covers every campaign.
+  campaign: z.string().optional().describe("Which campaign, or 'all' (default: all)"),
 };
 
 function tally(posts: NormPost[], side: 'fb' | 'ig'): Record<PlatStatus, number> {
@@ -11,7 +13,7 @@ function tally(posts: NormPost[], side: 'fb' | 'ig'): Record<PlatStatus, number>
   return t;
 }
 
-export async function schedulerStatus(args: { campaign?: 'coffeepos' | 'sikasio' | 'all' }) {
+export async function schedulerStatus(args: { campaign?: string }) {
   try {
     let cs = loadCampaigns();
     if (args.campaign && args.campaign !== 'all') cs = cs.filter((c) => c.key === args.campaign);

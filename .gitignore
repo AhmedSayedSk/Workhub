@@ -54,3 +54,7 @@ mcp-server/dist/
 
 # Private VPS ops registry (client/system names, domains) — never commit
 vps-registry.json
+
+# Private social-campaign config (brand names + absolute local paths) — never
+# commit. See mcp-server/social-campaigns.example.json for the shape.
+mcp-server/social-campaigns.json

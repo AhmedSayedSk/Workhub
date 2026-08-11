@@ -1,5 +1,11 @@
-// Social-media scheduler integration: reads the local campaign schedulers
-// (CoffeePOS + Sikasio), normalizes their differing formats, and can trigger a run.
+// Social-media scheduler integration: reads the local campaign schedulers,
+// normalizes their differing formats, and can trigger a run.
+//
+// Which campaigns exist is NOT hard-coded here. This repo is public, and a
+// campaign entry carries a brand name and an absolute path on the operator's
+// machine — so the list lives in a gitignored social-campaigns.json (see
+// social-campaigns.example.json for the shape). No file configured = no
+// campaigns, which degrades to an empty list rather than failing.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
@@ -9,7 +15,10 @@ import { createRequire } from 'node:module';
 const execFileP = promisify(execFile);
 const req = createRequire(import.meta.url);
 
-const DEFAULT_NODE = '/home/ahmedsk/.nvm/versions/node/v22.17.1/bin/node';
+// The interpreter used to run a campaign's scheduler script. process.execPath is
+// whatever node is already running this server, which is the right answer on any
+// machine; SOCIAL_SCHEDULER_NODE overrides it for odd nvm/global setups.
+const DEFAULT_NODE = process.env.SOCIAL_SCHEDULER_NODE || process.execPath;
 
 export interface Campaign {
   key: string;
@@ -26,30 +35,18 @@ export interface Campaign {
   node?: string;
 }
 
-const DEFAULTS: Campaign[] = [
-  {
-    key: 'coffeepos', name: 'CoffeePOS', format: 'schedule-json',
-    dir: '/mnt/c/Users/Ahmed Sayed/Desktop/CoffeePOS-Campaign/scheduler',
-    schedule: 'schedule.json', log: 'scheduler.log',
-    run: ['local-scheduler.js', '--live'], runDry: ['local-scheduler.js'],
-  },
-  {
-    key: 'sikasio', name: 'Sikasio', format: 'posts-data-js',
-    dir: '/mnt/c/Users/Ahmed Sayed/Desktop/Sikasio-Campaign/_scheduler',
-    posts: 'posts-data.js', fbState: 'state.json', igState: 'ig-state.json', log: 'scheduler.log',
-    run: ['local-scheduler.js'],
-  },
-];
-
 export function loadCampaigns(): Campaign[] {
   const candidates = [
     process.env.SOCIAL_CAMPAIGNS_CONFIG,
     path.resolve(process.cwd(), 'social-campaigns.json'),
+    // Resolved relative to this file too, so the server works when launched
+    // from a different cwd (MCP clients rarely cd into the server directory).
+    path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../social-campaigns.json'),
   ].filter(Boolean) as string[];
   for (const c of candidates) {
     try { if (fs.existsSync(c)) return JSON.parse(fs.readFileSync(c, 'utf8')) as Campaign[]; } catch { /* fall through */ }
   }
-  return DEFAULTS;
+  return [];
 }
 
 export function getCampaign(key: string): Campaign | undefined {
