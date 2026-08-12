@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Boxes,
   ChevronUp,
@@ -26,6 +25,7 @@ import { authFetch } from '@/lib/api-client'
 import type { ContainerStat } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
 import { formatBytes, pct, usageColor } from './format'
+import { CollapsiblePanel } from './CollapsiblePanel'
 
 type Action = 'start' | 'stop' | 'restart'
 
@@ -170,26 +170,24 @@ export function ContainerTable({
     )
   }
 
+  // The list includes stopped containers, so a bare total would read as
+  // "28 running". Call the stopped ones out, and keep the count on the header
+  // so a collapsed panel still reports anything down.
+  const down = containers.filter((c) => c.state !== 'running').length
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Boxes className="h-4 w-4 text-muted-foreground" />
-          Containers
-          {(() => {
-            // The list includes stopped containers now, so a bare total would
-            // read as "28 running". Call the stopped ones out explicitly.
-            const down = containers.filter((c) => c.state !== 'running').length
-            return (
-              <span className="text-sm font-normal text-muted-foreground">
-                ({containers.length - down} running
-                {down > 0 && <span className="text-red-500"> · {down} stopped</span>})
-              </span>
-            )
-          })()}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
+    <CollapsiblePanel
+      id="containers"
+      icon={Boxes}
+      title="Containers"
+      meta={
+        <span className="text-sm font-normal text-muted-foreground">
+          ({containers.length - down} running
+          {down > 0 && <span className="text-red-500"> · {down} stopped</span>})
+        </span>
+      }
+      contentClassName="p-0"
+    >
         {/* Reconciliation: the containers' share + everything outside Docker
             (OS, dockerd, sshd, kernel) = the host figure the Resources chart
             shows — so the two views always visibly add up. */}
@@ -277,7 +275,6 @@ export function ContainerTable({
             </tbody>
           </table>
         </div>
-      </CardContent>
 
       <ConfirmDialog
         open={!!confirm}
@@ -305,7 +302,7 @@ export function ContainerTable({
         variant={confirm?.action === 'stop' ? 'destructive' : 'default'}
         onConfirm={run}
       />
-    </Card>
+    </CollapsiblePanel>
   )
 }
 

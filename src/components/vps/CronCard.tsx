@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChevronRight, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { VpsCrons, CronJob, AppInfo } from '@/lib/server/vps/types'
 import type { CronRegistry, CronMetaRule } from '@/lib/server/vps/registry'
+import { CollapsiblePanel } from './CollapsiblePanel'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -157,19 +157,21 @@ export function CronCard({ crons, apps, cronMeta }: { crons?: VpsCrons | null; a
     ...[...groups.keys()].filter((a) => !appOrder.includes(a)).sort(),
   ]
 
+  const total = (crons?.jobs.length || 0) + inApp.reduce((n, g) => n + g.jobs.length, 0)
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Clock className="h-4 w-4 text-muted-foreground" />
-          Cron Jobs
-        </CardTitle>
+    <CollapsiblePanel
+      id="crons"
+      icon={Clock}
+      title="Cron Jobs"
+      meta={<span className="text-sm font-normal text-muted-foreground">({total})</span>}
+      aside={
         <span className="text-xs text-muted-foreground">
-          {(crons?.jobs.length || 0) + inApp.reduce((n, g) => n + g.jobs.length, 0)} scheduled
-          {crons ? ` · checked ${updatedMin === 0 ? 'just now' : `${updatedMin}m ago`}` : ''}
+          {crons ? `checked ${updatedMin === 0 ? 'just now' : `${updatedMin}m ago`}` : ''}
         </span>
-      </CardHeader>
-      <CardContent className="space-y-2">
+      }
+      contentClassName="space-y-2"
+    >
         {orderedApps.map((app) => {
           const list = groups.get(app)!
           return (
@@ -239,7 +241,6 @@ export function CronCard({ crons, apps, cronMeta }: { crons?: VpsCrons | null; a
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </CollapsiblePanel>
   )
 }

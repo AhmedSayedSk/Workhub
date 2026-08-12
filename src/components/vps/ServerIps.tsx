@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Network, Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CollapsiblePanel } from './CollapsiblePanel'
 
 // A colon is the only thing that separates the two families here — the parser
 // upstream has already rejected anything that is not an address.
@@ -70,15 +70,14 @@ export function ServerIpsCard({ ips }: { ips?: string[] | null }) {
   if (!ips || ips.length === 0) return null
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Network className="h-4 w-4 text-muted-foreground" />
-          Public IPs
-        </CardTitle>
-        <span className="text-xs text-muted-foreground">DNS points here</span>
-      </CardHeader>
-      <CardContent className="space-y-1.5">
+    <CollapsiblePanel
+      id="public-ips"
+      icon={Network}
+      title="Public IPs"
+      meta={<span className="text-sm font-normal text-muted-foreground">({ips.length})</span>}
+      aside={<span className="text-xs text-muted-foreground">DNS points here</span>}
+      contentClassName="space-y-1.5"
+    >
         {ips.map((ip) => (
           <button
             key={ip}
@@ -102,7 +101,6 @@ export function ServerIpsCard({ ips }: { ips?: string[] | null }) {
             )}
           </button>
         ))}
-      </CardContent>
-    </Card>
+    </CollapsiblePanel>
   )
 }

@@ -1,7 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ShieldCheck } from 'lucide-react'
 import type { CertInfo } from '@/lib/server/vps/types'
+import { CollapsiblePanel } from './CollapsiblePanel'
 
 function severityVariant(days: number | null): 'secondary' | 'destructive' | 'outline' {
   if (days == null) return 'outline'
@@ -29,17 +29,26 @@ export function CertList({ certs }: { certs: CertInfo[] }) {
     .map(([apex, list]) => [apex, [...list].sort((a, b) => a.domain.localeCompare(b.domain))] as const)
     .sort((a, b) => a[0].localeCompare(b[0]))
 
+  // Surfaced on the collapsed header: an expiring certificate is the reason to
+  // look at this panel, so it must not be something you have to open it to see.
+  const expiring = certs.filter((c) => c.daysRemaining != null && c.daysRemaining <= 14).length
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          TLS certificates
-          <span className="text-sm font-normal text-muted-foreground">({certs.length})</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {certs.length === 0 && <p className="text-sm text-muted-foreground">No domains discovered.</p>}
+    <CollapsiblePanel
+      id="tls-certs"
+      icon={ShieldCheck}
+      title="TLS certificates"
+      meta={<span className="text-sm font-normal text-muted-foreground">({certs.length})</span>}
+      aside={
+        expiring > 0 ? (
+          <Badge variant="destructive" className="font-normal whitespace-nowrap">
+            {expiring} expiring
+          </Badge>
+        ) : null
+      }
+      contentClassName="space-y-4"
+    >
+      {certs.length === 0 && <p className="text-sm text-muted-foreground">No domains discovered.</p>}
         {grouped.map(([apex, list]) => (
           <div key={apex} className="space-y-2">
             {/* Domain group header */}
@@ -69,7 +78,6 @@ export function CertList({ certs }: { certs: CertInfo[] }) {
             ))}
           </div>
         ))}
-      </CardContent>
-    </Card>
+    </CollapsiblePanel>
   )
 }

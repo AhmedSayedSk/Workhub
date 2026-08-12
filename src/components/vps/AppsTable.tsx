@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LayoutGrid, ExternalLink, BarChart3 } from 'lucide-react'
 import type { AppInfo } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
 import { SystemStatsDialog } from './SystemStatsDialog'
+import { CollapsiblePanel } from './CollapsiblePanel'
 
 // Operational severity for a system: 0 = some/all containers down (show first),
 // 1 = degraded, 2 = healthy or non-container.
@@ -35,14 +35,15 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
   const containerized = apps.filter((a) => a.total > 0)
   const unhealthy = containerized.filter((a) => a.running < a.total).length
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <LayoutGrid className="h-4 w-4 text-muted-foreground" />
-          Systems &amp; Apps
-          <span className="text-sm font-normal text-muted-foreground">({apps.length})</span>
-        </CardTitle>
-        {/* One-glance fleet health: green when every containerized system is fully up. */}
+    <CollapsiblePanel
+      id="apps"
+      icon={LayoutGrid}
+      title={<>Systems &amp; Apps</>}
+      meta={<span className="text-sm font-normal text-muted-foreground">({apps.length})</span>}
+      contentClassName="p-0"
+      /* One-glance fleet health stays on the header, so a collapsed panel still
+         says whether anything needs attention. */
+      aside={
         <span
           className={cn(
             'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums',
@@ -54,8 +55,8 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
           <span className={cn('h-1.5 w-1.5 rounded-full', unhealthy === 0 ? 'bg-emerald-500' : 'bg-amber-500')} />
           {unhealthy === 0 ? 'all healthy' : `${unhealthy} need${unhealthy === 1 ? 's' : ''} attention`}
         </span>
-      </CardHeader>
-      <CardContent className="p-0">
+      }
+    >
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -193,7 +194,6 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
             </tbody>
           </table>
         </div>
-      </CardContent>
       {selected && (
         <SystemStatsDialog
           systemId={selected.id}
@@ -203,6 +203,6 @@ export function AppsTable({ apps, serverId = 'primary' }: { apps: AppInfo[]; ser
           serverId={serverId}
         />
       )}
-    </Card>
+    </CollapsiblePanel>
   )
 }

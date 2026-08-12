@@ -524,6 +524,12 @@ The gate exists because the socket proxy can only authorise by API *section*:
 The gate forwards exactly three endpoints and answers `403` to everything else, so the
 grant matches the feature rather than merely containing it.
 
+The collector lists containers with `?all=1` so **stopped ones stay visible** — Docker
+returns only running containers by default, which would remove a container's row (and
+its Start button) the moment it was stopped. Stats are not fetched for a non-running
+container: Docker keeps echoing its last-known figures, so it would appear to still
+hold memory it had already released. Those rows show `—` rather than `0 B`.
+
 Two containers are refused outright — WorkHub's own container and the Docker proxies.
 Acting on either destroys the mechanism doing the acting and can only be undone over
 SSH, so the UI hides the menu and the API returns `403 protected`. The name is resolved
