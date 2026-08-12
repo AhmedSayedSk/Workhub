@@ -97,6 +97,12 @@ export interface VpsMeta {
   // Injected from the registry by the stats route, so one .env is the source of
   // truth for both the local box and every agent-reported one. Empty = unset.
   ips?: string[]
+  /**
+   * Where the addresses came from. 'detected' = read off the host's own
+   * interfaces (complete, self-maintaining); 'configured' = the VPS*_PUBLIC_IP
+   * fallback, which is only as current as whoever last edited the env.
+   */
+  ipSource?: 'detected' | 'configured'
 }
 
 // One persisted time-series sample (written every minute, charted over time).

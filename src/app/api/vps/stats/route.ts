@@ -18,14 +18,27 @@ export async function GET(request: NextRequest) {
   const server = getServer(serverId)
   if (!server) return NextResponse.json({ error: 'unknown server' }, { status: 404 })
   try {
-    // The registry owns the addresses for BOTH modes: a remote snapshot is
-    // written by the agent, which knows the box it runs on but not how this
-    // deployment is meant to label it — so one .env here stays the only place
-    // an IP is configured.
+    // Addresses detected on the box win over the configured VPS*_PUBLIC_IP.
+    // The host reads them off its own interfaces, so the list is complete and
+    // stays correct when an address is added; the env value is only as current
+    // as whoever last edited it, and is kept purely as the fallback for a box
+    // that isn't running the ip-status collector (and for dev).
+    //
     // Also overlay the curated cron metadata here (not in the agent payload):
     // the private registry file lives with THIS deployment, so remote servers'
     // snapshots get the same friendly grouping without shipping it around.
-    const withIps = (stats: VpsStats) => ({ ...stats, cronMeta: loadRegistry().cron, meta: { ...stats.meta, ips: server.ips } })
+    const withIps = (stats: VpsStats) => {
+      const detected = stats.meta?.ips?.length ? stats.meta.ips : null
+      return {
+        ...stats,
+        cronMeta: loadRegistry().cron,
+        meta: {
+          ...stats.meta,
+          ips: detected ?? server.ips,
+          ipSource: detected ? ('detected' as const) : ('configured' as const),
+        },
+      }
+    }
 
     if (server.mode === 'local') {
       const stats = await collectVpsStats()

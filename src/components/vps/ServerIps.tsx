@@ -65,7 +65,7 @@ export function ServerIps({ ips, className }: { ips?: string[] | null; className
  * "what do I point a DNS record at" and an A record and an AAAA record are not
  * interchangeable.
  */
-export function ServerIpsCard({ ips }: { ips?: string[] | null }) {
+export function ServerIpsCard({ ips, source }: { ips?: string[] | null; source?: 'detected' | 'configured' }) {
   const { copied, copy } = useCopy()
   if (!ips || ips.length === 0) return null
 
@@ -75,7 +75,22 @@ export function ServerIpsCard({ ips }: { ips?: string[] | null }) {
       icon={Network}
       title="Public IPs"
       meta={<span className="text-sm font-normal text-muted-foreground">({ips.length})</span>}
-      aside={<span className="text-xs text-muted-foreground">DNS points here</span>}
+      // Say where the list came from. Read off the host it is complete and
+      // self-maintaining; falling back to the env value it is only as current
+      // as the last person to edit it, and that difference matters when you are
+      // checking whether a DNS record points at the right place.
+      aside={
+        <span
+          className="text-xs text-muted-foreground"
+          title={
+            source === 'detected'
+              ? "Read from the host's own interfaces every 15 minutes"
+              : 'From VPS_PUBLIC_IP — the host address collector is not running here'
+          }
+        >
+          {source === 'detected' ? 'auto-detected' : source === 'configured' ? 'from config' : 'DNS points here'}
+        </span>
+      }
       contentClassName="space-y-1.5"
     >
         {ips.map((ip) => (

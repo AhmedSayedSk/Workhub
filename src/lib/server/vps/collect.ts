@@ -5,6 +5,7 @@ import { collectApps } from './apps'
 import { collectCerts } from './certs'
 import { collectSecurity } from './security'
 import { collectCrons } from './crons'
+import { collectPublicIps } from './ips'
 import { evaluateAlerts } from './alerts'
 import { loadRegistry } from './registry'
 
@@ -14,7 +15,7 @@ import { loadRegistry } from './registry'
 export async function collectVpsStats(): Promise<VpsStats> {
   const errors: SectionError[] = []
 
-  const [hostR, containersR, appsR, storageR, certsR, securityR, cronsR] = await Promise.allSettled([
+  const [hostR, containersR, appsR, storageR, certsR, securityR, cronsR, ipsR] = await Promise.allSettled([
     collectHost(),
     collectContainers(),
     collectApps(),
@@ -22,6 +23,7 @@ export async function collectVpsStats(): Promise<VpsStats> {
     collectCerts(),
     collectSecurity(),
     collectCrons(),
+    collectPublicIps(),
   ])
 
   const host = hostR.status === 'fulfilled' ? hostR.value : null
@@ -42,6 +44,9 @@ export async function collectVpsStats(): Promise<VpsStats> {
   // security + cron status come from host-written files; absent in dev — degrade to null silently
   const security = securityR.status === 'fulfilled' ? securityR.value : null
   const crons = cronsR.status === 'fulfilled' ? cronsR.value : null
+  // Addresses read off the host. Null (dev, or the file not yet written) means
+  // the stats route falls back to the configured VPS*_PUBLIC_IP.
+  const detectedIps = ipsR.status === 'fulfilled' ? ipsR.value : null
 
   const network = containers
     ? containers.reduce(
@@ -52,14 +57,19 @@ export async function collectVpsStats(): Promise<VpsStats> {
 
   const alerts = evaluateAlerts({ host, certs, containers })
 
-  return { generatedAtMs: Date.now(), meta: buildMeta(host), host, containers, apps, storage, certs, network, security, crons, cronMeta: loadRegistry().cron, alerts, errors }
+  return { generatedAtMs: Date.now(), meta: buildMeta(host, detectedIps?.ips), host, containers, apps, storage, certs, network, security, crons, cronMeta: loadRegistry().cron, alerts, errors }
 }
 
 // Header name + subtitle: custom via env, else derived from the live host.
-function buildMeta(host: HostStats | null): VpsMeta {
+function buildMeta(host: HostStats | null, detectedIps?: string[]): VpsMeta {
   const name = process.env.VPS_DISPLAY_NAME || host?.hostname || 'Server'
   const subtitle =
     process.env.VPS_SUBTITLE ||
     (host ? `${host.os} · ${host.cpu.cores} vCPU / ${Math.round(host.memory.totalBytes / 1e9)} GB` : 'live VPS stats')
-  return { name, subtitle }
+  // Detected addresses travel with the snapshot so a remote agent reports its
+  // own box's real addressing too. The stats route decides whether to use them
+  // or fall back to the configured value.
+  return detectedIps?.length
+    ? { name, subtitle, ips: detectedIps, ipSource: 'detected' as const }
+    : { name, subtitle }
 }

@@ -87,7 +87,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
               {stats.certs && <CertList certs={stats.certs} />}
-              <ServerIpsCard ips={stats.meta?.ips} />
+              <ServerIpsCard ips={stats.meta?.ips} source={stats.meta?.ipSource} />
               <CronCard crons={stats.crons} apps={stats.apps} cronMeta={stats.cronMeta} />
               {stats.containers && (
                 <ContainerTable
