@@ -16,64 +16,25 @@ function barColor(pct: number | null): string {
   return 'bg-emerald-500'
 }
 
-function valueColor(pct: number | null): string {
-  if (pct == null) return 'text-muted-foreground'
-  if (pct >= 90) return 'text-red-500'
-  if (pct >= 75) return 'text-amber-500'
-  return 'text-foreground'
-}
-
-/**
- * One resource as an aligned row rather than a boxed tile.
- *
- * Stacking them puts the three bars on a shared left edge and the three
- * percentages in a shared right-hand column, so the heaviest resource is
- * obvious within a card and the same resource is comparable ACROSS cards —
- * which is the whole job of a page you use to pick a server.
- */
-function Metric({
-  icon: Icon,
-  label,
-  pct,
-  detail,
-}: {
-  icon: typeof Cpu
-  label: string
-  pct: number | null
-  detail: string
-}) {
+function Metric({ icon: Icon, label, pct, sub }: { icon: typeof Cpu; label: string; pct: number | null; sub: string }) {
   // A 6% bar is a dot at normal widths. Floor any non-zero value at a visible
   // sliver so "barely used" still reads as used rather than as no data.
   const width = pct == null || pct <= 0 ? 0 : Math.max(2.5, Math.min(100, pct))
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Icon className="h-3.5 w-3.5 shrink-0" />
-          {label}
-        </span>
-        <span className="flex shrink-0 items-baseline gap-2">
-          <span className="text-[11px] tabular-nums text-muted-foreground">{detail}</span>
-          <span className={cn('w-10 text-right text-sm font-semibold tabular-nums', valueColor(pct))}>
-            {pct == null ? '—' : `${Math.round(pct)}%`}
-          </span>
-        </span>
+    <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-3">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" /> {label}
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/10">
+      <div className="text-2xl font-semibold leading-none tabular-nums">{pct == null ? '—' : `${Math.round(pct)}%`}</div>
+      <div className="text-[11px] tabular-nums text-muted-foreground">{sub}</div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className={cn('h-full rounded-full transition-all duration-500 motion-reduce:transition-none', barColor(pct))}
+          className={cn('h-full rounded-full transition-all motion-reduce:transition-none', barColor(pct))}
           style={{ width: `${width}%` }}
         />
       </div>
     </div>
   )
-}
-
-/** Derived from the percentage so the figure and the bar can never disagree. */
-function usedOf(total: number | null, pct: number | null): string {
-  if (total == null) return '—'
-  if (pct == null) return formatBytes(total)
-  return `${formatBytes((total * pct) / 100)} / ${formatBytes(total)}`
 }
 
 export function ServerCard({ server }: { server: ServerSummary }) {
@@ -133,25 +94,11 @@ export function ServerCard({ server }: { server: ServerSummary }) {
             detail page, where there is room for it. */}
         <ServerIps ips={server.ips} max={1} className="-mt-1" />
 
-        <div className="space-y-2.5">
-          <Metric
-            icon={Cpu}
-            label="CPU"
-            pct={server.cpuPct}
-            detail={server.cpuCores != null ? `${server.cpuCores} vCPU` : '—'}
-          />
-          <Metric
-            icon={MemoryStick}
-            label="Memory"
-            pct={server.memPct}
-            detail={usedOf(server.memTotalBytes, server.memPct)}
-          />
-          <Metric
-            icon={HardDrive}
-            label="Disk"
-            pct={server.diskPct}
-            detail={usedOf(server.diskTotalBytes, server.diskPct)}
-          />
+        {/* Metrics — % usage with the total capacity underneath */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <Metric icon={Cpu} label="CPU" pct={server.cpuPct} sub={server.cpuCores != null ? `${server.cpuCores} vCPU` : '—'} />
+          <Metric icon={MemoryStick} label="Memory" pct={server.memPct} sub={server.memTotalBytes != null ? formatBytes(server.memTotalBytes) : '—'} />
+          <Metric icon={HardDrive} label="Disk" pct={server.diskPct} sub={server.diskTotalBytes != null ? formatBytes(server.diskTotalBytes) : '—'} />
         </div>
 
         {/* ---- Footer ---------------------------------------------------- */}
