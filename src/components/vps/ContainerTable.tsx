@@ -2,10 +2,46 @@
 
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Boxes, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import {
+  Boxes,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  MoreVertical,
+  Play,
+  RotateCw,
+  Square,
+  Loader2,
+  ShieldAlert,
+} from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/hooks/useToast'
+import { authFetch } from '@/lib/api-client'
 import type { ContainerStat } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
 import { formatBytes, pct, usageColor } from './format'
+
+type Action = 'start' | 'stop' | 'restart'
+
+const ACTION_LABEL: Record<Action, string> = { start: 'Start', stop: 'Stop', restart: 'Restart' }
+
+/**
+ * UI mirror of the server's protection rule (lib/server/vps/control.ts). This
+ * only decides whether to offer the buttons — the API enforces it again and is
+ * the authority, so the two drifting apart degrades to a 403, never to an
+ * action that shouldn't have run.
+ */
+function isProtected(name: string): boolean {
+  const n = name.replace(/^\//, '').toLowerCase()
+  if (n.includes('dockerproxy') || n.includes('docker-socket-proxy')) return true
+  return n === 'workhub' || n.startsWith('workhub-') || n.startsWith('workhub_')
+}
 
 type SortKey = 'name' | 'status' | 'cpu' | 'memory' | 'net'
 type SortDir = 'asc' | 'desc'
@@ -19,8 +55,55 @@ const ACCESSORS: Record<SortKey, (c: ContainerStat) => number | string> = {
 }
 const NUMERIC: Record<SortKey, boolean> = { name: false, status: false, cpu: true, memory: true, net: true }
 
-export function ContainerTable({ containers, hostMemTotalBytes, hostMemUsedBytes }: { containers: ContainerStat[]; hostMemTotalBytes?: number; hostMemUsedBytes?: number }) {
+export function ContainerTable({
+  containers,
+  hostMemTotalBytes,
+  hostMemUsedBytes,
+  serverId,
+  canControl = false,
+  onChanged,
+}: {
+  containers: ContainerStat[]
+  hostMemTotalBytes?: number
+  hostMemUsedBytes?: number
+  serverId?: string
+  /** Remote servers report one-way, so their rows stay read-only. */
+  canControl?: boolean
+  onChanged?: () => void
+}) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'memory', dir: 'desc' })
+  const { toast } = useToast()
+  const [confirm, setConfirm] = useState<{ container: ContainerStat; action: Action } | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const run = async () => {
+    if (!confirm) return
+    const { container, action } = confirm
+    setBusyId(container.id)
+    setConfirm(null)
+    try {
+      const res = await authFetch('/api/vps/containers/action', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ serverId, containerId: container.id, action }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
+      toast({
+        title: `${ACTION_LABEL[action]}ed ${container.name}`,
+        description: 'The container list will catch up on the next refresh.',
+      })
+      onChanged?.()
+    } catch (e) {
+      toast({
+        title: `Could not ${action} ${container.name}`,
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      })
+    } finally {
+      setBusyId(null)
+    }
+  }
   // Memory % is measured against the HOST's total RAM (shown once in the header),
   // NOT each container's own cgroup cap — otherwise a capped container (e.g. an
   // AI worker limited to 1.4G) would read ~98% while using only ~35% of the box.
@@ -112,6 +195,7 @@ export function ContainerTable({ containers, hostMemTotalBytes, hostMemUsedBytes
                 <SortHeader label="CPU" k="cpu" align="right" />
                 <SortHeader label="Memory" k="memory" align="right" hint={memTotal ? formatBytes(memTotal) : undefined} />
                 <SortHeader label="Net I/O" k="net" align="right" />
+                {canControl && <th className="w-10 px-2" aria-label="Actions" />}
               </tr>
             </thead>
             <tbody>
@@ -146,6 +230,15 @@ export function ContainerTable({ containers, hostMemTotalBytes, hostMemUsedBytes
                     <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                       ↓ {formatBytes(c.netRxBytes)} · ↑ {formatBytes(c.netTxBytes)}
                     </td>
+                    {canControl && (
+                      <td className="px-2 py-2.5 text-right">
+                        <ContainerActions
+                          container={c}
+                          busy={busyId === c.id}
+                          onPick={(action) => setConfirm({ container: c, action })}
+                        />
+                      </td>
+                    )}
                   </tr>
                 )
               })}
@@ -153,6 +246,94 @@ export function ContainerTable({ containers, hostMemTotalBytes, hostMemUsedBytes
           </table>
         </div>
       </CardContent>
+
+      <ConfirmDialog
+        open={!!confirm}
+        onOpenChange={(open) => !open && setConfirm(null)}
+        title={confirm ? `${ACTION_LABEL[confirm.action]} ${confirm.container.name}?` : ''}
+        description={
+          confirm ? (
+            <div className="space-y-2">
+              <p>
+                {confirm.action === 'stop'
+                  ? 'This container will stop serving immediately. Anything depending on it goes down until it is started again.'
+                  : confirm.action === 'restart'
+                    ? 'The container stops and starts again. Expect a short interruption while it comes back up.'
+                    : 'The container will be started with its existing configuration.'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Image: <span className="font-mono">{confirm.container.image}</span>
+              </p>
+            </div>
+          ) : (
+            ''
+          )
+        }
+        confirmLabel={confirm ? ACTION_LABEL[confirm.action] : 'Confirm'}
+        variant={confirm?.action === 'stop' ? 'destructive' : 'default'}
+        onConfirm={run}
+      />
     </Card>
+  )
+}
+
+function ContainerActions({
+  container,
+  busy,
+  onPick,
+}: {
+  container: ContainerStat
+  busy: boolean
+  onPick: (action: Action) => void
+}) {
+  if (isProtected(container.name)) {
+    return (
+      <span
+        className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground/40"
+        title="Protected — acting on this container would break the dashboard itself."
+      >
+        <ShieldAlert className="h-3.5 w-3.5" />
+      </span>
+    )
+  }
+
+  if (busy) {
+    return (
+      <span className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      </span>
+    )
+  }
+
+  const running = container.state === 'running'
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`Actions for ${container.name}`}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40">
+        {running ? (
+          <>
+            <DropdownMenuItem onClick={() => onPick('restart')} className="gap-2">
+              <RotateCw className="h-3.5 w-3.5" /> Restart
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onPick('stop')}
+              className="gap-2 text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+            >
+              <Square className="h-3.5 w-3.5" /> Stop
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <DropdownMenuItem onClick={() => onPick('start')} className="gap-2">
+            <Play className="h-3.5 w-3.5" /> Start
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

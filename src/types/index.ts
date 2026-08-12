@@ -1029,7 +1029,7 @@ export type AuditLogType =
   | 'permission' | 'member' | 'sharing'
   | 'settings' | 'media' | 'payment' | 'calendar'
   | 'attachment' | 'note' | 'time_entry' | 'milestone'
-  | 'stage'
+  | 'stage' | 'server'
 
 export interface AuditLog {
   id: string
