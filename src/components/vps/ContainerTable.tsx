@@ -31,6 +31,9 @@ type Action = 'start' | 'stop' | 'restart'
 
 const ACTION_LABEL: Record<Action, string> = { start: 'Start', stop: 'Stop', restart: 'Restart' }
 
+/** How long to let a container settle before re-reading its usage figures. */
+const SETTLE_MS = 2000
+
 /**
  * UI mirror of the server's protection rule (lib/server/vps/control.ts). This
  * only decides whether to offer the buttons — the API enforces it again and is
@@ -91,8 +94,17 @@ export function ContainerTable({
       if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
       toast({
         title: `${ACTION_LABEL[action]}ed ${container.name}`,
-        description: 'The container list will catch up on the next refresh.',
+        description:
+          action === 'stop'
+            ? 'It stays listed so you can start it again.'
+            : 'Usage figures update as it comes back up.',
       })
+      // Docker answers as soon as it has ACCEPTED the change — the container may
+      // still be shutting down or booting. Refresh at once so the row reacts,
+      // then once more after it has settled, so the CPU and memory shown are the
+      // real post-action figures rather than a snapshot taken mid-transition.
+      onChanged?.()
+      await new Promise((r) => setTimeout(r, SETTLE_MS))
       onChanged?.()
     } catch (e) {
       toast({
@@ -164,7 +176,17 @@ export function ContainerTable({
         <CardTitle className="flex items-center gap-2 text-base">
           <Boxes className="h-4 w-4 text-muted-foreground" />
           Containers
-          <span className="text-sm font-normal text-muted-foreground">({containers.length})</span>
+          {(() => {
+            // The list includes stopped containers now, so a bare total would
+            // read as "28 running". Call the stopped ones out explicitly.
+            const down = containers.filter((c) => c.state !== 'running').length
+            return (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({containers.length - down} running
+                {down > 0 && <span className="text-red-500"> · {down} stopped</span>})
+              </span>
+            )
+          })()}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
@@ -201,6 +223,7 @@ export function ContainerTable({
             <tbody>
               {sorted.map((c) => {
                 const memPct = pct(c.memUsedBytes, memTotal)
+                const stopped = c.state !== 'running'
                 return (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-4 py-2.5">
@@ -218,17 +241,26 @@ export function ContainerTable({
                         {c.image}
                       </div>
                     </td>
-                    <td className={cn('px-4 py-2.5 text-right tabular-nums', usageColor(c.cpuPct))}>
-                      {c.cpuPct.toFixed(1)}%
+                    {/* A stopped container holds nothing, so show an em dash
+                        rather than 0.0% / 0 B — zeros read as a live container
+                        that is idle, which is a different thing entirely. */}
+                    <td className={cn('px-4 py-2.5 text-right tabular-nums', stopped ? 'text-muted-foreground/50' : usageColor(c.cpuPct))}>
+                      {stopped ? '—' : `${c.cpuPct.toFixed(1)}%`}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
-                      <span className={memPct ? usageColor(memPct) : undefined}>{formatBytes(c.memUsedBytes)}</span>
-                      {memPct > 0 && (
-                        <span className={cn('ml-1.5 text-xs', usageColor(memPct))}>· {memPct}%</span>
+                      {stopped ? (
+                        <span className="text-muted-foreground/50">—</span>
+                      ) : (
+                        <>
+                          <span className={memPct ? usageColor(memPct) : undefined}>{formatBytes(c.memUsedBytes)}</span>
+                          {memPct > 0 && (
+                            <span className={cn('ml-1.5 text-xs', usageColor(memPct))}>· {memPct}%</span>
+                          )}
+                        </>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
-                      ↓ {formatBytes(c.netRxBytes)} · ↑ {formatBytes(c.netTxBytes)}
+                    <td className={cn('px-4 py-2.5 text-right tabular-nums', stopped ? 'text-muted-foreground/50' : 'text-muted-foreground')}>
+                      {stopped ? '—' : <>↓ {formatBytes(c.netRxBytes)} · ↑ {formatBytes(c.netTxBytes)}</>}
                     </td>
                     {canControl && (
                       <td className="px-2 py-2.5 text-right">

@@ -503,6 +503,36 @@ Metrics are stateless on the box — everything is written to Firestore, then ro
 for the charts. Container and app discovery reads Docker labels through a socket proxy
 rather than the raw Docker socket.
 
+### Container controls (the only write path to Docker)
+
+The containers panel can start, stop and restart a container on the **local** server.
+`POST /api/vps/containers/action` is owner-gated, and every action writes an
+`auditLogs` entry of type `server`.
+
+Reads and writes use **different** endpoints on purpose:
+
+```text
+metrics   workhub-web ──► workhub-dockerproxy         (GET only, POST: 0)
+control   workhub-web ──► workhub-control-gate ──► workhub-dockerproxy-control
+                          allowlist:                  CONTAINERS + POST,
+                          POST /containers/<id>/       EXEC/IMAGES/VOLUMES off
+                          (start|stop|restart)
+```
+
+The gate exists because the socket proxy can only authorise by API *section*:
+`CONTAINERS: 1` with `POST: 1` would also permit kill, rename, create and exec-create.
+The gate forwards exactly three endpoints and answers `403` to everything else, so the
+grant matches the feature rather than merely containing it.
+
+Two containers are refused outright — WorkHub's own container and the Docker proxies.
+Acting on either destroys the mechanism doing the acting and can only be undone over
+SSH, so the UI hides the menu and the API returns `403 protected`. The name is resolved
+from the daemon before the check, never taken from the caller.
+
+Remote servers return `501`: the agent pushes to WorkHub and exposes no inbound
+channel, so there is nothing to send a command down. Adding it would mean queueing
+commands in the response to `/api/vps/report`, which the agent currently discards.
+
 > **Private overlay** — friendly names, descriptions, domains and cron labels are
 > *not* in the repo. `registry.ts` loads a gitignored `vps-registry.json` at runtime
 > behind a 60-second TTL cache, with `vps-registry.example.json` documenting the shape.

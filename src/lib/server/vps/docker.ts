@@ -94,20 +94,34 @@ interface ContainerSummary {
 }
 
 export async function collectContainers(): Promise<ContainerStat[]> {
-  const list = await dockerGet<ContainerSummary[]>('/containers/json')
-  // Fetch each container's single-shot stats in parallel.
+  // `all=1` keeps STOPPED containers in the list. Without it Docker returns
+  // running ones only, so a container would vanish from the panel the moment
+  // it was stopped — taking its Start button with it and leaving no way back
+  // except SSH. Stopped rows are what make the control menu round-trip.
+  const list = await dockerGet<ContainerSummary[]>('/containers/json?all=1')
+
+  const base = (c: ContainerSummary) => ({
+    id: c.Id.slice(0, 12),
+    name: (c.Names?.[0] || c.Id).replace(/^\//, ''),
+    image: c.Image,
+    state: c.State,
+    status: c.Status,
+  })
+  const IDLE = { cpuPct: 0, memUsedBytes: 0, memLimitBytes: 0, netRxBytes: 0, netTxBytes: 0 }
+
   const stats = await Promise.all(
     list.map(async (c) => {
+      // A container that isn't running holds no CPU, memory or network. Docker
+      // still answers /stats for it, echoing the last-known figures — reporting
+      // those would show a stopped container "using" memory it long since gave
+      // back. Skip the call entirely and state zero.
+      if (c.State !== 'running') return { ...base(c), ...IDLE } as ContainerStat
       try {
         const s = await dockerGet<DockerStats>(`/containers/${c.Id}/stats?stream=false`, 6000)
         const mem = computeMem(s)
         const net = sumNet(s)
         return {
-          id: c.Id.slice(0, 12),
-          name: (c.Names?.[0] || c.Id).replace(/^\//, ''),
-          image: c.Image,
-          state: c.State,
-          status: c.Status,
+          ...base(c),
           cpuPct: computeCpuPct(s),
           memUsedBytes: mem.used,
           memLimitBytes: mem.limit,
@@ -115,22 +129,17 @@ export async function collectContainers(): Promise<ContainerStat[]> {
           netTxBytes: net.tx,
         } as ContainerStat
       } catch {
-        return {
-          id: c.Id.slice(0, 12),
-          name: (c.Names?.[0] || c.Id).replace(/^\//, ''),
-          image: c.Image,
-          state: c.State,
-          status: c.Status,
-          cpuPct: 0,
-          memUsedBytes: 0,
-          memLimitBytes: 0,
-          netRxBytes: 0,
-          netTxBytes: 0,
-        } as ContainerStat
+        return { ...base(c), ...IDLE } as ContainerStat
       }
     })
   )
-  return stats.sort((a, b) => b.cpuPct - a.cpuPct)
+
+  // Running first, then heaviest CPU — so a stopped container never outranks a
+  // live one just because the list is sorted on a number it no longer has.
+  return stats.sort((a, b) => {
+    const run = Number(b.state === 'running') - Number(a.state === 'running')
+    return run !== 0 ? run : b.cpuPct - a.cpuPct
+  })
 }
 
 export async function collectStorage(): Promise<StorageStats> {
