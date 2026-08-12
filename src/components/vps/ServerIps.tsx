@@ -32,14 +32,29 @@ function useCopy() {
  * among several and space is tight. Renders nothing when none is configured,
  * so a server without `VPS*_PUBLIC_IP` looks deliberate rather than broken.
  */
-export function ServerIps({ ips, className }: { ips?: string[] | null; className?: string }) {
+export function ServerIps({
+  ips,
+  className,
+  max,
+}: {
+  ips?: string[] | null
+  className?: string
+  /** Cap the chips shown; the remainder collapses into a "+N" badge. */
+  max?: number
+}) {
   const { copied, copy } = useCopy()
   if (!ips || ips.length === 0) return null
 
+  // IPv4 first when the list is capped: it is the address you would actually
+  // paste somewhere, and a full IPv6 chip eats the whole row on its own.
+  const ordered = max == null ? ips : [...ips].sort((a, b) => Number(isIpv6(a)) - Number(isIpv6(b)))
+  const shown = max == null ? ordered : ordered.slice(0, max)
+  const hidden = ordered.length - shown.length
+
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
+    <div className={cn('flex min-w-0 flex-wrap items-center gap-1.5', className)}>
       <Network className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      {ips.map((ip) => (
+      {shown.map((ip) => (
         <button
           key={ip}
           type="button"
@@ -55,6 +70,14 @@ export function ServerIps({ ips, className }: { ips?: string[] | null; className
           )}
         </button>
       ))}
+      {hidden > 0 && (
+        <span
+          className="shrink-0 rounded-md border border-dashed px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
+          title={ordered.slice(shown.length).join('\n')}
+        >
+          +{hidden}
+        </span>
+      )}
     </div>
   )
 }

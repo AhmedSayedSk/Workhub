@@ -503,6 +503,28 @@ Metrics are stateless on the box — everything is written to Firestore, then ro
 for the charts. Container and app discovery reads Docker labels through a socket proxy
 rather than the raw Docker socket.
 
+### Host-written status files
+
+Three facts the app cannot see from inside its container are written to disk by
+root cron jobs on the host and mounted read-only:
+
+| File | Written by | Read by | Cadence |
+|---|---|---|---|
+| `status.json` | `security-status.sh` | `security.ts` | 15 min |
+| `cron.json` | `cron-status.sh` | `crons.ts` | 5 min |
+| `ips.json` | `ip-status.sh` | `ips.ts` | 15 min + at boot |
+
+`ips.json` holds the box's own global-scope addresses, filtered through Python's
+`is_global` so RFC1918, CGNAT, loopback, link-local and IPv6 ULA never appear —
+otherwise `docker0` and every `br-*` bridge would be listed as public. Detected
+addresses take precedence over `VPS*_PUBLIC_IP`, which remains only as the fallback
+for a host not running the collector. The card labels which it is, because "read off
+the interfaces" and "whatever the env last said" are different guarantees when you
+are checking a DNS record.
+
+All three writes are atomic (`os.replace`), so a reader never sees a half-written
+file, and each degrades to `null` rather than failing the snapshot.
+
 ### Panel layout
 
 Every panel on the server detail page collapses — storage, containers, TLS

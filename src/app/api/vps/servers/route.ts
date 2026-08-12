@@ -6,6 +6,7 @@ import { listContainersLite } from '@/lib/server/vps/docker'
 import { evaluateAlerts } from '@/lib/server/vps/alerts'
 import { readSnapshot, readLatestSamples } from '@/lib/server/vps/metrics'
 import { cardPct } from '@/lib/server/vps/cardMetrics'
+import { collectPublicIps } from '@/lib/server/vps/ips'
 import type { ServerSummary, VpsStats } from '@/lib/server/vps/types'
 
 export const dynamic = 'force-dynamic'
@@ -69,7 +70,18 @@ export async function GET(request: NextRequest) {
     try {
       if (s.mode === 'local') {
         const sum = await summarizeLocal()
-        out.push({ ...base, online: true, updatedAtMs: Date.now(), ...sum, ...cardPct(sum, samples[s.id] ?? null) })
+        // Same precedence as the detail route: addresses read off the host beat
+        // the configured VPS*_PUBLIC_IP, so the card and the page it links to
+        // never disagree about how many addresses this box has.
+        const detected = await collectPublicIps().catch(() => null)
+        out.push({
+          ...base,
+          ips: detected?.ips.length ? detected.ips : s.ips,
+          online: true,
+          updatedAtMs: Date.now(),
+          ...sum,
+          ...cardPct(sum, samples[s.id] ?? null),
+        })
       } else {
         const snap = await readSnapshot(s.id)
         if (!snap) {
@@ -77,7 +89,15 @@ export async function GET(request: NextRequest) {
         } else {
           const online = Date.now() - snap.receivedAtMs < STALE_MS
           const sum = summarizeSnapshot(snap.stats)
-          out.push({ ...base, online, updatedAtMs: snap.receivedAtMs, ...sum, ...cardPct(sum, samples[s.id] ?? null) })
+          const reported = snap.stats.meta?.ips
+          out.push({
+            ...base,
+            ips: reported?.length ? reported : s.ips,
+            online,
+            updatedAtMs: snap.receivedAtMs,
+            ...sum,
+            ...cardPct(sum, samples[s.id] ?? null),
+          })
         }
       }
     } catch {
