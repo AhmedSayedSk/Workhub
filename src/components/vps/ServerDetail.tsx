@@ -82,6 +82,9 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             </div>
           </div>
           <div className="grid gap-4 lg:grid-cols-12">
+            {/* Systems & Apps leads: it is the grouped, human-facing view, and
+                it keeps the wider column because it carries more per row. */}
+            {stats.apps && <div className="lg:col-span-7"><AppsTable apps={stats.apps} serverId={serverId} /></div>}
             {stats.containers && (
               <div className="lg:col-span-5">
                 <ContainerTable
@@ -96,7 +99,6 @@ export function ServerDetail({ serverId }: { serverId: string }) {
                 />
               </div>
             )}
-            {stats.apps && <div className="lg:col-span-7"><AppsTable apps={stats.apps} serverId={serverId} /></div>}
           </div>
           {stats.errors.length > 0 && (
             <div className="space-y-1 text-xs text-muted-foreground">

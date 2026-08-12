@@ -503,6 +503,19 @@ Metrics are stateless on the box — everything is written to Firestore, then ro
 for the charts. Container and app discovery reads Docker labels through a socket proxy
 rather than the raw Docker socket.
 
+### Panel layout
+
+Every panel on the server detail page collapses — storage, containers, TLS
+certificates, public IPs, cron jobs, and Systems &amp; Apps. `CollapsiblePanel`
+wraps the shared `Card` shell and `usePanelState(id)` persists open/closed to
+`localStorage` under `vps-panel:<id>`, so the layout survives a reload and is shared
+across servers (the panels mean the same thing on each). A `storage` event listener
+keeps two open tabs in step.
+
+Each header keeps the one figure worth seeing while collapsed — storage total,
+running/stopped counts, expiring certificates, fleet health, scheduled job count —
+so collapsing hides detail without hiding the signal.
+
 ### Container controls (the only write path to Docker)
 
 The containers panel can start, stop and restart a container on the **local** server.
