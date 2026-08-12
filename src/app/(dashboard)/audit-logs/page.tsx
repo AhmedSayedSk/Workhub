@@ -48,6 +48,7 @@ import {
   Clock,
   Flag,
   CheckSquare,
+  Server,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -78,6 +79,7 @@ const TYPE_CONFIG: Record<AuditLogType, { label: string; icon: any; color: strin
   time_entry:   { label: 'Time Entry',   icon: Clock,         color: 'text-lime-600 dark:text-lime-400' },
   milestone:    { label: 'Milestone',    icon: Flag,          color: 'text-fuchsia-600 dark:text-fuchsia-400' },
   stage:        { label: 'Stage',        icon: Layers,        color: 'text-cyan-600 dark:text-cyan-400' },
+  server:       { label: 'Server',       icon: Server,        color: 'text-slate-600 dark:text-slate-400' },
 }
 
 const ALL_TYPES = Object.keys(TYPE_CONFIG) as AuditLogType[]
@@ -86,7 +88,7 @@ const TYPE_GROUPS = [
   { label: 'Auth', types: ['login', 'login_failed', 'logout'] as AuditLogType[] },
   { label: 'Projects', types: ['project', 'task', 'subtask', 'comment', 'feature', 'vault', 'attachment', 'note', 'milestone'] as AuditLogType[] },
   { label: 'Team', types: ['member', 'permission', 'sharing'] as AuditLogType[] },
-  { label: 'System', types: ['settings', 'calendar', 'media', 'payment', 'time_entry'] as AuditLogType[] },
+  { label: 'System', types: ['settings', 'calendar', 'media', 'payment', 'time_entry', 'server'] as AuditLogType[] },
 ]
 
 const USER_PAGE_SIZE = 10
