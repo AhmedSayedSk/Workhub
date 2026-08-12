@@ -70,27 +70,26 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">Data may be stale — last report {Math.round(staleMs / 1000)}s ago.</div>
           )}
           <AlertBanner alerts={stats.alerts} />
-          <div className="grid gap-4 lg:grid-cols-12">
-            {/* Left stays the live view — the charts you watch. */}
+          {/* ONE grid, two independent column stacks — not two stacked grid
+              rows. Separate rows force the lower row to wait for the tallest
+              cell above it, so collapsing the right-hand panels left a tall
+              hole under them while Containers sat pinned below the charts.
+              Flowing each column on its own lets the right side close that gap
+              itself, whatever the panels are collapsed to. */}
+          <div className="grid items-start gap-4 lg:grid-cols-12">
+            {/* Left: the live view, then the grouped human-facing inventory. */}
             <div className="space-y-4 lg:col-span-7">
               <MetricCharts host={stats.host} serverId={serverId} />
+              {stats.apps && <AppsTable apps={stats.apps} serverId={serverId} />}
             </div>
-            {/* Right is the reference stack: storage, certificates, addresses
-                and schedules. Long by design — every one of these collapses and
-                remembers it, so the column is as tall as you choose to leave it. */}
+            {/* Right: the reference stack — storage, certificates, addresses,
+                schedules — then the raw container list. */}
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
               {stats.certs && <CertList certs={stats.certs} />}
               <ServerIpsCard ips={stats.meta?.ips} />
               <CronCard crons={stats.crons} apps={stats.apps} cronMeta={stats.cronMeta} />
-            </div>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-12">
-            {/* Systems & Apps leads: it is the grouped, human-facing view, and
-                it keeps the wider column because it carries more per row. */}
-            {stats.apps && <div className="lg:col-span-7"><AppsTable apps={stats.apps} serverId={serverId} /></div>}
-            {stats.containers && (
-              <div className="lg:col-span-5">
+              {stats.containers && (
                 <ContainerTable
                   containers={stats.containers}
                   hostMemTotalBytes={stats.host?.memory.totalBytes}
@@ -101,8 +100,8 @@ export function ServerDetail({ serverId }: { serverId: string }) {
                   canControl={!stats.remote}
                   onChanged={fetchStats}
                 />
-              </div>
-            )}
+              )}
+            </div>
           </div>
           {stats.errors.length > 0 && (
             <div className="space-y-1 text-xs text-muted-foreground">
