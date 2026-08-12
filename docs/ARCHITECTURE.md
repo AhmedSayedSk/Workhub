@@ -695,6 +695,33 @@ Output is `standalone` for a slim Docker image. `experimental.cpus = 1` is delib
 builds run on a small production box shared with live services, and one worker keeps a
 core free so a deploy never starves them.
 
+### Edge & security headers
+
+The app does not terminate TLS and does not set security headers. It runs behind a
+shared reverse proxy that fronts every site on the box, and that proxy applies one
+baseline to all of them from a single shared snippet: HSTS, `X-Content-Type-Options:
+nosniff`, `Referrer-Policy`, `Permissions-Policy`, and removal of the `Server`,
+`X-Powered-By` and `Via` headers that would otherwise name the exact framework version
+to target. **Do not re-add these in `next.config.js`** — they would duplicate, and the
+proxy's copy wins anyway.
+
+Content-Security-Policy ships in two parts, because one shared policy across unrelated
+apps is either too loose to be worth having or breaks them:
+
+| Header | Contains | Why |
+|---|---|---|
+| `Content-Security-Policy` | `frame-ancestors`, `base-uri`, `object-src 'none'` | Constrains page *structure*, not which origins it may load from, so no app can outgrow it. Safe to enforce everywhere. |
+| `Content-Security-Policy-Report-Only` | A strict `default-src 'self'` baseline | Blocks nothing. It exists to inventory which third-party origins each app actually needs, so a real enforced policy can be written per app from evidence. |
+
+Report-Only violations surface in the browser console; no collector endpoint is
+configured. `'unsafe-inline'` is granted up front in the report-only policy — every app
+here inlines scripts and styles, and reporting that would bury the origin signal.
+
+The frame policy is the one value that varies per site (most apps frame their own pages
+and want `SAMEORIGIN` / `frame-ancestors 'self'`; admin consoles want `DENY` / `'none'`).
+It has to be passed in as a **snippet argument**: a site block cannot override a value
+the shared snippet sets — the snippet wins wherever the import is placed.
+
 ### Tests
 
 The Node built-in runner with native TypeScript stripping:
