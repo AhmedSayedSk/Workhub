@@ -71,14 +71,18 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           )}
           <AlertBanner alerts={stats.alerts} />
           <div className="grid gap-4 lg:grid-cols-12">
+            {/* Left stays the live view — the charts you watch. */}
             <div className="space-y-4 lg:col-span-7">
               <MetricCharts host={stats.host} serverId={serverId} />
-              <ServerIpsCard ips={stats.meta?.ips} />
-              <CronCard crons={stats.crons} apps={stats.apps} cronMeta={stats.cronMeta} />
             </div>
+            {/* Right is the reference stack: storage, certificates, addresses
+                and schedules. Long by design — every one of these collapses and
+                remembers it, so the column is as tall as you choose to leave it. */}
             <div className="space-y-4 lg:col-span-5">
               {stats.storage && <StorageCard storage={stats.storage} />}
               {stats.certs && <CertList certs={stats.certs} />}
+              <ServerIpsCard ips={stats.meta?.ips} />
+              <CronCard crons={stats.crons} apps={stats.apps} cronMeta={stats.cronMeta} />
             </div>
           </div>
           <div className="grid gap-4 lg:grid-cols-12">
