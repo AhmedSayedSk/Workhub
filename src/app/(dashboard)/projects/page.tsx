@@ -403,7 +403,11 @@ export default function ProjectsPage() {
                               {/* Financial Progress - Only for milestone/fixed projects */}
                               {project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && project.hasOwnFinances !== false && (
                                 <div className="space-y-2">
-                                  <Progress value={progress} className="h-2" />
+                                  {/* An empty bar on a cancelled project is noise —
+                                      nothing was collected and nothing will be. */}
+                                  {!(project.status === 'cancelled' && project.paidAmount === 0) && (
+                                    <Progress value={progress} className="h-2" />
+                                  )}
                                   <div className="flex items-center justify-between text-xs">
                                     <span className="text-muted-foreground">
                                       {formatCurrency(project.paidAmount)}
