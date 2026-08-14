@@ -9,8 +9,8 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
 import { useModulePermissions } from '@/hooks/usePermissions'
-import { projects, milestones, monthlyPayments } from '@/lib/firestore'
-import { Project, Milestone, MonthlyPayment } from '@/types'
+import { projects, milestones, monthlyPayments, refunds } from '@/lib/firestore'
+import { Project, Milestone, MonthlyPayment, Refund } from '@/types'
 import {
   formatCurrency,
   formatDate,
@@ -51,6 +51,7 @@ export default function FinancesPage() {
   const [allProjects, setProjects] = useState<Project[]>([])
   const [allMilestones, setMilestones] = useState<Milestone[]>([])
   const [allPayments, setPayments] = useState<MonthlyPayment[]>([])
+  const [allRefunds, setRefunds] = useState<Refund[]>([])
   const [loading, setLoading] = useState(true)
   const [distributionPeriod, setDistributionPeriod] = useState<'week' | 'month' | '3months' | '6months' | 'all'>('all')
 
@@ -60,17 +61,19 @@ export default function FinancesPage() {
 
   const loadFinanceData = async () => {
     try {
-      const [projectsData, milestonesData, paymentsData] =
+      const [projectsData, milestonesData, paymentsData, refundsData] =
         await Promise.all([
           projects.getAll(user?.uid),
           milestones.getAll(),
           monthlyPayments.getAll(),
+          refunds.getAll(),
         ])
 
       const accessibleIds = new Set(projectsData.map((p: any) => p.id))
       setProjects(projectsData)
       setMilestones(milestonesData.filter((m: any) => accessibleIds.has(m.projectId)))
       setPayments(paymentsData.filter((p: any) => accessibleIds.has(p.projectId)))
+      setRefunds(refundsData.filter((r: any) => accessibleIds.has(r.projectId)))
     } catch (error) {
       console.error('Error loading finance data:', error)
     } finally {
@@ -98,6 +101,13 @@ export default function FinancesPage() {
     .reduce((sum, p) => sum + p.amount, 0)
 
   const totalOwed = nonMonthlyOwed + monthlyOwed
+
+  // Refunds are already subtracted from each project's paidAmount, so this is
+  // shown for visibility only — Total Received is net without it.
+  const accessibleProjectIds = new Set(projectsWithPayments.map((p) => p.id))
+  const totalRefunded = allRefunds
+    .filter((r) => accessibleProjectIds.has(r.projectId))
+    .reduce((sum, r) => sum + r.amount, 0)
 
   const activeProjects = allProjects.filter((p) => p.status === 'active')
   const internalProjects = allProjects.filter((p) => p.paymentModel === 'internal')
@@ -313,6 +323,11 @@ export default function FinancesPage() {
                 return `Since ${format(earliest, 'MMM yyyy')} · ${duration}`
               })()}
             </p>
+            {totalRefunded > 0 && (
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                Net of {formatCurrency(totalRefunded)} refunded
+              </p>
+            )}
           </CardContent>
         </Card>
 

@@ -27,6 +27,8 @@ import {
   ProjectDistribution,
   Milestone,
   MilestoneInput,
+  Refund,
+  RefundInput,
   Feature,
   FeatureInput,
   Task,
@@ -407,6 +409,46 @@ export const milestones = {
 
   async delete(id: string): Promise<void> {
     return remove('milestones', id)
+  },
+}
+
+// Refunds — money returned against a paid milestone. Amounts are stored
+// positive and subtracted at the point of use (see src/lib/paymentTotals.ts).
+export const refunds = {
+  // Sorted client-side: filtering by projectId and ordering by refundedAt in
+  // the same query would need a composite index, and refund counts are tiny.
+  async getAll(projectId?: string): Promise<Refund[]> {
+    const constraints: QueryConstraint[] = []
+    if (projectId) {
+      constraints.push(where('projectId', '==', projectId))
+    }
+    const rows = await getAll<Refund>('refunds', ...constraints)
+    return rows.sort(
+      (a, b) => (b.refundedAt?.toMillis?.() ?? 0) - (a.refundedAt?.toMillis?.() ?? 0)
+    )
+  },
+
+  async getById(id: string): Promise<Refund | null> {
+    return getById<Refund>('refunds', id)
+  },
+
+  async create(data: RefundInput): Promise<string> {
+    return create('refunds', {
+      ...data,
+      refundedAt: Timestamp.fromDate(data.refundedAt),
+    })
+  },
+
+  async update(id: string, data: Partial<RefundInput>): Promise<void> {
+    const updateData: DocumentData = { ...data }
+    if (data.refundedAt) {
+      updateData.refundedAt = Timestamp.fromDate(data.refundedAt)
+    }
+    return update('refunds', id, updateData)
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove('refunds', id)
   },
 }
 
@@ -954,12 +996,14 @@ export const batch = {
       projectTasks,
       projectTimeEntries,
       projectPayments,
+      projectRefunds,
     ] = await Promise.all([
       milestones.getAll(projectId),
       features.getAll(projectId),
       tasks.getAll(undefined, projectId),
       timeEntries.getAll(projectId),
       monthlyPayments.getAll(projectId),
+      refunds.getAll(projectId),
     ])
 
     // Delete project logs
@@ -988,6 +1032,7 @@ export const batch = {
     allSubtasks.forEach((s) => batchOp.delete(doc(db, 'subtasks', s.id)))
     projectTimeEntries.forEach((te) => batchOp.delete(doc(db, 'timeEntries', te.id)))
     projectPayments.forEach((p) => batchOp.delete(doc(db, 'monthlyPayments', p.id)))
+    projectRefunds.forEach((r) => batchOp.delete(doc(db, 'refunds', r.id)))
 
     // Delete the project itself
     batchOp.delete(doc(db, 'projects', projectId))

@@ -564,6 +564,12 @@ function buildDescription(log: AuditLog): string {
     case 'media':
       return `${log.action} media ${target}`
     case 'payment':
+      // Refunds share the 'payment' type, so spell their actions out rather
+      // than letting the raw slug read as "refund_created payment ...".
+      if (log.action === 'refund_created') return `recorded a refund ${target ? `on ${target}` : ''} ${project}`.trim()
+      if (log.action === 'refund_updated') return `edited a refund ${target ? `on ${target}` : ''} ${project}`.trim()
+      if (log.action === 'refund_deleted') return `deleted a refund ${target ? `on ${target}` : ''} ${project}`.trim()
+      if (log.action === 'paid_amount_recalculated') return `recalculated the paid amount ${project}`.trim()
       return `${log.action} payment ${target} ${project}`
     case 'calendar':
       return `${log.action} event ${target}`

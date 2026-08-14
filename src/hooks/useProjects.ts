@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Timestamp } from 'firebase/firestore'
-import { projects, milestones, monthlyPayments, batch, projectLogs, audit } from '@/lib/firestore'
-import { Project, ProjectInput, Milestone, MilestoneInput, MonthlyPayment, MonthlyPaymentInput, ProjectLogChange } from '@/types'
+import { projects, milestones, monthlyPayments, refunds, batch, projectLogs, audit } from '@/lib/firestore'
+import { Project, ProjectInput, Milestone, MilestoneInput, MonthlyPayment, MonthlyPaymentInput, ProjectLogChange, Refund, RefundInput } from '@/types'
+import { remainingRefundable, expectedPaidFromMilestones } from '@/lib/paymentTotals'
 import { useToast } from './useToast'
 import { useAuth } from './useAuth'
 import { formatCurrency, formatDate, projectFieldLabels } from '@/lib/utils'
@@ -209,6 +210,7 @@ export function useProject(projectId: string) {
   const [subProjects, setSubProjects] = useState<Project[]>([])
   const [projectMilestones, setMilestones] = useState<Milestone[]>([])
   const [payments, setPayments] = useState<MonthlyPayment[]>([])
+  const [projectRefunds, setRefunds] = useState<Refund[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
   const { user } = useAuth()
@@ -216,16 +218,18 @@ export function useProject(projectId: string) {
   const fetchProject = useCallback(async () => {
     try {
       setLoading(true)
-      const [projectData, milestonesData, paymentsData, subProjectsData] = await Promise.all([
+      const [projectData, milestonesData, paymentsData, subProjectsData, refundsData] = await Promise.all([
         projects.getById(projectId),
         milestones.getAll(projectId),
         monthlyPayments.getAll(projectId),
         projects.getSubProjects(projectId, user?.uid),
+        refunds.getAll(projectId),
       ])
       setProject(projectData)
       setMilestones(milestonesData)
       setPayments(paymentsData)
       setSubProjects(subProjectsData)
+      setRefunds(refundsData)
 
       // Fetch parent if this is a sub-project
       if (projectData?.parentProjectId) {
@@ -421,6 +425,172 @@ export function useProject(projectId: string) {
     }
   }
 
+  // Refund operations.
+  //
+  // `paidAmount` is a stored running total that the UI increments when a
+  // milestone is marked paid, so a refund decrements it the same way — every
+  // screen reading paidAmount then shows money actually kept, unchanged.
+  //
+  // Write order matters: the refund document goes first, so a failure leaves a
+  // visible refund with a stale total (repairable via recalculatePaidAmount)
+  // rather than a vanished refund with reduced income, which nothing would show.
+  const applyPaidAmountDelta = async (delta: number) => {
+    if (!project || delta === 0) return
+    const next = Math.max(0, (project.paidAmount || 0) + delta)
+    await projects.update(projectId, { paidAmount: next })
+    setProject({ ...project, paidAmount: next })
+  }
+
+  const createRefund = async (input: Omit<RefundInput, 'projectId'>) => {
+    const milestone = projectMilestones.find(m => m.id === input.milestoneId)
+    if (!milestone) throw new Error('Milestone not found')
+
+    // The invariant: refunds against a milestone may never exceed its amount.
+    const cap = remainingRefundable(milestone, projectRefunds)
+    if (input.amount <= 0 || input.amount > cap) {
+      toast({
+        title: 'Error',
+        description: `Refund must be between ${formatCurrency(0.01)} and ${formatCurrency(cap)}`,
+        variant: 'destructive',
+      })
+      throw new Error('Refund exceeds the refundable amount')
+    }
+
+    try {
+      const id = await refunds.create({ ...input, projectId })
+      const newRefund: Refund = {
+        id,
+        projectId,
+        milestoneId: input.milestoneId,
+        amount: input.amount,
+        reason: input.reason,
+        refundedAt: toTimestamp(input.refundedAt)!,
+        createdAt: Timestamp.now(),
+      }
+      setRefunds(prev => [newRefund, ...prev])
+      await applyPaidAmountDelta(-input.amount)
+      audit({ type: 'payment', action: 'refund_created', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, targetId: id, targetName: milestone.name, details: { amount: input.amount, milestoneId: input.milestoneId } })
+      toast({
+        description: 'Refund recorded',
+        variant: 'success',
+      })
+      return id
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to record refund',
+        variant: 'destructive',
+      })
+      throw err
+    }
+  }
+
+  const updateRefund = async (id: string, input: Partial<Omit<RefundInput, 'projectId' | 'milestoneId'>>) => {
+    const previousRefunds = projectRefunds
+    const existing = previousRefunds.find(r => r.id === id)
+    if (!existing) throw new Error('Refund not found')
+
+    const milestone = projectMilestones.find(m => m.id === existing.milestoneId)
+    const newAmount = input.amount !== undefined ? input.amount : existing.amount
+
+    if (milestone && input.amount !== undefined) {
+      // Exclude this refund from the cap, otherwise raising 1000 -> 1200 would
+      // read as a breach of a cap it already occupies.
+      const cap = remainingRefundable(milestone, previousRefunds, id)
+      if (newAmount <= 0 || newAmount > cap) {
+        toast({
+          title: 'Error',
+          description: `Refund must be between ${formatCurrency(0.01)} and ${formatCurrency(cap)}`,
+          variant: 'destructive',
+        })
+        throw new Error('Refund exceeds the refundable amount')
+      }
+    }
+
+    const { refundedAt, ...nonDateFields } = input
+    setRefunds(prev => prev.map(r => r.id === id
+      ? { ...r, ...nonDateFields, ...(refundedAt !== undefined && { refundedAt: toTimestamp(refundedAt)! }) }
+      : r
+    ))
+
+    try {
+      await refunds.update(id, input)
+      // Apply the delta, not the new value — the old amount is already
+      // subtracted from paidAmount.
+      await applyPaidAmountDelta(existing.amount - newAmount)
+      audit({ type: 'payment', action: 'refund_updated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, targetId: id, targetName: milestone?.name, details: { from: existing.amount, to: newAmount } })
+      toast({
+        description: 'Refund updated',
+        variant: 'success',
+      })
+    } catch (err) {
+      setRefunds(previousRefunds)
+      toast({
+        title: 'Error',
+        description: 'Failed to update refund',
+        variant: 'destructive',
+      })
+      throw err
+    }
+  }
+
+  const deleteRefund = async (id: string) => {
+    const previousRefunds = projectRefunds
+    const existing = previousRefunds.find(r => r.id === id)
+    if (!existing) return
+
+    setRefunds(prev => prev.filter(r => r.id !== id))
+
+    try {
+      await refunds.delete(id)
+      // Deleting a refund gives the money back to the project total.
+      await applyPaidAmountDelta(existing.amount)
+      const milestone = projectMilestones.find(m => m.id === existing.milestoneId)
+      audit({ type: 'payment', action: 'refund_deleted', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, targetId: id, targetName: milestone?.name, details: { amount: existing.amount } })
+      toast({
+        description: 'Refund deleted',
+        variant: 'success',
+      })
+    } catch (err) {
+      setRefunds(previousRefunds)
+      toast({
+        title: 'Error',
+        description: 'Failed to delete refund',
+        variant: 'destructive',
+      })
+      throw err
+    }
+  }
+
+  // Repairs a paidAmount that has drifted from the milestone records — the
+  // known weakness of a hand-maintained running total. Milestone projects only.
+  const recalculatePaidAmount = async () => {
+    if (!project) return
+    const expected = expectedPaidFromMilestones(projectMilestones, projectRefunds)
+    const current = project.paidAmount || 0
+    if (expected === current) {
+      toast({ description: 'Paid amount already matches the records' })
+      return
+    }
+
+    try {
+      await projects.update(projectId, { paidAmount: expected })
+      setProject({ ...project, paidAmount: expected })
+      audit({ type: 'payment', action: 'paid_amount_recalculated', actorUid: user?.uid || null, actorEmail: user?.email || '', projectId, projectName: project?.name, details: { from: current, to: expected } })
+      toast({
+        description: `Paid amount corrected from ${formatCurrency(current)} to ${formatCurrency(expected)}`,
+        variant: 'success',
+      })
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to recalculate paid amount',
+        variant: 'destructive',
+      })
+      throw err
+    }
+  }
+
   // Monthly payment operations with optimistic updates
   const createPayment = async (input: Omit<MonthlyPaymentInput, 'projectId'>) => {
     try {
@@ -515,6 +685,7 @@ export function useProject(projectId: string) {
     subProjects,
     milestones: projectMilestones,
     payments,
+    refunds: projectRefunds,
     loading,
     refetch: fetchProject,
     updateProject,
@@ -524,5 +695,9 @@ export function useProject(projectId: string) {
     deleteMilestone,
     createPayment,
     updatePayment,
+    createRefund,
+    updateRefund,
+    deleteRefund,
+    recalculatePaidAmount,
   }
 }

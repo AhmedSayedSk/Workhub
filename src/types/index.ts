@@ -156,6 +156,29 @@ export interface Milestone {
   paidAt: Timestamp | null
 }
 
+/**
+ * Money returned against a paid milestone, in full or in part.
+ *
+ * `amount` is POSITIVE and subtracted where it is used — a signed amount
+ * invites a double-negation the first time someone sums a list. The sum of a
+ * milestone's refunds may never exceed its amount; see `lib/paymentTotals`.
+ *
+ * A fully refunded milestone keeps `status: 'paid'`. "Fully refunded" is
+ * derived from these records, so the status and the money can never disagree.
+ *
+ * `projectId` is denormalised from the milestone because the Firestore rules
+ * need it on the document itself to authorise the write, exactly as milestones do.
+ */
+export interface Refund {
+  id: string
+  projectId: string
+  milestoneId: string
+  amount: number
+  reason: string
+  refundedAt: Timestamp
+  createdAt: Timestamp
+}
+
 export interface Feature {
   id: string
   projectId: string
@@ -323,6 +346,14 @@ export interface MilestoneInput {
   dueDate: Date
   completedAt: Date | null
   paidAt: Date | null
+}
+
+export interface RefundInput {
+  projectId: string
+  milestoneId: string
+  amount: number
+  reason: string
+  refundedAt: Date
 }
 
 export interface FeatureInput {

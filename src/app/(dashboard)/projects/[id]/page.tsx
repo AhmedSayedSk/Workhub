@@ -54,7 +54,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useProject } from '@/hooks/useProjects'
 import { useProjectLogs } from '@/hooks/useProjectLogs'
 import { useAuth } from '@/hooks/useAuth'
-import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput, ProjectStatus, ProjectType, Milestone as MilestoneType } from '@/types'
+import { MilestoneStatus, PaymentModel, MonthlyPayment, ProjectInput, ProjectStatus, ProjectType, Milestone as MilestoneType, Refund as RefundType } from '@/types'
+import { refundedTotal, remainingRefundable, isFullyRefunded } from '@/lib/paymentTotals'
 import { format } from 'date-fns'
 import {
   formatCurrency,
@@ -88,7 +89,9 @@ import {
   Loader2,
   Milestone,
   Plus,
+  RefreshCw,
   Trash2,
+  Undo2,
   Wallet,
   Paperclip,
   KeyRound,
@@ -136,12 +139,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     subProjects,
     milestones,
     payments,
+    refunds,
     loading,
     createMilestone,
     updateMilestone,
     deleteMilestone,
     createPayment,
     updatePayment,
+    createRefund,
+    updateRefund,
+    deleteRefund,
+    recalculatePaidAmount,
     updateProject,
     deleteProject,
     refetch: refetchProject,
@@ -328,6 +336,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isEditPaymentDialogOpen, setIsEditPaymentDialogOpen] = useState(false)
   const [editingMilestone, setEditingMilestone] = useState<MilestoneType | null>(null)
   const [isEditMilestoneDialogOpen, setIsEditMilestoneDialogOpen] = useState(false)
+  // One dialog serves both creating and editing a refund; `refundTarget` is the
+  // milestone being refunded, `editingRefund` is set only when editing.
+  const [refundTarget, setRefundTarget] = useState<MilestoneType | null>(null)
+  const [editingRefund, setEditingRefund] = useState<RefundType | null>(null)
+  const [refundForm, setRefundForm] = useState({
+    amount: '',
+    refundedAt: new Date() as Date | null,
+    reason: '',
+  })
   const [draggedSubId, setDraggedSubId] = useState<string | null>(null)
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const [orderedSubs, setOrderedSubs] = useState<Project[]>([])
@@ -453,6 +470,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     .filter(p => p.status === 'pending')
     .reduce((sum, p) => sum + p.amount, 0)
   const owedAmount = isInternal ? 0 : (isMonthly ? pendingPaymentsTotal : Math.max(0, effectiveTotal - project.paidAmount))
+  const totalRefunded = refunds.reduce((sum, r) => sum + r.amount, 0)
 
   const handleCreateMilestone = async () => {
     if (!milestoneForm.name || !milestoneForm.amount || !milestoneForm.dueDate) return
@@ -528,6 +546,64 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setMilestoneForm({ name: '', amount: '', dueDate: new Date() })
       setEditingMilestone(null)
       setIsEditMilestoneDialogOpen(false)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Refunds. The dialog defaults to the whole remaining refundable amount,
+  // which is the common case (a full reversal) and also states the cap.
+  const handleOpenRefund = (milestone: MilestoneType) => {
+    setRefundTarget(milestone)
+    setEditingRefund(null)
+    setRefundForm({
+      amount: remainingRefundable(milestone, refunds).toString(),
+      refundedAt: new Date(),
+      reason: '',
+    })
+  }
+
+  const handleOpenEditRefund = (refund: RefundType) => {
+    const milestone = milestones.find((m) => m.id === refund.milestoneId)
+    if (!milestone) return
+    setRefundTarget(milestone)
+    setEditingRefund(refund)
+    setRefundForm({
+      amount: refund.amount.toString(),
+      refundedAt: refund.refundedAt.toDate(),
+      reason: refund.reason || '',
+    })
+  }
+
+  const handleCloseRefund = () => {
+    setRefundTarget(null)
+    setEditingRefund(null)
+    setRefundForm({ amount: '', refundedAt: new Date(), reason: '' })
+  }
+
+  const handleSubmitRefund = async () => {
+    if (!refundTarget || !refundForm.amount || !refundForm.refundedAt) return
+
+    setIsSubmitting(true)
+    try {
+      if (editingRefund) {
+        await updateRefund(editingRefund.id, {
+          amount: parseFloat(refundForm.amount),
+          refundedAt: refundForm.refundedAt,
+          reason: refundForm.reason,
+        })
+      } else {
+        await createRefund({
+          milestoneId: refundTarget.id,
+          amount: parseFloat(refundForm.amount),
+          refundedAt: refundForm.refundedAt,
+          reason: refundForm.reason,
+        })
+      }
+      handleCloseRefund()
+    } catch {
+      // The hook already surfaced the reason (usually a breached cap); keep the
+      // dialog open with the entered values so it can be corrected.
     } finally {
       setIsSubmitting(false)
     }
@@ -1167,11 +1243,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {milestones.map((milestone) => (
+                    {milestones.map((milestone) => {
+                      const milestoneRefunds = refunds.filter((r) => r.milestoneId === milestone.id)
+                      const refunded = refundedTotal(milestone.id, milestoneRefunds)
+                      const fullyRefunded = isFullyRefunded(milestone, milestoneRefunds)
+                      const refundable = remainingRefundable(milestone, milestoneRefunds)
+                      return (
                       <div
                         key={milestone.id}
-                        className="flex items-center justify-between p-4 rounded-lg border"
+                        className="p-4 rounded-lg border"
                       >
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div
                             className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -1187,18 +1269,50 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           <div>
                             <p className="font-medium">{milestone.name}</p>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>{formatCurrency(milestone.amount)}</span>
+                              {refunded > 0 ? (
+                                <span>
+                                  {formatCurrency(milestone.amount)} paid
+                                  {' · '}
+                                  <span className="text-orange-600 dark:text-orange-400">
+                                    {formatCurrency(refunded)} refunded
+                                  </span>
+                                  {' · net '}
+                                  <span className="font-medium text-foreground">
+                                    {formatCurrency(Math.max(0, milestone.amount - refunded))}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span>{formatCurrency(milestone.amount)}</span>
+                              )}
                               <span>Due: {formatDate(milestone.dueDate)}</span>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {fullyRefunded && (
+                            <Badge
+                              variant="outline"
+                              className="bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400"
+                            >
+                              fully refunded
+                            </Badge>
+                          )}
                           <Badge
                             variant="outline"
                             className={statusColors.milestone[milestone.status]}
                           >
                             {milestone.status}
                           </Badge>
+                          {milestone.status === 'paid' && refundable > 0 && can('createEditPayments') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenRefund(milestone)}
+                            >
+                              <Undo2 className="h-4 w-4 mr-2" />
+                              Refund
+                            </Button>
+                          )}
                           {milestone.status === 'pending' && (
                             <Button
                               size="sm"
@@ -1239,12 +1353,139 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           </Button>
                         </div>
                       </div>
-                    ))}
+                      {milestoneRefunds.length > 0 && (
+                        <div className="mt-3 ml-14 space-y-2 border-l pl-4">
+                          {milestoneRefunds.map((refund) => (
+                            <div
+                              key={refund.id}
+                              className="flex items-center justify-between text-sm"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Undo2 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                <span className="font-medium">{formatCurrency(refund.amount)}</span>
+                                <span className="text-muted-foreground">
+                                  {formatDate(refund.refundedAt)}
+                                </span>
+                                {refund.reason && (
+                                  <span className="text-muted-foreground">— {refund.reason}</span>
+                                )}
+                              </div>
+                              {can('createEditPayments') && (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleOpenEditRefund(refund)}
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                  {can('deletePayments') && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => deleteRefund(refund.id)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Net position. `paidAmount` is a hand-maintained running
+                    total, so Recalculate repairs it from the records. */}
+                {milestones.length > 0 && (
+                  <div className="mt-6 pt-4 border-t flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-6">
+                      <span>
+                        <span className="text-muted-foreground">Paid </span>
+                        <span className="font-semibold text-green-700 dark:text-green-400">
+                          {formatCurrency(project.paidAmount)}
+                        </span>
+                      </span>
+                      {totalRefunded > 0 && (
+                        <span>
+                          <span className="text-muted-foreground">Refunded </span>
+                          <span className="font-semibold text-orange-600 dark:text-orange-400">
+                            {formatCurrency(totalRefunded)}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                    {can('createEditPayments') && (
+                      <Button size="sm" variant="ghost" onClick={() => recalculatePaidAmount()}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Recalculate
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
             </Card>
           )}
+
+          {/* Refund dialog — shared by create and edit */}
+          <Dialog open={!!refundTarget} onOpenChange={(open) => { if (!open) handleCloseRefund() }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingRefund ? 'Edit Refund' : 'Record Refund'}</DialogTitle>
+                <DialogDescription>
+                  {refundTarget && `Money returned against "${refundTarget.name}"`}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Amount (EGP)</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={refundForm.amount}
+                    onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })}
+                  />
+                  {refundTarget && (
+                    <p className="text-xs text-muted-foreground">
+                      Up to {formatCurrency(
+                        remainingRefundable(refundTarget, refunds, editingRefund?.id)
+                      )} can be refunded on this milestone.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Refund Date</Label>
+                  <DatePicker
+                    value={refundForm.refundedAt}
+                    onChange={(date) => setRefundForm({ ...refundForm, refundedAt: date })}
+                    placeholder="Select refund date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Reason (optional)</Label>
+                  <Input
+                    placeholder="e.g., Scope cancelled by client"
+                    value={refundForm.reason}
+                    onChange={(e) => setRefundForm({ ...refundForm, reason: e.target.value })}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCloseRefund}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitRefund} disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingRefund ? 'Save' : 'Record Refund'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Monthly payments */}
           {project.paymentModel === 'monthly' && (

@@ -73,6 +73,14 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
     }
 
+    // Refunds reverse a paid milestone, so they carry the same sensitivity
+    // as the milestone itself and mirror its rule exactly.
+    match /refunds/{refundId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
+      allow update, delete: if isAuthenticated() && isProjectOwner(resource.data.projectId);
+    }
+
     match /features/{featureId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && hasProjectAccess(request.resource.data.projectId);
