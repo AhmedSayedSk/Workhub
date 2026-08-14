@@ -395,19 +395,24 @@ export default function ProjectsPage() {
                           </CardHeader>
                           <CardContent className="p-4 pt-3">
                             {(() => {
+                              // A cancelled project that collected nothing has no
+                              // budget left to report — the bar, the zero and the
+                              // total are all noise on a card that went nowhere.
+                              const cancelledUnpaid = project.status === 'cancelled' && project.paidAmount === 0
+                              const showPayments =
+                                project.paymentModel !== 'monthly' &&
+                                project.paymentModel !== 'internal' &&
+                                project.hasOwnFinances !== false &&
+                                !cancelledUnpaid
                               const hasFinancialContent =
-                                (project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && project.hasOwnFinances !== false) ||
+                                showPayments ||
                                 (project.paymentModel === 'internal' && (project.estimatedValue ?? 0) > 0)
                               return (
                             <div className="space-y-4">
                               {/* Financial Progress - Only for milestone/fixed projects */}
-                              {project.paymentModel !== 'monthly' && project.paymentModel !== 'internal' && project.hasOwnFinances !== false && (
+                              {showPayments && (
                                 <div className="space-y-2">
-                                  {/* An empty bar on a cancelled project is noise —
-                                      nothing was collected and nothing will be. */}
-                                  {!(project.status === 'cancelled' && project.paidAmount === 0) && (
-                                    <Progress value={progress} className="h-2" />
-                                  )}
+                                  <Progress value={progress} className="h-2" />
                                   <div className="flex items-center justify-between text-xs">
                                     <span className="text-muted-foreground">
                                       {formatCurrency(project.paidAmount)}
