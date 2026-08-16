@@ -5,7 +5,10 @@ import '@/lib/api-auth' // side effect: initializes Firebase Admin
 // Internal projects feed for sibling Sikasio systems (e.g. Publish).
 // Implements the generic "project source" contract:
 //   GET + Bearer INTERNAL_API_TOKEN →
-//   { projects: [{ id, name, color, parentId, status, description, group, logo }] }
+//   { projects: [{ id, name, color, parentId, status, description, group, logo,
+//                  notes, type, stages }] }
+// notes/type/stages give a writer enough of the project's brief to write about
+// it without a per-project style guide on the other side.
 
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false
@@ -43,6 +46,9 @@ export async function GET(request: NextRequest) {
         description: (p.description as string) || null,
         group: (p.group as string) || null,
         logo: (p.coverImageUrl as string) || null,
+        notes: (p.notes as string) || null,
+        type: (p.projectType as string) || null,
+        stages: Array.isArray(p.enabledStages) ? (p.enabledStages as string[]) : [],
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name))
