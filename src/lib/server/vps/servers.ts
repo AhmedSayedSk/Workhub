@@ -49,16 +49,10 @@ export const SERVERS: ServerDef[] = [
     mode: 'local',
     ips: parseIps(process.env.VPS_PUBLIC_IP),
   },
-  // 'secondary' was decommissioned 2026-08-07 — its workloads all moved to the
-  // primary box, so the server was retired. Re-add an entry here + run an agent
-  // on the box to bring another server back.
-  {
-    id: 'tertiary',
-    name: process.env.VPS3_DISPLAY_NAME || 'Tertiary',
-    subtitle: process.env.VPS3_SUBTITLE || 'Tertiary server',
-    mode: 'remote',
-    ips: parseIps(process.env.VPS3_PUBLIC_IP),
-  },
+  // 'secondary' was decommissioned 2026-08-07 and 'tertiary' on 2026-08-22 —
+  // their workloads moved elsewhere and both boxes were retired. Re-add an entry
+  // here + run an agent on the box to bring another server back; a 'remote' entry
+  // additionally needs the agent to POST /api/vps/report?serverId=<id>.
 ]
 
 export function getServer(id: string): ServerDef | undefined {
