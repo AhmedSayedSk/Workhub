@@ -64,15 +64,44 @@ describe('SERVERS registry', () => {
   })
 
   // The repo is public: an address must never be a literal in the registry,
-  // only ever an environment lookup.
+  // only ever an environment lookup. Checked against EVERY VPS*_PUBLIC_IP in
+  // the environment rather than a fixed pair, so adding a server does not
+  // quietly opt it out of this guard.
   test('no address is hard-coded — unset env means empty', () => {
+    const configured = Object.entries(process.env)
+      .filter(([k]) => /^VPS\d*_PUBLIC_IP$/.test(k))
+      .map(([, v]) => v || '')
+      .join(' ')
     for (const s of SERVERS) {
       for (const ip of s.ips) {
         assert.ok(
-          process.env.VPS_PUBLIC_IP?.includes(ip) || process.env.VPS2_PUBLIC_IP?.includes(ip),
-          `${s.id} exposes ${ip} which came from neither env var`
+          configured.includes(ip),
+          `${s.id} exposes ${ip}, which came from no VPS*_PUBLIC_IP env var`
         )
       }
+    }
+  })
+
+  test('server ids are unique', () => {
+    const ids = SERVERS.map((s) => s.id)
+    assert.equal(new Set(ids).size, ids.length, `duplicate id in ${ids.join(', ')}`)
+  })
+
+  // A retired box's snapshots stay keyed by its serverId, so reusing that id
+  // silently grafts the dead server's history onto the new card's charts.
+  test('retired server ids are never reused', () => {
+    const retired = ['secondary', 'tertiary']
+    for (const id of SERVERS.map((s) => s.id)) {
+      assert.ok(!retired.includes(id), `${id} was retired — pick a fresh id, not a recycled one`)
+    }
+  })
+
+  // 'local' is collected in-process; only 'remote' entries are accepted by the
+  // agent ingest route, which rejects any serverId that is not in this list.
+  test('exactly one server is the local host', () => {
+    assert.equal(SERVERS.filter((s) => s.mode === 'local').length, 1)
+    for (const s of SERVERS) {
+      assert.ok(['local', 'remote'].includes(s.mode), `${s.id} has an invalid mode`)
     }
   })
 })

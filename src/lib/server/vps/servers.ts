@@ -50,9 +50,16 @@ export const SERVERS: ServerDef[] = [
     ips: parseIps(process.env.VPS_PUBLIC_IP),
   },
   // 'secondary' was decommissioned 2026-08-07 and 'tertiary' on 2026-08-22 —
-  // their workloads moved elsewhere and both boxes were retired. Re-add an entry
-  // here + run an agent on the box to bring another server back; a 'remote' entry
-  // additionally needs the agent to POST /api/vps/report?serverId=<id>.
+  // their workloads moved elsewhere and both boxes were retired. Their ids are
+  // deliberately NOT reused: snapshots are stored per serverId, so a reused id
+  // inherits the retired box's history and charts it as if it were the new one.
+  {
+    id: 'quaternary',
+    name: process.env.VPS4_DISPLAY_NAME || 'Quaternary',
+    subtitle: process.env.VPS4_SUBTITLE || 'Quaternary server',
+    mode: 'remote',
+    ips: parseIps(process.env.VPS4_PUBLIC_IP),
+  },
 ]
 
 export function getServer(id: string): ServerDef | undefined {
