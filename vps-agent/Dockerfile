@@ -13,7 +13,12 @@ WORKDIR /app
 # Only the framework-agnostic collectors — excludes owner.ts (imports
 # next/server) and metrics.ts (imports firebase-admin), neither of which
 # the agent needs or can resolve outside the Next.js app.
-COPY src/lib/server/vps/collect.ts src/lib/server/vps/host.ts src/lib/server/vps/docker.ts src/lib/server/vps/apps.ts src/lib/server/vps/certs.ts src/lib/server/vps/certDomains.ts src/lib/server/vps/security.ts src/lib/server/vps/crons.ts src/lib/server/vps/registry.ts src/lib/server/vps/alerts.ts src/lib/server/vps/types.ts ./src/
+#
+# This list is explicit, so it silently rots when a collector gains a new
+# import: the build then fails on the box with TS2307, long after the change.
+# src/lib/__tests__/vpsAgentDockerfile.test.ts walks the agent's imports and
+# fails here instead. Add new collectors to BOTH.
+COPY src/lib/server/vps/collect.ts src/lib/server/vps/host.ts src/lib/server/vps/docker.ts src/lib/server/vps/apps.ts src/lib/server/vps/certs.ts src/lib/server/vps/certDomains.ts src/lib/server/vps/security.ts src/lib/server/vps/crons.ts src/lib/server/vps/ips.ts src/lib/server/vps/registry.ts src/lib/server/vps/alerts.ts src/lib/server/vps/types.ts ./src/
 
 RUN npm init -y >/dev/null 2>&1 && \
     npm install --no-save typescript@5 @types/node@20 && \
