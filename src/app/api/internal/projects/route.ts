@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as admin from 'firebase-admin'
 import '@/lib/api-auth' // side effect: initializes Firebase Admin
+import { parseStatusFilter } from '@/lib/internalProjectsFeed'
 
 // Internal projects feed for sibling Sikasio systems (e.g. Publish).
 // Implements the generic "project source" contract:
-//   GET + Bearer INTERNAL_API_TOKEN →
+//   GET ?status=active,completed + Bearer INTERNAL_API_TOKEN →
 //   { projects: [{ id, name, color, parentId, status, description, group, logo,
 //                  notes, type, stages }] }
+// Without ?status only active projects are served; the caller opts into
+// completed (or paused/cancelled, or `all`) explicitly.
 // notes/type/stages give a writer enough of the project's brief to write about
 // it without a per-project style guide on the other side.
 
@@ -28,10 +31,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Admin SDK not configured' }, { status: 503 })
   }
 
+  const statuses = parseStatusFilter(request.nextUrl.searchParams.get('status'))
   const snap = await admin
     .firestore()
     .collection('projects')
-    .where('status', '==', 'active')
+    .where('status', 'in', statuses)
     .get()
 
   const projects = snap.docs
