@@ -1,12 +1,15 @@
 import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { writeFileSync, appendFileSync } from 'fs';
 
 const LOG = '/tmp/workhub-mcp-debug.log';
 writeFileSync(LOG, `=== MCP Debug started at ${new Date().toISOString()} ===\n`);
 
-const child = spawn('node', ['/mnt/d/programming/Sikasio/workhub/mcp-server/dist/index.js'], {
+const serverDir = path.dirname(fileURLToPath(import.meta.url));
+const child = spawn(process.execPath, [path.join(serverDir, 'dist', 'index.js')], {
   stdio: ['pipe', 'pipe', 'pipe'],
-  cwd: '/mnt/d/programming/Sikasio/workhub/mcp-server'
+  cwd: serverDir
 });
 
 // Forward stdin from Claude Code -> child, logging it

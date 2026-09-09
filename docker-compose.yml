@@ -13,7 +13,6 @@ services:
       # (caches, credentials, nvm) keeps working. ${HOME} comes from the shell
       # running compose, so this stays correct on any machine.
       - ${HOME}:${HOME}
-      - /mnt:/mnt
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true

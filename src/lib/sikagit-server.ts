@@ -18,33 +18,19 @@ function openDb(cfg: DbConfig): Database.Database {
 
 /**
  * Strip the configured `/host`-style prefix from a sikagit path to get the
- * real on-host path. When running on Windows, also translate WSL-style
- * mount paths (`/mnt/d/...`) to native Windows paths (`D:\\...`) so
- * `fs.readFile` can resolve them.
+ * real on-host path. Sikagit runs in Docker and records repo paths as seen
+ * from inside its container (e.g. `/host/home/...`); WorkHub mounts the same
+ * host directories at their real locations, so removing the prefix is enough.
  */
 export function toHostPath(rawPath: string, prefix?: string | null): string {
   const p = (prefix ?? '/host').replace(/\/$/, '')
-  let stripped = rawPath
   if (p && rawPath.startsWith(p + '/')) {
-    stripped = rawPath.slice(p.length)
-  } else if (p && rawPath === p) {
-    stripped = '/'
+    return rawPath.slice(p.length)
   }
-
-  if (process.platform === 'win32') {
-    // /mnt/<letter>/rest  →  <LETTER>:\rest
-    const mnt = stripped.match(/^\/mnt\/([a-zA-Z])(\/.*)?$/)
-    if (mnt) {
-      const drive = mnt[1].toUpperCase()
-      const rest = (mnt[2] ?? '').replace(/\//g, '\\')
-      return `${drive}:${rest}`
-    }
-    // /home/<user>/...  →  \\wsl$\Ubuntu\home\<user>\...  (best-effort default)
-    if (stripped.startsWith('/home/')) {
-      return `\\\\wsl$\\Ubuntu${stripped.replace(/\//g, '\\')}`
-    }
+  if (p && rawPath === p) {
+    return '/'
   }
-  return stripped
+  return rawPath
 }
 
 export function listProjects(cfg: DbConfig): SikagitProject[] {
@@ -80,7 +66,7 @@ export function listReposForProject(cfg: DbConfig, projectId: string): SikagitRe
   const db = openDb(cfg)
   try {
     const rows = db.prepare(`
-      SELECT r.id, r.name, r.path, r.display_path AS displayPath, r.is_wsl AS isWSL,
+      SELECT r.id, r.name, r.path, r.display_path AS displayPath,
              r."group" AS "group", r.avatar, r.last_opened AS lastOpened, pr.position
       FROM repos r
       INNER JOIN project_repos pr ON pr.repo_id = r.id
@@ -91,7 +77,6 @@ export function listReposForProject(cfg: DbConfig, projectId: string): SikagitRe
       name: string
       path: string
       displayPath: string
-      isWSL: number
       group: string | null
       avatar: string | null
       lastOpened: string | null
@@ -104,7 +89,6 @@ export function listReposForProject(cfg: DbConfig, projectId: string): SikagitRe
       path: r.path,
       displayPath: r.displayPath,
       hostPath: toHostPath(r.path, cfg.pathPrefix),
-      isWSL: !!r.isWSL,
       group: r.group,
       avatar: r.avatar,
       lastOpened: r.lastOpened,
@@ -119,7 +103,7 @@ export function listAllRepos(cfg: DbConfig): SikagitRepo[] {
   const db = openDb(cfg)
   try {
     const rows = db.prepare(`
-      SELECT r.id, r.name, r.path, r.display_path AS displayPath, r.is_wsl AS isWSL,
+      SELECT r.id, r.name, r.path, r.display_path AS displayPath,
              r."group" AS "group", r.avatar, r.last_opened AS lastOpened,
              GROUP_CONCAT(p.name, '||') AS projectNames
       FROM repos r
@@ -132,7 +116,6 @@ export function listAllRepos(cfg: DbConfig): SikagitRepo[] {
       name: string
       path: string
       displayPath: string
-      isWSL: number
       group: string | null
       avatar: string | null
       lastOpened: string | null
@@ -145,7 +128,6 @@ export function listAllRepos(cfg: DbConfig): SikagitRepo[] {
       path: r.path,
       displayPath: r.displayPath,
       hostPath: toHostPath(r.path, cfg.pathPrefix),
-      isWSL: !!r.isWSL,
       group: r.group,
       avatar: r.avatar,
       lastOpened: r.lastOpened,
@@ -161,11 +143,11 @@ export function getRepoById(cfg: DbConfig, repoId: string): SikagitRepo | null {
   const db = openDb(cfg)
   try {
     const row = db.prepare(`
-      SELECT id, name, path, display_path AS displayPath, is_wsl AS isWSL,
+      SELECT id, name, path, display_path AS displayPath,
              "group" AS "group", avatar, last_opened AS lastOpened
       FROM repos WHERE id = ?
     `).get(repoId) as
-      | { id: string; name: string; path: string; displayPath: string; isWSL: number; group: string | null; avatar: string | null; lastOpened: string | null }
+      | { id: string; name: string; path: string; displayPath: string; group: string | null; avatar: string | null; lastOpened: string | null }
       | undefined
     if (!row) return null
     return {
@@ -174,7 +156,6 @@ export function getRepoById(cfg: DbConfig, repoId: string): SikagitRepo | null {
       path: row.path,
       displayPath: row.displayPath,
       hostPath: toHostPath(row.path, cfg.pathPrefix),
-      isWSL: !!row.isWSL,
       group: row.group,
       avatar: row.avatar,
       lastOpened: row.lastOpened,

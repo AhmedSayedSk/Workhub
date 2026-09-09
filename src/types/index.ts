@@ -1419,7 +1419,6 @@ export interface SikagitRepo {
   displayPath: string
   /** Real on-host filesystem path, with /host prefix stripped. */
   hostPath: string
-  isWSL: boolean
   group?: string | null
   avatar?: string | null
   lastOpened?: string | null

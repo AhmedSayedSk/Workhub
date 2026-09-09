@@ -136,7 +136,7 @@ export default function SettingsPage() {
       setTaskDueHoursLocal(settings.taskDueHoursBefore ?? 24)
       setBreakReminderMinutesLocal(settings.breakReminderMinutes ?? 90)
       setCalendarHoursLocal(settings.calendarEventHoursBefore ?? 1)
-      setSikagitDbPath(settings.sikagitDbPath ?? 'D:\\programming\\Sikasio\\sikagit\\data\\sikagit.db')
+      setSikagitDbPath(settings.sikagitDbPath ?? '')
       setSikagitPathPrefix(settings.sikagitPathPrefix ?? '/host')
     }
   }, [settings])
@@ -980,7 +980,7 @@ export default function SettingsPage() {
                 <Input
                   id="sikagit-db-path"
                   type="text"
-                  placeholder="/mnt/d/programming/Sikasio/sikagit/data/sikagit.db"
+                  placeholder="/path/to/sikagit/data/sikagit.db"
                   value={sikagitDbPath}
                   onChange={(e) => setSikagitDbPath(e.target.value)}
                 />
