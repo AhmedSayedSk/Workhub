@@ -85,6 +85,20 @@ export interface AppInfo {
   total: number
 }
 
+// Runtime-spawned containers grouped by a registry pool rule (see pools.ts).
+// Pulled out of `containers` and `apps` so they get a card of their own.
+export interface PoolInfo {
+  id: string
+  name: string
+  description: string
+  app: string | null // spawning system's id, when the rule names one
+  containers: ContainerStat[]
+  running: number
+  total: number
+  cpuPct: number // summed over running containers
+  memUsedBytes: number // summed over running containers
+}
+
 export interface SectionError {
   section: 'host' | 'containers' | 'storage' | 'certs' | 'apps'
   message: string
@@ -136,6 +150,8 @@ export interface VpsStats {
   host: HostStats | null
   containers: ContainerStat[] | null
   apps: AppInfo[] | null
+  // Set by the stats route from the deployment's registry, never by collectors.
+  pools?: PoolInfo[]
   storage: StorageStats | null
   certs: CertInfo[] | null
   network: { rxBytes: number; txBytes: number } | null // aggregate of container NetIO

@@ -538,6 +538,22 @@ Each header keeps the one figure worth seeing while collapsed — storage total,
 running/stopped counts, expiring certificates, fleet health, scheduled job count —
 so collapsing hides detail without hiding the signal.
 
+### Container pools
+
+Some systems spawn containers at runtime through the Docker API — per-session
+sandboxes, job workers — rather than declaring them in compose. They carry no
+compose labels, so they would otherwise pile into the `(other)` system and crowd
+the containers table. A `pools` rule in the private registry (name and/or image
+regex, all given must match, first pool wins) claims them: the stats route's
+`applyPools()` moves them out of `containers` and out of every Systems &amp; Apps
+row, and the page gives each pool its own read-only card with its RAM, CPU and
+per-container usage. The containers panel's memory reconciliation lists each pool
+as its own term, so the figures still add up to the host total.
+
+Pooling runs in the stats route rather than the collectors so the one registry on
+the WorkHub deployment applies to agent-reported servers too; a pool with no
+containers on a given server simply has no card there.
+
 ### Container controls (the only write path to Docker)
 
 The containers panel can start, stop and restart a container on the **local** server.

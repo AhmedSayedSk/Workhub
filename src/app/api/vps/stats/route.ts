@@ -4,6 +4,7 @@ import { collectVpsStats } from '@/lib/server/vps/collect'
 import { getServer } from '@/lib/server/vps/servers'
 import { readSnapshot } from '@/lib/server/vps/metrics'
 import { loadRegistry } from '@/lib/server/vps/registry'
+import { applyPools } from '@/lib/server/vps/pools'
 import type { VpsStats } from '@/lib/server/vps/types'
 
 // Owner-only VPS ops stats. Reads host /proc + statfs, the read-only docker
@@ -24,14 +25,16 @@ export async function GET(request: NextRequest) {
     // as whoever last edited it, and is kept purely as the fallback for a box
     // that isn't running the ip-status collector (and for dev).
     //
-    // Also overlay the curated cron metadata here (not in the agent payload):
-    // the private registry file lives with THIS deployment, so remote servers'
-    // snapshots get the same friendly grouping without shipping it around.
+    // Also overlay the curated cron metadata and container pools here (not in
+    // the agent payload): the private registry file lives with THIS deployment,
+    // so remote servers' snapshots get the same friendly grouping without
+    // shipping it around.
     const withIps = (stats: VpsStats) => {
+      const registry = loadRegistry()
       const detected = stats.meta?.ips?.length ? stats.meta.ips : null
       return {
-        ...stats,
-        cronMeta: loadRegistry().cron,
+        ...applyPools(stats, registry.pools),
+        cronMeta: registry.cron,
         meta: {
           ...stats.meta,
           ips: detected ?? server.ips,

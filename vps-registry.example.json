@@ -16,6 +16,14 @@
     }
   },
   "hidden": ["_edge", "edge", "vps-agent"],
+  "pools": {
+    "my-app-workers": {
+      "name": "My App workers",
+      "description": "Containers My App spawns at runtime instead of declaring in compose. Pulled out of the containers table and Systems & Apps onto a card of their own. Every given regex (name, image) must match; the first matching pool wins.",
+      "app": "my-app",
+      "match": { "name": "^my-app-worker-", "image": "^my-app-worker:" }
+    }
+  },
   "cron": {
     "meta": [
       {

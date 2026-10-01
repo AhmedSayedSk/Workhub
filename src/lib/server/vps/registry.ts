@@ -21,6 +21,20 @@ export interface RegistryParent {
   description: string
   type: string
 }
+// Containers a system spawns at runtime (per-session sandboxes, job workers)
+// rather than declares in compose. They carry no compose labels, so without a
+// pool they pile into the "(other)" system and crowd the containers table.
+// A container joins the FIRST pool whose every given pattern matches it.
+export interface RegistryPool {
+  name: string
+  description?: string
+  /** System key (the /opt/<dir> id) that spawns these, shown on the card. */
+  app?: string
+  match: {
+    name?: string // regex source, tested against the container name
+    image?: string // regex source, tested against the image reference
+  }
+}
 export interface CronMetaRule {
   match: string // regex source, tested against the cron job's command line
   app: string
@@ -42,6 +56,7 @@ export interface VpsRegistry {
   apps: Record<string, RegistryApp>
   parents: Record<string, RegistryParent>
   hidden: string[]
+  pools: Record<string, RegistryPool>
   cron: CronRegistry
 }
 
@@ -51,6 +66,7 @@ const EMPTY: VpsRegistry = {
   // Sensible generic defaults: edge proxy + the metrics agent are infrastructure
   // behind every row, not systems of their own.
   hidden: ['_edge', 'edge', 'vps-agent'],
+  pools: {},
   cron: { meta: [], appOrder: [], inAppJobs: {} },
 }
 
@@ -71,6 +87,7 @@ export function loadRegistry(): VpsRegistry {
       apps: raw.apps ?? {},
       parents: raw.parents ?? {},
       hidden: raw.hidden ?? EMPTY.hidden,
+      pools: raw.pools ?? {},
       cron: {
         meta: raw.cron?.meta ?? [],
         appOrder: raw.cron?.appOrder ?? [],

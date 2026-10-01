@@ -22,7 +22,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/hooks/useToast'
 import { authFetch } from '@/lib/api-client'
-import type { ContainerStat } from '@/lib/server/vps/types'
+import type { ContainerStat, PoolInfo } from '@/lib/server/vps/types'
 import { cn } from '@/lib/utils'
 import { formatBytes, pct, usageColor } from './format'
 import { CollapsiblePanel } from './CollapsiblePanel'
@@ -63,6 +63,7 @@ export function ContainerTable({
   hostMemTotalBytes,
   hostMemUsedBytes,
   serverId,
+  pools = [],
   canControl = false,
   onChanged,
 }: {
@@ -70,6 +71,8 @@ export function ContainerTable({
   hostMemTotalBytes?: number
   hostMemUsedBytes?: number
   serverId?: string
+  /** Pooled containers listed on their own cards — still part of the RAM sum. */
+  pools?: Pick<PoolInfo, 'id' | 'name' | 'memUsedBytes'>[]
   /** Remote servers report one-way, so their rows stay read-only. */
   canControl?: boolean
   onChanged?: () => void
@@ -188,18 +191,26 @@ export function ContainerTable({
       }
       contentClassName="p-0"
     >
-        {/* Reconciliation: the containers' share + everything outside Docker
-            (OS, dockerd, sshd, kernel) = the host figure the Resources chart
-            shows — so the two views always visibly add up. */}
+        {/* Reconciliation: the containers' share + each pool's share (listed on
+            its own card) + everything outside Docker (OS, dockerd, sshd,
+            kernel) = the host figure the Resources chart shows — so the views
+            always visibly add up. */}
         {hostMemTotalBytes && hostMemUsedBytes ? (() => {
           const cSum = containers.reduce((s, c) => s + (c.memUsedBytes || 0), 0)
           const cPct = (cSum / hostMemTotalBytes) * 100
+          const poolPcts = pools.map((p) => ({ ...p, pct: (p.memUsedBytes / hostMemTotalBytes) * 100 }))
           const hostPct = (hostMemUsedBytes / hostMemTotalBytes) * 100
-          const sysPct = Math.max(0, hostPct - cPct)
+          const sysPct = Math.max(0, hostPct - cPct - poolPcts.reduce((s, p) => s + p.pct, 0))
           return (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-4 py-2.5 text-xs text-muted-foreground">
               <span>Containers <span className="font-semibold text-foreground tabular-nums">{cPct.toFixed(1)}%</span></span>
               <span>+</span>
+              {poolPcts.map((p) => (
+                <span key={p.id} className="contents">
+                  <span>{p.name} <span className="font-semibold text-foreground tabular-nums">{p.pct.toFixed(1)}%</span></span>
+                  <span>+</span>
+                </span>
+              ))}
               <span>System &amp; OS <span className="font-semibold text-foreground tabular-nums">{sysPct.toFixed(1)}%</span></span>
               <span>=</span>
               <span>Host memory used <span className="font-semibold text-foreground tabular-nums">{hostPct.toFixed(1)}%</span></span>

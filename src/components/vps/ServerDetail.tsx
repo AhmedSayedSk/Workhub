@@ -16,6 +16,7 @@ import { MetricCharts } from './MetricCharts'
 import { AppsTable } from './AppsTable'
 import { ServerIpsCard } from './ServerIps'
 import { CronCard } from './CronCard'
+import { PoolCard } from './PoolCard'
 
 const POLL_MS = 5000
 
@@ -81,6 +82,14 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             <div className="space-y-4 lg:col-span-7">
               <MetricCharts host={stats.host} serverId={serverId} />
               {stats.apps && <AppsTable apps={stats.apps} serverId={serverId} />}
+              {stats.pools?.map((p) => (
+                <PoolCard
+                  key={p.id}
+                  pool={p}
+                  appName={p.app ? stats.apps?.find((a) => a.id === p.app)?.name : undefined}
+                  hostMemTotalBytes={stats.host?.memory.totalBytes}
+                />
+              ))}
             </div>
             {/* Right: the reference stack — storage, certificates, addresses,
                 schedules — then the raw container list. */}
@@ -95,6 +104,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
                   hostMemTotalBytes={stats.host?.memory.totalBytes}
                   hostMemUsedBytes={stats.host?.memory.usedBytes}
                   serverId={serverId}
+                  pools={stats.pools}
                   // Remote servers push metrics to us and expose no inbound
                   // channel, so there is nothing to send a command down.
                   canControl={!stats.remote}
